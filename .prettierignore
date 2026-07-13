@@ -1,0 +1,11 @@
+node_modules
+.claude
+.next
+dist
+out
+build
+.turbo
+coverage
+pnpm-lock.yaml
+*.tsbuildinfo
+next-env.d.ts
