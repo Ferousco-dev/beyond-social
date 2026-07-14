@@ -37,10 +37,10 @@ export function SiteHeader() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <Button variant="ghost" size="sm" asChild>
-              <a href="#">Sign in</a>
+              <a href="/login">Sign in</a>
             </Button>
             <Button size="sm" asChild>
-              <a href="#pricing">Get started</a>
+              <a href="/signup">Get started</a>
             </Button>
           </div>
 
@@ -78,10 +78,10 @@ export function SiteHeader() {
             </nav>
             <div className="mt-4 flex flex-col gap-2">
               <Button variant="outline" asChild>
-                <a href="#">Sign in</a>
+                <a href="/login">Sign in</a>
               </Button>
               <Button asChild>
-                <a href="#pricing" onClick={() => setOpen(false)}>
+                <a href="/signup" onClick={() => setOpen(false)}>
                   Get started
                 </a>
               </Button>

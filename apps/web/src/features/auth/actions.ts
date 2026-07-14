@@ -1,0 +1,116 @@
+"use server";
+
+import { isSupabaseConfigured } from "@/lib/env";
+import { createClient } from "@/lib/supabase/server";
+
+import {
+  forgotPasswordSchema,
+  loginSchema,
+  otpSchema,
+  resetPasswordSchema,
+  signupSchema,
+  type ForgotPasswordInput,
+  type LoginInput,
+  type OtpInput,
+  type ResetPasswordInput,
+  type SignupInput,
+} from "./schemas";
+
+export type AuthResult =
+  | { readonly status: "success"; readonly message?: string; readonly redirectTo?: string }
+  | { readonly status: "error"; readonly message: string };
+
+const NOT_CONFIGURED: AuthResult = {
+  status: "error",
+  message: "Authentication is not configured yet. Add your Supabase credentials to continue.",
+};
+
+// Deliberately generic so responses never reveal whether an account exists.
+const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
+export async function signInAction(input: LoginInput): Promise<AuthResult> {
+  const parsed = loginSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  if (!isSupabaseConfigured) return NOT_CONFIGURED;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+
+  if (error) return { status: "error", message: INVALID_CREDENTIALS };
+  return { status: "success", redirectTo: "/dashboard" };
+}
+
+export async function signUpAction(input: SignupInput): Promise<AuthResult> {
+  const parsed = signupSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  if (!isSupabaseConfigured) return NOT_CONFIGURED;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({
+    email: parsed.data.email,
+    password: parsed.data.password,
+    options: {
+      data: { full_name: parsed.data.fullName },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/callback`,
+    },
+  });
+
+  if (error) return { status: "error", message: GENERIC_ERROR };
+  return { status: "success", redirectTo: "/verify" };
+}
+
+export async function requestPasswordResetAction(input: ForgotPasswordInput): Promise<AuthResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+
+  // Always report success so the response does not disclose account existence.
+  if (isSupabaseConfigured) {
+    const supabase = await createClient();
+    await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/reset-password`,
+    });
+  }
+
+  return {
+    status: "success",
+    message: "If an account exists for that email, a reset link is on its way.",
+  };
+}
+
+export async function resetPasswordAction(input: ResetPasswordInput): Promise<AuthResult> {
+  const parsed = resetPasswordSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  if (!isSupabaseConfigured) return NOT_CONFIGURED;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+
+  if (error) return { status: "error", message: GENERIC_ERROR };
+  return { status: "success", redirectTo: "/login" };
+}
+
+export async function verifyOtpAction(input: OtpInput & { email: string }): Promise<AuthResult> {
+  const parsed = otpSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Enter the 6-digit code." };
+  if (!isSupabaseConfigured) return NOT_CONFIGURED;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.verifyOtp({
+    email: input.email,
+    token: parsed.data.code,
+    type: "email",
+  });
+
+  if (error) return { status: "error", message: "That code is invalid or has expired." };
+  return { status: "success", redirectTo: "/dashboard" };
+}
+
+export async function signOutAction(): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+}

@@ -6,13 +6,20 @@ import { z } from "zod";
  * they are inlined into the browser bundle. Server-only secrets get their own
  * validated module once integrations are wired up.
  *
- * Each value is referenced explicitly (rather than spreading process.env) so
- * Next.js can statically inline it into the client build.
+ * Supabase values default to empty so the app builds and the marketing site
+ * runs before a Supabase project exists. Guard usage with `isSupabaseConfigured`.
  */
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url().or(z.literal("")).default(""),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().default(""),
 });
 
 export const env = parseEnv(clientEnvSchema, {
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 });
+
+export const isSupabaseConfigured =
+  env.NEXT_PUBLIC_SUPABASE_URL !== "" && env.NEXT_PUBLIC_SUPABASE_ANON_KEY !== "";
