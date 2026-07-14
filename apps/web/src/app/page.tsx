@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-import styles from "./page.module.css";
+import { Button } from "@/components/ui/button";
 
 interface StackEntry {
   readonly label: string;
@@ -18,32 +18,42 @@ const STACK: readonly StackEntry[] = [
 
 export default function HomePage(): ReactNode {
   return (
-    <main className={styles.main}>
-      <div className={styles.inner}>
-        <p className={styles.eyebrow}>Beyond Social</p>
-        <h1 className={styles.title}>Foundation ready.</h1>
-        <p className={styles.subtitle}>
-          The monorepo scaffold is in place: strict TypeScript, linting, and a typed environment
-          boundary across the web app and background worker. Feature work begins on the video
-          engine.
+    <main className="flex min-h-dvh items-center justify-center px-6 py-12">
+      <div className="w-full max-w-2xl">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Beyond Social
+        </p>
+        <h1 className="mb-4 text-4xl font-semibold tracking-tight sm:text-5xl">
+          Foundation ready.
+        </h1>
+        <p className="mb-8 max-w-xl text-[17px] text-muted-foreground">
+          The monorepo scaffold is in place: strict TypeScript, linting, a typed environment
+          boundary, and the full dependency stack across the web app and background worker.
         </p>
 
-        <a className={styles.pill} href="/api/health">
-          <span className={styles.dot} aria-hidden="true" />
-          Web service healthy
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button asChild>
+            <a href="/api/health">Check web health</a>
+          </Button>
+          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm text-muted-foreground">
+            <span className="size-2 rounded-full bg-success" aria-hidden="true" />
+            Web service healthy
+          </span>
+        </div>
 
-        <dl className={styles.stack}>
+        <dl className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-3">
           {STACK.map((entry) => (
-            <div className={styles.stackItem} key={entry.label}>
-              <dt className={styles.stackLabel}>{entry.label}</dt>
-              <dd className={styles.stackValue}>{entry.value}</dd>
+            <div key={entry.label} className="flex flex-col gap-1 bg-card p-5">
+              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {entry.label}
+              </dt>
+              <dd className="m-0 text-[15px] font-medium">{entry.value}</dd>
             </div>
           ))}
         </dl>
 
-        <p className={styles.footer}>
-          Health endpoint: <span className={styles.code}>GET /api/health</span>
+        <p className="mt-10 text-sm text-muted-foreground">
+          Health endpoint: <span className="font-mono text-sm">GET /api/health</span>
         </p>
       </div>
     </main>
