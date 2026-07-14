@@ -66,6 +66,7 @@ export function SignupForm() {
         id="password"
         label="Password"
         autoComplete="new-password"
+        placeholder="********"
         showStrength
         value={watch("password")}
         error={errors.password?.message}
@@ -75,6 +76,7 @@ export function SignupForm() {
         id="confirmPassword"
         label="Confirm password"
         autoComplete="new-password"
+        placeholder="********"
         value={watch("confirmPassword")}
         error={errors.confirmPassword?.message}
         {...register("confirmPassword")}
