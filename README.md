@@ -47,20 +47,25 @@ functions.
 
 ## Getting started
 
+The quickest way, one command. It creates local env files on first run,
+installs dependencies if needed, and starts everything:
+
+```bash
+./start.sh
+```
+
+Prefer to do it by hand? That is equivalent to:
+
 ```bash
 pnpm install
-
-# Copy the example environment files and adjust as needed.
 cp apps/web/.env.example apps/web/.env
 cp apps/worker/.env.example apps/worker/.env
-
-# Start the dev stack (controlled, staggered startup).
 pnpm dev
 ```
 
-`pnpm dev` runs [`dev.sh`](dev.sh), which starts services one at a time with
-clean teardown. Do not run `turbo run dev` at the repo root; see the
-[development guide](docs/DEVELOPMENT.md#local-development-startup) for why.
+Both `./start.sh` and `pnpm dev` run [`dev.sh`](dev.sh), which starts services
+one at a time with clean teardown. Do not run `turbo run dev` at the repo root;
+see the [development guide](docs/DEVELOPMENT.md#local-development-startup) for why.
 
 The web app serves on [http://localhost:3000](http://localhost:3000) and exposes
 a health check at `GET /api/health`. The worker exposes a liveness endpoint on
