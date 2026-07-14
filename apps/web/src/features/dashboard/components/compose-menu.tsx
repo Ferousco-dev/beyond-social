@@ -3,23 +3,32 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ImagePlus, Music, Plus, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 import { useRef } from "react";
+import { useRouter } from "next/navigation";
+import { type Route } from "next";
 
 interface MenuItem {
   icon: LucideIcon;
   label: string;
   hint: string;
   upload?: boolean;
+  navigate?: string;
 }
 
 const ITEMS: readonly MenuItem[] = [
   { icon: ImagePlus, label: "Add photos & files", hint: "Upload from computer", upload: true },
   { icon: Music, label: "Music library", hint: "Add a track" },
-  { icon: TrendingUp, label: "Browse trends", hint: "Find a format to remix" },
+  {
+    icon: TrendingUp,
+    label: "Browse trends",
+    hint: "Find a format to remix",
+    navigate: "/dashboard/trends",
+  },
   { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
 
 export function ComposeMenu() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   return (
     <>
@@ -55,7 +64,11 @@ export function ComposeMenu() {
               <DropdownMenu.Item
                 key={item.label}
                 onSelect={() => {
-                  if (item.upload) fileRef.current?.click();
+                  if (item.upload) {
+                    fileRef.current?.click();
+                  } else if (item.navigate) {
+                    router.push(item.navigate as Route);
+                  }
                 }}
                 className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud"
               >
