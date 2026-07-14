@@ -1,7 +1,9 @@
 "use client";
 
-import { ArrowUp, Plus } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { useRef, type KeyboardEvent } from "react";
+
+import { ComposeMenu } from "./compose-menu";
 
 interface PromptComposerProps {
   value: string;
@@ -42,13 +44,7 @@ export function PromptComposer({ value, onChange, onSubmit }: PromptComposerProp
         className="block max-h-40 w-full resize-none bg-transparent px-3 py-2 text-base leading-6 text-ink placeholder:text-ink-soft focus:outline-none"
       />
       <div className="flex items-center justify-between px-1 pt-1">
-        <button
-          type="button"
-          aria-label="Add photos"
-          className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud"
-        >
-          <Plus className="size-4" />
-        </button>
+        <ComposeMenu />
         <button
           type="button"
           onClick={() => canSubmit && onSubmit()}
