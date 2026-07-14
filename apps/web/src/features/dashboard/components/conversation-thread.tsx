@@ -1,5 +1,6 @@
 "use client";
 
+import { type Route } from "next";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { makeAssistantReply, SAMPLE_MESSAGES, type Message } from "@/lib/dashboard/conversations";
@@ -81,7 +82,11 @@ export function ConversationThread({ conversationId }: { conversationId: string 
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
       <div className="flex-1 space-y-6 py-8">
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            editorHref={`/editor/${conversationId}` as Route}
+          />
         ))}
         <div ref={endRef} />
       </div>

@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { env, isSupabaseConfigured } from "@/lib/env";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/settings"] as const;
+const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/editor"] as const;
 const AUTH_PREFIXES = [
   "/login",
   "/signup",
