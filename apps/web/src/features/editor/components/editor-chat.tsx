@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { type Route } from "next";
 import { useState } from "react";
 
@@ -8,7 +9,7 @@ import { PromptComposer } from "@/features/dashboard/components/prompt-composer"
 import { SAMPLE_MESSAGES } from "@/lib/dashboard/conversations";
 import { cn } from "@/lib/utils";
 
-export function EditorChat({ className }: { className?: string }) {
+export function EditorChat({ className, onClose }: { className?: string; onClose?: () => void }) {
   const [prompt, setPrompt] = useState("");
 
   return (
@@ -18,8 +19,18 @@ export function EditorChat({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="border-b border-hairline px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-hairline px-4 py-2.5">
         <span className="text-sm font-medium text-ink">Chat</span>
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close chat"
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
+          >
+            <X className="size-4" />
+          </button>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
         {SAMPLE_MESSAGES.map((message) => (

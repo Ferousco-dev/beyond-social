@@ -32,7 +32,7 @@ export function PromptComposer({ value, onChange, onSubmit }: PromptComposerProp
   }
 
   return (
-    <div className="rounded-3xl bg-paper p-2.5 shadow-card">
+    <div className="rounded-[26px] bg-paper p-3 shadow-card">
       <textarea
         ref={textareaRef}
         value={value}
@@ -41,9 +41,9 @@ export function PromptComposer({ value, onChange, onSubmit }: PromptComposerProp
         rows={1}
         placeholder="Describe a video to create"
         aria-label="Describe a video to create"
-        className="block max-h-40 w-full resize-none bg-transparent px-3 py-2 text-base leading-6 text-ink placeholder:text-ink-soft focus:outline-none"
+        className="block max-h-44 w-full resize-none bg-transparent px-3 py-2.5 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
       />
-      <div className="flex items-center justify-between px-1 pt-1">
+      <div className="flex items-center justify-between px-1 pt-1.5">
         <ComposeMenu />
         <button
           type="button"

@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Menu, PanelLeft, Sparkle, SquarePen } from "lucide-react";
+import { Menu, PanelLeft, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { type DashboardUser } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
+import { WorkspaceMenu } from "./workspace-menu";
 
 export function DashboardShell({ user, children }: { user: DashboardUser; children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -73,13 +74,7 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
             </div>
           ) : null}
 
-          <button
-            type="button"
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-cloud"
-          >
-            Beyond Social
-            <ChevronDown className="size-4 text-ink-soft" />
-          </button>
+          <WorkspaceMenu />
 
           <a
             href="#"
