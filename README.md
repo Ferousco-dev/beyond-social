@@ -54,9 +54,13 @@ pnpm install
 cp apps/web/.env.example apps/web/.env
 cp apps/worker/.env.example apps/worker/.env
 
-# Run every app in development.
+# Start the dev stack (controlled, staggered startup).
 pnpm dev
 ```
+
+`pnpm dev` runs [`dev.sh`](dev.sh), which starts services one at a time with
+clean teardown. Do not run `turbo run dev` at the repo root; see the
+[development guide](docs/DEVELOPMENT.md#local-development-startup) for why.
 
 The web app serves on [http://localhost:3000](http://localhost:3000) and exposes
 a health check at `GET /api/health`. The worker exposes a liveness endpoint on

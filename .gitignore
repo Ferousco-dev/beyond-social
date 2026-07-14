@@ -20,6 +20,7 @@ build/
 *.log
 npm-debug.log*
 pnpm-debug.log*
+.dev-logs/
 
 # Testing / coverage
 coverage/

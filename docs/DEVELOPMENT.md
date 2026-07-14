@@ -12,7 +12,7 @@
 
 ```bash
 pnpm install        # Install all workspace dependencies
-pnpm dev            # Run every app in development
+pnpm dev            # Start the dev stack (runs ./dev.sh)
 pnpm build          # Build all apps and packages
 pnpm lint           # Lint the workspace
 pnpm typecheck      # Type-check the workspace
@@ -20,11 +20,28 @@ pnpm format         # Format with Prettier
 pnpm verify         # build + lint + typecheck (matches CI)
 ```
 
-Run a task in a single package with a filter:
+### Local development startup
+
+Start the stack with the controlled script, not raw Turbo:
+
+```bash
+pnpm dev   # or: ./dev.sh
+```
+
+Do not run `turbo run dev` (or an unfiltered `pnpm dev` that shells out to it)
+at the repo root. Turbo starts every workspace dev server at once, and several
+cold-starting bundlers compiling simultaneously can pin CPU and RAM and freeze
+the machine. `dev.sh` starts a curated set of services one at a time, waiting
+for each to come up before starting the next, with per-service logs in
+`.dev-logs/` and clean teardown on Ctrl+C. Add new services to the `SERVICES`
+list in [`dev.sh`](../dev.sh).
+
+Turbo remains the task runner for `build`, `lint`, and `typecheck`, which are
+safe to fan out. To run a single package's dev server directly:
 
 ```bash
 pnpm --filter @beyond-social/web dev
-pnpm --filter @beyond-social/worker build
+pnpm --filter @beyond-social/worker dev
 ```
 
 ## Project conventions
