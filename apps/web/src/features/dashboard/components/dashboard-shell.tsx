@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDown, Menu, PanelLeft, SquarePen } from "lucide-react";
+import { ChevronDown, Menu, PanelLeft, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { type DashboardUser } from "@/lib/dashboard/data";
 
@@ -51,6 +52,9 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
 
           {collapsed ? (
             <div className="hidden items-center gap-1 lg:flex">
+              <span className="px-1">
+                <Logo showWordmark={false} />
+              </span>
               <button
                 type="button"
                 onClick={() => setCollapsed(false)}
@@ -79,8 +83,9 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
 
           <a
             href="#"
-            className="ml-auto inline-flex h-8 items-center rounded-full border border-hairline px-3 text-sm font-medium text-ink transition-colors hover:bg-cloud"
+            className="ml-auto inline-flex items-center gap-1.5 px-2 text-sm font-medium text-primary transition-opacity hover:opacity-80"
           >
+            <Sparkle className="size-4 fill-current" />
             Upgrade
           </a>
         </header>
