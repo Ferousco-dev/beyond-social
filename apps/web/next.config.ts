@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // The env package ships as TypeScript source, so Next must transpile it.
   transpilePackages: ["@beyond-social/env"],
   typedRoutes: true,
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   // Pin file tracing to the monorepo root; otherwise Next can infer the wrong
   // root when other lockfiles exist elsewhere on the machine.
   outputFileTracingRoot: monorepoRoot,

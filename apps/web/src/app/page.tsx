@@ -1,61 +1,50 @@
 import { type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
-
-interface StackEntry {
-  readonly label: string;
-  readonly value: string;
-}
-
-const STACK: readonly StackEntry[] = [
-  { label: "Frontend", value: "Next.js on Vercel" },
-  { label: "API layer", value: "Node.js" },
-  { label: "Data", value: "Supabase" },
-  { label: "Queue", value: "BullMQ + Redis" },
-  { label: "Payments", value: "Stripe + Apple Pay" },
-  { label: "Publishing", value: "Upload-post" },
-];
+import { Benefits } from "@/components/marketing/benefits";
+import { Faq } from "@/components/marketing/faq";
+import { FeatureGrid } from "@/components/marketing/feature-grid";
+import { FinalCta } from "@/components/marketing/final-cta";
+import { Hero } from "@/components/marketing/hero";
+import { LogoCloud } from "@/components/marketing/logo-cloud";
+import { Pricing } from "@/components/marketing/pricing";
+import { ProductOverview } from "@/components/marketing/product-overview";
+import { ProductPreview } from "@/components/marketing/product-preview";
+import { SiteFooter } from "@/components/marketing/site-footer";
+import { SiteHeader } from "@/components/marketing/site-header";
+import { WorkflowSection } from "@/components/marketing/workflow-section";
+import { AI_WORKFLOW, PUBLISH_WORKFLOW } from "@/lib/marketing/product";
 
 export default function HomePage(): ReactNode {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-6 py-12">
-      <div className="w-full max-w-2xl">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Beyond Social
-        </p>
-        <h1 className="mb-4 text-4xl font-semibold tracking-tight sm:text-5xl">
-          Foundation ready.
-        </h1>
-        <p className="mb-8 max-w-xl text-[17px] text-muted-foreground">
-          The monorepo scaffold is in place: strict TypeScript, linting, a typed environment
-          boundary, and the full dependency stack across the web app and background worker.
-        </p>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button asChild>
-            <a href="/api/health">Check web health</a>
-          </Button>
-          <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm text-muted-foreground">
-            <span className="size-2 rounded-full bg-success" aria-hidden="true" />
-            Web service healthy
-          </span>
-        </div>
-
-        <dl className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 lg:grid-cols-3">
-          {STACK.map((entry) => (
-            <div key={entry.label} className="flex flex-col gap-1 bg-card p-5">
-              <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {entry.label}
-              </dt>
-              <dd className="m-0 text-[15px] font-medium">{entry.value}</dd>
-            </div>
-          ))}
-        </dl>
-
-        <p className="mt-10 text-sm text-muted-foreground">
-          Health endpoint: <span className="font-mono text-sm">GET /api/health</span>
-        </p>
-      </div>
-    </main>
+    <>
+      <SiteHeader />
+      <main>
+        <Hero />
+        <LogoCloud />
+        <ProductOverview />
+        <FeatureGrid />
+        <WorkflowSection
+          id="ai-workflow"
+          eyebrow="How it works"
+          title="From idea to video in three steps"
+          description="The conversational engine handles scripting and generation so you can go from a thought to a finished clip without leaving the chat."
+          steps={AI_WORKFLOW}
+        />
+        <WorkflowSection
+          id="publishing"
+          eyebrow="Publishing"
+          title="From video to every feed, automatically"
+          description="Once a clip is ready, publishing handles the formatting, timing, and distribution across all of your platforms."
+          steps={PUBLISH_WORKFLOW}
+          className="border-t border-border bg-secondary/40"
+        />
+        <ProductPreview />
+        <Benefits />
+        <Pricing />
+        <Faq />
+        <FinalCta />
+      </main>
+      <SiteFooter />
+    </>
   );
 }
