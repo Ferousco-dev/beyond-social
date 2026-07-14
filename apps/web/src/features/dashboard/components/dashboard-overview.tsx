@@ -6,6 +6,8 @@ import { type ReactNode } from "react";
 import { CREDITS, HISTORY, PROJECT_GROUPS, type HistoryItem } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
+import { ScheduledPosts } from "./scheduled-posts";
+
 const ACTIVE_PROJECTS = PROJECT_GROUPS.flatMap((group) => group.projects).slice(0, 3);
 
 const STATUS_STYLES: Record<HistoryItem["status"], string> = {
@@ -82,6 +84,10 @@ export function DashboardOverview(): ReactNode {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="mt-8">
+        <ScheduledPosts />
       </section>
     </div>
   );

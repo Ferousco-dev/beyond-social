@@ -3,6 +3,8 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { PublishDialog } from "./publish-dialog";
+
 export function EditorTopBar({ backHref, title }: { backHref: Route; title: string }): ReactNode {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-3">
@@ -24,12 +26,14 @@ export function EditorTopBar({ backHref, title }: { backHref: Route; title: stri
           <Download className="size-4" />
           Export
         </button>
-        <button
-          type="button"
-          className="cursor-pointer rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90"
-        >
-          Publish
-        </button>
+        <PublishDialog videoTitle={title}>
+          <button
+            type="button"
+            className="cursor-pointer rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+          >
+            Publish
+          </button>
+        </PublishDialog>
       </div>
     </header>
   );
