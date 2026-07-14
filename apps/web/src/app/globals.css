@@ -148,6 +148,34 @@
   }
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Shimmering status text, used while a video draft is generating. */
+.text-shimmer {
+  background: linear-gradient(90deg, var(--ink-soft), var(--ink), var(--ink-soft));
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    -webkit-text-fill-color: var(--ink-soft);
+    color: var(--ink-soft);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

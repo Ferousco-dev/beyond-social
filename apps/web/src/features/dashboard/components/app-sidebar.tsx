@@ -1,4 +1,5 @@
-import { PenSquare, Search } from "lucide-react";
+import { PanelLeft, PenSquare, Search } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
@@ -9,25 +10,39 @@ import { UserButton } from "./user-button";
 export function AppSidebar({
   user,
   onNavigate,
+  onCollapse,
 }: {
   user: DashboardUser;
   onNavigate?: () => void;
+  onCollapse?: () => void;
 }): ReactNode {
   return (
     <div className="flex h-full flex-col bg-paper">
-      <div className="px-4 py-3">
-        <Logo />
+      <div className="flex items-center justify-between px-3 py-3">
+        <div className="px-1">
+          <Logo />
+        </div>
+        {onCollapse ? (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Collapse sidebar"
+            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
+          >
+            <PanelLeft className="size-4" />
+          </button>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-0.5 px-2">
-        <button
-          type="button"
+        <Link
+          href="/dashboard"
           onClick={onNavigate}
           className="flex cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-sm font-medium text-ink transition-colors hover:bg-cloud"
         >
           <PenSquare className="size-4" />
           New project
-        </button>
+        </Link>
         <button
           type="button"
           className="flex cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-sm text-ink transition-colors hover:bg-cloud"
@@ -44,13 +59,13 @@ export function AppSidebar({
             <ul className="flex flex-col gap-0.5">
               {group.projects.map((project) => (
                 <li key={project.id}>
-                  <button
-                    type="button"
+                  <Link
+                    href={`/dashboard/c/${project.id}`}
                     onClick={onNavigate}
-                    className="w-full cursor-pointer truncate rounded-[10px] px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-cloud"
+                    className="block w-full cursor-pointer truncate rounded-[10px] px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-cloud"
                   >
                     {project.title}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>

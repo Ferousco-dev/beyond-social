@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { SUGGESTIONS } from "@/lib/dashboard/data";
@@ -7,11 +8,14 @@ import { SUGGESTIONS } from "@/lib/dashboard/data";
 import { PromptComposer } from "./prompt-composer";
 
 export function DashboardHome() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
 
   function handleSubmit() {
-    // Generation is wired to the video pipeline in a later phase; reset for now.
-    setPrompt("");
+    const text = prompt.trim();
+    if (!text) return;
+    window.sessionStorage.setItem("bs:pending-prompt", text);
+    router.push("/dashboard/c/new");
   }
 
   return (
