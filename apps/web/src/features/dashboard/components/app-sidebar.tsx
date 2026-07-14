@@ -1,4 +1,4 @@
-import { PanelLeft, PenSquare, Search } from "lucide-react";
+import { LayoutDashboard, PanelLeft, PenSquare, Search } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -56,6 +56,14 @@ export function AppSidebar({
             </kbd>
           </button>
         </SearchDialog>
+        <Link
+          href="/dashboard/overview"
+          onClick={onNavigate}
+          className="flex cursor-pointer items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-sm text-ink transition-colors hover:bg-cloud"
+        >
+          <LayoutDashboard className="size-4" />
+          Dashboard
+        </Link>
       </div>
 
       <nav aria-label="Projects" className="mt-4 flex-1 overflow-y-auto px-2">

@@ -22,6 +22,54 @@ export interface DashboardUser {
   readonly initials: string;
 }
 
+export interface HistoryItem {
+  readonly id: string;
+  readonly title: string;
+  readonly platform: string;
+  readonly when: string;
+  readonly status: "Published" | "Scheduled" | "Draft";
+}
+
+export const CREDITS = { used: 48, total: 60, resetsInDays: 12 } as const;
+
+export const HISTORY: readonly HistoryItem[] = [
+  {
+    id: "h1",
+    title: "Trail shoe launch teaser",
+    platform: "Instagram",
+    when: "2h ago",
+    status: "Published",
+  },
+  {
+    id: "h2",
+    title: "Founder story, part 2",
+    platform: "TikTok",
+    when: "Yesterday",
+    status: "Scheduled",
+  },
+  {
+    id: "h3",
+    title: "Summer sale countdown",
+    platform: "YouTube Shorts",
+    when: "2 days ago",
+    status: "Draft",
+  },
+  {
+    id: "h4",
+    title: "Product unboxing reel",
+    platform: "Instagram",
+    when: "4 days ago",
+    status: "Published",
+  },
+  {
+    id: "h5",
+    title: "Behind the scenes cut",
+    platform: "Facebook",
+    when: "6 days ago",
+    status: "Published",
+  },
+];
+
 // Placeholder content until projects are backed by real data.
 export const PROJECT_GROUPS: readonly ProjectGroup[] = [
   {
