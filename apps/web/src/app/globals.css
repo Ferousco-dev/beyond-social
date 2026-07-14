@@ -1,50 +1,73 @@
-/* Design tokens: a single source of truth for color, radius, and type.
-   Light is the default; dark applies via system preference and can be forced
-   with a `data-theme` attribute once a theme toggle ships. */
+/* Design tokens: the single source of truth for color, radius, and type.
+   Values follow docs/color.md. Light is the default; dark applies via system
+   preference and can be forced with a `data-theme` attribute once a theme
+   toggle ships. Components reference these tokens, never raw hex values. */
 :root {
   color-scheme: light dark;
 
-  --bg: #ffffff;
-  --bg-subtle: #f6f7f9;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --border: #e6e8eb;
-  --text: #0a0a0a;
-  --text-muted: #5c616b;
-  --accent: #4f46e5;
-  --accent-contrast: #ffffff;
-  --success: #16a34a;
+  --surface-hover: #f9fafb;
+  --border: #e5e7eb;
+  --divider: #f1f5f9;
 
-  --radius: 12px;
-  --radius-sm: 8px;
+  --text: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --text-disabled: #9ca3af;
+
+  --accent: #0066ff;
+  --accent-hover: #0052cc;
+  --accent-pressed: #0047b3;
+  --accent-ring: #66a3ff;
+  --accent-tint: #eaf2ff;
+  --accent-contrast: #ffffff;
+
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
+  --info: #2563eb;
+
+  --radius: 14px;
+  --radius-sm: 10px;
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    "Geist", "Inter", -apple-system, "SF Pro Display", system-ui, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
 .theme-dark,
 :root[data-theme="dark"] {
-  --bg: #0a0a0b;
-  --bg-subtle: #141416;
-  --surface: #151518;
-  --border: #26262b;
-  --text: #f4f4f5;
-  --text-muted: #a1a1aa;
-  --accent: #818cf8;
-  --accent-contrast: #0a0a0b;
-  --success: #4ade80;
+  --bg: #09090b;
+  --surface: #111827;
+  --surface-hover: #1f2937;
+  --border: #27272a;
+  --divider: #1f2937;
+
+  --text: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-muted: #9ca3af;
+  --text-disabled: #6b7280;
+
+  --accent-tint: #0d1f3d;
+  --accent-contrast: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0a0a0b;
-    --bg-subtle: #141416;
-    --surface: #151518;
-    --border: #26262b;
-    --text: #f4f4f5;
-    --text-muted: #a1a1aa;
-    --accent: #818cf8;
-    --accent-contrast: #0a0a0b;
-    --success: #4ade80;
+    --bg: #09090b;
+    --surface: #111827;
+    --surface-hover: #1f2937;
+    --border: #27272a;
+    --divider: #1f2937;
+
+    --text: #f9fafb;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --text-disabled: #6b7280;
+
+    --accent-tint: #0d1f3d;
+    --accent-contrast: #ffffff;
   }
 }
 
@@ -74,7 +97,7 @@ a {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-ring);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }
