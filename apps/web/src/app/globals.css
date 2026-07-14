@@ -42,6 +42,14 @@
   --border: #e5e7eb;
   --input: #e5e7eb;
   --ring: #66a3ff;
+
+  /* App (dashboard) surface palette, ChatGPT-inspired achromatic scheme. */
+  --canvas: #fcfcfc;
+  --paper: #ffffff;
+  --cloud: #f3f3f3;
+  --hairline: #ececec;
+  --ink: #0d0d0d;
+  --ink-soft: #8f8f8f;
 }
 
 .dark {
@@ -76,6 +84,13 @@
   --border: #27272a;
   --input: #27272a;
   --ring: #66a3ff;
+
+  --canvas: #212121;
+  --paper: #2f2f2f;
+  --cloud: #3a3a3a;
+  --hairline: rgba(255, 255, 255, 0.12);
+  --ink: #ececec;
+  --ink-soft: #9b9b9b;
 }
 
 @theme inline {
@@ -104,6 +119,17 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-canvas: var(--canvas);
+  --color-paper: var(--paper);
+  --color-cloud: var(--cloud);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+
+  --shadow-card:
+    0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04),
+    0 4px 80px 8px rgba(0, 0, 0, 0.024);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
