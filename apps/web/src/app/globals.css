@@ -1,0 +1,192 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Dark mode is driven by a `.dark` class on <html> (set by next-themes). */
+@custom-variant dark (&:is(.dark *));
+
+/* Design tokens follow docs/color.md. Defined once here; components reference
+   the semantic Tailwind tokens (bg-background, text-primary, ...), never raw
+   hex values. */
+:root {
+  --radius: 0.625rem; /* 10px: buttons and inputs */
+
+  --background: #f8fafc;
+  --foreground: #111827;
+
+  --card: #ffffff;
+  --card-foreground: #111827;
+
+  --popover: #ffffff;
+  --popover-foreground: #111827;
+
+  --primary: #0066ff; /* Apple-inspired blue */
+  --primary-foreground: #ffffff;
+
+  --secondary: #f9fafb;
+  --secondary-foreground: #111827;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #6b7280;
+
+  /* shadcn "accent" is a subtle hover surface, not the brand color. */
+  --accent: #f1f5f9;
+  --accent-foreground: #111827;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --info: #2563eb;
+
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #66a3ff;
+
+  /* App (dashboard) surface palette, ChatGPT-inspired achromatic scheme. */
+  --canvas: #fcfcfc;
+  --paper: #ffffff;
+  --cloud: #f3f3f3;
+  --hairline: #ececec;
+  --ink: #0d0d0d;
+  --ink-soft: #6b6b6b;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #f9fafb;
+
+  --card: #111827;
+  --card-foreground: #f9fafb;
+
+  --popover: #111827;
+  --popover-foreground: #f9fafb;
+
+  --primary: #0066ff;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1f2937;
+  --secondary-foreground: #f9fafb;
+
+  --muted: #1f2937;
+  --muted-foreground: #9ca3af;
+
+  --accent: #1f2937;
+  --accent-foreground: #f9fafb;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --info: #2563eb;
+
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #66a3ff;
+
+  --canvas: #212121;
+  --paper: #2f2f2f;
+  --cloud: #3a3a3a;
+  --hairline: rgba(255, 255, 255, 0.12);
+  --ink: #ececec;
+  --ink-soft: #a8a8a8;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-canvas: var(--canvas);
+  --color-paper: var(--paper);
+  --color-cloud: var(--cloud);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+
+  --shadow-card:
+    0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04),
+    0 4px 80px 8px rgba(0, 0, 0, 0.024);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px); /* 14px: cards */
+
+  --animate-marquee: marquee 26s linear infinite;
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Shimmering status text, used while a video draft is generating. */
+.text-shimmer {
+  background: linear-gradient(90deg, var(--ink-soft), var(--ink), var(--ink-soft));
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: shimmer 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-shimmer {
+    animation: none;
+    -webkit-text-fill-color: var(--ink-soft);
+    color: var(--ink-soft);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
