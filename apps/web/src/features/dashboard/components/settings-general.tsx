@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ShieldCheck } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState, type ReactNode } from "react";
 
@@ -94,24 +94,7 @@ export function GeneralPanel() {
 
   return (
     <div>
-      <div className="rounded-xl bg-cloud p-4">
-        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-paper text-ink shadow-sm">
-          <ShieldCheck className="size-5" />
-        </span>
-        <p className="mt-3 text-sm font-medium text-ink">Secure your account</p>
-        <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-          Add multi-factor authentication (MFA), like an authenticator app, to help protect your
-          account when signing in.
-        </p>
-        <button
-          type="button"
-          className="mt-3 cursor-pointer rounded-lg border border-hairline bg-paper px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-cloud"
-        >
-          Set up MFA
-        </button>
-      </div>
-
-      <div className="mt-4">
+      <div>
         <Row
           label="Appearance"
           control={

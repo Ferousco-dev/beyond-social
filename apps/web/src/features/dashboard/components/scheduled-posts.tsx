@@ -1,9 +1,9 @@
 "use client";
 
-import { Calendar, CalendarClock, CheckCircle, Clock, MoreHorizontal, XCircle } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Trash2, XCircle } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PLATFORMS, SCHEDULED_POSTS, type ScheduledPost } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
@@ -15,20 +15,13 @@ const STATUS: Record<ScheduledPost["status"], { icon: ReactNode; className: stri
 };
 
 export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }): ReactNode {
+  const [posts, setPosts] = useState<readonly ScheduledPost[]>(SCHEDULED_POSTS);
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold">Scheduled posts</h2>
-        <button
-          type="button"
-          className="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
-        >
-          <CalendarClock className="size-4" />
-          Calendar view
-        </button>
-      </div>
+      <h2 className="text-sm font-semibold text-ink">Scheduled posts</h2>
 
-      {SCHEDULED_POSTS.length === 0 ? (
+      {posts.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-hairline bg-cloud py-12">
           <Calendar className="size-8 text-ink-soft" />
           <p className="mt-3 text-sm font-medium text-ink">No scheduled posts</p>
@@ -36,7 +29,7 @@ export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }): Rea
         </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {SCHEDULED_POSTS.map((post) => {
+          {posts.map((post) => {
             const status = STATUS[post.status];
             return (
               <li
@@ -81,10 +74,12 @@ export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }): Rea
 
                 <button
                   type="button"
-                  aria-label="More options"
-                  className="shrink-0 cursor-pointer rounded-lg p-1.5 text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
+                  onClick={() => setPosts((current) => current.filter((p) => p.id !== post.id))}
+                  aria-label={`Cancel schedule for ${post.title}`}
+                  title="Cancel schedule"
+                  className="shrink-0 cursor-pointer rounded-lg p-1.5 text-ink-soft transition-colors hover:bg-cloud hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
-                  <MoreHorizontal className="size-4" />
+                  <Trash2 className="size-4" />
                 </button>
               </li>
             );

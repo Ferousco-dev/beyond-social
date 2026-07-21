@@ -31,7 +31,7 @@ export function DashboardOverview(): ReactNode {
   const low = remainingPercent <= LOW_CREDIT_PERCENT;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
+    <div className="mx-auto w-full max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Dashboard</h1>
       <p className="mt-1 text-sm text-ink-soft">How your videos are performing.</p>
 
@@ -110,9 +110,10 @@ export function DashboardOverview(): ReactNode {
         <HistoryList />
       </Section>
 
-      <Section title="Scheduled">
+      {/* Owns its own heading, so it is not wrapped in a Section. */}
+      <section className="mt-8">
         <ScheduledPosts />
-      </Section>
+      </section>
     </div>
   );
 }

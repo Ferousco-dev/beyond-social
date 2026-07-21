@@ -1,4 +1,4 @@
-import { ArrowLeft, Download, PanelLeft } from "lucide-react";
+import { ArrowLeft, PanelLeft } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -39,13 +39,6 @@ export function EditorTopBar({
         <span className="truncate text-sm font-medium">{title}</span>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="hidden cursor-pointer items-center gap-1.5 rounded-full border border-hairline px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:bg-cloud sm:inline-flex"
-        >
-          <Download className="size-4" />
-          Export
-        </button>
         <PublishDialog videoTitle={title}>
           <button
             type="button"
