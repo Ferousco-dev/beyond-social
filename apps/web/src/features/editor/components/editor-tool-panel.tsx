@@ -39,11 +39,8 @@ export function EditorToolPanel({
   }, [clips.selectedId]);
 
   return (
-    <div className={cn("w-80 shrink-0 border-r border-hairline bg-paper", className)}>
-      <nav
-        aria-label="Editor tools"
-        className="flex w-14 shrink-0 flex-col gap-1 border-r border-hairline p-2"
-      >
+    <div className={cn("w-72 shrink-0 flex-col border-r border-hairline bg-paper", className)}>
+      <nav aria-label="Editor tools" className="flex shrink-0 gap-1 border-b border-hairline p-2">
         {TABS.map((item) => (
           <button
             key={item.id}
@@ -52,7 +49,7 @@ export function EditorToolPanel({
             aria-current={tab === item.id}
             title={item.label}
             className={cn(
-              "flex cursor-pointer flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+              "flex flex-1 cursor-pointer flex-col items-center gap-1 rounded-lg py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
               tab === item.id ? "bg-cloud text-ink" : "text-ink-soft hover:bg-cloud",
             )}
           >

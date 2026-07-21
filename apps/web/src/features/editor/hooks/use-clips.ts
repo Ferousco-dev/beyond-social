@@ -16,6 +16,8 @@ export interface ClipsState {
   readonly selectedId: string | null;
   readonly select: (id: string | null) => void;
   readonly trim: (id: string, edge: ClipEdge, ms: number) => void;
+  readonly split: (atMs: number) => void;
+  readonly remove: (id: string) => void;
 }
 
 /**
@@ -58,5 +60,34 @@ export function useClips(): ClipsState {
     });
   }, []);
 
-  return { clips, durationMs, selectedId, select: setSelectedId, trim };
+  /** Cuts the clip under the playhead in two, leaving both halves in place. */
+  const split = useCallback((atMs: number) => {
+    setClips((current) => {
+      const index = current.findIndex(
+        (clip) => atMs > clip.startMs && atMs < clip.startMs + clip.durationMs,
+      );
+      const clip = current[index];
+      if (!clip) return current;
+
+      const head: Clip = { ...clip, durationMs: atMs - clip.startMs };
+      const tail: Clip = {
+        ...clip,
+        id: `${clip.id}-b${current.length}`,
+        startMs: atMs,
+        durationMs: clip.startMs + clip.durationMs - atMs,
+      };
+      if (head.durationMs < MIN_CLIP_MS || tail.durationMs < MIN_CLIP_MS) return current;
+
+      return [...current.slice(0, index), head, tail, ...current.slice(index + 1)];
+    });
+  }, []);
+
+  const remove = useCallback((id: string) => {
+    setClips((current) =>
+      current.length > 1 ? current.filter((clip) => clip.id !== id) : current,
+    );
+    setSelectedId((selected) => (selected === id ? null : selected));
+  }, []);
+
+  return { clips, durationMs, selectedId, select: setSelectedId, trim, split, remove };
 }

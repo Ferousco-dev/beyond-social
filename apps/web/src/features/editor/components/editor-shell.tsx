@@ -28,13 +28,14 @@ export function EditorShell({
     <div className="flex h-dvh flex-col bg-canvas text-ink">
       <EditorTopBar backHref={backHref} title={title} />
 
-      <div className="relative flex min-h-0 flex-1">
-        <EditorToolPanel className="hidden lg:flex" clips={clips} playback={playback} />
-
-        <div className="flex min-w-0 flex-1 flex-col">
+      {/* Panels sit above a timeline that spans the full window, as in a desktop editor. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <EditorToolPanel className="hidden lg:flex" clips={clips} playback={playback} />
           <EditorPreview playback={playback} />
-          <EditorTimeline playback={playback} clips={clips} />
         </div>
+
+        <EditorTimeline playback={playback} clips={clips} />
 
         {chatOpen ? (
           <EditorChat

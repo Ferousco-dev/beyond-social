@@ -1,6 +1,6 @@
 "use client";
 
-import { Music } from "lucide-react";
+import { Captions, Clapperboard, Music } from "lucide-react";
 import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
 import { CAPTIONS } from "@/lib/editor/data";
@@ -10,19 +10,19 @@ import { type ClipsState } from "../hooks/use-clips";
 import { type Playback } from "../hooks/use-playback";
 import { TimelineClip } from "./timeline/timeline-clip";
 import { TimelineRuler } from "./timeline/timeline-ruler";
-import { DEFAULT_ZOOM_INDEX, TimelineZoom, ZOOM_LEVELS } from "./timeline/timeline-zoom";
+import { DEFAULT_ZOOM_INDEX, TimelineToolbar, ZOOM_LEVELS } from "./timeline/timeline-toolbar";
 
 const SEEK_STEP_MS = 1_000;
 const SNAP_THRESHOLD_PX = 8;
 const RULER_STEP_MS = 6_000;
 
-function TrackLabel({ height, children }: { height: string; children: ReactNode }) {
+function TrackHead({ height, children }: { height: string; children: ReactNode }) {
   return (
-    <span
-      className={`flex ${height} items-center pr-2 text-[10px] font-medium uppercase tracking-wide text-ink-soft`}
+    <div
+      className={`flex ${height} items-center gap-1.5 px-3 text-[10px] font-medium uppercase tracking-wide text-ink-soft`}
     >
       {children}
-    </span>
+    </div>
   );
 }
 
@@ -61,19 +61,37 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
   };
 
   return (
-    <div className="shrink-0 border-t border-hairline bg-paper">
-      <div className="flex items-center justify-end border-b border-hairline px-3 py-1.5">
-        <TimelineZoom index={zoomIndex} onChange={setZoomIndex} />
-      </div>
+    <div className="flex shrink-0 flex-col border-t border-hairline bg-paper">
+      <TimelineToolbar
+        zoomIndex={zoomIndex}
+        onZoomChange={setZoomIndex}
+        onSplit={() => clips.split(playback.currentMs)}
+        onDelete={() => clips.selectedId && clips.remove(clips.selectedId)}
+        canSplit={clips.clips.some(
+          (clip) =>
+            playback.currentMs > clip.startMs &&
+            playback.currentMs < clip.startMs + clip.durationMs,
+        )}
+        canDelete={clips.selectedId !== null && clips.clips.length > 1}
+      />
 
-      <div className="flex p-3">
-        <div className="w-16 shrink-0 space-y-1.5 pt-5">
-          <TrackLabel height="h-14">Video</TrackLabel>
-          <TrackLabel height="h-7">Captions</TrackLabel>
-          <TrackLabel height="h-8">Music</TrackLabel>
+      <div className="flex">
+        <div className="w-20 shrink-0 space-y-1.5 border-r border-hairline pt-8">
+          <TrackHead height="h-14">
+            <Clapperboard className="size-3.5" />
+            Video
+          </TrackHead>
+          <TrackHead height="h-7">
+            <Captions className="size-3.5" />
+            Text
+          </TrackHead>
+          <TrackHead height="h-8">
+            <Music className="size-3.5" />
+            Audio
+          </TrackHead>
         </div>
 
-        <div className="min-w-0 flex-1 overflow-x-auto pb-1">
+        <div className="min-w-0 flex-1 overflow-x-auto p-3">
           <div style={{ width: trackWidth }} className="relative min-w-full">
             <TimelineRuler
               durationMs={durationMs}
