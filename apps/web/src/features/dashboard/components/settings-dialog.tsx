@@ -13,9 +13,12 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { type DashboardUser } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
+import { AccountPanel } from "./settings-account";
 import { GeneralPanel } from "./settings-general";
+import { NotificationsPanel } from "./settings-notifications";
 
 interface Section {
   id: string;
@@ -32,7 +35,7 @@ const SECTIONS: readonly Section[] = [
   { id: "account", label: "Account", icon: User },
 ];
 
-export function SettingsDialog({ children }: { children: ReactNode }) {
+export function SettingsDialog({ user, children }: { user: DashboardUser; children: ReactNode }) {
   const [active, setActive] = useState("general");
   const currentLabel = SECTIONS.find((section) => section.id === active)?.label ?? "General";
 
@@ -80,7 +83,12 @@ export function SettingsDialog({ children }: { children: ReactNode }) {
               </Dialog.Close>
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5">
-              {active === "general" ? <GeneralPanel /> : <ComingSoon label={currentLabel} />}
+              {active === "general" ? <GeneralPanel /> : null}
+              {active === "notifications" ? <NotificationsPanel /> : null}
+              {active === "account" ? <AccountPanel user={user} /> : null}
+              {active === "security" || active === "billing" || active === "data" ? (
+                <Blocked id={active} label={currentLabel} />
+              ) : null}
             </div>
           </div>
         </Dialog.Content>
@@ -89,11 +97,34 @@ export function SettingsDialog({ children }: { children: ReactNode }) {
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
+/** Says what each unbuilt section is waiting on, rather than "coming soon". */
+const BLOCKED: Record<string, { title: string; reason: string }> = {
+  security: {
+    title: "Password and two-factor authentication",
+    reason:
+      "Sign-in is not connected to a live account service yet, so there is no password or device to manage here.",
+  },
+  billing: {
+    title: "Plan, payment method and invoices",
+    reason:
+      "Checkout is not connected yet. Payment details will be handled by Stripe and never entered on this page.",
+  },
+  data: {
+    title: "Export and delete your data",
+    reason:
+      "Your projects are not stored on a server yet, so there is nothing to export or erase beyond this browser.",
+  },
+};
+
+function Blocked({ id, label }: { id: string; label: string }) {
+  const detail = BLOCKED[id];
+
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <p className="text-sm font-medium text-ink">{label}</p>
-      <p className="mt-1 max-w-xs text-sm text-ink-soft">These controls are coming soon.</p>
+    <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+      <p className="text-sm font-medium text-ink">{detail?.title ?? label}</p>
+      <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-ink-soft">
+        {detail?.reason ?? "These controls are not available yet."}
+      </p>
     </div>
   );
 }

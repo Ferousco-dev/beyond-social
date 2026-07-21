@@ -23,7 +23,7 @@ export function UserButton({ user }: { user: DashboardUser }) {
 
   return (
     <div className="flex items-center gap-1 border-t border-hairline p-2">
-      <SettingsDialog>
+      <SettingsDialog user={user}>
         <button
           type="button"
           aria-label="Open settings"
