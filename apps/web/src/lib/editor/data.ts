@@ -38,9 +38,3 @@ export const MUSIC: readonly MusicTrack[] = [
   { id: "m3", title: "Golden Hour", durationMs: 41_000 },
   { id: "m4", title: "City Lights", durationMs: 36_000 },
 ];
-
-/** Total project length, derived so clip edits cannot drift from the ruler. */
-export const TIMELINE_DURATION_MS: number = CLIPS.reduce(
-  (end, clip) => Math.max(end, clip.startMs + clip.durationMs),
-  0,
-);

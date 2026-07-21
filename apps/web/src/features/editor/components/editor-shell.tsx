@@ -4,8 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { type Route } from "next";
 import { useState, type ReactNode } from "react";
 
-import { TIMELINE_DURATION_MS } from "@/lib/editor/data";
-
+import { useClips } from "../hooks/use-clips";
 import { usePlayback } from "../hooks/use-playback";
 import { EditorChat } from "./editor-chat";
 import { EditorPreview } from "./editor-preview";
@@ -21,7 +20,8 @@ export function EditorShell({
   title: string;
 }): ReactNode {
   const [chatOpen, setChatOpen] = useState(false);
-  const playback = usePlayback(TIMELINE_DURATION_MS);
+  const clips = useClips();
+  const playback = usePlayback(clips.durationMs);
   const backHref = `/dashboard/c/${conversationId}` as Route;
 
   return (
@@ -33,7 +33,7 @@ export function EditorShell({
 
         <div className="flex min-w-0 flex-1 flex-col">
           <EditorPreview playback={playback} />
-          <EditorTimeline playback={playback} />
+          <EditorTimeline playback={playback} clips={clips} />
         </div>
 
         {chatOpen ? (
