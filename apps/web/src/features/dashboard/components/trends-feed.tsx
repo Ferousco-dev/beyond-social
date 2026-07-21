@@ -1,13 +1,19 @@
 "use client";
 
 import { Bookmark, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CATEGORIES, TRENDS, type Trend } from "@/lib/trends/data";
 import { cn } from "@/lib/utils";
 
 import { useSavedTrends } from "../hooks/use-saved-trends";
 import { TrendCard } from "./trends/trend-card";
+import { TrendPagination } from "./trends/trend-pagination";
+import { TrendRow } from "./trends/trend-row";
+
+/** Above this many results the list is long enough to justify a feature row. */
+const FEATURE_THRESHOLD = 4;
+const PAGE_SIZE = 6;
 
 const SORTS = [
   { id: "growth", label: "Fastest growing" },
@@ -33,7 +39,13 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortId>("growth");
   const [savedOnly, setSavedOnly] = useState(false);
+  const [page, setPage] = useState(1);
   const saved = useSavedTrends();
+
+  // Any change to the result set starts the reader back at the first page.
+  useEffect(() => {
+    setPage(1);
+  }, [category, query, sort, savedOnly]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -49,8 +61,20 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
     return sortTrends(matched, sort);
   }, [category, query, sort, savedOnly, saved.ids]);
 
+  // With only a handful of results a feature row would leave the list stranded,
+  // so the split only happens once there is enough to fill both.
+  const featured = visible.length > FEATURE_THRESHOLD ? visible.slice(0, 3) : [];
+  const listed = visible.slice(featured.length);
+
+  const pageCount = Math.max(1, Math.ceil(listed.length / PAGE_SIZE));
+  // Clamp rather than store a corrected page, so narrowing the filters can
+  // never leave the list showing nothing.
+  const currentPage = Math.min(page, pageCount);
+  const offset = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = listed.slice(offset, offset + PAGE_SIZE);
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Trends</h1>
@@ -155,17 +179,53 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visible.map((trend) => (
-            <TrendCard
-              key={trend.id}
-              trend={trend}
-              saved={saved.ids.has(trend.id)}
-              onToggleSave={() => saved.toggle(trend.id)}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </div>
+        <>
+          {featured.length > 0 ? (
+            <section>
+              <h2 className="mb-3 text-sm font-semibold text-ink">Top movers</h2>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {featured.map((trend) => (
+                  <TrendCard
+                    key={trend.id}
+                    trend={trend}
+                    saved={saved.ids.has(trend.id)}
+                    onToggleSave={() => saved.toggle(trend.id)}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          <section>
+            {featured.length > 0 ? (
+              <h2 className="mb-3 text-sm font-semibold text-ink">Everything else</h2>
+            ) : null}
+            <ul className="overflow-hidden rounded-2xl border border-hairline bg-paper">
+              {pageRows.map((trend, index) => (
+                <TrendRow
+                  key={trend.id}
+                  trend={trend}
+                  rank={featured.length + offset + index + 1}
+                  saved={saved.ids.has(trend.id)}
+                  onToggleSave={() => saved.toggle(trend.id)}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </ul>
+
+            {listed.length > PAGE_SIZE ? (
+              <TrendPagination
+                page={currentPage}
+                pageCount={pageCount}
+                from={offset + 1}
+                to={offset + pageRows.length}
+                total={listed.length}
+                onChange={setPage}
+              />
+            ) : null}
+          </section>
+        </>
       )}
     </div>
   );

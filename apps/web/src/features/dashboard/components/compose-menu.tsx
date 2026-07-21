@@ -70,11 +70,14 @@ export function ComposeMenu() {
                     router.push(item.navigate as Route);
                   }
                 }}
-                className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud"
+                className="flex cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 outline-none data-[highlighted]:bg-cloud"
               >
-                <item.icon className="size-4 shrink-0 text-ink-soft" />
-                <span>{item.label}</span>
-                <span className="ml-auto text-xs text-ink-soft">{item.hint}</span>
+                <item.icon className="size-4 shrink-0 text-ink-soft" aria-hidden />
+                {/* Stacked so a longer label never has to share a line with its hint. */}
+                <span className="min-w-0">
+                  <span className="block truncate text-sm text-ink">{item.label}</span>
+                  <span className="block truncate text-xs text-ink-soft">{item.hint}</span>
+                </span>
               </DropdownMenu.Item>
             ))}
           </DropdownMenu.Content>
