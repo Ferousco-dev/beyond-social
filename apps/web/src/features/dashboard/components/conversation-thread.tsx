@@ -53,10 +53,12 @@ export function ConversationThread({ conversationId }: { conversationId: string 
     timers.current.push(timer);
   }, []);
 
-  // Seed a brand-new conversation from the prompt typed on the dashboard home.
+  // Seed a brand-new conversation from the dashboard composer (sessionStorage)
+  // or from a trend card (the `prompt` query param).
   useEffect(() => {
     if (conversationId !== "new") return;
-    const pending = window.sessionStorage.getItem(PENDING_PROMPT_KEY);
+    const queryPrompt = new URLSearchParams(window.location.search).get("prompt");
+    const pending = queryPrompt ?? window.sessionStorage.getItem(PENDING_PROMPT_KEY);
     if (!pending) return;
     window.sessionStorage.removeItem(PENDING_PROMPT_KEY);
     startGeneration(pending);

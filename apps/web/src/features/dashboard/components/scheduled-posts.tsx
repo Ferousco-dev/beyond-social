@@ -1,30 +1,20 @@
 "use client";
 
-import {
-  Calendar,
-  CalendarClock,
-  Camera,
-  CheckCircle,
-  Clock,
-  MessageCircle,
-  Music,
-  Play,
-  XCircle,
-} from "lucide-react";
+import { Calendar, CalendarClock, CheckCircle, Clock, MoreHorizontal, XCircle } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
+import { type ReactNode } from "react";
 
+import { PLATFORMS, SCHEDULED_POSTS, type ScheduledPost } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
-import { PLATFORMS, SCHEDULED_POSTS } from "@/lib/publish/data";
 
-const PLATFORM_ICONS: Record<string, React.ElementType> = {
-  tiktok: Music,
-  instagram: Camera,
-  facebook: MessageCircle,
-  youtube: Play,
+const STATUS: Record<ScheduledPost["status"], { icon: ReactNode; className: string }> = {
+  published: { icon: <CheckCircle className="size-4 text-success" />, className: "text-success" },
+  failed: { icon: <XCircle className="size-4 text-destructive" />, className: "text-destructive" },
+  pending: { icon: <Clock className="size-4 text-warning" />, className: "text-warning" },
 };
 
-export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }) {
+export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }): ReactNode {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -45,34 +35,17 @@ export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }) {
           <p className="mt-1 text-sm text-ink-soft">Videos you schedule will appear here</p>
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-2">
           {SCHEDULED_POSTS.map((post) => {
-            const statusIcon =
-              post.status === "published" ? (
-                <CheckCircle className="size-4 text-success" />
-              ) : post.status === "failed" ? (
-                <XCircle className="size-4 text-destructive" />
-              ) : (
-                <Clock className="size-4 text-warning" />
-              );
-
+            const status = STATUS[post.status];
             return (
-              <div
+              <li
                 key={post.id}
                 className="flex items-center gap-4 rounded-xl border border-hairline bg-paper px-4 py-3 transition-colors hover:bg-cloud"
               >
                 <div className="flex shrink-0 items-center gap-2">
-                  {statusIcon}
-                  <span
-                    className={cn(
-                      "text-xs font-medium",
-                      post.status === "published"
-                        ? "text-success"
-                        : post.status === "failed"
-                          ? "text-destructive"
-                          : "text-warning",
-                    )}
-                  >
+                  {status.icon}
+                  <span className={cn("text-xs font-medium capitalize", status.className)}>
                     {post.status}
                   </span>
                 </div>
@@ -88,18 +61,18 @@ export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }) {
                   <div className="mt-0.5 flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       {post.platforms.map((platformId) => {
-                        const Icon = PLATFORM_ICONS[platformId];
-                        const platform = PLATFORMS.find((p) => p.id === platformId);
-                        return Icon ? (
-                          <div
+                        const platform = PLATFORMS.find((entry) => entry.id === platformId);
+                        if (!platform) return null;
+                        return (
+                          <span
                             key={platformId}
+                            title={platform.name}
+                            style={{ backgroundColor: platform.color }}
                             className="flex size-5 items-center justify-center rounded-md"
-                            style={{ backgroundColor: platform?.color }}
-                            title={platform?.name}
                           >
-                            <Icon className="size-3 text-white" />
-                          </div>
-                        ) : null;
+                            <platform.icon className="size-3 text-white" />
+                          </span>
+                        );
                       })}
                     </div>
                     <span className="text-xs text-ink-soft">{post.scheduledFor}</span>
@@ -111,16 +84,12 @@ export function ScheduledPosts({ onNavigate }: { onNavigate?: () => void }) {
                   aria-label="More options"
                   className="shrink-0 cursor-pointer rounded-lg p-1.5 text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
                 >
-                  <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="12" cy="5" r="1" />
-                    <circle cx="12" cy="19" r="1" />
-                  </svg>
+                  <MoreHorizontal className="size-4" />
                 </button>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { LayoutDashboard, PanelLeft, PenSquare, Search } from "lucide-react";
+import { LayoutDashboard, PanelLeft, PenSquare, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -56,6 +56,10 @@ export function AppSidebar({
         <Link href="/dashboard/overview" onClick={onNavigate} className={NAV_ITEM}>
           <LayoutDashboard className="size-4" />
           Dashboard
+        </Link>
+        <Link href="/dashboard/trends" onClick={onNavigate} className={NAV_ITEM}>
+          <TrendingUp className="size-4" />
+          Trends
         </Link>
       </div>
 

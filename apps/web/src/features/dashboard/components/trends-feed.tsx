@@ -40,7 +40,7 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search trends..."
-            className="h-11 w-full rounded-full border border-hairline bg-paper pl-10 pr-4 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:ring-2 focus:ring-ring sm:w-72"
+            className="h-11 w-full rounded-full border border-hairline bg-paper pl-10 pr-4 text-sm text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:w-72"
           />
         </div>
       </div>

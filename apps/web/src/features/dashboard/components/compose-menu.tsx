@@ -2,9 +2,9 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ImagePlus, Music, Plus, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
-import { useRef } from "react";
-import { useRouter } from "next/navigation";
 import { type Route } from "next";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 interface MenuItem {
   icon: LucideIcon;
