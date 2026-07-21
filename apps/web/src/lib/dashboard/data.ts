@@ -112,3 +112,8 @@ export const SUGGESTIONS: readonly Suggestion[] = [
     prompt: "Plan and schedule a week of short-form videos about our summer collection.",
   },
 ];
+
+/** Resolves a project by id, for routes that only receive the id. */
+export function findProject(id: string): Project | undefined {
+  return PROJECT_GROUPS.flatMap((group) => group.projects).find((project) => project.id === id);
+}

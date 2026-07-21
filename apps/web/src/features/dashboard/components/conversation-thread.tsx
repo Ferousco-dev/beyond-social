@@ -5,13 +5,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { makeAssistantReply, SAMPLE_MESSAGES, type Message } from "@/lib/dashboard/conversations";
 
+import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
 const GENERATION_MS = 3200;
 
-export function ConversationThread({ conversationId }: { conversationId: string }) {
+export function ConversationThread({
+  conversationId,
+  title,
+}: {
+  conversationId: string;
+  title: string;
+}) {
   const idCounter = useRef(0);
   const timers = useRef<number[]>([]);
 
@@ -20,6 +27,7 @@ export function ConversationThread({ conversationId }: { conversationId: string 
   );
   const [prompt, setPrompt] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
+  const editorHref = `/editor/${conversationId}` as Route;
 
   // Append the user's prompt, show a generating draft, then resolve it to ready.
   const startGeneration = useCallback((text: string) => {
@@ -82,13 +90,11 @@ export function ConversationThread({ conversationId }: { conversationId: string 
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
+      <ConversationHeader title={title} editorHref={editorHref} />
+
       <div className="flex-1 space-y-6 py-8">
         {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            editorHref={`/editor/${conversationId}` as Route}
-          />
+          <MessageBubble key={message.id} message={message} editorHref={editorHref} />
         ))}
         <div ref={endRef} />
       </div>
