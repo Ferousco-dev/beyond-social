@@ -4,6 +4,7 @@ import { Captions, Music, SlidersHorizontal, type LucideIcon } from "lucide-reac
 import { useState } from "react";
 
 import { CAPTIONS, MUSIC } from "@/lib/editor/data";
+import { formatTimecode } from "@/lib/editor/timeline";
 import { cn } from "@/lib/utils";
 
 const TABS: ReadonlyArray<{ id: string; label: string; icon: LucideIcon }> = [
@@ -44,7 +45,9 @@ export function EditorToolPanel({ className }: { className?: string }) {
                 key={caption.id}
                 className="rounded-lg border border-hairline p-2.5 transition-colors hover:bg-cloud"
               >
-                <p className="text-[11px] tabular-nums text-ink-soft">{caption.time}</p>
+                <p className="text-[11px] tabular-nums text-ink-soft">
+                  {formatTimecode(caption.startMs)}
+                </p>
                 <p className="mt-0.5 text-sm text-ink">{caption.text}</p>
               </li>
             ))}
@@ -64,7 +67,9 @@ export function EditorToolPanel({ className }: { className?: string }) {
                   </span>
                   <span className="text-sm text-ink">{track.title}</span>
                 </div>
-                <span className="text-xs tabular-nums text-ink-soft">{track.length}</span>
+                <span className="text-xs tabular-nums text-ink-soft">
+                  {formatTimecode(track.durationMs)}
+                </span>
               </li>
             ))}
           </ul>
