@@ -1,15 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { SUGGESTIONS } from "@/lib/dashboard/data";
+import { buildGreeting } from "@/lib/dashboard/greetings";
+import { cn } from "@/lib/utils";
 
 import { PromptComposer } from "./prompt-composer";
 
-export function DashboardHome() {
+export function DashboardHome({ name }: { name: string }) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
+  const [greeting, setGreeting] = useState("");
+
+  // Resolved on the client: the greeting depends on the visitor's own clock,
+  // which the server cannot know without causing a hydration mismatch.
+  useEffect(() => {
+    const now = new Date();
+    setGreeting(buildGreeting(name, now, now.getHours() + now.getDate()));
+  }, [name]);
 
   function handleSubmit() {
     const text = prompt.trim();
@@ -20,8 +30,14 @@ export function DashboardHome() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-12">
-      <h1 className="mb-10 text-center text-3xl font-semibold tracking-tight text-ink">
-        Ready when you are
+      <h1
+        aria-live="polite"
+        className={cn(
+          "mb-10 min-h-[2.5rem] text-balance text-center text-3xl font-semibold tracking-tight text-ink transition-opacity duration-500",
+          greeting ? "opacity-100" : "opacity-0",
+        )}
+      >
+        {greeting}
       </h1>
 
       <PromptComposer value={prompt} onChange={setPrompt} onSubmit={handleSubmit} />

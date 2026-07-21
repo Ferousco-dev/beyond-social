@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { type DashboardUser } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
+import { RouteProgress } from "./route-progress";
 import { WorkspaceMenu } from "./workspace-menu";
 
 export function DashboardShell({ user, children }: { user: DashboardUser; children: ReactNode }) {
@@ -41,7 +42,9 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-12 shrink-0 items-center gap-1 px-2.5">
+        <header className="relative flex h-12 shrink-0 items-center gap-1 px-2.5">
+          <RouteProgress />
+
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
