@@ -132,6 +132,7 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
                     selected={clips.selectedId === clip.id}
                     onSelect={() => clips.select(clip.id)}
                     onTrim={trimClip(clip.id)}
+                    onMove={(startMs) => clips.move(clip.id, startMs)}
                     msFromClientX={msFromClientX}
                   />
                 ))}

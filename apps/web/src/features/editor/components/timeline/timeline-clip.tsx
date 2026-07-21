@@ -1,6 +1,6 @@
 "use client";
 
-import { type PointerEvent as ReactPointerEvent } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { type Clip } from "@/lib/editor/data";
 import { msToPx } from "@/lib/editor/timeline";
@@ -22,6 +22,7 @@ export function TimelineClip({
   selected,
   onSelect,
   onTrim,
+  onMove,
   msFromClientX,
 }: {
   clip: Clip;
@@ -29,8 +30,43 @@ export function TimelineClip({
   selected: boolean;
   onSelect: () => void;
   onTrim: (edge: ClipEdge, ms: number) => void;
+  onMove: (startMs: number) => void;
   msFromClientX: (clientX: number) => number;
 }) {
+  const [dragging, setDragging] = useState(false);
+
+  /** Drags the whole clip, holding the grab point steady under the pointer. */
+  const startDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+    event.stopPropagation();
+    onSelect();
+
+    const grabOffsetMs = msFromClientX(event.clientX) - clip.startMs;
+    let moved = false;
+
+    const move = (moveEvent: PointerEvent): void => {
+      if (!moved) {
+        moved = true;
+        setDragging(true);
+      }
+      onMove(msFromClientX(moveEvent.clientX) - grabOffsetMs);
+    };
+    const end = (): void => {
+      setDragging(false);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+  };
+
+  const nudgeByKey = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "ArrowLeft") onMove(clip.startMs - KEYBOARD_TRIM_MS);
+    else if (event.key === "ArrowRight") onMove(clip.startMs + KEYBOARD_TRIM_MS);
+    else if (event.key === "Enter" || event.key === " ") onSelect();
+    else return;
+    event.preventDefault();
+  };
+
   const startTrim = (edge: ClipEdge) => (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -60,20 +96,16 @@ export function TimelineClip({
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`${clip.label} clip`}
-      onPointerDown={(event) => event.stopPropagation()}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onSelect();
-      }}
+      onPointerDown={startDrag}
+      onKeyDown={nudgeByKey}
       style={{
         left: msToPx(clip.startMs, pxPerSecond),
         width: msToPx(clip.durationMs, pxPerSecond),
         backgroundImage: FILMSTRIP,
       }}
       className={cn(
-        "absolute inset-y-0 cursor-pointer overflow-hidden rounded-md border bg-cloud transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        "absolute inset-y-0 overflow-hidden rounded-md border bg-cloud transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        dragging ? "cursor-grabbing opacity-80" : "cursor-grab",
         selected ? "border-primary" : "border-hairline hover:border-ink-soft",
       )}
     >

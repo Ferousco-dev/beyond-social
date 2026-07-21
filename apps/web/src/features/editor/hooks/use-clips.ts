@@ -16,6 +16,7 @@ export interface ClipsState {
   readonly selectedId: string | null;
   readonly select: (id: string | null) => void;
   readonly trim: (id: string, edge: ClipEdge, ms: number) => void;
+  readonly move: (id: string, startMs: number) => void;
   readonly split: (atMs: number) => void;
   readonly remove: (id: string) => void;
 }
@@ -60,6 +61,40 @@ export function useClips(): ClipsState {
     });
   }, []);
 
+  /**
+   * The video track is magnetic: dragging a clip reorders it and the rest close
+   * up behind it, so the track never ends up with an accidental hole.
+   */
+  const move = useCallback((id: string, startMs: number) => {
+    setClips((current) => {
+      const dragged = current.find((clip) => clip.id === id);
+      if (!dragged) return current;
+
+      const others = current.filter((clip) => clip.id !== id);
+      const centreMs = startMs + dragged.durationMs / 2;
+
+      // Drop before the first clip whose own centre sits past the dragged one.
+      let index = others.length;
+      let cursor = 0;
+      for (let i = 0; i < others.length; i += 1) {
+        const clip = others[i] as Clip;
+        if (centreMs < cursor + clip.durationMs / 2) {
+          index = i;
+          break;
+        }
+        cursor += clip.durationMs;
+      }
+
+      const ordered = [...others.slice(0, index), dragged, ...others.slice(index)];
+      let next = 0;
+      return ordered.map((clip) => {
+        const placed = { ...clip, startMs: next };
+        next += clip.durationMs;
+        return placed;
+      });
+    });
+  }, []);
+
   /** Cuts the clip under the playhead in two, leaving both halves in place. */
   const split = useCallback((atMs: number) => {
     setClips((current) => {
@@ -89,5 +124,5 @@ export function useClips(): ClipsState {
     setSelectedId((selected) => (selected === id ? null : selected));
   }, []);
 
-  return { clips, durationMs, selectedId, select: setSelectedId, trim, split, remove };
+  return { clips, durationMs, selectedId, select: setSelectedId, trim, move, split, remove };
 }

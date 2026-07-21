@@ -39,8 +39,8 @@ export function EditorPreview({ playback }: { playback: Playback }) {
         />
       </div>
 
-      <div className="flex shrink-0 items-center gap-4 border-t border-hairline px-4 py-2">
-        <span className="w-24 shrink-0 text-xs tabular-nums text-ink-soft">
+      <div className="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-hairline px-4 py-2">
+        <span className="shrink-0 text-xs tabular-nums text-ink-soft sm:w-24">
           {formatTimecode(playback.currentMs)} / {formatTimecode(playback.durationMs)}
         </span>
 
@@ -48,7 +48,7 @@ export function EditorPreview({ playback }: { playback: Playback }) {
           type="button"
           onClick={playback.toggle}
           aria-label={playback.isPlaying ? "Pause" : "Play"}
-          className="mx-auto inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink text-paper sm:mx-auto transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {playback.isPlaying ? (
             <Pause className="size-4" />
@@ -57,7 +57,7 @@ export function EditorPreview({ playback }: { playback: Playback }) {
           )}
         </button>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
           <div className="flex rounded-full border border-hairline p-0.5" role="group">
             {RATIOS.map((item) => (
               <button
