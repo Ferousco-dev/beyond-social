@@ -5,8 +5,9 @@ export interface Trend {
   readonly title: string;
   readonly description: string;
   readonly category: string;
-  readonly engagement: string;
-  readonly growing: boolean;
+  readonly views: number;
+  /** Week over week change, so growth has a magnitude and not just a flag. */
+  readonly growthPercent: number;
   readonly icon: LucideIcon;
   readonly prompt: string;
 }
@@ -32,8 +33,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Get Ready With Me",
     description: "Morning routine transformations with quick cuts",
     category: "fashion",
-    engagement: "2.4M views",
-    growing: true,
+    views: 2_400_000,
+    growthPercent: 38,
     icon: Sparkles,
     prompt:
       "Create a 30-second GRWM video showing a morning routine transformation with quick cuts between outfits",
@@ -43,8 +44,8 @@ export const TRENDS: readonly Trend[] = [
     title: "POV: Unboxing Experience",
     description: "First-person product reveals with ASMR elements",
     category: "tech",
-    engagement: "1.8M views",
-    growing: true,
+    views: 1_800_000,
+    growthPercent: 24,
     icon: Briefcase,
     prompt:
       "Make a POV unboxing video with ASMR sound design, showing the product reveal from first-person perspective",
@@ -54,8 +55,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Recipe: 60-Second Meals",
     description: "Hyper-fast cooking tutorials with satisfying results",
     category: "food",
-    engagement: "3.1M views",
-    growing: true,
+    views: 3_100_000,
+    growthPercent: 52,
     icon: Coffee,
     prompt:
       "Create a 60-second recipe video with fast-paced editing showing the cooking process and final dish",
@@ -65,8 +66,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Gym Progress Montage",
     description: "Before/after transformations with trending audio",
     category: "fitness",
-    engagement: "1.2M views",
-    growing: false,
+    views: 1_200_000,
+    growthPercent: -6,
     icon: Dumbbell,
     prompt:
       "Build a gym progress montage video with before/after clips set to trending fitness audio",
@@ -76,8 +77,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Skincare Routine ASMR",
     description: "Satisfying product application sounds and visuals",
     category: "beauty",
-    engagement: "2.9M views",
-    growing: true,
+    views: 2_900_000,
+    growthPercent: 31,
     icon: Mic,
     prompt:
       "Create an ASMR skincare routine video focusing on satisfying product application sounds and close-up visuals",
@@ -87,8 +88,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Hidden Travel Gems",
     description: "Undiscovered locations with cinematic transitions",
     category: "travel",
-    engagement: "1.5M views",
-    growing: true,
+    views: 1_500_000,
+    growthPercent: 19,
     icon: Plane,
     prompt:
       "Produce a travel video showcasing hidden gems with cinematic transitions and drone-style footage",
@@ -98,8 +99,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Day in the Life",
     description: "Relatable daily routines with authentic moments",
     category: "fashion",
-    engagement: "2.2M views",
-    growing: false,
+    views: 2_200_000,
+    growthPercent: -3,
     icon: Sparkles,
     prompt: "Film a day in the life video showing authentic daily moments and routines",
   },
@@ -108,8 +109,8 @@ export const TRENDS: readonly Trend[] = [
     title: "Tech Hacks 30 Seconds",
     description: "Quick productivity tips with visual demonstrations",
     category: "tech",
-    engagement: "1.7M views",
-    growing: true,
+    views: 1_700_000,
+    growthPercent: 27,
     icon: Briefcase,
     prompt: "Create a 30-second tech hack video with visual demonstrations of productivity tips",
   },
