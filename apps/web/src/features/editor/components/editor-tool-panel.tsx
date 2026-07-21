@@ -1,95 +1,89 @@
 "use client";
 
-import { Captions, Music, SlidersHorizontal, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { Captions, Music, Scissors, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 
-import { CAPTIONS, MUSIC } from "@/lib/editor/data";
-import { formatTimecode } from "@/lib/editor/timeline";
 import { cn } from "@/lib/utils";
 
-const TABS: ReadonlyArray<{ id: string; label: string; icon: LucideIcon }> = [
+import { type ClipsState } from "../hooks/use-clips";
+import { type Playback } from "../hooks/use-playback";
+import { AdjustPanel } from "./tools/adjust-panel";
+import { CaptionsPanel } from "./tools/captions-panel";
+import { ClipPanel } from "./tools/clip-panel";
+import { MusicPanel } from "./tools/music-panel";
+
+type TabId = "clip" | "captions" | "music" | "adjust";
+
+const TABS: ReadonlyArray<{ id: TabId; label: string; icon: LucideIcon }> = [
+  { id: "clip", label: "Clip", icon: Scissors },
   { id: "captions", label: "Captions", icon: Captions },
   { id: "music", label: "Music", icon: Music },
   { id: "adjust", label: "Adjust", icon: SlidersHorizontal },
 ];
 
-const ADJUSTMENTS = ["Brightness", "Contrast", "Saturation", "Speed"] as const;
+export function EditorToolPanel({
+  className,
+  clips,
+  playback,
+}: {
+  className?: string;
+  clips: ClipsState;
+  playback: Playback;
+}) {
+  const [tab, setTab] = useState<TabId>("captions");
+  const selected = clips.clips.find((clip) => clip.id === clips.selectedId);
 
-export function EditorToolPanel({ className }: { className?: string }) {
-  const [tab, setTab] = useState("captions");
+  // Selecting a clip on the timeline is a request to inspect it.
+  useEffect(() => {
+    if (clips.selectedId) setTab("clip");
+  }, [clips.selectedId]);
 
   return (
-    <div className={cn("w-72 shrink-0 flex-col border-r border-hairline bg-paper", className)}>
-      <div className="flex gap-1 border-b border-hairline p-2">
+    <div className={cn("w-80 shrink-0 border-r border-hairline bg-paper", className)}>
+      <nav
+        aria-label="Editor tools"
+        className="flex w-14 shrink-0 flex-col gap-1 border-r border-hairline p-2"
+      >
         {TABS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
+            aria-current={tab === item.id}
+            title={item.label}
             className={cn(
-              "flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors",
+              "flex cursor-pointer flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
               tab === item.id ? "bg-cloud text-ink" : "text-ink-soft hover:bg-cloud",
             )}
           >
-            <item.icon className="size-3.5" />
+            <item.icon className="size-4" />
             {item.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        {tab === "clip" ? (
+          selected ? (
+            <ClipPanel
+              clip={selected}
+              onTrim={(edge, ms) => clips.trim(selected.id, edge, ms)}
+              onSeek={playback.seek}
+            />
+          ) : (
+            <p className="text-xs leading-relaxed text-ink-soft">
+              Select a clip on the timeline to trim it.
+            </p>
+          )
+        ) : null}
+
         {tab === "captions" ? (
-          <ul className="space-y-1.5">
-            {CAPTIONS.map((caption) => (
-              <li
-                key={caption.id}
-                className="rounded-lg border border-hairline p-2.5 transition-colors hover:bg-cloud"
-              >
-                <p className="text-[11px] tabular-nums text-ink-soft">
-                  {formatTimecode(caption.startMs)}
-                </p>
-                <p className="mt-0.5 text-sm text-ink">{caption.text}</p>
-              </li>
-            ))}
-          </ul>
+          <CaptionsPanel currentMs={playback.currentMs} onSeek={playback.seek} />
         ) : null}
 
-        {tab === "music" ? (
-          <ul className="space-y-1">
-            {MUSIC.map((track) => (
-              <li
-                key={track.id}
-                className="flex items-center justify-between rounded-lg px-2.5 py-2 transition-colors hover:bg-cloud"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="inline-flex size-8 items-center justify-center rounded-md bg-cloud text-ink-soft">
-                    <Music className="size-4" />
-                  </span>
-                  <span className="text-sm text-ink">{track.title}</span>
-                </div>
-                <span className="text-xs tabular-nums text-ink-soft">
-                  {formatTimecode(track.durationMs)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        {tab === "music" ? <MusicPanel /> : null}
 
-        {tab === "adjust" ? (
-          <div className="space-y-4">
-            {ADJUSTMENTS.map((label) => (
-              <label key={label} className="block">
-                <span className="text-xs font-medium text-ink">{label}</span>
-                <input
-                  type="range"
-                  defaultValue={50}
-                  aria-label={label}
-                  className="mt-1.5 w-full accent-primary"
-                />
-              </label>
-            ))}
-          </div>
-        ) : null}
+        {tab === "adjust" ? <AdjustPanel /> : null}
       </div>
     </div>
   );

@@ -29,7 +29,7 @@ export function EditorShell({
       <EditorTopBar backHref={backHref} title={title} />
 
       <div className="relative flex min-h-0 flex-1">
-        <EditorToolPanel className="hidden lg:flex" />
+        <EditorToolPanel className="hidden lg:flex" clips={clips} playback={playback} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <EditorPreview playback={playback} />
