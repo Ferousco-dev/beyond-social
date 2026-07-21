@@ -49,7 +49,7 @@
   --cloud: #f3f3f3;
   --hairline: #ececec;
   --ink: #0d0d0d;
-  --ink-soft: #8f8f8f;
+  --ink-soft: #6b6b6b;
 }
 
 .dark {
@@ -90,7 +90,7 @@
   --cloud: #3a3a3a;
   --hairline: rgba(255, 255, 255, 0.12);
   --ink: #ececec;
-  --ink-soft: #9b9b9b;
+  --ink-soft: #a8a8a8;
 }
 
 @theme inline {

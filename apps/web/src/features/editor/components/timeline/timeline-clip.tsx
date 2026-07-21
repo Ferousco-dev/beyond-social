@@ -36,7 +36,7 @@ export function TimelineClip({
   const [dragging, setDragging] = useState(false);
 
   /** Drags the whole clip, holding the grab point steady under the pointer. */
-  const startDrag = (event: ReactPointerEvent<HTMLDivElement>): void => {
+  const startDrag = (event: ReactPointerEvent<HTMLElement>): void => {
     event.stopPropagation();
     onSelect();
 
@@ -59,7 +59,7 @@ export function TimelineClip({
     window.addEventListener("pointerup", end);
   };
 
-  const nudgeByKey = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+  const nudgeByKey = (event: React.KeyboardEvent<HTMLElement>): void => {
     if (event.key === "ArrowLeft") onMove(clip.startMs - KEYBOARD_TRIM_MS);
     else if (event.key === "ArrowRight") onMove(clip.startMs + KEYBOARD_TRIM_MS);
     else if (event.key === "Enter" || event.key === " ") onSelect();
@@ -92,26 +92,32 @@ export function TimelineClip({
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      aria-label={`${clip.label} clip`}
-      onPointerDown={startDrag}
-      onKeyDown={nudgeByKey}
       style={{
         left: msToPx(clip.startMs, pxPerSecond),
         width: msToPx(clip.durationMs, pxPerSecond),
-        backgroundImage: FILMSTRIP,
       }}
-      className={cn(
-        "absolute inset-y-0 overflow-hidden rounded-md border bg-cloud transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-        dragging ? "cursor-grabbing opacity-80" : "cursor-grab",
-        selected ? "border-primary" : "border-hairline hover:border-ink-soft",
-      )}
+      className="absolute inset-y-0"
     >
-      <span className="pointer-events-none absolute inset-x-2 top-1/2 -translate-y-1/2 truncate text-center text-xs text-ink">
-        {clip.label}
-      </span>
+      {/* The clip surface and its handles are siblings: nesting controls inside
+          a control would leave the handles unreachable to assistive tech. */}
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-label={`${clip.label} clip`}
+        onPointerDown={startDrag}
+        // Assistive tech activates with a click and no pointer events, so
+        // selection cannot live on the drag handler alone.
+        onClick={onSelect}
+        onKeyDown={nudgeByKey}
+        style={{ backgroundImage: FILMSTRIP }}
+        className={cn(
+          "absolute inset-0 overflow-hidden rounded-md border bg-cloud px-2 text-xs text-ink transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+          dragging ? "cursor-grabbing opacity-80" : "cursor-grab",
+          selected ? "border-primary" : "border-hairline hover:border-ink-soft",
+        )}
+      >
+        <span className="pointer-events-none block truncate">{clip.label}</span>
+      </button>
 
       {selected
         ? (["start", "end"] as const).map((edge) => (
@@ -122,7 +128,7 @@ export function TimelineClip({
               onPointerDown={startTrim(edge)}
               onKeyDown={trimByKey(edge)}
               className={cn(
-                "absolute inset-y-0 w-2.5 cursor-ew-resize bg-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
+                "absolute inset-y-0 z-10 w-2.5 cursor-ew-resize bg-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
                 edge === "start" ? "left-0 rounded-l-md" : "right-0 rounded-r-md",
               )}
             >
