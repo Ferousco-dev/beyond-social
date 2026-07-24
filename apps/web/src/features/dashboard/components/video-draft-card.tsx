@@ -20,9 +20,19 @@ export function VideoDraftCard({
         href={editorHref}
         className="group relative block aspect-[9/16] overflow-hidden rounded-xl border border-hairline bg-cloud"
       >
-        <span className="absolute left-1/2 top-1/2 inline-flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-paper text-ink shadow-card">
-          <Play className="size-3.5 translate-x-px" />
-        </span>
+        {draft.resultUrl ? (
+          <video
+            src={draft.resultUrl}
+            muted
+            playsInline
+            preload="metadata"
+            className="absolute inset-0 size-full object-cover"
+          />
+        ) : (
+          <span className="absolute left-1/2 top-1/2 inline-flex size-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-paper text-ink shadow-card">
+            <Play className="size-3.5 translate-x-px" />
+          </span>
+        )}
         <span className="absolute inset-x-2 bottom-2 rounded-md bg-paper/85 px-2 py-1 text-[11px] font-medium text-ink backdrop-blur-sm">
           {draft.caption}
         </span>

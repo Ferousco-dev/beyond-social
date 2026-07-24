@@ -1,6 +1,8 @@
 export interface VideoDraft {
   readonly caption: string;
   readonly status: "generating" | "ready";
+  // Present once a real kie.ai generation resolves; absent for the demo path.
+  readonly resultUrl?: string;
 }
 
 export interface Message {

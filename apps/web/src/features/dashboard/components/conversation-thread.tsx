@@ -3,6 +3,11 @@
 import { type Route } from "next";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import {
+  pollGeneration,
+  startGeneration as startVideoGeneration,
+} from "@/features/generation/actions";
+import { isSupabaseConfigured } from "@/lib/env";
 import { makeAssistantReply, SAMPLE_MESSAGES, type Message } from "@/lib/dashboard/conversations";
 
 import { ConversationHeader } from "./conversation-header";
@@ -11,6 +16,7 @@ import { PromptComposer } from "./prompt-composer";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
 const GENERATION_MS = 3200;
+const POLL_MS = 3000;
 
 export function ConversationThread({
   conversationId,
@@ -29,37 +35,68 @@ export function ConversationThread({
   const endRef = useRef<HTMLDivElement>(null);
   const editorHref = `/editor/${conversationId}` as Route;
 
-  // Append the user's prompt, show a generating draft, then resolve it to ready.
-  const startGeneration = useCallback((text: string) => {
-    const userId = `local-${idCounter.current++}`;
-    const assistantId = `local-${idCounter.current++}`;
+  // Append the user's prompt and a generating draft, then resolve it. With
+  // Supabase configured this runs a real kie.ai generation and polls for the
+  // result; otherwise it plays the local demo animation.
+  const startGeneration = useCallback(
+    (text: string) => {
+      const userId = `local-${idCounter.current++}`;
+      const assistantId = `local-${idCounter.current++}`;
 
-    setMessages((current) => [
-      ...current,
-      { id: userId, role: "user", content: text },
-      {
-        id: assistantId,
-        role: "assistant",
-        content: "",
-        draft: { caption: "Draft preview", status: "generating" },
-      },
-    ]);
+      setMessages((current) => [
+        ...current,
+        { id: userId, role: "user", content: text },
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          draft: { caption: "Draft preview", status: "generating" },
+        },
+      ]);
 
-    const timer = window.setTimeout(() => {
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === assistantId
-            ? {
-                ...message,
-                content: makeAssistantReply(text),
-                draft: { caption: "Draft preview", status: "ready" },
-              }
-            : message,
-        ),
-      );
-    }, GENERATION_MS);
-    timers.current.push(timer);
-  }, []);
+      const patch = (updater: (message: Message) => Message) =>
+        setMessages((current) =>
+          current.map((message) => (message.id === assistantId ? updater(message) : message)),
+        );
+
+      const resolveReady = (resultUrl?: string) =>
+        patch((message) => ({
+          ...message,
+          content: makeAssistantReply(text),
+          draft: { caption: "Draft preview", status: "ready", resultUrl },
+        }));
+
+      const fail = (reason: string) =>
+        patch((message) => ({ ...message, content: reason, draft: undefined }));
+
+      if (!isSupabaseConfigured) {
+        timers.current.push(window.setTimeout(() => resolveReady(), GENERATION_MS));
+        return;
+      }
+
+      void (async () => {
+        const started = await startVideoGeneration({ projectId: conversationId, prompt: text });
+        if (started.status !== "ok") {
+          fail("That did not go through. Please try again.");
+          return;
+        }
+        const interval = window.setInterval(() => {
+          void (async () => {
+            const result = await pollGeneration(started.generationId);
+            if (result.status === "ready") {
+              window.clearInterval(interval);
+              resolveReady(result.resultUrl ?? undefined);
+            } else if (result.status === "failed" || result.status === "error") {
+              window.clearInterval(interval);
+              fail("That generation failed. Please try again.");
+            }
+          })();
+        }, POLL_MS);
+        timers.current.push(interval);
+      })();
+    },
+    [conversationId],
+  );
 
   // Seed a brand-new conversation from the dashboard composer (sessionStorage)
   // or from a trend card (the `prompt` query param).
@@ -74,7 +111,11 @@ export function ConversationThread({
 
   useEffect(() => {
     const pending = timers.current;
-    return () => pending.forEach((timer) => window.clearTimeout(timer));
+    return () =>
+      pending.forEach((timer) => {
+        window.clearTimeout(timer);
+        window.clearInterval(timer);
+      });
   }, []);
 
   useEffect(() => {

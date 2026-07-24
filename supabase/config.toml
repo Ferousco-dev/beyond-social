@@ -48,6 +48,10 @@ enabled = true
 [functions.generate-video]
 verify_jwt = true
 
+# Authenticated: the app polls this to sync a generation's status from kie.ai.
+[functions.poll-generation]
+verify_jwt = true
+
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]
 verify_jwt = false
