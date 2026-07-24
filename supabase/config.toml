@@ -40,3 +40,14 @@ max_enrolled_factors = 10
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
+
+[edge_runtime]
+enabled = true
+
+# Authenticated: called by the app with the user's JWT.
+[functions.generate-video]
+verify_jwt = true
+
+# Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
+[functions.kie-callback]
+verify_jwt = false

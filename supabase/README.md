@@ -31,9 +31,29 @@ order. Create a new one with:
 supabase migration new <name>
 ```
 
-`0001_init_auth.sql` creates the `profiles` table, row-level security policies,
-role-based access (`user_role`), and a trigger that provisions a profile row for
-each new auth user.
+- `0001_init_auth.sql` — `profiles`, RLS, roles, and new-user provisioning.
+- `0002_app_schema.sql` — projects, messages, assets, `video_generations`,
+  `scheduled_posts`, and a `credit_ledger`, all owner-scoped with indexes.
+- `0003_generation_functions.sql` — service-role functions that complete/fail a
+  generation and charge credits atomically (`complete_generation`,
+  `fail_generation`, `reset_due_credits`).
+- `0004_storage.sql` — the private `uploads` bucket with per-user policies.
+
+## Edge functions (video generation via kie.ai)
+
+`generate-video` starts a [kie.ai](https://kie.ai) Veo task for the signed-in
+user (after a credit check) and records it. `kie-callback` is the webhook kie.ai
+calls on completion; it finalizes the row and charges one credit.
+
+```bash
+cp functions/.env.example functions/.env    # add KIE_API_KEY and KIE_CALLBACK_SECRET
+supabase functions serve --env-file functions/.env
+```
+
+Locally, kie.ai needs a public URL to reach `kie-callback`. Either expose it with
+a tunnel (e.g. `ngrok http 54321`) and set `SUPABASE_URL` to the tunnel origin,
+or skip the webhook and let the app poll `record-info` (see
+`apps/web/src/features/generation`).
 
 ## Auth configuration
 
