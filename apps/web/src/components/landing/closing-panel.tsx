@@ -8,7 +8,9 @@ import { InstagramIcon, TikTokIcon, XIcon, YouTubeIcon } from "@/components/bran
 import { CTA_IMAGE, CTA_IMAGE_ALT } from "@/lib/marketing/landing";
 import { FOOTER_COLUMNS, SOCIAL_LINKS } from "@/lib/marketing/site";
 
+import { LogoCursorTrail } from "./logo-cursor-trail";
 import { Reveal } from "./reveal";
+import { TextPressure } from "./text-pressure";
 
 const ICONS: Record<string, (props: { className?: string }) => ReactNode> = {
   TikTok: TikTokIcon,
@@ -40,8 +42,11 @@ export function ClosingPanel(): ReactNode {
               context, so a z-index on the card inside would be trapped there and
               the footer field would paint over the card. */}
           <Reveal className="relative z-10">
-            <div className="-mb-20 overflow-hidden rounded-3xl border border-hairline bg-cloud sm:-mb-24">
-              <div className="grid items-center lg:grid-cols-[1.05fr_1fr]">
+            <div className="relative -mb-20 overflow-hidden rounded-3xl border border-hairline bg-cloud sm:-mb-24">
+              {/* Brand marks trail the cursor across the card. Sits above the
+                  content but ignores pointer events, so links stay clickable. */}
+              <LogoCursorTrail className="pointer-events-none absolute inset-0 z-[3]" />
+              <div className="relative z-[2] grid items-center lg:grid-cols-[1.05fr_1fr]">
                 <div className="p-8 sm:p-12 lg:p-14">
                   <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-soft">
                     Get started
@@ -89,7 +94,27 @@ export function ClosingPanel(): ReactNode {
 
       {/* Footer field. Padded to clear the overlapping card. */}
       <div className="relative overflow-hidden bg-paper pt-32 sm:pt-36">
-        <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
+        {/* Wave cut into the top edge: the shape is filled with the page colour,
+            so the boundary between page and footer reads as a curve. */}
+        <svg
+          aria-hidden
+          viewBox="0 0 1440 90"
+          preserveAspectRatio="none"
+          className="absolute inset-x-0 top-0 h-10 w-full sm:h-16"
+        >
+          <path
+            d="M0,40 C180,86 360,4 600,30 C840,56 1020,2 1200,26 C1320,42 1392,54 1440,58 L1440,0 L0,0 Z"
+            fill="var(--canvas)"
+          />
+        </svg>
+
+        {/* The wordmark is the footer's background, sitting behind the content. */}
+        <TextPressure
+          text="Beyond Social"
+          className="pointer-events-none absolute inset-x-0 bottom-0 select-none justify-center whitespace-nowrap text-[19vw] leading-[0.78] tracking-[-0.04em] text-ink/[0.04]"
+        />
+
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 sm:px-6">
           <footer>
             <div className="grid gap-10 pb-14 sm:grid-cols-2 lg:grid-cols-6">
               <div className="lg:col-span-2">
@@ -156,14 +181,6 @@ export function ClosingPanel(): ReactNode {
             </div>
           </footer>
         </div>
-
-        {/* Oversized wordmark, cropped by the viewport edge as a brand sign-off. */}
-        <p
-          aria-hidden
-          className="pointer-events-none select-none whitespace-nowrap text-center text-[19vw] font-semibold leading-[0.72] tracking-[-0.04em] text-ink/[0.035]"
-        >
-          Beyond Social
-        </p>
       </div>
     </section>
   );
