@@ -28,7 +28,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 18  | Admin platform         | Not started | No admin UI, moderation, or feature flags.                                                                                                                                                                                                                    |
 | 19  | Developer platform     | Not started | No CLI, SDK, or public docs.                                                                                                                                                                                                                                  |
 | 20  | DevOps & SRE           | Partial     | CI runs lint, typecheck, build, gateway tests, knowledge validation. Vercel deploys. No blue-green, rollback drill, or incident process.                                                                                                                      |
-| 21  | Performance & cost     | Partial     | Cost-aware routing and cheap-task chains. No prompt, response, or embedding caching yet.                                                                                                                                                                      |
+| 21  | Performance & cost     | Partial     | Cost-aware routing, cheap-task chains, and a response cache for deterministic calls. No embedding cache or streaming yet.                                                                                                                                     |
 | 22  | AI safety & governance | Partial     | Rate limiting and review-gated learning. No content moderation, abuse detection, or retention policy.                                                                                                                                                         |
 
 ## The gateway (layer 4)
@@ -72,8 +72,9 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
 
 ## Suggested order for what is left
 
-1. **Caching (21)** — prompt and embedding caches are the cheapest large win now
-   that the gateway can see every call.
+1. ~~Caching (21)~~ — **done**: deterministic responses are cached in the
+   gateway, keyed on task plus prompt plus sampling parameters, and skipped when
+   temperature is non-zero. Embedding caching is still open.
 2. **Prompt-injection and moderation (13, 22)** — needed before untrusted input
    reaches the model in production.
 3. **Billing (16)** — Stripe on top of the existing credit ledger and the
