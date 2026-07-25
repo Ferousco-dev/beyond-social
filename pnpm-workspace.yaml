@@ -2,6 +2,10 @@ packages:
   - "apps/*"
   - "packages/*"
 
+# Dedupe ioredis so the worker and BullMQ share one version (their types must match).
+overrides:
+  ioredis: "5.11.1"
+
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
   esbuild: true

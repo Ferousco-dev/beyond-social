@@ -1,0 +1,23 @@
+# Local infrastructure for the background worker (the BullMQ publishing queue).
+# Supabase runs via its own CLI (`supabase start`), not here.
+#
+#   docker compose up -d
+#
+# Then set REDIS_URL=redis://127.0.0.1:6379 in apps/worker/.env.
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    # noeviction is required by BullMQ so jobs are never dropped under memory pressure.
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:
