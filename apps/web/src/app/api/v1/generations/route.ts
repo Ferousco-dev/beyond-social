@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { authenticateRequest } from "@/lib/api/authenticate";
+import { checkApiRateLimit } from "@/lib/api/rate-limit";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -23,6 +24,15 @@ export async function GET(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       { error: "unauthorized", message: "Provide a valid API key as a bearer token." },
       { status: 401 },
+    );
+  }
+
+  // Throttled per key: an authenticated caller can still exhaust the database.
+  const limit = checkApiRateLimit(caller.userId);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited", message: "Too many requests. Slow down." },
+      { status: 429, headers: { "retry-after": String(limit.retryAfterSeconds) } },
     );
   }
 
