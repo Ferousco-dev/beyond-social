@@ -46,6 +46,8 @@ const nextConfig: NextConfig = {
   typedRoutes: true,
   images: {
     formats: ["image/avif", "image/webp"],
+    // Marketing imagery is served from Unsplash's CDN.
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

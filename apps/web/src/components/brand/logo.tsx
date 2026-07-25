@@ -17,13 +17,14 @@ export function Logo({
 }): ReactNode {
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>
-      <span className="relative inline-flex size-8 shrink-0 overflow-hidden rounded-lg border border-border">
+      {/* The mark sits directly on the surface: no tile, no border. */}
+      <span className="relative inline-flex size-8 shrink-0">
         <Image
           src="/brand/logo-mark-light.png"
           alt={showWordmark ? "" : "Beyond Social"}
           width={64}
           height={64}
-          className="size-full object-cover dark:hidden"
+          className="size-full object-contain dark:hidden"
           priority
         />
         <Image
@@ -32,7 +33,7 @@ export function Logo({
           aria-hidden
           width={64}
           height={64}
-          className="hidden size-full object-cover dark:block"
+          className="hidden size-full object-contain dark:block"
           priority
         />
       </span>
