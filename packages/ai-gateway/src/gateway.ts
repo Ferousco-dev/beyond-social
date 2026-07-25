@@ -12,6 +12,13 @@ import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
 import { estimateTokens } from "./tokens";
 import { withRetry, type RetryOptions } from "./retry";
 import { type CompletionRequest, type CompletionResult, type ProviderClient } from "./providers";
+import {
+  InjectionError,
+  ModerationError,
+  detectInjection,
+  moderate,
+  type InjectionSeverity,
+} from "./safety";
 import { NoopUsageSink, type UsageRecord, type UsageSink } from "./usage";
 
 export interface GatewayOptions {
@@ -27,6 +34,17 @@ export interface GatewayOptions {
   routes?: Partial<Record<Task, readonly string[]>>;
   now?: () => number;
   newId?: () => string;
+  /**
+   * Screening applied to the prompt before dispatch and to the completion
+   * before it is returned. Off by default so internal, trusted callers pay
+   * nothing; the web app turns it on for anything user-supplied.
+   */
+  safety?: {
+    /** Refuse prompts at or above this injection severity. */
+    blockInjectionAt?: Exclude<InjectionSeverity, "none">;
+    moderateInput?: boolean;
+    moderateOutput?: boolean;
+  };
 }
 
 export interface GatewayRequest extends CompletionRequest {
@@ -87,6 +105,10 @@ export class AiGateway {
     const requestId = this.newId();
     const startedAt = this.now();
     const candidates = this.chain(request.task);
+
+    // Screening happens before anything is spent, and before the cache, so a
+    // hostile prompt can neither cost money nor be served from a warm entry.
+    this.screenInput(request);
 
     if (candidates.length === 0) {
       throw new Error(
@@ -162,6 +184,8 @@ export class AiGateway {
           return client.complete(spec, request);
         }, this.retry);
 
+        this.screenOutput(result.text);
+
         const latencyMs = this.now() - startedAt;
         const cost = costUsd(spec, result.inputTokens, result.outputTokens);
         void this.usage.record(
@@ -212,6 +236,34 @@ export class AiGateway {
     throw lastError instanceof Error
       ? lastError
       : new Error(`All models failed for task "${request.task}"`);
+  }
+
+  /** Refuses hostile or disallowed prompts before any provider is called. */
+  private screenInput(request: GatewayRequest): void {
+    const safety = this.options.safety;
+    if (!safety) return;
+
+    const text = request.messages.map((message) => message.content).join("\n");
+
+    if (safety.blockInjectionAt) {
+      const verdict = detectInjection(text);
+      const order: InjectionSeverity[] = ["none", "low", "medium", "high"];
+      if (order.indexOf(verdict.severity) >= order.indexOf(safety.blockInjectionAt)) {
+        throw new InjectionError(verdict.findings.map((finding) => finding.pattern));
+      }
+    }
+
+    if (safety.moderateInput) {
+      const verdict = moderate(text);
+      if (verdict.action === "block") throw new ModerationError("input", verdict);
+    }
+  }
+
+  /** Refuses disallowed completions before they reach the caller. */
+  private screenOutput(text: string): void {
+    if (!this.options.safety?.moderateOutput) return;
+    const verdict = moderate(text);
+    if (verdict.action === "block") throw new ModerationError("output", verdict);
   }
 
   private buildRecord(

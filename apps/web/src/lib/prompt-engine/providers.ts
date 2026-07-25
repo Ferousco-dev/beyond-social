@@ -86,6 +86,10 @@ function getGateway(): AiGateway {
     clients,
     usage: usageSink,
     cache: responseCache,
+    // Everything reaching the gateway from the web app carries user-supplied
+    // text, so screening is on. `medium` blocks clear injection attempts while
+    // leaving ordinary creative briefs alone.
+    safety: { blockInjectionAt: "medium", moderateInput: true, moderateOutput: true },
     // Generous per-user ceiling in estimated input tokens, sized to stop a
     // runaway loop rather than to throttle normal use.
     limiter: new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
