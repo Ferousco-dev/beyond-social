@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
 
-import { LandingFooter } from "./landing-footer";
+import { ClosingPanel } from "./closing-panel";
 import { LandingHeader } from "./landing-header";
 import { Reveal } from "./reveal";
 
@@ -47,7 +47,7 @@ export function PageShell({
           </div>
         </section>
       </main>
-      <LandingFooter />
+      <ClosingPanel />
     </div>
   );
 }
