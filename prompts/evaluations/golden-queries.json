@@ -1,0 +1,53 @@
+{
+  "description": "Golden retrieval set for offline evaluation. Each case lists the chunk ids a strong retriever should surface for the query. Used to compute recall@k, MRR, and nDCG in CI so a knowledge-base or ranking change cannot silently regress retrieval.",
+  "cases": [
+    {
+      "query": "Design a high-converting SaaS landing page hero for a new analytics product",
+      "productType": "landing-page",
+      "platform": "web",
+      "expectedChunkIds": [
+        "hero-section-anatomy",
+        "visual-hierarchy-core",
+        "marketing-copy-value-first",
+        "conversion-above-the-fold"
+      ]
+    },
+    {
+      "query": "Pricing page that nudges users to the annual plan without dark patterns",
+      "productType": "landing-page",
+      "platform": "web",
+      "expectedChunkIds": [
+        "pricing-page-anchoring",
+        "conversion-above-the-fold",
+        "visual-hierarchy-core"
+      ]
+    },
+    {
+      "query": "Empty state for a dashboard with no data yet",
+      "productType": "saas-dashboard",
+      "platform": "web",
+      "expectedChunkIds": [
+        "empty-states-first-run",
+        "ux-heuristics-nielsen",
+        "marketing-copy-value-first"
+      ]
+    },
+    {
+      "query": "Make the typography feel premium and readable on a marketing site",
+      "productType": "marketing-site",
+      "platform": "web",
+      "expectedChunkIds": ["type-scale-modular", "typographic-hierarchy"]
+    },
+    {
+      "query": "Accessible color system with proper contrast for light and dark mode",
+      "platform": "web",
+      "expectedChunkIds": ["color-semantic-tokens", "accessibility-essentials"]
+    },
+    {
+      "query": "Add tasteful motion to a mobile onboarding flow",
+      "productType": "onboarding",
+      "platform": "mobile",
+      "expectedChunkIds": ["motion-principles", "onboarding-first-run"]
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "id": "ui-generation",
+  "version": 1,
+  "description": "Default recipe for generating a product/UI design from a prompt. Pulls principles and accessibility first, then the concrete section/component patterns, then style and copy.",
+  "systemLayers": ["system/persona", "system/guardrails"],
+  "slots": [
+    {
+      "name": "Foundational principles",
+      "categories": ["design-principle", "ux-heuristic", "visual-hierarchy", "accessibility"],
+      "limit": 4,
+      "order": 0,
+      "boost": 1.1
+    },
+    {
+      "name": "Layout and component patterns",
+      "categories": ["layout", "component", "product-pattern"],
+      "limit": 4,
+      "order": 1,
+      "boost": 1
+    },
+    {
+      "name": "Style system",
+      "categories": ["typography", "color-system", "motion", "branding"],
+      "limit": 4,
+      "order": 2,
+      "boost": 1
+    },
+    {
+      "name": "Copy and conversion",
+      "categories": ["copywriting", "conversion"],
+      "limit": 2,
+      "order": 3,
+      "boost": 0.9
+    }
+  ],
+  "weights": {
+    "similarity": 0.5,
+    "rerank": 0.2,
+    "quality": 0.15,
+    "confidence": 0.05,
+    "popularity": 0.1
+  },
+  "knowledgeTokenBudget": 3200,
+  "minSimilarity": 0.25,
+  "mmrLambda": 0.7,
+  "evalPolicy": {
+    "weights": {
+      "accessibility": 1.5,
+      "brandingConsistency": 1.3,
+      "hierarchy": 1.2,
+      "productQuality": 1.2,
+      "originality": 1.1
+    },
+    "threshold": 0.78,
+    "floors": {
+      "accessibility": 0.6
+    },
+    "maxRegenerations": 1
+  }
+}

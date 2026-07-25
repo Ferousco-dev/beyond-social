@@ -38,3 +38,6 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Validate prompt knowledge base
+        run: pnpm --filter @beyond-social/prompt-engine validate
