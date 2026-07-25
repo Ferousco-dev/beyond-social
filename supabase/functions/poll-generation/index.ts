@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { getRecordInfo } from "../_shared/kie.ts";
+import { persistRender } from "../_shared/store.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -51,11 +52,17 @@ Deno.serve(async (req) => {
   );
 
   if (info.successFlag === 1 && info.resultUrls.length > 0) {
+    const resultUrl = await persistRender(
+      admin,
+      user.id,
+      generation.provider_task_id,
+      info.resultUrls[0],
+    );
     await admin.rpc("complete_generation", {
       p_provider_task_id: generation.provider_task_id,
-      p_result_url: info.resultUrls[0],
+      p_result_url: resultUrl,
     });
-    return json({ status: "ready", resultUrl: info.resultUrls[0] });
+    return json({ status: "ready", resultUrl });
   }
   if (info.successFlag === 2 || info.successFlag === 3) {
     await admin.rpc("fail_generation", {
