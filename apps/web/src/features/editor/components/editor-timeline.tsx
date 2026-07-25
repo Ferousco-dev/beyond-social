@@ -1,37 +1,35 @@
 "use client";
 
-import { Captions, Clapperboard, Music } from "lucide-react";
-import { useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { CAPTIONS } from "@/lib/editor/data";
-import { formatTimecode, msToPx, pxToMs, snapGuides, snapMs } from "@/lib/editor/timeline";
+import { formatTimecode, msToPx, pxToMs, snapMs } from "@/lib/editor/timeline";
+import { type TrackKind } from "@/lib/editor/types";
 
-import { type ClipsState } from "../hooks/use-clips";
+import { type EditorState } from "../hooks/use-editor-state";
 import { type Playback } from "../hooks/use-playback";
-import { TimelineClip } from "./timeline/timeline-clip";
+import { TimelineItem } from "./timeline/timeline-item";
 import { TimelineRuler } from "./timeline/timeline-ruler";
 import { DEFAULT_ZOOM_INDEX, TimelineToolbar, ZOOM_LEVELS } from "./timeline/timeline-toolbar";
+import { TrackHead } from "./timeline/track-head";
 
 const SEEK_STEP_MS = 1_000;
 const SNAP_THRESHOLD_PX = 8;
 const RULER_STEP_MS = 6_000;
 
-function TrackHead({ height, children }: { height: string; children: ReactNode }) {
-  return (
-    <div
-      className={`flex ${height} items-center gap-1.5 px-3 text-[10px] font-medium uppercase tracking-wide text-ink-soft`}
-    >
-      {children}
-    </div>
-  );
-}
+/** Video reads as the widest lane; supporting tracks are shorter. */
+const TRACK_HEIGHT: Record<TrackKind, string> = {
+  video: "h-14",
+  overlay: "h-9",
+  text: "h-8",
+  audio: "h-9",
+};
 
-export function EditorTimeline({ playback, clips }: { playback: Playback; clips: ClipsState }) {
+export function EditorTimeline({ playback, editor }: { playback: Playback; editor: EditorState }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
 
   const pxPerSecond = ZOOM_LEVELS[zoomIndex] ?? ZOOM_LEVELS[DEFAULT_ZOOM_INDEX];
-  const { durationMs } = clips;
+  const { durationMs, project } = editor;
   const trackWidth = msToPx(durationMs, pxPerSecond);
   const snapThresholdMs = pxToMs(SNAP_THRESHOLD_PX, pxPerSecond);
 
@@ -41,13 +39,21 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
     return pxToMs(clientX - bounds.left, pxPerSecond);
   };
 
-  const trimClip = (id: string) => (edge: "start" | "end", ms: number) => {
-    const guides = snapGuides(
-      clips.clips.filter((clip) => clip.id !== id),
-      playback.currentMs,
+  /** Snap targets are every other item's edges plus the playhead. */
+  const guidesFor = (id: string): number[] => {
+    const edges = project.tracks.flatMap((track) =>
+      track.items
+        .filter((item) => item.id !== id)
+        .flatMap((item) => [item.startMs, item.startMs + item.durationMs]),
     );
-    clips.trim(id, edge, snapMs(ms, guides, snapThresholdMs));
+    return [...edges, playback.currentMs, 0];
   };
+
+  const trimItem = (id: string) => (edge: "start" | "end", ms: number) =>
+    editor.trim(id, edge, snapMs(ms, guidesFor(id), snapThresholdMs));
+
+  const moveItem = (id: string) => (startMs: number) =>
+    editor.move(id, snapMs(startMs, guidesFor(id), snapThresholdMs));
 
   const scrub = (event: ReactPointerEvent<HTMLDivElement>): void => {
     playback.seek(msFromClientX(event.clientX));
@@ -60,35 +66,40 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
     window.addEventListener("pointerup", end);
   };
 
+  const canSplit = project.tracks.some((track) =>
+    track.items.some(
+      (item) =>
+        playback.currentMs > item.startMs && playback.currentMs < item.startMs + item.durationMs,
+    ),
+  );
+
   return (
     <div className="flex shrink-0 flex-col border-t border-hairline bg-paper">
       <TimelineToolbar
         zoomIndex={zoomIndex}
         onZoomChange={setZoomIndex}
-        onSplit={() => clips.split(playback.currentMs)}
-        onDelete={() => clips.selectedId && clips.remove(clips.selectedId)}
-        canSplit={clips.clips.some(
-          (clip) =>
-            playback.currentMs > clip.startMs &&
-            playback.currentMs < clip.startMs + clip.durationMs,
-        )}
-        canDelete={clips.selectedId !== null && clips.clips.length > 1}
+        onSplit={() => editor.split(playback.currentMs)}
+        onDelete={() => editor.selectedId && editor.remove(editor.selectedId)}
+        onDuplicate={() => editor.selectedId && editor.duplicate(editor.selectedId)}
+        onUndo={editor.undo}
+        onRedo={editor.redo}
+        canSplit={canSplit}
+        canDelete={editor.selectedId !== null}
+        canDuplicate={editor.selectedId !== null}
+        canUndo={editor.canUndo}
+        canRedo={editor.canRedo}
       />
 
-      <div className="flex">
-        <div className="w-20 shrink-0 space-y-1.5 border-r border-hairline pt-8">
-          <TrackHead height="h-14">
-            <Clapperboard className="size-3.5" />
-            Video
-          </TrackHead>
-          <TrackHead height="h-7">
-            <Captions className="size-3.5" />
-            Text
-          </TrackHead>
-          <TrackHead height="h-8">
-            <Music className="size-3.5" />
-            Audio
-          </TrackHead>
+      <div className="flex max-h-64 overflow-y-auto">
+        <div className="w-40 shrink-0 space-y-1.5 border-r border-hairline pt-8">
+          {project.tracks.map((track) => (
+            <TrackHead
+              key={track.id}
+              track={track}
+              height={TRACK_HEIGHT[track.kind]}
+              onToggle={(key) => editor.toggleTrack(track.id, key)}
+            />
+          ))}
         </div>
 
         <div className="min-w-0 flex-1 overflow-x-auto p-3">
@@ -109,7 +120,7 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
               aria-valuenow={Math.round(playback.currentMs)}
               aria-valuetext={formatTimecode(playback.currentMs)}
               onPointerDown={(event) => {
-                clips.select(null);
+                editor.select(null);
                 scrub(event);
               }}
               onKeyDown={(event) => {
@@ -123,43 +134,27 @@ export function EditorTimeline({ playback, clips }: { playback: Playback; clips:
               }}
               className="relative cursor-pointer space-y-1.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <div className="relative h-14">
-                {clips.clips.map((clip) => (
-                  <TimelineClip
-                    key={clip.id}
-                    clip={clip}
-                    pxPerSecond={pxPerSecond}
-                    selected={clips.selectedId === clip.id}
-                    onSelect={() => clips.select(clip.id)}
-                    onTrim={trimClip(clip.id)}
-                    onMove={(startMs) => clips.move(clip.id, startMs)}
-                    msFromClientX={msFromClientX}
-                  />
-                ))}
-              </div>
-
-              <div className="relative h-7">
-                {CAPTIONS.map((caption) => (
-                  <div
-                    key={caption.id}
-                    style={{
-                      left: msToPx(caption.startMs, pxPerSecond),
-                      width: msToPx(caption.endMs - caption.startMs, pxPerSecond),
-                    }}
-                    className="absolute inset-y-0 flex items-center truncate rounded-md border border-primary/20 bg-primary/10 px-2 text-[11px] text-primary"
-                  >
-                    <span className="truncate">{caption.text}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{ width: trackWidth }}
-                className="flex h-8 items-center gap-1.5 rounded-md border border-hairline bg-cloud px-2.5 text-[11px] text-ink-soft"
-              >
-                <Music className="size-3.5 shrink-0" />
-                Sunrise Run
-              </div>
+              {project.tracks.map((track) => (
+                <div
+                  key={track.id}
+                  className={`relative ${TRACK_HEIGHT[track.kind]} ${track.hidden ? "opacity-40" : ""}`}
+                >
+                  {track.items.map((item) => (
+                    <TimelineItem
+                      key={item.id}
+                      item={item}
+                      trackKind={track.kind}
+                      pxPerSecond={pxPerSecond}
+                      selected={editor.selectedId === item.id}
+                      locked={track.locked}
+                      onSelect={() => editor.select(item.id)}
+                      onTrim={trimItem(item.id)}
+                      onMove={moveItem(item.id)}
+                      msFromClientX={msFromClientX}
+                    />
+                  ))}
+                </div>
+              ))}
 
               <div
                 aria-hidden

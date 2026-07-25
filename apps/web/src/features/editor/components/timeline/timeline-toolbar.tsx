@@ -1,6 +1,6 @@
 "use client";
 
-import { SplitSquareHorizontal, Trash2, ZoomIn, ZoomOut } from "lucide-react";
+import { Copy, Redo2, SplitSquareHorizontal, Trash2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -38,25 +38,41 @@ export function TimelineToolbar({
   onZoomChange,
   onSplit,
   onDelete,
+  onDuplicate,
+  onUndo,
+  onRedo,
   canSplit,
   canDelete,
+  canDuplicate,
+  canUndo,
+  canRedo,
 }: {
   zoomIndex: number;
   onZoomChange: (index: number) => void;
   onSplit: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   canSplit: boolean;
   canDelete: boolean;
+  canDuplicate: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
 }) {
   return (
     <div className="flex items-center gap-1 border-b border-hairline px-2 py-1.5">
+      <ToolButton label="Undo" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
+      <ToolButton label="Redo" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
+      <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
       <ToolButton
         label="Split at playhead"
         icon={SplitSquareHorizontal}
         onClick={onSplit}
         disabled={!canSplit}
       />
-      <ToolButton label="Delete clip" icon={Trash2} onClick={onDelete} disabled={!canDelete} />
+      <ToolButton label="Duplicate" icon={Copy} onClick={onDuplicate} disabled={!canDuplicate} />
+      <ToolButton label="Delete" icon={Trash2} onClick={onDelete} disabled={!canDelete} />
 
       <div className="ml-auto flex items-center gap-1">
         <ToolButton

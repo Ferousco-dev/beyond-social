@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { type ClipsState } from "./use-clips";
+import { type EditorState } from "./use-editor-state";
 import { type Playback } from "./use-playback";
 
 const SEEK_STEP_MS = 1_000;
@@ -17,26 +17,41 @@ function isTextEntry(target: EventTarget | null): boolean {
   );
 }
 
-export function useEditorShortcuts(playback: Playback, clips: ClipsState): void {
+export function useEditorShortcuts(playback: Playback, editor: EditorState): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       // The timeline and clips handle their own arrow keys before this runs.
       if (event.defaultPrevented) return;
-      if (event.metaKey || event.ctrlKey || event.altKey || isTextEntry(event.target)) return;
+      if (isTextEntry(event.target)) return;
+
+      const accel = event.metaKey || event.ctrlKey;
+
+      // Undo and redo are the only accelerator shortcuts the editor claims.
+      if (accel) {
+        const key = event.key.toLowerCase();
+        if (key === "z" && event.shiftKey) editor.redo();
+        else if (key === "z") editor.undo();
+        else if (key === "d" && editor.selectedId) editor.duplicate(editor.selectedId);
+        else return;
+        event.preventDefault();
+        return;
+      }
+
+      if (event.altKey) return;
 
       switch (event.key) {
         case " ":
           playback.toggle();
           break;
         case "s":
-          clips.split(playback.currentMs);
+          editor.split(playback.currentMs);
           break;
         case "Delete":
         case "Backspace":
-          if (clips.selectedId) clips.remove(clips.selectedId);
+          if (editor.selectedId) editor.remove(editor.selectedId);
           break;
         case "Escape":
-          clips.select(null);
+          editor.select(null);
           break;
         case "ArrowLeft":
           playback.seek(playback.currentMs - SEEK_STEP_MS);
@@ -53,5 +68,5 @@ export function useEditorShortcuts(playback: Playback, clips: ClipsState): void 
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [playback, clips]);
+  }, [playback, editor]);
 }
