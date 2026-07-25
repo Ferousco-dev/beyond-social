@@ -41,3 +41,4 @@ next-env.d.ts
 
 # Local brand source drop (copies live in apps/web/public/brand)
 logo/
+.vercel

@@ -1,0 +1,15 @@
+# Dependencies and build output; Vercel installs and builds from source.
+node_modules
+.next
+dist
+.turbo
+
+# Local development artefacts.
+.dev-logs
+*.log
+.env
+.env.local
+
+# Source assets not needed by the deployment.
+logo
+.git
