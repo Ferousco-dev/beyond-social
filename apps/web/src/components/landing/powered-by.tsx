@@ -32,21 +32,21 @@ const LOGOS: readonly LogoItem[] = [
 
 export function PoweredBy(): ReactNode {
   return (
-    <section className="border-y border-hairline bg-paper/40 py-12 sm:py-14">
+    <section className="border-y border-hairline bg-paper/40 py-6 sm:py-7">
       <Reveal className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-        <p className="text-center text-xs font-medium uppercase tracking-[0.16em] text-ink-soft">
+        <p className="text-center text-[10px] font-medium uppercase tracking-[0.16em] text-ink-soft/70">
           Built on frontier models and infrastructure
         </p>
       </Reveal>
 
-      <Reveal delay={80} className="mt-8">
-        <div className="text-ink-soft [&_a:hover]:text-ink [&_svg]:size-7 sm:[&_svg]:size-8">
+      <Reveal delay={80} className="mt-4">
+        <div className="text-ink-soft [&_a:hover]:text-ink [&_svg]:size-5 sm:[&_svg]:size-[22px]">
           <LogoLoop
             logos={LOGOS}
-            speed={38}
+            speed={32}
             direction="left"
-            logoHeight={32}
-            gap={72}
+            logoHeight={22}
+            gap={56}
             hoverSpeed={0}
             fadeOut
             scaleOnHover
