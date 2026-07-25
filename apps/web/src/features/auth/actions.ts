@@ -1,6 +1,10 @@
 "use server";
 
+import { headers } from "next/headers";
+
 import { isSupabaseConfigured } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -28,10 +32,30 @@ const NOT_CONFIGURED: AuthResult = {
 // Deliberately generic so responses never reveal whether an account exists.
 const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
 const GENERIC_ERROR = "Something went wrong. Please try again.";
+const RATE_LIMITED = "Too many attempts. Please wait a minute and try again.";
+
+async function clientIp(): Promise<string> {
+  const store = await headers();
+  return store.get("x-forwarded-for")?.split(",")[0]?.trim() || store.get("x-real-ip") || "unknown";
+}
+
+// Throttle sensitive auth actions per client IP. Returns a user-safe error when
+// the caller should back off, otherwise null.
+async function throttle(action: string, limit: number): Promise<AuthResult | null> {
+  const ip = await clientIp();
+  const result = rateLimit(`${action}:${ip}`, limit, 60_000);
+  if (!result.ok) {
+    logger.warn("auth action rate limited", { action, ip });
+    return { status: "error", message: RATE_LIMITED };
+  }
+  return null;
+}
 
 export async function signInAction(input: LoginInput): Promise<AuthResult> {
   const parsed = loginSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  const limited = await throttle("signin", 10);
+  if (limited) return limited;
   if (!isSupabaseConfigured) return NOT_CONFIGURED;
 
   const supabase = await createClient();
@@ -47,6 +71,8 @@ export async function signInAction(input: LoginInput): Promise<AuthResult> {
 export async function signUpAction(input: SignupInput): Promise<AuthResult> {
   const parsed = signupSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  const limited = await throttle("signup", 5);
+  if (limited) return limited;
   if (!isSupabaseConfigured) return NOT_CONFIGURED;
 
   const supabase = await createClient();
@@ -66,6 +92,8 @@ export async function signUpAction(input: SignupInput): Promise<AuthResult> {
 export async function requestPasswordResetAction(input: ForgotPasswordInput): Promise<AuthResult> {
   const parsed = forgotPasswordSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  const limited = await throttle("reset", 5);
+  if (limited) return limited;
 
   // Always report success so the response does not disclose account existence.
   if (isSupabaseConfigured) {
