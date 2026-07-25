@@ -91,7 +91,8 @@ language sql stable security definer set search_path = public as $$
       'updatedAt', to_char(now(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))) as score,
     1 - (c.embedding <=> q.vec) as similarity,
     ts_rank(c.body_tsv, q.tsq) as lexical_rank
-  from prompt_chunks c, q
+  from prompt_chunks c
+  cross join q
   left join prompt_scores s on s.chunk_id = c.id
   where c.status = any(coalesce(p_status, array['active']))
     and (p_categories is null or c.category = any(p_categories))
