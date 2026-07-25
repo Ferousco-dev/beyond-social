@@ -25,7 +25,9 @@ export function DashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex h-dvh bg-canvas text-ink">
+    // The workspace is a dark "operating environment" regardless of the global
+    // theme; the `dark` class scopes the dark token set to this subtree.
+    <div className="dark flex h-dvh bg-canvas text-ink">
       <aside
         className={cn(
           "shrink-0 border-r border-hairline",

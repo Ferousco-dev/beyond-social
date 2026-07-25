@@ -53,44 +53,47 @@
 }
 
 .dark {
-  --background: #09090b;
-  --foreground: #f9fafb;
+  /* Refined "operating environment" dark palette. Depth comes from stepped
+     surface lightness and crisp low-alpha hairlines, not shadows or glow. */
+  --background: #0b0b0e;
+  --foreground: #f4f4f5;
 
-  --card: #111827;
-  --card-foreground: #f9fafb;
+  --card: #141418;
+  --card-foreground: #f4f4f5;
 
-  --popover: #111827;
-  --popover-foreground: #f9fafb;
+  --popover: #141418;
+  --popover-foreground: #f4f4f5;
 
-  --primary: #0066ff;
+  --primary: #3b82f6; /* restrained, slightly brighter blue for dark surfaces */
   --primary-foreground: #ffffff;
 
-  --secondary: #1f2937;
-  --secondary-foreground: #f9fafb;
+  --secondary: #1a1a1f;
+  --secondary-foreground: #f4f4f5;
 
-  --muted: #1f2937;
-  --muted-foreground: #9ca3af;
+  --muted: #1a1a1f;
+  --muted-foreground: #8a8a94;
 
-  --accent: #1f2937;
-  --accent-foreground: #f9fafb;
+  --accent: #1c1c22;
+  --accent-foreground: #f4f4f5;
 
-  --destructive: #dc2626;
+  --destructive: #f04438;
   --destructive-foreground: #ffffff;
 
-  --success: #16a34a;
+  --success: #22c55e;
   --warning: #f59e0b;
-  --info: #2563eb;
+  --info: #3b82f6;
 
-  --border: #27272a;
-  --input: #27272a;
-  --ring: #66a3ff;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: rgba(59, 130, 246, 0.6);
 
-  --canvas: #212121;
-  --paper: #2f2f2f;
-  --cloud: #3a3a3a;
-  --hairline: rgba(255, 255, 255, 0.12);
-  --ink: #ececec;
-  --ink-soft: #a8a8a8;
+  /* App (workspace) surfaces: canvas (deepest) < paper < cloud (raised/hover). */
+  --canvas: #0b0b0e;
+  --paper: #141418;
+  --cloud: #1e1e24;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --ink: #f4f4f5;
+  --ink-soft: #8a8a94;
 }
 
 @theme inline {
