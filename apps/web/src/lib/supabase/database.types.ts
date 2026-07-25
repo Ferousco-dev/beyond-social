@@ -227,6 +227,59 @@ export type Database = {
           },
         ];
       };
+      organization_members: {
+        Row: {
+          joined_at: string;
+          org_id: string;
+          role: Database["public"]["Enums"]["org_role"];
+          user_id: string;
+        };
+        Insert: {
+          joined_at?: string;
+          org_id: string;
+          role?: Database["public"]["Enums"]["org_role"];
+          user_id: string;
+        };
+        Update: {
+          joined_at?: string;
+          org_id?: string;
+          role?: Database["public"]["Enums"]["org_role"];
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organizations: {
+        Row: {
+          created_at: string;
+          created_by: string;
+          id: string;
+          name: string;
+          slug: string;
+        };
+        Insert: {
+          created_at?: string;
+          created_by: string;
+          id?: string;
+          name: string;
+          slug: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string;
+          id?: string;
+          name?: string;
+          slug?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           avatar_url: string | null;
@@ -273,6 +326,7 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
+          org_id: string | null;
           pinned: boolean;
           title: string;
           updated_at: string;
@@ -281,6 +335,7 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
+          org_id?: string | null;
           pinned?: boolean;
           title?: string;
           updated_at?: string;
@@ -289,12 +344,20 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
+          org_id?: string | null;
           pinned?: boolean;
           title?: string;
           updated_at?: string;
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "projects_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "projects_user_id_fkey";
             columns: ["user_id"];
@@ -712,9 +775,20 @@ export type Database = {
         Args: { p_provider_task_id: string; p_result_url: string };
         Returns: undefined;
       };
+      create_organization: {
+        Args: { p_name: string; p_slug: string };
+        Returns: string;
+      };
       fail_generation: {
         Args: { p_error: string; p_provider_task_id: string };
         Returns: undefined;
+      };
+      is_org_member: {
+        Args: {
+          p_min_role?: Database["public"]["Enums"]["org_role"];
+          p_org: string;
+        };
+        Returns: boolean;
       };
       prompt_apply_scores: { Args: { p_scores: Json }; Returns: undefined };
       prompt_deprecate: { Args: { p_ids: string[] }; Returns: undefined };
@@ -772,11 +846,20 @@ export type Database = {
         Returns: undefined;
       };
       reset_due_credits: { Args: never; Returns: undefined };
+      set_member_role: {
+        Args: {
+          p_org: string;
+          p_role: Database["public"]["Enums"]["org_role"];
+          p_user: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       asset_kind: "photo" | "video" | "audio";
       generation_status: "queued" | "generating" | "ready" | "failed";
       message_role: "user" | "assistant";
+      org_role: "owner" | "admin" | "member";
       post_status: "scheduled" | "publishing" | "published" | "failed";
       social_platform: "tiktok" | "instagram" | "facebook" | "youtube";
       user_role: "user" | "admin";
@@ -904,6 +987,7 @@ export const Constants = {
       asset_kind: ["photo", "video", "audio"],
       generation_status: ["queued", "generating", "ready", "failed"],
       message_role: ["user", "assistant"],
+      org_role: ["owner", "admin", "member"],
       post_status: ["scheduled", "publishing", "published", "failed"],
       social_platform: ["tiktok", "instagram", "facebook", "youtube"],
       user_role: ["user", "admin"],
