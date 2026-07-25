@@ -1,0 +1,29 @@
+import { NextResponse } from "next/server";
+
+import { authenticateRequest } from "@/lib/api/authenticate";
+import { createServiceClient } from "@/lib/supabase/service";
+
+/** Public API: rolled-up AI usage for the caller over the last 30 days. */
+export const dynamic = "force-dynamic";
+
+export async function GET(request: Request): Promise<NextResponse> {
+  const caller = await authenticateRequest(request);
+  if (!caller) {
+    return NextResponse.json(
+      { error: "unauthorized", message: "Provide a valid API key as a bearer token." },
+      { status: 401 },
+    );
+  }
+
+  const since = new Date(Date.now() - 30 * 24 * 3600_000).toISOString();
+  const service = createServiceClient();
+  const { data, error } = await service.rpc("ai_usage_summary", {
+    p_user: caller.userId,
+    p_since: since,
+  });
+
+  if (error) return NextResponse.json({ error: "server_error" }, { status: 500 });
+
+  const row = Array.isArray(data) ? data[0] : data;
+  return NextResponse.json({ object: "usage", period_days: 30, data: row ?? null });
+}
