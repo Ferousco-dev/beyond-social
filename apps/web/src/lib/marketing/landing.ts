@@ -40,6 +40,9 @@ function unsplash(id: string, width: number, height: number): string {
 export const HERO_IMAGE = unsplash("photo-1611784728558-6c7d9b409cdf", 1200, 800);
 export const HERO_IMAGE_ALT = "Creator filming with a professional video camera";
 
+export const CTA_IMAGE = unsplash("photo-1603126004251-d01882b9bfd3", 1200, 900);
+export const CTA_IMAGE_ALT = "Silhouette of a camera operator against a bright sky";
+
 export const FEATURES: readonly Feature[] = [
   {
     icon: Wand2,
