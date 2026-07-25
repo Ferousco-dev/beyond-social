@@ -1,0 +1,65 @@
+{
+  "id": "video-generation",
+  "version": 1,
+  "description": "Default recipe for turning a brief (or a product image) into a short-form video plan and generation prompts. Pulls foundations and story first, then cinematography and look, then style/format, then platform and quality guardrails.",
+  "systemLayers": ["system/video-director", "system/guardrails"],
+  "slots": [
+    {
+      "name": "Foundations and story",
+      "categories": ["video-prompting", "narrative", "short-form"],
+      "limit": 4,
+      "order": 0,
+      "boost": 1.15
+    },
+    {
+      "name": "Cinematography and camera",
+      "categories": ["cinematography", "camera-movement", "lighting", "color-grading"],
+      "limit": 5,
+      "order": 1,
+      "boost": 1
+    },
+    {
+      "name": "Style and format",
+      "categories": ["video-style", "video-pattern"],
+      "limit": 3,
+      "order": 2,
+      "boost": 1
+    },
+    {
+      "name": "Pacing, audio, and edit",
+      "categories": ["pacing", "audio", "editing"],
+      "limit": 3,
+      "order": 3,
+      "boost": 0.95
+    },
+    {
+      "name": "Platform and quality guardrails",
+      "categories": ["platform-format", "video-quality"],
+      "limit": 3,
+      "order": 4,
+      "boost": 1.05
+    }
+  ],
+  "weights": {
+    "similarity": 0.5,
+    "rerank": 0.2,
+    "quality": 0.15,
+    "confidence": 0.05,
+    "popularity": 0.1
+  },
+  "knowledgeTokenBudget": 4000,
+  "minSimilarity": 0.25,
+  "mmrLambda": 0.7,
+  "evalPolicy": {
+    "weights": {
+      "productQuality": 1.4,
+      "originality": 1.2,
+      "creativity": 1.2,
+      "consistency": 1.2,
+      "brandingConsistency": 1.2
+    },
+    "threshold": 0.78,
+    "floors": {},
+    "maxRegenerations": 1
+  }
+}

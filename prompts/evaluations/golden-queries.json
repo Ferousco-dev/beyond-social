@@ -48,6 +48,44 @@
       "productType": "onboarding",
       "platform": "mobile",
       "expectedChunkIds": ["motion-principles", "onboarding-first-run"]
+    },
+    {
+      "query": "Write a cinematic product video prompt from a single product photo",
+      "productType": "product-video",
+      "platform": "tiktok",
+      "expectedChunkIds": [
+        "video-prompt-structure",
+        "video-image-to-video",
+        "style-product-hero",
+        "camera-movement-types"
+      ]
+    },
+    {
+      "query": "Make a TikTok hook that stops the scroll for a skincare ad",
+      "productType": "ad-creative",
+      "platform": "tiktok",
+      "expectedChunkIds": ["short-form-hook", "format-ad-creative", "narrative-story-structure"]
+    },
+    {
+      "query": "How should I light and frame a talking avatar explainer",
+      "productType": "talking-avatar",
+      "platform": "youtube",
+      "expectedChunkIds": [
+        "lighting-fundamentals",
+        "format-talking-avatar",
+        "cinematography-shot-types"
+      ]
+    },
+    {
+      "query": "Keep the same character looking consistent across multiple generated shots",
+      "productType": "short-form-video",
+      "expectedChunkIds": ["quality-consistency", "color-continuity", "video-image-to-video"]
+    },
+    {
+      "query": "Best aspect ratio and length for Instagram Reels",
+      "productType": "short-form-video",
+      "platform": "instagram",
+      "expectedChunkIds": ["platform-aspect-ratios", "platform-duration", "platform-playbook"]
     }
   ]
 }

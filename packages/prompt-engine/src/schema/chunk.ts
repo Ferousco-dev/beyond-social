@@ -8,6 +8,7 @@ import { z } from "zod";
  */
 
 export const CHUNK_CATEGORIES = [
+  // Product / UI design domain.
   "design-principle",
   "ux-heuristic",
   "typography",
@@ -22,12 +23,38 @@ export const CHUNK_CATEGORIES = [
   "conversion",
   "product-pattern",
   "example",
+  // Video generation domain (the core product surface).
+  "video-prompting",
+  "cinematography",
+  "camera-movement",
+  "lighting",
+  "color-grading",
+  "editing",
+  "pacing",
+  "audio",
+  "narrative",
+  "video-style",
+  "platform-format",
+  "video-pattern",
+  "video-quality",
+  "short-form",
 ] as const;
 
 export const chunkCategorySchema = z.enum(CHUNK_CATEGORIES);
 export type ChunkCategory = z.infer<typeof chunkCategorySchema>;
 
-export const PLATFORMS = ["web", "mobile", "ios", "android", "email"] as const;
+export const PLATFORMS = [
+  "web",
+  "mobile",
+  "ios",
+  "android",
+  "email",
+  // Video delivery surfaces.
+  "tiktok",
+  "instagram",
+  "youtube",
+  "facebook",
+] as const;
 export const platformSchema = z.enum(PLATFORMS);
 export type Platform = z.infer<typeof platformSchema>;
 
@@ -41,6 +68,13 @@ export const PRODUCT_TYPES = [
   "blog",
   "auth",
   "onboarding",
+  // Video output types.
+  "short-form-video",
+  "talking-avatar",
+  "product-video",
+  "ad-creative",
+  "explainer",
+  "ugc",
 ] as const;
 export const productTypeSchema = z.enum(PRODUCT_TYPES);
 export type ProductType = z.infer<typeof productTypeSchema>;

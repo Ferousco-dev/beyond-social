@@ -27,6 +27,31 @@ derived and runtime data never live here (see the note in ARCHITECTURE).
 | `retrieval/`                                              | Retrieval configuration notes                                               | authored        |
 | `embeddings/` `chunks/` `memory/` `feedback/` `training/` | **Subsystem docs only.** The data lives in Postgres/pgvector, not in files. | docs            |
 
+## Video generation domain (`video/`)
+
+Beyond Social generates video, so the largest knowledge domain is the craft of
+directing and prompting it. These chunks teach a generator to produce
+senior-level, platform-native short-form video.
+
+| Folder                  | Holds                                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| `video/prompting/`      | How to write video prompts: structure, specificity, image-to-video, templates, iteration |
+| `video/cinematography/` | Shot sizes, composition, camera angle and lens                                           |
+| `video/camera/`         | Camera movement vocabulary and motivated movement                                        |
+| `video/lighting/`       | Lighting fundamentals, natural light, mood/low-key                                       |
+| `video/color/`          | Color grading looks and multi-shot continuity                                            |
+| `video/editing/`        | Cuts and transitions, continuity, pacing, time (slow-mo/timelapse)                       |
+| `video/audio/`          | Music and mood, sound design and voiceover                                               |
+| `video/narrative/`      | Story structure, show-don't-tell                                                         |
+| `video/short-form/`     | The hook, retention, captions, loopability                                               |
+| `video/platform/`       | Aspect ratios, per-platform playbook, duration                                           |
+| `video/styles/`         | Cinematic, UGC/authentic, animation, product-hero                                        |
+| `video/formats/`        | Product video, talking avatar, ad creative, explainer                                    |
+| `video/quality/`        | Avoiding artifacts, character/scene consistency                                          |
+
+This corpus is intended to be strong enough to publish as an open-source video
+prompting knowledge base; hold every chunk to that bar.
+
 ## Authoring a chunk
 
 One concept per file. Frontmatter + Markdown body:
