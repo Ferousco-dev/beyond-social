@@ -1,10 +1,9 @@
 import { type ReactNode } from "react";
 
+import { ClosingPanel } from "@/components/landing/closing-panel";
 import { FeatureBento } from "@/components/landing/feature-bento";
-import { FinalCta } from "@/components/landing/final-cta";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { LandingFaq } from "@/components/landing/landing-faq";
-import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingPricing } from "@/components/landing/landing-pricing";
@@ -30,9 +29,8 @@ export default function HomePage(): ReactNode {
         <Showcase />
         <LandingPricing />
         <LandingFaq />
-        <FinalCta />
       </main>
-      <LandingFooter />
+      <ClosingPanel />
     </div>
   );
 }
