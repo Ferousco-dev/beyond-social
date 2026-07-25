@@ -12,12 +12,16 @@ import {
   type ReactNode,
 } from "react";
 
-import { PROJECT_GROUPS } from "@/lib/dashboard/data";
+import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
-const ALL_PROJECTS = PROJECT_GROUPS.flatMap((group) => group.projects);
-
-export function SearchDialog({ children }: { children: ReactNode }) {
+export function SearchDialog({
+  projects,
+  children,
+}: {
+  projects: readonly SidebarProject[];
+  children: ReactNode;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -25,9 +29,9 @@ export function SearchDialog({ children }: { children: ReactNode }) {
 
   const results = useMemo(() => {
     const value = query.trim().toLowerCase();
-    if (!value) return ALL_PROJECTS;
-    return ALL_PROJECTS.filter((project) => project.title.toLowerCase().includes(value));
-  }, [query]);
+    if (!value) return projects;
+    return projects.filter((project) => project.title.toLowerCase().includes(value));
+  }, [query, projects]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

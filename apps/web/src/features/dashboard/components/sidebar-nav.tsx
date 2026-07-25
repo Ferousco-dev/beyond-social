@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment } from "react";
 
+import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
 import { SearchDialog } from "./search-dialog";
@@ -52,7 +53,13 @@ const LINKS: readonly NavLink[] = [
   },
 ];
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+export function SidebarNav({
+  projects,
+  onNavigate,
+}: {
+  projects: readonly SidebarProject[];
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
 
   const isActive = (link: NavLink): boolean =>
@@ -84,7 +91,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
 
             {/* Search sits directly under the primary action, as before. */}
             {index === 0 ? (
-              <SearchDialog>
+              <SearchDialog projects={projects}>
                 <button type="button" className={cn(ITEM, "text-ink hover:bg-cloud")}>
                   <Search
                     className={cn("size-4 shrink-0", MOTION, "group-hover:scale-110")}

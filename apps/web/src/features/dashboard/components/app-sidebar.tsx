@@ -37,7 +37,7 @@ export function AppSidebar({
         ) : null}
       </div>
 
-      <SidebarNav onNavigate={onNavigate} />
+      <SidebarNav projects={projects} onNavigate={onNavigate} />
 
       <nav aria-label="Projects" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
         <SidebarProjects initialItems={projects} onNavigate={onNavigate} />
