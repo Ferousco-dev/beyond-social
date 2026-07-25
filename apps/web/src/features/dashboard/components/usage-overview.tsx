@@ -1,6 +1,8 @@
 import { Activity, CircleSlash, Coins, Database, Timer, Zap } from "lucide-react";
 import { type ReactNode } from "react";
 
+import { UpgradePanel } from "@/features/billing/components/upgrade-panel";
+import { getCurrentPlan } from "@/lib/billing/current-plan";
 import {
   USAGE_WINDOWS,
   getUsageSummary,
@@ -35,7 +37,7 @@ const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFracti
 
 /** AI spend and reliability for the signed-in user, from gateway usage records. */
 export async function UsageOverview({ window }: { window: UsageWindowId }): Promise<ReactNode> {
-  const summary = await getUsageSummary(window);
+  const [summary, plan] = await Promise.all([getUsageSummary(window), getCurrentPlan()]);
   const label = USAGE_WINDOWS.find((option) => option.id === window)?.label ?? "24 hours";
   const cacheRate = summary.calls > 0 ? summary.cachedCalls / summary.calls : 0;
   const failureRate = summary.calls > 0 ? summary.failedCalls / summary.calls : 0;
@@ -101,6 +103,8 @@ export async function UsageOverview({ window }: { window: UsageWindowId }): Prom
           </p>
         </div>
       )}
+
+      <UpgradePanel currentPlan={plan} />
     </div>
   );
 }
