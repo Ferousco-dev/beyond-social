@@ -2,6 +2,7 @@
 
 import {
   Gauge,
+  KeyRound,
   LayoutDashboard,
   Users,
   PenSquare,
@@ -63,6 +64,12 @@ const LINKS: readonly NavLink[] = [
     href: "/dashboard/team" as Route,
     label: "Team",
     icon: Users,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/api-keys" as Route,
+    label: "API keys",
+    icon: KeyRound,
     motion: "group-hover:scale-110",
   },
   {
