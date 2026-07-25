@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { parseUrls } from "../_shared/kie.ts";
+import { timingSafeEqual } from "../_shared/security.ts";
 import { persistRender } from "../_shared/store.ts";
 
 interface CallbackBody {
@@ -23,7 +24,8 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const expected = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  if (!expected || url.searchParams.get("token") !== expected) {
+  const provided = url.searchParams.get("token") ?? "";
+  if (!expected || !timingSafeEqual(provided, expected)) {
     return json({ error: "Forbidden" }, 403);
   }
 
