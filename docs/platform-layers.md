@@ -22,9 +22,9 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 12  | Infrastructure         | Partial     | Vercel deploys, Docker Compose for Redis. No k8s, GPU, or autoscaling.                                                                                                                                                                                        |
 | 13  | Security               | Partial     | CSP, HSTS, RLS, service-role isolation, constant-time webhook auth, auth rate limiting, Zod at boundaries, prompt-injection screening and input/output moderation in the gateway. No malware scanning or secret management.                                   |
 | 14  | AI evaluation          | Built       | 11-dimension LLM judge with deterministic checks, versioned policy gate, golden retrieval set.                                                                                                                                                                |
-| 15  | Observability          | Partial     | Structured logger, health/readiness probes, and now per-call latency, tokens, and cost from the gateway. No tracing or dashboards.                                                                                                                            |
+| 15  | Observability          | Partial     | Structured logger, health/readiness probes, per-call latency/tokens/cost persisted to `ai_usage`, and a usage dashboard. No distributed tracing.                                                                                                              |
 | 16  | Billing                | Partial     | Credits with idempotent charge-on-completion and a ledger. No Stripe, plans, or invoices.                                                                                                                                                                     |
-| 17  | Analytics              | Not started | Dashboard charts are placeholder data.                                                                                                                                                                                                                        |
+| 17  | Analytics              | Partial     | Real AI usage analytics (spend, calls, cache rate, latency, failure rate). Product analytics and funnels still placeholder.                                                                                                                                   |
 | 18  | Admin platform         | Not started | No admin UI, moderation, or feature flags.                                                                                                                                                                                                                    |
 | 19  | Developer platform     | Not started | No CLI, SDK, or public docs.                                                                                                                                                                                                                                  |
 | 20  | DevOps & SRE           | Partial     | CI runs lint, typecheck, build, gateway tests, knowledge validation. Vercel deploys. No blue-green, rollback drill, or incident process.                                                                                                                      |
@@ -81,6 +81,8 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
    policy are still open.
 3. **Billing (16)** — Stripe on top of the existing credit ledger and the
    gateway's cost records.
-4. **Usage dashboard (1, 15, 17)** — the data already exists; it needs a surface.
+4. ~~Usage dashboard (1, 15, 17)~~ — **done**: gateway usage persists to
+   `ai_usage` (RLS-scoped, service-role writes) and surfaces at
+   `/dashboard/usage` with spend, cache rate, latency, and failure rate.
 5. **Orgs, teams, RBAC (1, 2)** — the multi-tenant seams are in place (nullable
    `workspace_id`) but nothing enforces them yet.

@@ -8,6 +8,63 @@ export type Database = {
   };
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          attempts: number;
+          cached: boolean;
+          cost_usd: number;
+          created_at: string;
+          error: string | null;
+          fallbacks: number;
+          id: number;
+          input_tokens: number;
+          latency_ms: number;
+          model: string;
+          ok: boolean;
+          output_tokens: number;
+          provider: string;
+          request_id: string;
+          task: string;
+          user_id: string | null;
+        };
+        Insert: {
+          attempts?: number;
+          cached?: boolean;
+          cost_usd?: number;
+          created_at?: string;
+          error?: string | null;
+          fallbacks?: number;
+          id?: number;
+          input_tokens?: number;
+          latency_ms?: number;
+          model: string;
+          ok?: boolean;
+          output_tokens?: number;
+          provider: string;
+          request_id: string;
+          task: string;
+          user_id?: string | null;
+        };
+        Update: {
+          attempts?: number;
+          cached?: boolean;
+          cost_usd?: number;
+          created_at?: string;
+          error?: string | null;
+          fallbacks?: number;
+          id?: number;
+          input_tokens?: number;
+          latency_ms?: number;
+          model?: string;
+          ok?: boolean;
+          output_tokens?: number;
+          provider?: string;
+          request_id?: string;
+          task?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       assets: {
         Row: {
           created_at: string;
@@ -211,6 +268,87 @@ export type Database = {
           },
         ];
       };
+      prompt_audit_log: {
+        Row: {
+          action: string;
+          candidate_id: string | null;
+          chunk_id: string | null;
+          created_at: string;
+          data: Json;
+          id: string;
+          workspace_id: string | null;
+        };
+        Insert: {
+          action: string;
+          candidate_id?: string | null;
+          chunk_id?: string | null;
+          created_at?: string;
+          data: Json;
+          id: string;
+          workspace_id?: string | null;
+        };
+        Update: {
+          action?: string;
+          candidate_id?: string | null;
+          chunk_id?: string | null;
+          created_at?: string;
+          data?: Json;
+          id?: string;
+          workspace_id?: string | null;
+        };
+        Relationships: [];
+      };
+      prompt_candidates: {
+        Row: {
+          created_at: string;
+          data: Json;
+          id: string;
+          status: string;
+          updated_at: string;
+          workspace_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          data: Json;
+          id: string;
+          status?: string;
+          updated_at?: string;
+          workspace_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          data?: Json;
+          id?: string;
+          status?: string;
+          updated_at?: string;
+          workspace_id?: string | null;
+        };
+        Relationships: [];
+      };
+      prompt_chunk_versions: {
+        Row: {
+          chunk_id: string;
+          created_at: string;
+          data: Json;
+          reason: string;
+          version: number;
+        };
+        Insert: {
+          chunk_id: string;
+          created_at?: string;
+          data: Json;
+          reason: string;
+          version: number;
+        };
+        Update: {
+          chunk_id?: string;
+          created_at?: string;
+          data?: Json;
+          reason?: string;
+          version?: number;
+        };
+        Relationships: [];
+      };
       prompt_chunks: {
         Row: {
           body_tsv: unknown;
@@ -247,6 +385,36 @@ export type Database = {
           product_types?: string[];
           status?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      prompt_experiments: {
+        Row: {
+          created_at: string;
+          id: string;
+          metrics: Json;
+          name: string;
+          status: string;
+          updated_at: string;
+          variants: Json;
+        };
+        Insert: {
+          created_at?: string;
+          id: string;
+          metrics?: Json;
+          name: string;
+          status?: string;
+          updated_at?: string;
+          variants?: Json;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          metrics?: Json;
+          name?: string;
+          status?: string;
+          updated_at?: string;
+          variants?: Json;
         };
         Relationships: [];
       };
@@ -416,6 +584,19 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      ai_usage_record: { Args: { p_usage: Json }; Returns: undefined };
+      ai_usage_summary: {
+        Args: { p_since: string; p_user: string };
+        Returns: {
+          cached_calls: number;
+          calls: number;
+          cost_usd: number;
+          failed_calls: number;
+          input_tokens: number;
+          output_tokens: number;
+          p50_latency_ms: number;
+        }[];
+      };
       claim_due_posts: {
         Args: { p_limit?: number };
         Returns: {
@@ -449,11 +630,32 @@ export type Database = {
       };
       prompt_apply_scores: { Args: { p_scores: Json }; Returns: undefined };
       prompt_deprecate: { Args: { p_ids: string[] }; Returns: undefined };
+      prompt_get_candidate: {
+        Args: { p_id: string };
+        Returns: {
+          data: Json;
+        }[];
+      };
       prompt_get_scores: {
         Args: { p_ids: string[] };
         Returns: {
           data: Json;
         }[];
+      };
+      prompt_list_candidates: {
+        Args: { p_status: string; p_workspace: string };
+        Returns: {
+          data: Json;
+        }[];
+      };
+      prompt_log_audit: { Args: { p_entry: Json }; Returns: undefined };
+      prompt_record_candidate: {
+        Args: { p_candidate: Json };
+        Returns: undefined;
+      };
+      prompt_save_version: {
+        Args: { p_chunk: Json; p_reason: string };
+        Returns: undefined;
       };
       prompt_search: {
         Args: {
@@ -472,6 +674,10 @@ export type Database = {
           score: Json;
           similarity: number;
         }[];
+      };
+      prompt_set_candidate_status: {
+        Args: { p_id: string; p_status: string };
+        Returns: undefined;
       };
       prompt_upsert_chunk: {
         Args: { p_chunk: Json; p_embedding: Json };
