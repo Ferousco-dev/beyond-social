@@ -2,7 +2,7 @@ import { PanelLeft } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
-import { type DashboardUser } from "@/lib/dashboard/data";
+import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { SidebarNav } from "./sidebar-nav";
 import { SidebarProjects } from "./sidebar-projects";
@@ -10,10 +10,12 @@ import { UserButton } from "./user-button";
 
 export function AppSidebar({
   user,
+  projects,
   onNavigate,
   onCollapse,
 }: {
   user: DashboardUser;
+  projects: readonly SidebarProject[];
   onNavigate?: () => void;
   onCollapse?: () => void;
 }): ReactNode {
@@ -38,7 +40,7 @@ export function AppSidebar({
       <SidebarNav onNavigate={onNavigate} />
 
       <nav aria-label="Projects" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
-        <SidebarProjects onNavigate={onNavigate} />
+        <SidebarProjects initialItems={projects} onNavigate={onNavigate} />
       </nav>
 
       <UserButton user={user} />

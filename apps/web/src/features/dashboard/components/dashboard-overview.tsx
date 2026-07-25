@@ -3,7 +3,7 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { getCredits, getProjectGroups } from "@/lib/dashboard/queries";
+import { getCredits, getHistory, getProjectGroups } from "@/lib/dashboard/queries";
 
 import { HistoryList } from "./overview/history-list";
 import { PlatformBars } from "./overview/platform-bars";
@@ -24,7 +24,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export async function DashboardOverview(): Promise<ReactNode> {
-  const [credits, projectGroups] = await Promise.all([getCredits(), getProjectGroups()]);
+  const [credits, projectGroups, history] = await Promise.all([
+    getCredits(),
+    getProjectGroups(),
+    getHistory(),
+  ]);
   const activeProjects = projectGroups.flatMap((group) => group.projects).slice(0, 3);
   const remaining = credits.total - credits.used;
   const remainingPercent = Math.round((remaining / credits.total) * 100);
@@ -36,7 +40,7 @@ export async function DashboardOverview(): Promise<ReactNode> {
       <p className="mt-1 text-sm text-ink-soft">How your videos are performing.</p>
 
       <div className="mt-6">
-        <StatTiles />
+        <StatTiles history={history} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
@@ -107,7 +111,7 @@ export async function DashboardOverview(): Promise<ReactNode> {
       </Section>
 
       <Section title="Generation history">
-        <HistoryList />
+        <HistoryList initialItems={history} />
       </Section>
 
       {/* Owns its own heading, so it is not wrapped in a Section. */}

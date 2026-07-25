@@ -6,32 +6,24 @@ import { type Route } from "next";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-import { PROJECT_GROUPS } from "@/lib/dashboard/data";
+import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
-interface Item {
-  id: string;
-  title: string;
-  group: string;
-  pinned: boolean;
-}
+type Item = SidebarProject;
 
-const INITIAL: Item[] = PROJECT_GROUPS.flatMap((group) =>
-  group.projects.map((project) => ({
-    id: project.id,
-    title: project.title,
-    group: group.label,
-    pinned: false,
-  })),
-);
-
-const GROUP_ORDER = ["Today", "Previous 7 days"];
+const GROUP_ORDER = ["Today", "Previous 7 days", "Older"];
 
 const MENU_ITEM =
   "flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud";
 
-export function SidebarProjects({ onNavigate }: { onNavigate?: () => void }) {
-  const [items, setItems] = useState<Item[]>(INITIAL);
+export function SidebarProjects({
+  initialItems,
+  onNavigate,
+}: {
+  initialItems: readonly SidebarProject[];
+  onNavigate?: () => void;
+}) {
+  const [items, setItems] = useState<Item[]>(() => [...initialItems]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);

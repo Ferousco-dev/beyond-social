@@ -6,7 +6,7 @@ import {
   formatCount,
   trendPercent,
 } from "@/lib/dashboard/analytics";
-import { HISTORY } from "@/lib/dashboard/data";
+import { type HistoryItem } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
 interface Stat {
@@ -15,7 +15,7 @@ interface Stat {
   readonly delta?: number;
 }
 
-function buildStats(): readonly Stat[] {
+function buildStats(history: readonly HistoryItem[]): readonly Stat[] {
   const weekViews = VIEWS_LAST_7_DAYS.reduce((total, day) => total + day.views, 0);
   const totalReach = PLATFORM_REACH.reduce((total, row) => total + row.views, 0);
 
@@ -28,19 +28,19 @@ function buildStats(): readonly Stat[] {
     { label: "Total reach", value: formatCount(totalReach) },
     {
       label: "Published",
-      value: String(HISTORY.filter((item) => item.status === "Published").length),
+      value: String(history.filter((item) => item.status === "Published").length),
     },
     {
       label: "Scheduled",
-      value: String(HISTORY.filter((item) => item.status === "Scheduled").length),
+      value: String(history.filter((item) => item.status === "Scheduled").length),
     },
   ];
 }
 
-export function StatTiles() {
+export function StatTiles({ history }: { history: readonly HistoryItem[] }) {
   return (
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {buildStats().map((stat) => {
+      {buildStats(history).map((stat) => {
         const rising = (stat.delta ?? 0) >= 0;
         const Arrow: LucideIcon = rising ? ArrowUpRight : ArrowDownRight;
 

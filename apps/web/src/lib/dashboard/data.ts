@@ -22,6 +22,13 @@ export interface DashboardUser {
   readonly initials: string;
 }
 
+export interface SidebarProject {
+  readonly id: string;
+  readonly title: string;
+  readonly group: string;
+  readonly pinned: boolean;
+}
+
 export interface HistoryItem {
   readonly id: string;
   readonly title: string;

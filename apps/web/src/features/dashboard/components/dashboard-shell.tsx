@@ -6,13 +6,21 @@ import { useState, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
-import { type DashboardUser } from "@/lib/dashboard/data";
+import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
 import { RouteProgress } from "./route-progress";
 import { WorkspaceMenu } from "./workspace-menu";
 
-export function DashboardShell({ user, children }: { user: DashboardUser; children: ReactNode }) {
+export function DashboardShell({
+  user,
+  projects,
+  children,
+}: {
+  user: DashboardUser;
+  projects: readonly SidebarProject[];
+  children: ReactNode;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -24,7 +32,7 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
           collapsed ? "hidden" : "hidden w-[260px] lg:block",
         )}
       >
-        <AppSidebar user={user} onCollapse={() => setCollapsed(true)} />
+        <AppSidebar user={user} projects={projects} onCollapse={() => setCollapsed(true)} />
       </aside>
 
       {drawerOpen ? (
@@ -36,7 +44,7 @@ export function DashboardShell({ user, children }: { user: DashboardUser; childr
             className="absolute inset-0 cursor-default bg-black/40"
           />
           <div className="absolute inset-y-0 left-0 w-[280px] border-r border-hairline">
-            <AppSidebar user={user} onNavigate={() => setDrawerOpen(false)} />
+            <AppSidebar user={user} projects={projects} onNavigate={() => setDrawerOpen(false)} />
           </div>
         </div>
       ) : null}

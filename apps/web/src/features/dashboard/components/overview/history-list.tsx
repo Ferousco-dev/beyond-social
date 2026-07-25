@@ -6,7 +6,7 @@ import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { HISTORY, type HistoryItem } from "@/lib/dashboard/data";
+import { type HistoryItem } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
 const MENU_ITEM =
@@ -21,9 +21,9 @@ const STATUS_STYLES: Record<HistoryItem["status"], string> = {
 const FILTERS = ["All", "Published", "Scheduled", "Draft"] as const;
 type Filter = (typeof FILTERS)[number];
 
-export function HistoryList() {
+export function HistoryList({ initialItems }: { initialItems: readonly HistoryItem[] }) {
   const router = useRouter();
-  const [items, setItems] = useState<readonly HistoryItem[]>(HISTORY);
+  const [items, setItems] = useState<readonly HistoryItem[]>(initialItems);
   const [filter, setFilter] = useState<Filter>("All");
 
   const visible = filter === "All" ? items : items.filter((item) => item.status === filter);

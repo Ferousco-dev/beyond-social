@@ -15,6 +15,7 @@ import {
   type Credits,
   type HistoryItem,
   type ProjectGroup,
+  type SidebarProject,
 } from "./data";
 
 const CREDIT_PERIOD_DAYS = 30;
@@ -66,7 +67,8 @@ export async function getProjectGroups(): Promise<readonly ProjectGroup[]> {
   const { data } = await supabase
     .from("projects")
     .select("id, title, created_at")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .returns<ProjectSummary[]>();
   if (!data || data.length === 0) return [];
 
   return groupByRecency(data);
@@ -81,10 +83,47 @@ export async function getHistory(): Promise<readonly HistoryItem[]> {
     .from("scheduled_posts")
     .select("id, platform, caption, scheduled_for, status")
     .order("scheduled_for", { ascending: false })
-    .limit(20);
+    .limit(20)
+    .returns<PostSummary[]>();
   if (!data) return [];
 
   return data.map((post) => toHistoryItem(post));
+}
+
+const SIDEBAR_FALLBACK: readonly SidebarProject[] = PROJECT_GROUPS.flatMap((group) =>
+  group.projects.map((project) => ({
+    id: project.id,
+    title: project.title,
+    group: group.label,
+    pinned: false,
+  })),
+);
+
+/** Flat, pinned-aware project list for the sidebar, with a local fallback. */
+export async function getSidebarProjects(): Promise<readonly SidebarProject[]> {
+  if (!isSupabaseConfigured) return SIDEBAR_FALLBACK;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("projects")
+    .select("id, title, pinned, created_at")
+    .order("created_at", { ascending: false })
+    .returns<SidebarRow[]>();
+  if (!data || data.length === 0) return [];
+
+  const now = Date.now();
+  return data.map((project) => ({
+    id: project.id,
+    title: project.title,
+    pinned: project.pinned,
+    group: bucketLabel((now - new Date(project.created_at).getTime()) / DAY_MS),
+  }));
+}
+
+function bucketLabel(ageDays: number): string {
+  if (ageDays < 1) return "Today";
+  if (ageDays < 7) return "Previous 7 days";
+  return "Older";
 }
 
 function daysUntilReset(periodStart: string): number {
@@ -93,6 +132,7 @@ function daysUntilReset(periodStart: string): number {
 }
 
 type ProjectSummary = Pick<ProjectRow, "id" | "title" | "created_at">;
+type SidebarRow = Pick<ProjectRow, "id" | "title" | "pinned" | "created_at">;
 
 function groupByRecency(projects: readonly ProjectSummary[]): readonly ProjectGroup[] {
   const now = Date.now();
