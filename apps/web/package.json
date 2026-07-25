@@ -37,7 +37,8 @@
     "react-hook-form": "^7.81.0",
     "stripe": "^22.3.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@beyond-social/ai-gateway": "workspace:*"
   },
   "devDependencies": {
     "@beyond-social/eslint-config": "workspace:*",

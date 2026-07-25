@@ -3,7 +3,6 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 
 import {
-  ClaudeLlm,
   KnowledgeExtractor,
   KnowledgeMerger,
   LearningPipeline,
@@ -13,17 +12,17 @@ import {
   type SupabaseRpcClient,
 } from "@beyond-social/prompt-engine";
 
-import { isPromptEngineConfigured, serverEnv } from "@/lib/server-env";
+import { isPromptEngineConfigured } from "@/lib/server-env";
 import { logger } from "@/lib/logger";
 import { createServiceClient } from "@/lib/supabase/service";
 
-import { getEmbedder, getStore } from "./providers";
+import { getEmbedder, getJudge, getStore } from "./providers";
 
 let pipelineRef: LearningPipeline | null = null;
 
 function getPipeline(): LearningPipeline {
   if (pipelineRef) return pipelineRef;
-  const judge = new ClaudeLlm(serverEnv.ANTHROPIC_API_KEY, "claude-sonnet-5");
+  const judge = getJudge();
   const embedder = getEmbedder();
   const store = getStore();
   const learningStore = new SupabaseLearningStore(

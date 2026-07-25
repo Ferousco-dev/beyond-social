@@ -1,7 +1,16 @@
 import "server-only";
 
 import {
-  ClaudeLlm,
+  AiGateway,
+  AnthropicClient,
+  GatewayLlm,
+  MemoryUsageSink,
+  OpenAiClient,
+  TokenBucketLimiter,
+  type ProviderClient,
+  type Provider as GatewayProvider,
+} from "@beyond-social/ai-gateway";
+import {
   OpenAiEmbedder,
   PassthroughReranker,
   Retriever,
@@ -48,9 +57,42 @@ export function getRetriever(): Retriever {
   return retrieverRef;
 }
 
-/** The generator (default latest Opus) and a cheaper judge (Sonnet). */
-export function getGenerator(): Llm {
-  return new ClaudeLlm(serverEnv.ANTHROPIC_API_KEY, "claude-opus-4-8");
+/**
+ * Every model call goes through the gateway, so routing, retries, cross-provider
+ * fallback, rate limiting, and cost accounting apply uniformly. Usage is kept in
+ * memory for now; point the sink at a table when the billing layer lands.
+ */
+export const usageSink = new MemoryUsageSink();
+
+let gatewayRef: AiGateway | null = null;
+
+function getGateway(): AiGateway {
+  if (gatewayRef) return gatewayRef;
+  const clients: Partial<Record<GatewayProvider, ProviderClient>> = {};
+  if (serverEnv.ANTHROPIC_API_KEY) {
+    clients.anthropic = new AnthropicClient(serverEnv.ANTHROPIC_API_KEY);
+  }
+  if (serverEnv.OPENAI_API_KEY) {
+    clients.openai = new OpenAiClient(serverEnv.OPENAI_API_KEY);
+  }
+  gatewayRef = new AiGateway({
+    clients,
+    usage: usageSink,
+    // Generous per-user ceiling in estimated input tokens, sized to stop a
+    // runaway loop rather than to throttle normal use.
+    limiter: new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
+  });
+  return gatewayRef;
+}
+
+/** The generation model chain for a task; falls back across providers. */
+export function getGenerator(userId?: string): Llm {
+  return new GatewayLlm(getGateway(), "generation", userId);
+}
+
+/** A cheaper chain for grading and extraction. */
+export function getJudge(userId?: string): Llm {
+  return new GatewayLlm(getGateway(), "judge", userId);
 }
 
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */

@@ -23,6 +23,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.111.0
         version: 0.111.0(zod@3.25.76)
+      '@beyond-social/ai-gateway':
+        specifier: workspace:*
+        version: link:../../packages/ai-gateway
       '@beyond-social/env':
         specifier: workspace:*
         version: link:../../packages/env
@@ -175,6 +178,31 @@ importers:
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.18)(tsx@4.23.0)(typescript@5.9.3)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/ai-gateway:
+    dependencies:
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@beyond-social/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@beyond-social/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.5(jiti@2.7.0)
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
