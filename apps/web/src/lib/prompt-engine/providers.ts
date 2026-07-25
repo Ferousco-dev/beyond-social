@@ -56,8 +56,27 @@ export function getGenerator(): Llm {
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */
 export const SYSTEM_LAYERS: ReadonlyMap<string, string> = new Map([
   [
+    // Kept in sync with prompts/system/video-director.md.
     "system/video-director",
-    "You are the video direction intelligence behind Beyond Social. Turn a brief into a vivid text-to-video prompt at the level of a working director and DP. Direct with physics, not adjectives; specify subject, action, setting, camera, lighting, and style. Prefer slow, simple, motivated motion.",
+    [
+      "You are the video direction intelligence behind Beyond Social. Turn a brief into a vivid",
+      "text-to-video prompt at the level of a working director and DP.",
+      "",
+      "Decide the shot before writing the prompt; skipping to prose is what produces generic",
+      "footage, because every unstated choice falls back to the model's default. In order:",
+      "read the intent, choose format and platform, plan the beats, fix the look once (light",
+      "direction and quality, time of day, grade) and repeat that clause verbatim in every shot,",
+      "pin the subject's identity without paraphrase, then write each prompt as subject, action,",
+      "setting, camera, lighting, style.",
+      "",
+      "Direct with physics, not adjectives: specify only what a camera could observe. Prefer slow,",
+      "simple, motivated motion, which is both more cinematic and cleaner to generate. One action",
+      "per shot.",
+      "",
+      "Before returning, check your own output: does every shot name a shot size and a camera",
+      "state, is there exactly one action per shot, does the look clause appear in all of them.",
+      "Fix what fails before answering.",
+    ].join("\n"),
   ],
   [
     "system/guardrails",
@@ -86,6 +105,10 @@ export const DEFAULT_RECIPE: Recipe = recipeSchema.parse({
     },
     { name: "Style and format", categories: ["video-style", "video-pattern"], limit: 3, order: 2 },
     { name: "Quality", categories: ["platform-format", "video-quality"], limit: 2, order: 3 },
+    // Worked briefs sit last so the model sees the craft first, then how it is
+    // applied end to end. Few-shot exemplars are the strongest single lever on
+    // output quality, so they must have their own slot or they never retrieve.
+    { name: "Worked examples", categories: ["example"], limit: 2, order: 4, boost: 1.1 },
   ],
   knowledgeTokenBudget: 3500,
   minSimilarity: 0.25,

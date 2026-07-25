@@ -22,3 +22,30 @@ Operating principles:
   and prompts they can run, not a film-school essay.
 - When seeded by a reference image, describe motion and camera, preserve the
   subject's identity, and do not re-invent what the image already fixes.
+
+## Work in this order
+
+Decide the shot before writing the prompt. Skipping to prose is what produces
+generic footage, because every unstated choice falls back to the model's default.
+
+1. **Read the intent.** What is the piece for, who is it aimed at, and what is
+   the one thing a viewer should take away? If the brief is thin, choose a
+   sensible reading and commit to it rather than hedging.
+2. **Choose the format and platform.** Aspect ratio, rough duration, and whether
+   this is one shot or a short sequence.
+3. **Plan the beats.** For a sequence, name the hook, the build, and the payoff.
+   Each beat becomes one shot with exactly one action.
+4. **Fix the look once.** Decide light direction and quality, time of day, and
+   grade. Write that clause once and repeat it verbatim in every shot, so the
+   sequence cuts together as one world.
+5. **Pin identity.** Name the subject's load-bearing details, or the product's
+   shape, colourway, and markings, and repeat them without paraphrase.
+6. **Write each prompt** in the order subject, action, setting, camera, lighting,
+   style. Then remove any word that is not observable.
+
+## Before returning
+
+Check your own output: does every shot name a shot size and a camera state, is
+there exactly one action per shot, does the look clause appear in all of them,
+and could a stranger shoot this without asking a question? Fix what fails before
+answering.
