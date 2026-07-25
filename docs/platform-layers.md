@@ -20,7 +20,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 10  | Storage                | Built       | Postgres, pgvector, Supabase object storage, Redis.                                                                                                                                                                                                           |
 | 11  | API platform           | Not started | No public REST/GraphQL, SDKs, or webhooks out.                                                                                                                                                                                                                |
 | 12  | Infrastructure         | Partial     | Vercel deploys, Docker Compose for Redis. No k8s, GPU, or autoscaling.                                                                                                                                                                                        |
-| 13  | Security               | Partial     | CSP, HSTS, RLS, service-role isolation, constant-time webhook auth, auth rate limiting, Zod at boundaries. No prompt-injection defence, jailbreak detection, or output moderation.                                                                            |
+| 13  | Security               | Partial     | CSP, HSTS, RLS, service-role isolation, constant-time webhook auth, auth rate limiting, Zod at boundaries, prompt-injection screening and input/output moderation in the gateway. No malware scanning or secret management.                                   |
 | 14  | AI evaluation          | Built       | 11-dimension LLM judge with deterministic checks, versioned policy gate, golden retrieval set.                                                                                                                                                                |
 | 15  | Observability          | Partial     | Structured logger, health/readiness probes, and now per-call latency, tokens, and cost from the gateway. No tracing or dashboards.                                                                                                                            |
 | 16  | Billing                | Partial     | Credits with idempotent charge-on-completion and a ledger. No Stripe, plans, or invoices.                                                                                                                                                                     |
@@ -29,7 +29,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 19  | Developer platform     | Not started | No CLI, SDK, or public docs.                                                                                                                                                                                                                                  |
 | 20  | DevOps & SRE           | Partial     | CI runs lint, typecheck, build, gateway tests, knowledge validation. Vercel deploys. No blue-green, rollback drill, or incident process.                                                                                                                      |
 | 21  | Performance & cost     | Partial     | Cost-aware routing, cheap-task chains, and a response cache for deterministic calls. No embedding cache or streaming yet.                                                                                                                                     |
-| 22  | AI safety & governance | Partial     | Rate limiting and review-gated learning. No content moderation, abuse detection, or retention policy.                                                                                                                                                         |
+| 22  | AI safety & governance | Partial     | Rate limiting, review-gated learning, injection screening, and moderation on input and output. No abuse detection, consent flow, or retention policy.                                                                                                         |
 
 ## The gateway (layer 4)
 
@@ -75,8 +75,10 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
 1. ~~Caching (21)~~ — **done**: deterministic responses are cached in the
    gateway, keyed on task plus prompt plus sampling parameters, and skipped when
    temperature is non-zero. Embedding caching is still open.
-2. **Prompt-injection and moderation (13, 22)** — needed before untrusted input
-   reaches the model in production.
+2. ~~Prompt-injection and moderation (13, 22)~~ — **done**: weighted injection
+   detection, fenced untrusted content, and input/output moderation, all
+   enforced in the gateway before any spend. Abuse detection and retention
+   policy are still open.
 3. **Billing (16)** — Stripe on top of the existing credit ledger and the
    gateway's cost records.
 4. **Usage dashboard (1, 15, 17)** — the data already exists; it needs a surface.
