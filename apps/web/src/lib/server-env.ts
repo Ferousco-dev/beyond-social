@@ -13,6 +13,10 @@ const serverEnvSchema = z.object({
   VOYAGE_API_KEY: z.string().default(""),
   OPENAI_API_KEY: z.string().default(""),
   ANTHROPIC_API_KEY: z.string().default(""),
+  STRIPE_SECRET_KEY: z.string().default(""),
+  STRIPE_WEBHOOK_SECRET: z.string().default(""),
+  STRIPE_PRICE_CREATOR: z.string().default(""),
+  STRIPE_PRICE_STUDIO: z.string().default(""),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -20,7 +24,25 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   VOYAGE_API_KEY: process.env.VOYAGE_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_PRICE_CREATOR: process.env.STRIPE_PRICE_CREATOR,
+  STRIPE_PRICE_STUDIO: process.env.STRIPE_PRICE_STUDIO,
 });
+
+/**
+ * Billing needs a secret key to create sessions and a webhook secret to trust
+ * what Stripe sends back. Without both, checkout stays off rather than half
+ * working.
+ */
+export const isBillingConfigured =
+  serverEnv.STRIPE_SECRET_KEY !== "" && serverEnv.STRIPE_WEBHOOK_SECRET !== "";
+
+/** Stripe price ids keyed by plan, for mapping a webhook back to a plan. */
+export const STRIPE_PRICES: Readonly<Record<string, string | undefined>> = {
+  creator: serverEnv.STRIPE_PRICE_CREATOR || undefined,
+  studio: serverEnv.STRIPE_PRICE_STUDIO || undefined,
+};
 
 /**
  * The prompt engine can run only with an embedder, a generator, and a

@@ -23,7 +23,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 13  | Security               | Partial     | CSP, HSTS, RLS, service-role isolation, constant-time webhook auth, auth rate limiting, Zod at boundaries, prompt-injection screening and input/output moderation in the gateway. No malware scanning or secret management.                                   |
 | 14  | AI evaluation          | Built       | 11-dimension LLM judge with deterministic checks, versioned policy gate, golden retrieval set.                                                                                                                                                                |
 | 15  | Observability          | Partial     | Structured logger, health/readiness probes, per-call latency/tokens/cost persisted to `ai_usage`, and a usage dashboard. No distributed tracing.                                                                                                              |
-| 16  | Billing                | Partial     | Credits with idempotent charge-on-completion and a ledger. No Stripe, plans, or invoices.                                                                                                                                                                     |
+| 16  | Billing                | Partial     | Credits with idempotent charge-on-completion and a ledger, Stripe Checkout, subscription webhook granting credits exactly once, and the billing portal. No invoices UI, proration, or usage-based overage.                                                    |
 | 17  | Analytics              | Partial     | Real AI usage analytics (spend, calls, cache rate, latency, failure rate). Product analytics and funnels still placeholder.                                                                                                                                   |
 | 18  | Admin platform         | Not started | No admin UI, moderation, or feature flags.                                                                                                                                                                                                                    |
 | 19  | Developer platform     | Not started | No CLI, SDK, or public docs.                                                                                                                                                                                                                                  |
@@ -79,8 +79,9 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
    detection, fenced untrusted content, and input/output moderation, all
    enforced in the gateway before any spend. Abuse detection and retention
    policy are still open.
-3. **Billing (16)** — Stripe on top of the existing credit ledger and the
-   gateway's cost records.
+3. ~~Billing (16)~~ — **done**: Stripe Checkout, a signature-verified webhook
+   that grants plan credits exactly once, and the billing portal. Invoices and
+   overage are still open.
 4. ~~Usage dashboard (1, 15, 17)~~ — **done**: gateway usage persists to
    `ai_usage` (RLS-scoped, service-role writes) and surfaces at
    `/dashboard/usage` with spend, cache rate, latency, and failure rate.

@@ -107,6 +107,42 @@ export type Database = {
           },
         ];
       };
+      billing_customers: {
+        Row: {
+          created_at: string;
+          stripe_customer_id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          stripe_customer_id: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          stripe_customer_id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      billing_events: {
+        Row: {
+          created_at: string;
+          event_id: string;
+          type: string;
+        };
+        Insert: {
+          created_at?: string;
+          event_id: string;
+          type: string;
+        };
+        Update: {
+          created_at?: string;
+          event_id?: string;
+          type?: string;
+        };
+        Relationships: [];
+      };
       credit_ledger: {
         Row: {
           created_at: string;
@@ -507,6 +543,39 @@ export type Database = {
           },
         ];
       };
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean;
+          current_period_end: string | null;
+          id: string;
+          plan: string;
+          price_id: string;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          cancel_at_period_end?: boolean;
+          current_period_end?: string | null;
+          id: string;
+          plan: string;
+          price_id: string;
+          status: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          cancel_at_period_end?: boolean;
+          current_period_end?: string | null;
+          id?: string;
+          plan?: string;
+          price_id?: string;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       video_generations: {
         Row: {
           aspect_ratio: string;
@@ -596,6 +665,25 @@ export type Database = {
           output_tokens: number;
           p50_latency_ms: number;
         }[];
+      };
+      billing_apply_subscription: {
+        Args: {
+          p_cancel_at_period_end: boolean;
+          p_credits: number;
+          p_event_id: string;
+          p_event_type: string;
+          p_period_end: string;
+          p_plan: string;
+          p_price_id: string;
+          p_status: string;
+          p_subscription_id: string;
+          p_user: string;
+        };
+        Returns: boolean;
+      };
+      billing_link_customer: {
+        Args: { p_customer: string; p_user: string };
+        Returns: undefined;
       };
       claim_due_posts: {
         Args: { p_limit?: number };
