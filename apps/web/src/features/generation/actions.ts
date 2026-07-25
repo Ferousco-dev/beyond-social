@@ -3,6 +3,9 @@
 import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { enhancePrompt } from "@/lib/prompt-engine/enhance";
+import { recordChunkOutcome } from "@/lib/prompt-engine/feedback";
+import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { createClient } from "@/lib/supabase/server";
 import { type GenerationStatus } from "@/lib/supabase/types";
 
@@ -19,7 +22,7 @@ const pollInputSchema = z.object({ generationId: z.string().min(1) });
 export type StartInput = z.input<typeof startInputSchema>;
 
 export type StartResult =
-  | { status: "ok"; generationId: string }
+  | { status: "ok"; generationId: string; sourceChunks: string[] }
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
@@ -33,14 +36,25 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
   const { projectId, prompt, aspectRatio } = parsed.data;
+
+  // Ground the prompt in the knowledge base when the engine is configured; falls
+  // back to the raw prompt otherwise, so the engine improves output but is never
+  // a point of failure. The chunks that shaped it ride along for attribution.
+  const enhanced = await enhancePrompt({ prompt });
+  const finalPrompt = enhanced?.text ?? prompt;
+
   const supabase = await createClient();
   const { data, error } = await supabase.functions.invoke("generate-video", {
-    body: { projectId, prompt, aspectRatio },
+    body: { projectId, prompt: finalPrompt, aspectRatio, sourceChunks: enhanced?.chunkIds ?? [] },
   });
 
   const generationId = (data as { generationId?: string } | null)?.generationId;
   if (error || !generationId) return { status: "error", message: "Could not start generation" };
-  return { status: "ok", generationId };
+
+  // Best-effort: let the system learn from the original prompt in the background.
+  void learnFromPrompt(prompt, enhanced?.text);
+
+  return { status: "ok", generationId, sourceChunks: enhanced?.chunkIds ?? [] };
 }
 
 export interface PollResult {
@@ -61,4 +75,22 @@ export async function pollGeneration(generationId: string): Promise<PollResult> 
   if (error) return { status: "error", resultUrl: null };
   const result = data as { status?: GenerationStatus; resultUrl?: string | null } | null;
   return { status: result?.status ?? "error", resultUrl: result?.resultUrl ?? null };
+}
+
+const outcomeSchema = z.object({
+  chunkIds: z.array(z.string()).max(50),
+  outcome: z.enum(["accepted", "rejected", "edited", "regenerated"]),
+  editDistance: z.number().min(0).max(1).nullable().default(null),
+});
+
+/**
+ * Records what the user did with a generation, attributing the outcome to the
+ * knowledge chunks that produced it. This is the closed learning loop from the
+ * UI: accepting an output strengthens the chunks behind it, rejecting weakens
+ * them. Safe to call unconditionally; no-ops when the engine is unconfigured.
+ */
+export async function recordGenerationOutcome(input: z.input<typeof outcomeSchema>): Promise<void> {
+  const parsed = outcomeSchema.safeParse(input);
+  if (!parsed.success) return;
+  await recordChunkOutcome(parsed.data.chunkIds, parsed.data.outcome, parsed.data.editDistance);
 }

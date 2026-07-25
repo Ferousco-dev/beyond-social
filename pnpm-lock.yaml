@@ -26,6 +26,9 @@ importers:
       '@beyond-social/env':
         specifier: workspace:*
         version: link:../../packages/env
+      '@beyond-social/prompt-engine':
+        specifier: workspace:*
+        version: link:../../packages/prompt-engine
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))

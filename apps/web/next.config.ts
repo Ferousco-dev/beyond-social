@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // The env package ships as TypeScript source, so Next must transpile it.
-  transpilePackages: ["@beyond-social/env"],
+  transpilePackages: ["@beyond-social/env", "@beyond-social/prompt-engine"],
   typedRoutes: true,
   images: {
     formats: ["image/avif", "image/webp"],

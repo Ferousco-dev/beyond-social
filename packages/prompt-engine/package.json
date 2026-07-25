@@ -17,7 +17,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "validate": "tsx scripts/validate-knowledge.ts ../../prompts"
+    "validate": "tsx scripts/validate-knowledge.ts ../../prompts",
+    "ingest": "tsx scripts/ingest.ts ../../prompts"
   },
   "dependencies": {
     "zod": "^3.24.1"
