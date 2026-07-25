@@ -58,6 +58,7 @@ export function EditorShell({
           {chatOpen ? (
             <EditorChat
               onClose={() => setChatOpen(false)}
+              editor={editor}
               className="absolute right-4 top-4 z-20 flex h-[calc(100%-2rem)] w-80 max-w-[calc(100%-2rem)]"
             />
           ) : (
