@@ -8,8 +8,8 @@ import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingPricing } from "@/components/landing/landing-pricing";
+import { PoweredBy } from "@/components/landing/powered-by";
 import { Showcase } from "@/components/landing/showcase";
-import { StatsBar } from "@/components/landing/stats-bar";
 
 /**
  * The landing page renders in the dark "operating environment" palette so the
@@ -24,7 +24,7 @@ export default function HomePage(): ReactNode {
       <LandingHeader />
       <main>
         <LandingHero />
-        <StatsBar />
+        <PoweredBy />
         <FeatureBento />
         <HowItWorks />
         <Showcase />
