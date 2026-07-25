@@ -1,8 +1,22 @@
 "use server";
 
+import { z } from "zod";
+
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { type GenerationStatus } from "@/lib/supabase/types";
+
+const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
+
+const startInputSchema = z.object({
+  projectId: z.string().min(1),
+  prompt: z.string().trim().min(1, "Prompt is required").max(2000),
+  aspectRatio: z.enum(ASPECT_RATIOS).optional(),
+});
+
+const pollInputSchema = z.object({ generationId: z.string().min(1) });
+
+export type StartInput = z.input<typeof startInputSchema>;
 
 export type StartResult =
   | { status: "ok"; generationId: string }
@@ -11,18 +25,17 @@ export type StartResult =
 
 // Kicks off a kie.ai video generation through the edge function. Returns
 // "unconfigured" so callers can fall back to the local demo experience.
-export async function startGeneration(input: {
-  projectId: string;
-  prompt: string;
-  aspectRatio?: string;
-}): Promise<StartResult> {
-  const prompt = input.prompt.trim();
-  if (!prompt) return { status: "error", message: "Prompt is required" };
+export async function startGeneration(input: StartInput): Promise<StartResult> {
+  const parsed = startInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
+  const { projectId, prompt, aspectRatio } = parsed.data;
   const supabase = await createClient();
   const { data, error } = await supabase.functions.invoke("generate-video", {
-    body: { projectId: input.projectId, prompt, aspectRatio: input.aspectRatio },
+    body: { projectId, prompt, aspectRatio },
   });
 
   const generationId = (data as { generationId?: string } | null)?.generationId;
@@ -37,11 +50,12 @@ export interface PollResult {
 
 // Syncs a generation's status from kie.ai and returns the current state.
 export async function pollGeneration(generationId: string): Promise<PollResult> {
-  if (!isSupabaseConfigured) return { status: "error", resultUrl: null };
+  const parsed = pollInputSchema.safeParse({ generationId });
+  if (!parsed.success || !isSupabaseConfigured) return { status: "error", resultUrl: null };
 
   const supabase = await createClient();
   const { data, error } = await supabase.functions.invoke("poll-generation", {
-    body: { generationId },
+    body: { generationId: parsed.data.generationId },
   });
 
   if (error) return { status: "error", resultUrl: null };
