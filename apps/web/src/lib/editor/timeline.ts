@@ -1,5 +1,3 @@
-import { type Caption, type Clip } from "./data";
-
 /** Formats a millisecond offset as the `m:ss` timecode the editor displays. */
 export function formatTimecode(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -54,18 +52,4 @@ export function snapMs(ms: number, guides: readonly number[], thresholdMs: numbe
     }
   }
   return best;
-}
-
-/** Every edge a drag can snap to: clip boundaries plus the playhead. */
-export function snapGuides(clips: readonly Clip[], playheadMs: number): readonly number[] {
-  const edges = clips.flatMap((clip) => [clip.startMs, clip.startMs + clip.durationMs]);
-  return [0, playheadMs, ...edges];
-}
-
-export function clipAt(clips: readonly Clip[], ms: number): Clip | undefined {
-  return clips.find((clip) => ms >= clip.startMs && ms < clip.startMs + clip.durationMs);
-}
-
-export function captionAt(captions: readonly Caption[], ms: number): Caption | undefined {
-  return captions.find((caption) => ms >= caption.startMs && ms < caption.endMs);
 }

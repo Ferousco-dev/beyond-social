@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { useClips } from "../hooks/use-clips";
+import { useEditorState } from "../hooks/use-editor-state";
 import { useEditorShortcuts } from "../hooks/use-editor-shortcuts";
 import { usePlayback } from "../hooks/use-playback";
 import { EditorChat } from "./editor-chat";
@@ -24,10 +24,10 @@ export function EditorShell({
 }): ReactNode {
   const [chatOpen, setChatOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const clips = useClips();
-  const playback = usePlayback(clips.durationMs);
+  const editor = useEditorState();
+  const playback = usePlayback(editor.durationMs);
   const backHref = `/dashboard/c/${conversationId}` as Route;
-  useEditorShortcuts(playback, clips);
+  useEditorShortcuts(playback, editor);
 
   return (
     // The editor is part of the dark workspace; scope the dark tokens here too
@@ -50,10 +50,10 @@ export function EditorShell({
               "absolute inset-y-0 left-0 z-30 shadow-card lg:static lg:z-auto lg:flex lg:shadow-none",
               panelOpen ? "flex" : "hidden",
             )}
-            clips={clips}
+            editor={editor}
             playback={playback}
           />
-          <EditorPreview playback={playback} />
+          <EditorPreview playback={playback} editor={editor} />
 
           {chatOpen ? (
             <EditorChat
@@ -73,7 +73,7 @@ export function EditorShell({
           )}
         </div>
 
-        <EditorTimeline playback={playback} clips={clips} />
+        <EditorTimeline playback={playback} editor={editor} />
       </div>
     </div>
   );

@@ -3,10 +3,11 @@
 import { Frame, Pause, Play } from "lucide-react";
 import { useState } from "react";
 
-import { CAPTIONS } from "@/lib/editor/data";
-import { captionAt, formatTimecode } from "@/lib/editor/timeline";
+import { formatTimecode } from "@/lib/editor/timeline";
+import { isText, isVideo, type TextItem, type VideoItem } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
 
+import { type EditorState } from "../hooks/use-editor-state";
 import { type Playback } from "../hooks/use-playback";
 import { PreviewFrame } from "./preview/preview-frame";
 
@@ -18,10 +19,26 @@ const RATIOS = [
 
 type RatioId = (typeof RATIOS)[number]["id"];
 
-export function EditorPreview({ playback }: { playback: Playback }) {
+/** The item on `kind` that covers the playhead. */
+function activeItem<T>(
+  editor: EditorState,
+  kind: "video" | "text",
+  guard: (item: unknown) => item is T,
+  ms: number,
+): T | undefined {
+  const track = editor.project.tracks.find((candidate) => candidate.kind === kind);
+  if (!track || track.hidden) return undefined;
+  const hit = track.items.find((item) => ms >= item.startMs && ms < item.startMs + item.durationMs);
+  return hit && guard(hit) ? hit : undefined;
+}
+
+export function EditorPreview({ playback, editor }: { playback: Playback; editor: EditorState }) {
   const [ratio, setRatio] = useState<RatioId>("portrait");
   const [showSafeAreas, setShowSafeAreas] = useState(false);
   const frame = RATIOS.find((item) => item.id === ratio)?.frame ?? RATIOS[0].frame;
+
+  const clip = activeItem<VideoItem>(editor, "video", isVideo as never, playback.currentMs);
+  const caption = activeItem<TextItem>(editor, "text", isText as never, playback.currentMs);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -32,7 +49,8 @@ export function EditorPreview({ playback }: { playback: Playback }) {
       <div className="flex min-h-0 flex-1 items-center justify-center p-6">
         <PreviewFrame
           frameClassName={frame}
-          caption={captionAt(CAPTIONS, playback.currentMs)}
+          clip={clip}
+          caption={caption}
           currentMs={playback.currentMs}
           durationMs={playback.durationMs}
           showSafeAreas={showSafeAreas}
