@@ -3,15 +3,13 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { CREDITS, PROJECT_GROUPS } from "@/lib/dashboard/data";
+import { getCredits, getProjectGroups } from "@/lib/dashboard/queries";
 
 import { HistoryList } from "./overview/history-list";
 import { PlatformBars } from "./overview/platform-bars";
 import { StatTiles } from "./overview/stat-tiles";
 import { ViewsChart } from "./overview/views-chart";
 import { ScheduledPosts } from "./scheduled-posts";
-
-const ACTIVE_PROJECTS = PROJECT_GROUPS.flatMap((group) => group.projects).slice(0, 3);
 
 /** Below this share of the allowance the quota is worth calling out. */
 const LOW_CREDIT_PERCENT = 25;
@@ -25,9 +23,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export function DashboardOverview(): ReactNode {
-  const remaining = CREDITS.total - CREDITS.used;
-  const remainingPercent = Math.round((remaining / CREDITS.total) * 100);
+export async function DashboardOverview(): Promise<ReactNode> {
+  const [credits, projectGroups] = await Promise.all([getCredits(), getProjectGroups()]);
+  const activeProjects = projectGroups.flatMap((group) => group.projects).slice(0, 3);
+  const remaining = credits.total - credits.used;
+  const remainingPercent = Math.round((remaining / credits.total) * 100);
   const low = remainingPercent <= LOW_CREDIT_PERCENT;
 
   return (
@@ -59,11 +59,11 @@ export function DashboardOverview(): ReactNode {
             <p className="text-sm text-ink-soft">Video credits</p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
               {remaining}
-              <span className="text-base font-normal text-ink-soft"> / {CREDITS.total} left</span>
+              <span className="text-base font-normal text-ink-soft"> / {credits.total} left</span>
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <p className="text-xs text-ink-soft">Resets in {CREDITS.resetsInDays} days</p>
+            <p className="text-xs text-ink-soft">Resets in {credits.resetsInDays} days</p>
             {low ? (
               <a
                 href="#"
@@ -77,7 +77,7 @@ export function DashboardOverview(): ReactNode {
         <div
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={CREDITS.total}
+          aria-valuemax={credits.total}
           aria-valuenow={remaining}
           aria-label="Video credits remaining"
           className="mt-3 h-2 overflow-hidden rounded-full bg-cloud"
@@ -91,7 +91,7 @@ export function DashboardOverview(): ReactNode {
 
       <Section title="Active projects">
         <div className="grid gap-4 sm:grid-cols-3">
-          {ACTIVE_PROJECTS.map((project) => (
+          {activeProjects.map((project) => (
             <Link
               key={project.id}
               href={`/dashboard/c/${project.id}` as Route}

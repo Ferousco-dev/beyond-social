@@ -30,7 +30,13 @@ export interface HistoryItem {
   readonly status: "Published" | "Scheduled" | "Draft";
 }
 
-export const CREDITS = { used: 48, total: 60, resetsInDays: 12 } as const;
+export interface Credits {
+  readonly used: number;
+  readonly total: number;
+  readonly resetsInDays: number;
+}
+
+export const CREDITS: Credits = { used: 48, total: 60, resetsInDays: 12 };
 
 export const HISTORY: readonly HistoryItem[] = [
   {
