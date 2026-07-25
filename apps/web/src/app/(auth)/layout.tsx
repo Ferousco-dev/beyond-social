@@ -7,7 +7,11 @@ import { AuthBrandingPanel } from "@/features/auth/components/auth-branding-pane
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-h-dvh lg:grid-cols-2">
+    // Auth is part of the same dark surface as the landing page and the
+    // workspace, so the funnel does not jump from a black page to a white one
+    // for readers whose system theme is light. The `dark` class scopes the dark
+    // token set to this subtree.
+    <div className="dark grid min-h-dvh bg-canvas text-ink lg:grid-cols-2">
       <AuthBrandingPanel />
       <main className="relative flex min-h-dvh flex-col items-center justify-center px-6 py-12">
         <Link
