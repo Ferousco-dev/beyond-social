@@ -26,6 +26,8 @@ import {
 } from "@beyond-social/prompt-engine";
 
 import { serverEnv } from "@/lib/server-env";
+import { SupabaseUsageSink } from "./usage-sink";
+import { isSupabaseConfigured } from "@/lib/env";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -63,7 +65,9 @@ export function getRetriever(): Retriever {
  * fallback, rate limiting, and cost accounting apply uniformly. Usage is kept in
  * memory for now; point the sink at a table when the billing layer lands.
  */
-export const usageSink = new MemoryUsageSink();
+export const usageSink: MemoryUsageSink | SupabaseUsageSink = isSupabaseConfigured
+  ? new SupabaseUsageSink()
+  : new MemoryUsageSink();
 
 /**
  * Deterministic calls (judging, extraction, anything at temperature 0) repeat
