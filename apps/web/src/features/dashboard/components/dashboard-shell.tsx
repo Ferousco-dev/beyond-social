@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, PanelLeft, Sparkle, SquarePen } from "lucide-react";
+import { Menu, PanelLeft, Search, Sparkle, SquarePen } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
+import { CommandPalette } from "./command-palette";
 import { RouteProgress } from "./route-progress";
 import { WorkspaceMenu } from "./workspace-menu";
 
@@ -89,13 +90,28 @@ export function DashboardShell({
 
           <WorkspaceMenu />
 
-          <a
-            href="#"
-            className="ml-auto inline-flex items-center gap-1.5 px-2 text-sm font-medium text-primary transition-opacity hover:opacity-80"
-          >
-            <Sparkle className="size-4 fill-current" />
-            Upgrade
-          </a>
+          <div className="ml-auto flex items-center gap-2">
+            <CommandPalette projects={projects}>
+              <button
+                type="button"
+                className="hidden items-center gap-2 rounded-lg border border-hairline bg-paper px-2.5 py-1.5 text-xs text-ink-soft transition-colors hover:bg-cloud hover:text-ink sm:inline-flex"
+              >
+                <Search className="size-3.5" />
+                <span>Search or run a command</span>
+                <kbd className="rounded border border-hairline px-1.5 py-0.5 text-[10px] font-medium">
+                  ⌘K
+                </kbd>
+              </button>
+            </CommandPalette>
+
+            <a
+              href="#"
+              className="inline-flex items-center gap-1.5 px-2 text-sm font-medium text-primary transition-opacity hover:opacity-80"
+            >
+              <Sparkle className="size-4 fill-current" />
+              Upgrade
+            </a>
+          </div>
         </header>
 
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</main>
