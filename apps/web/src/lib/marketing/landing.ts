@@ -13,11 +13,6 @@ import {
  * presentational and the marketing message can be edited in one place.
  */
 
-export interface Stat {
-  readonly value: string;
-  readonly label: string;
-}
-
 export interface Feature {
   readonly icon: LucideIcon;
   readonly title: string;
@@ -44,13 +39,6 @@ function unsplash(id: string, width: number, height: number): string {
 
 export const HERO_IMAGE = unsplash("photo-1611784728558-6c7d9b409cdf", 1200, 800);
 export const HERO_IMAGE_ALT = "Creator filming with a professional video camera";
-
-export const STATS: readonly Stat[] = [
-  { value: "12s", label: "Average time to first cut" },
-  { value: "40+", label: "Directing techniques built in" },
-  { value: "4", label: "Platforms published natively" },
-  { value: "9:16", label: "Native vertical, never cropped" },
-];
 
 export const FEATURES: readonly Feature[] = [
   {
