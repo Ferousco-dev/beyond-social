@@ -8,8 +8,8 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 
 | #   | Layer                  | Status      | What exists today                                                                                                                                                                                                                                             |
 | --- | ---------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Product                | Partial     | Landing, dashboard, editor, settings, credits. No billing, teams, orgs, API keys, usage dashboard.                                                                                                                                                            |
-| 2   | Identity & access      | Partial     | Supabase auth, sessions, RLS everywhere, `role` on profiles. No OAuth, MFA, orgs, or real RBAC enforcement.                                                                                                                                                   |
+| 1   | Product                | Partial     | Landing, dashboard, editor, settings, credits, billing, usage dashboard, teams. No API keys or per-seat management UI.                                                                                                                                        |
+| 2   | Identity & access      | Partial     | Supabase auth, sessions, RLS everywhere, organizations with owner/admin/member roles enforced in policy. No OAuth, MFA, or invitations.                                                                                                                       |
 | 3   | AI experience          | Partial     | Chat surface, editor assistant, prompt library (`prompts/`), recipes as templates, chunk versioning. No playground or saved-prompt UI.                                                                                                                        |
 | 4   | **AI gateway**         | **Built**   | `packages/ai-gateway`: model registry with pricing, per-task routing, cross-provider fallback, retry with jittered backoff honouring `Retry-After`, token-bucket rate limiting, context-window checks, exact cost accounting, usage records on every attempt. |
 | 5   | Model providers        | Partial     | Anthropic and OpenAI clients behind a `ProviderClient` port. Google, xAI, DeepSeek, Mistral, local are registry entries away.                                                                                                                                 |
@@ -85,5 +85,12 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
 4. ~~Usage dashboard (1, 15, 17)~~ — **done**: gateway usage persists to
    `ai_usage` (RLS-scoped, service-role writes) and surfaces at
    `/dashboard/usage` with spend, cache rate, latency, and failure rate.
-5. **Orgs, teams, RBAC (1, 2)** — the multi-tenant seams are in place (nullable
-   `workspace_id`) but nothing enforces them yet.
+5. ~~Orgs, teams, RBAC (1, 2)~~ — **done**: organizations, membership with
+   three roles, RLS policies enforcing them, and a team page. Invitations and
+   an org switcher are still open.
+
+## Next
+
+1. **API platform (11)** — public REST, keys, and webhooks out.
+2. **Orchestration (6)** — tool calling and multi-step agents.
+3. **Data processing (8)** — PDF, OCR, transcription for knowledge ingestion.

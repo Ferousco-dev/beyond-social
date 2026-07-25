@@ -3,6 +3,7 @@
 import {
   Gauge,
   LayoutDashboard,
+  Users,
   PenSquare,
   Search,
   TrendingUp,
@@ -56,6 +57,12 @@ const LINKS: readonly NavLink[] = [
     href: "/dashboard/usage" as Route,
     label: "Usage",
     icon: Gauge,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/team" as Route,
+    label: "Team",
+    icon: Users,
     motion: "group-hover:scale-110",
   },
   {
