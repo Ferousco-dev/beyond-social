@@ -4,6 +4,7 @@ import {
   AiGateway,
   AnthropicClient,
   GatewayLlm,
+  MemoryResponseCache,
   MemoryUsageSink,
   OpenAiClient,
   TokenBucketLimiter,
@@ -64,6 +65,12 @@ export function getRetriever(): Retriever {
  */
 export const usageSink = new MemoryUsageSink();
 
+/**
+ * Deterministic calls (judging, extraction, anything at temperature 0) repeat
+ * often and cost the same every time, so they are cached for an hour.
+ */
+export const responseCache = new MemoryResponseCache();
+
 let gatewayRef: AiGateway | null = null;
 
 function getGateway(): AiGateway {
@@ -78,6 +85,7 @@ function getGateway(): AiGateway {
   gatewayRef = new AiGateway({
     clients,
     usage: usageSink,
+    cache: responseCache,
     // Generous per-user ceiling in estimated input tokens, sized to stop a
     // runaway loop rather than to throttle normal use.
     limiter: new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),

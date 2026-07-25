@@ -6,6 +6,7 @@
  *
  *   tsx scripts/smoke.ts
  */
+import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
 import { type CompletionResult, type ProviderClient } from "../src/providers";
 import { TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
@@ -103,6 +104,42 @@ async function main(): Promise<void> {
     explained = error instanceof Error && error.message.includes("No model available");
   }
   check("explains missing providers", explained);
+
+  // 7. An identical deterministic request is served from cache, free.
+  const counted = flaky(0, 200);
+  const cache = new MemoryResponseCache();
+  const cached = new AiGateway({ clients: { anthropic: counted }, usage, cache });
+  const req = { task: "generation" as const, system: "same", messages: [], temperature: 0 };
+  const cold = await cached.complete(req);
+  const warm = await cached.complete(req);
+  check(
+    "serves repeat requests from cache",
+    counted.calls === 1 && warm.cached && !cold.cached && warm.costUsd === 0,
+    `${counted.calls} provider call(s), warm cost $${warm.costUsd}`,
+  );
+  check(
+    "cache reports hit rate",
+    cache.stats().hits === 1,
+    `${cache.stats().hitRate.toFixed(2)} hit rate`,
+  );
+
+  // 8. Sampled requests are never cached: the caller asked for variety.
+  const sampled = flaky(0, 10);
+  const notCached = new AiGateway({ clients: { anthropic: sampled }, usage, cache });
+  const hot = { task: "generation" as const, system: "vary", messages: [], temperature: 0.9 };
+  await notCached.complete(hot);
+  await notCached.complete(hot);
+  check(
+    "does not cache sampled requests",
+    sampled.calls === 2 && !isCacheable(hot),
+    `${sampled.calls} provider call(s)`,
+  );
+
+  // 9. The key covers everything that changes the answer.
+  const a = cacheKey("generation", { system: "s", messages: [], temperature: 0 });
+  const b = cacheKey("generation", { system: "s", messages: [], temperature: 0, maxTokens: 99 });
+  const c = cacheKey("judge", { system: "s", messages: [], temperature: 0 });
+  check("cache key separates differing requests", a !== b && a !== c);
 
   process.stdout.write(`${results.join("\n")}\n`);
   process.stdout.write(

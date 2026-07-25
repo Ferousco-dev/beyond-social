@@ -7,6 +7,7 @@ import {
   type Provider,
   type Task,
 } from "./models";
+import { cacheKey, isCacheable, type ResponseCache } from "./cache";
 import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
 import { estimateTokens } from "./tokens";
 import { withRetry, type RetryOptions } from "./retry";
@@ -17,6 +18,10 @@ export interface GatewayOptions {
   clients: Partial<Record<Provider, ProviderClient>>;
   limiter?: RateLimiter;
   usage?: UsageSink;
+  /** Serves identical deterministic requests without paying for them again. */
+  cache?: ResponseCache;
+  /** How long a cached response stays valid. */
+  cacheTtlMs?: number;
   retry?: Partial<RetryOptions>;
   /** Overrides the default candidate chain for a task. */
   routes?: Partial<Record<Task, readonly string[]>>;
@@ -36,9 +41,12 @@ export interface GatewayResponse extends CompletionResult {
   costUsd: number;
   latencyMs: number;
   fallbacks: number;
+  /** True when the answer came from cache and cost nothing. */
+  cached: boolean;
 }
 
 const DEFAULT_RETRY: RetryOptions = { attempts: 3, baseDelayMs: 500, maxDelayMs: 8_000 };
+const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
  * The AI gateway: one entry point for every model call.
@@ -86,6 +94,44 @@ export class AiGateway {
       );
     }
 
+    // A cache hit spends no provider quota, so it is checked before the limiter
+    // rather than after: charging the bucket for a free answer would be wrong.
+    const cacheable = this.options.cache !== undefined && isCacheable(request);
+    const key = cacheable ? cacheKey(request.task, request) : null;
+    if (key !== null && this.options.cache) {
+      const hit = await this.options.cache.get(key);
+      if (hit) {
+        const latencyMs = this.now() - startedAt;
+        const spec = modelSpec(hit.model);
+        void this.usage.record({
+          requestId,
+          task: request.task,
+          model: hit.model,
+          provider: spec?.provider ?? "local",
+          inputTokens: hit.result.inputTokens,
+          outputTokens: hit.result.outputTokens,
+          costUsd: 0,
+          latencyMs,
+          fallbacks: 0,
+          attempts: 1,
+          cached: true,
+          ok: true,
+          error: null,
+          userId: request.userId ?? null,
+          createdAt: new Date(this.now()).toISOString(),
+        });
+        return {
+          ...hit.result,
+          model: hit.model,
+          provider: spec?.provider ?? "local",
+          costUsd: 0,
+          latencyMs,
+          fallbacks: 0,
+          cached: true,
+        };
+      }
+    }
+
     // Shed load before spending anything. Cost is in estimated input tokens, so
     // a large prompt consumes more of the budget than a small one.
     const promptTokens = estimateTokens(
@@ -130,6 +176,14 @@ export class AiGateway {
           }),
         );
 
+        if (key !== null && this.options.cache) {
+          void this.options.cache.set(key, {
+            result,
+            model: spec.id,
+            expiresAt: this.now() + (this.options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS),
+          });
+        }
+
         return {
           ...result,
           model: spec.id,
@@ -137,6 +191,7 @@ export class AiGateway {
           costUsd: cost,
           latencyMs,
           fallbacks: index,
+          cached: false,
         };
       } catch (error) {
         lastError = error;
