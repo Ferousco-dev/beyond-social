@@ -160,6 +160,17 @@
   }
 }
 
+/* Gentle drift, used by the floating output card in the landing hero. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(3deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(3deg);
+  }
+}
+
 /* Shimmering status text, used while a video draft is generating. */
 .text-shimmer {
   background: linear-gradient(90deg, var(--ink-soft), var(--ink), var(--ink-soft));
