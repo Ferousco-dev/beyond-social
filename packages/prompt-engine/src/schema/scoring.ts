@@ -28,12 +28,22 @@ export const chunkScoreSchema = z.object({
 });
 export type ChunkScore = z.infer<typeof chunkScoreSchema>;
 
-/** Weights for the retrieval blend. Tunable and versioned as a recipe input. */
+/**
+ * Weights for the retrieval blend. Tunable and versioned as a recipe input.
+ * Retrieval is deliberately not similarity-only: quality, real-world success,
+ * recency, and context fit all shape which knowledge surfaces first.
+ */
 export const rankingWeightsSchema = z.object({
-  similarity: z.number().default(0.5),
-  rerank: z.number().default(0.2),
-  quality: z.number().default(0.15),
+  similarity: z.number().default(0.45),
+  rerank: z.number().default(0.18),
+  quality: z.number().default(0.12),
   confidence: z.number().default(0.05),
-  popularity: z.number().default(0.1),
+  popularity: z.number().default(0.08),
+  /** Accept / (accept + reject): how often this chunk led to a kept output. */
+  successRate: z.number().default(0.07),
+  /** Recency within the candidate set, so fresh knowledge can surface. */
+  freshness: z.number().default(0.03),
+  /** Overlap of the chunk's applicability with the request's platform/product. */
+  contextMatch: z.number().default(0.02),
 });
 export type RankingWeights = z.infer<typeof rankingWeightsSchema>;

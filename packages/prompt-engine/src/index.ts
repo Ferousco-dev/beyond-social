@@ -5,6 +5,8 @@ export * from "./retrieval";
 export * from "./compose";
 export * from "./feedback";
 export * from "./evaluation";
+export * from "./learning";
 export * from "./ingest";
 export * from "./adapters";
+export { SupabaseLearningStore } from "./adapters/learning-store";
 export { PromptEngine, type PromptEngineDeps, type GenerateResult } from "./engine";

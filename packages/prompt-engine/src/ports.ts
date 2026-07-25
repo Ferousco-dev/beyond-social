@@ -1,5 +1,6 @@
 import type { Chunk } from "./schema/chunk";
 import type { ChunkScore } from "./schema/scoring";
+import type { AuditEntry, CandidateStatus, LearningCandidate } from "./schema/learning";
 
 /**
  * Ports (hexagonal boundaries). The engine depends only on these interfaces, so
@@ -71,4 +72,20 @@ export interface LlmCompleteParams {
 export interface Llm {
   readonly model: string;
   complete(params: LlmCompleteParams): Promise<string>;
+}
+
+/**
+ * Storage for the learning subsystem: pending candidates, the immutable audit
+ * trail, and the version history of accepted chunks. Kept separate from the
+ * retrieval VectorStore so the learning workflow can evolve (review queues,
+ * multi-tenant scoping) without touching the hot retrieval path.
+ */
+export interface LearningStore {
+  recordCandidate(candidate: LearningCandidate): Promise<void>;
+  getCandidate(id: string): Promise<LearningCandidate | null>;
+  listCandidates(status: CandidateStatus, workspaceId?: string): Promise<LearningCandidate[]>;
+  setCandidateStatus(id: string, status: CandidateStatus): Promise<void>;
+  logAudit(entry: AuditEntry): Promise<void>;
+  /** Append a full chunk snapshot to its version history (never overwrites). */
+  saveVersion(chunk: Chunk, reason: string): Promise<void>;
 }

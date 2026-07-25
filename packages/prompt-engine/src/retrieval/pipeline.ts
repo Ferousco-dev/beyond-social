@@ -57,7 +57,10 @@ export class Retriever {
     });
 
     const rerankScores = await this.reranker.rerank(queryText, candidates);
-    const ranked = rankCandidates(candidates, rerankScores, recipe.weights);
+    const ranked = rankCandidates(candidates, rerankScores, recipe.weights, {
+      ...(request.platform ? { platforms: [request.platform] } : {}),
+      ...(request.productType ? { productTypes: [request.productType] } : {}),
+    });
     const diversified = mmrSelect(ranked, recipe.mmrLambda, totalWanted);
 
     const slots = assignToSlots(diversified, recipe.slots);
