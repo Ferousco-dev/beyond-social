@@ -3,11 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { HERO_IMAGE, HERO_IMAGE_ALT } from "@/lib/marketing/landing";
+import { HERO_IMAGE, HERO_IMAGE_ALT, HERO_PHRASES } from "@/lib/marketing/landing";
 import { PLATFORMS } from "@/lib/marketing/site";
 
 import { Reveal } from "./reveal";
 import { ScreenshotFrame } from "./screenshot-frame";
+import { TextType } from "./text-type";
 
 /**
  * The hero. One idea, one primary action, and proof of the real product: the
@@ -31,8 +32,16 @@ export function LandingHero(): ReactNode {
 
           <h1 className="mt-7 text-balance text-[2.05rem] font-semibold leading-[1.05] tracking-[-0.03em] text-ink sm:text-6xl lg:text-[4.5rem]">
             Video that looks
-            <br className="hidden sm:block" /> <span className="italic text-primary">directed</span>
-            , not generated
+            <br className="hidden sm:block" />{" "}
+            {/* The canonical headline for assistive tech and crawlers; the
+                animated version below is decorative and hidden from them. */}
+            <span className="sr-only">directed, not generated</span>
+            <TextType
+              aria-hidden
+              text={HERO_PHRASES}
+              className="italic text-primary"
+              cursorClassName="not-italic text-ink-soft/60"
+            />
           </h1>
 
           <p className="mx-auto mt-6 max-w-xl text-pretty text-base leading-relaxed text-ink-soft sm:text-lg">
