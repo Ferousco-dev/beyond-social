@@ -9,7 +9,7 @@ import { Fragment } from "react";
 import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
-import { SearchDialog } from "./search-dialog";
+import { CommandPalette } from "./command-palette";
 
 /** Shared shape so the search trigger sits flush with the real links. */
 const ITEM =
@@ -89,20 +89,20 @@ export function SidebarNav({
               {link.label}
             </Link>
 
-            {/* Search sits directly under the primary action, as before. */}
+            {/* The command palette sits directly under the primary action. */}
             {index === 0 ? (
-              <SearchDialog projects={projects}>
+              <CommandPalette projects={projects}>
                 <button type="button" className={cn(ITEM, "text-ink hover:bg-cloud")}>
                   <Search
                     className={cn("size-4 shrink-0", MOTION, "group-hover:scale-110")}
                     aria-hidden
                   />
-                  Search projects
+                  Search or command
                   <kbd className="ml-auto hidden rounded border border-hairline px-1.5 py-0.5 text-[10px] font-medium text-ink-soft sm:inline">
                     ⌘K
                   </kbd>
                 </button>
-              </SearchDialog>
+              </CommandPalette>
             ) : null}
           </Fragment>
         );
