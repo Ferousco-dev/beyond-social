@@ -82,17 +82,19 @@ export async function persistRender(admin, userId, taskId, sourceUrl) {
 - **H1. Distributed rate limiting.** `lib/rate-limit.ts` is in-memory and per-instance;
   serverless makes it near-useless. Move to Upstash Redis (`@upstash/ratelimit`) keyed
   by IP and email. Add CAPTCHA after N failures.
-- **H2. Webhook hardening.** `kie-callback` authenticates via a query-string secret
-  (can leak in logs). Move the secret to a header, and add a dead-letter path: if the
-  RPC fails, enqueue a retry rather than dropping the event. `complete_generation` is
-  already idempotent — keep that property.
+- **H2. Webhook hardening.** _Partially addressed:_ the secret is now compared in
+  constant time (`_shared/security.ts`) to close the timing side-channel. Still open:
+  the secret rides in the query string (can leak in logs), so move it to a header, and
+  add a dead-letter path so a failed RPC enqueues a retry rather than dropping the
+  event. `complete_generation` is already idempotent — keep that property.
 - **H3. Nonce-based CSP.** The current CSP allows `script-src 'unsafe-inline'` because
   the App Router injects inline bootstrap scripts. Generate a per-request nonce in
   middleware and switch to `'nonce-…' 'strict-dynamic'` to close the XSS gap.
-- **H4. Publishing pipeline reliability.** Scheduled posts have no worker yet. The
-  `scheduled_posts_due_idx` supports the query; add a worker that claims due rows with
-  `for update skip locked`, publishes idempotently (store `external_id`), retries with
-  backoff, and dead-letters after N attempts.
+- **H4. Publishing pipeline reliability.** _Addressed:_ a BullMQ worker now claims due
+  rows via `claim_due_posts` (`for update skip locked`), enqueues jobs, and retries with
+  exponential backoff (5 attempts) before marking the post failed. Remaining: wire the
+  real provider in `apps/worker/src/lib/publish.ts` (currently fails closed) and store
+  `external_id` for idempotency.
 - **H5. Credit race at start.** `generate-video` checks credits then starts; two
   concurrent requests can both pass. Charge is on completion (good), but a hostile
   client could queue many generations. Reserve credits at start (a `pending` ledger
@@ -257,13 +259,13 @@ Each step is independently shippable and reversible.
 | Architecture & modularity | 9/10       | Clean separation; async generation              |
 | Data model & RLS          | 9/10       | Indexed, owner-scoped, idempotent functions     |
 | Security                  | 7/10       | RLS solid; CSP + rate limit + webhook to harden |
-| Reliability               | 5/10       | No DLQ, retries, or render durability (C1)      |
+| Reliability               | 7/10       | Render durability + publish worker w/ retries   |
 | Scalability               | 6/10       | Needs pooling, cache, workers                   |
 | Performance               | 6/10       | Good foundation; unproven under real load       |
 | Observability             | 2/10       | Logger only; nothing ingested                   |
 | DevOps / CI-CD            | 5/10       | Local gates good; no deploy pipeline            |
 | Cost control              | 8/10       | Charge-on-completion; CDN pending               |
-| **Total**                 | **62/100** | Solid foundation; operational gaps remain       |
+| **Total**                 | **64/100** | Solid foundation; operational gaps remain       |
 
 ## Next Recommended Task
 
