@@ -674,6 +674,59 @@ export type Database = {
           },
         ];
       };
+      social_connections: {
+        Row: {
+          access_token: string;
+          account_name: string;
+          created_at: string;
+          expires_at: string | null;
+          external_account_id: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"];
+          refresh_token: string | null;
+          revoked_at: string | null;
+          scopes: string[];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          access_token: string;
+          account_name?: string;
+          created_at?: string;
+          expires_at?: string | null;
+          external_account_id: string;
+          id?: string;
+          platform: Database["public"]["Enums"]["social_platform"];
+          refresh_token?: string | null;
+          revoked_at?: string | null;
+          scopes?: string[];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          access_token?: string;
+          account_name?: string;
+          created_at?: string;
+          expires_at?: string | null;
+          external_account_id?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"];
+          refresh_token?: string | null;
+          revoked_at?: string | null;
+          scopes?: string[];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean;
@@ -704,6 +757,78 @@ export type Database = {
           status?: string;
           updated_at?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      trend_runs: {
+        Row: {
+          discovered: number;
+          error: string | null;
+          finished_at: string | null;
+          id: number;
+          ok: boolean;
+          sources: number;
+          started_at: string;
+        };
+        Insert: {
+          discovered?: number;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: number;
+          ok?: boolean;
+          sources?: number;
+          started_at?: string;
+        };
+        Update: {
+          discovered?: number;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: number;
+          ok?: boolean;
+          sources?: number;
+          started_at?: string;
+        };
+        Relationships: [];
+      };
+      trends: {
+        Row: {
+          category: string;
+          confidence: number;
+          description: string;
+          discovered_at: string;
+          expires_at: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name: string;
+          source_url: string;
+          title: string;
+        };
+        Insert: {
+          category: string;
+          confidence?: number;
+          description?: string;
+          discovered_at?: string;
+          expires_at?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name?: string;
+          source_url: string;
+          title: string;
+        };
+        Update: {
+          category?: string;
+          confidence?: number;
+          description?: string;
+          discovered_at?: string;
+          expires_at?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          prompt?: string;
+          source_name?: string;
+          source_url?: string;
+          title?: string;
         };
         Relationships: [];
       };
@@ -781,7 +906,39 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      social_connections_public: {
+        Row: {
+          account_name: string | null;
+          active: boolean | null;
+          created_at: string | null;
+          expires_at: string | null;
+          external_account_id: string | null;
+          id: string | null;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          account_name?: string | null;
+          active?: never;
+          created_at?: string | null;
+          expires_at?: string | null;
+          external_account_id?: string | null;
+          id?: string | null;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          account_name?: string | null;
+          active?: never;
+          created_at?: string | null;
+          expires_at?: string | null;
+          external_account_id?: string | null;
+          id?: string | null;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       admin_pending_candidates: {
@@ -967,6 +1124,32 @@ export type Database = {
           p_user: string;
         };
         Returns: undefined;
+      };
+      social_connection_revoke: {
+        Args: { p_platform: Database["public"]["Enums"]["social_platform"] };
+        Returns: undefined;
+      };
+      trends_current: {
+        Args: { p_category?: string; p_limit?: number };
+        Returns: {
+          category: string;
+          confidence: number;
+          description: string;
+          discovered_at: string;
+          expires_at: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name: string;
+          source_url: string;
+          title: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "trends";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
     };
     Enums: {

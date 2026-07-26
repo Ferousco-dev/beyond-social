@@ -6,6 +6,8 @@ export const PUBLISH_QUEUE = "publish-post";
 
 export interface PublishJobData {
   scheduledPostId: string;
+  /** Whose connection to publish with; a post is meaningless without it. */
+  userId: string;
   platform: string;
   caption: string;
   hashtags: string;

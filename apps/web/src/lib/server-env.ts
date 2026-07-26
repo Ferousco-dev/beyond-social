@@ -17,6 +17,16 @@ const serverEnvSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
   STRIPE_PRICE_CREATOR: z.string().default(""),
   STRIPE_PRICE_STUDIO: z.string().default(""),
+  // Social publishing. Each platform is independently configurable, because
+  // TikTok and Meta app review do not complete on the same day.
+  TIKTOK_CLIENT_KEY: z.string().default(""),
+  TIKTOK_CLIENT_SECRET: z.string().default(""),
+  META_APP_ID: z.string().default(""),
+  META_APP_SECRET: z.string().default(""),
+  GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
+  FIRECRAWL_API_KEY: z.string().default(""),
+  CRON_SECRET: z.string().default(""),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -28,6 +38,14 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PRICE_CREATOR: process.env.STRIPE_PRICE_CREATOR,
   STRIPE_PRICE_STUDIO: process.env.STRIPE_PRICE_STUDIO,
+  TIKTOK_CLIENT_KEY: process.env.TIKTOK_CLIENT_KEY,
+  TIKTOK_CLIENT_SECRET: process.env.TIKTOK_CLIENT_SECRET,
+  META_APP_ID: process.env.META_APP_ID,
+  META_APP_SECRET: process.env.META_APP_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+  FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY,
+  CRON_SECRET: process.env.CRON_SECRET,
 });
 
 /**
@@ -53,3 +71,6 @@ export const isPromptEngineConfigured =
   serverEnv.SUPABASE_SERVICE_ROLE_KEY !== "" &&
   serverEnv.ANTHROPIC_API_KEY !== "" &&
   (serverEnv.VOYAGE_API_KEY !== "" || serverEnv.OPENAI_API_KEY !== "");
+
+/** Trend discovery runs only with a Firecrawl key; without it the feed is empty. */
+export const isTrendDiscoveryConfigured = serverEnv.FIRECRAWL_API_KEY !== "";

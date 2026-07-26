@@ -7,6 +7,7 @@ const CLAIM_BATCH = 20;
 
 interface DuePost {
   id: string;
+  user_id: string;
   platform: string;
   caption: string;
   hashtags: string;
@@ -28,6 +29,7 @@ export function startScheduler(queue: PublishQueue): () => void {
     for (const post of posts) {
       await queue.add("publish", {
         scheduledPostId: post.id,
+        userId: post.user_id,
         platform: post.platform,
         caption: post.caption,
         hashtags: post.hashtags,

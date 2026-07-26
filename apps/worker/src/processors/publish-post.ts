@@ -1,5 +1,6 @@
-import { Worker, type Job } from "bullmq";
+import { UnrecoverableError, Worker, type Job } from "bullmq";
 
+import { PermanentPublishError } from "../lib/platforms";
 import { publishPost } from "../lib/publish";
 import { createRedis } from "../lib/redis";
 import { createServiceClient } from "../lib/supabase";
@@ -14,7 +15,7 @@ export function startPublishWorker(): Worker<PublishJobData> {
   const worker = new Worker<PublishJobData>(
     PUBLISH_QUEUE,
     async (job: Job<PublishJobData>) => {
-      const { scheduledPostId, platform, caption, hashtags, generationId } = job.data;
+      const { scheduledPostId, userId, platform, caption, hashtags, generationId } = job.data;
 
       let videoUrl: string | null = null;
       if (generationId) {
@@ -26,7 +27,24 @@ export function startPublishWorker(): Worker<PublishJobData> {
         videoUrl = (data?.result_url as string | null) ?? null;
       }
 
-      const { externalId } = await publishPost({ platform, caption, hashtags, videoUrl });
+      let externalId: string;
+      try {
+        ({ externalId } = await publishPost({
+          userId,
+          platform,
+          caption,
+          hashtags,
+          videoUrl,
+        }));
+      } catch (error) {
+        // A revoked token or a rejected video will not succeed on the fifth
+        // attempt either. Retrying only delays telling the user something is
+        // wrong, so these end the job immediately.
+        if (error instanceof PermanentPublishError) {
+          throw new UnrecoverableError(error.message);
+        }
+        throw error;
+      }
 
       await supabase
         .from("scheduled_posts")

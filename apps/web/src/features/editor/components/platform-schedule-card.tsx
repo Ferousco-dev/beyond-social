@@ -1,8 +1,9 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 
-import { RECOMMENDED_TIMES, type Platform } from "@/lib/publish/data";
+import { suggestPostingTimes } from "@/lib/optimization/posting-times";
+import { type Platform } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
 
 export interface PlatformScheduleValue {
@@ -23,8 +24,10 @@ export function PlatformScheduleCard({
   value: PlatformScheduleValue;
   onChange: (field: keyof PlatformScheduleValue, next: string) => void;
 }): ReactNode {
-  const times = RECOMMENDED_TIMES[platform.id] ?? [];
-  const reason = times.find((time) => time.time === value.scheduledTime)?.reason;
+  // Computed on mount rather than at module load, so a dialog left open
+  // overnight does not offer yesterday's slots.
+  const times = useMemo(() => suggestPostingTimes(platform.id), [platform.id]);
+  const reason = times.find((time) => time.value === value.scheduledTime)?.reason;
 
   return (
     <div className="rounded-xl border border-hairline bg-cloud p-4">
@@ -48,12 +51,15 @@ export function PlatformScheduleCard({
             className={FIELD_CLASS}
           >
             {times.map((time) => (
-              <option key={time.time} value={time.time}>
-                {time.time} · {time.label}
+              <option key={time.value} value={time.value}>
+                {time.label}
               </option>
             ))}
           </select>
           {reason ? <p className="mt-1 text-xs text-ink-soft">{reason}</p> : null}
+          <p className="mt-1 text-xs text-ink-soft">
+            Based on general engagement patterns for {platform.name}, not your own audience yet.
+          </p>
         </div>
 
         <div>
