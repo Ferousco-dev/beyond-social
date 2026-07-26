@@ -31,10 +31,21 @@ export function ActivityChart({ series }: { series: readonly DailyActivity[] }) 
   const gradientId = useId();
   const [active, setActive] = useState<number | null>(null);
   const points = buildPoints(series);
+  const hasActivity = series.some((day) => day.generated > 0);
 
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
   const area = `${line} ${WIDTH},${HEIGHT} 0,${HEIGHT}`;
   const hovered = active === null ? null : points[active];
+
+  // A plot of a flat zero line is not information, it is decoration that looks
+  // like a broken chart.
+  if (!hasActivity) {
+    return (
+      <p className="py-8 text-center text-sm text-ink-soft">
+        Nothing generated in the last 7 days. Your activity appears here once you make a video.
+      </p>
+    );
+  }
 
   return (
     <figure className="relative m-0">
