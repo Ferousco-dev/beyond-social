@@ -8,6 +8,7 @@
  */
 import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
+import { z } from "zod";
 import { type CompletionResult, type ProviderClient } from "../src/providers";
 import { TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
 import { ProviderError } from "../src/retry";
@@ -18,6 +19,7 @@ import {
   fenceUntrusted,
   moderate,
 } from "../src/safety";
+import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orchestration";
 import { MemoryUsageSink } from "../src/usage";
 
 const results: string[] = [];
@@ -218,6 +220,97 @@ async function main(): Promise<void> {
   check(
     "flags leaked credentials",
     moderate("my key is sk-abcdefghijklmnopqrstuvwxyz123456").action === "review",
+  );
+
+  // 15. Tool arguments are validated before the tool runs.
+  let ran = false;
+  const adder = defineTool({
+    name: "add",
+    description: "Adds two numbers",
+    schema: z.object({ a: z.number(), b: z.number() }),
+    execute: ({ a, b }) => {
+      ran = true;
+      return a + b;
+    },
+  });
+  const bad = await runToolCall({ id: "1", name: "add", input: { a: "x", b: 2 } }, [
+    adder as never,
+  ]);
+  check("rejects invalid tool arguments", !bad.ok && !ran, bad.content.slice(0, 40));
+  const good = await runToolCall({ id: "2", name: "add", input: { a: 2, b: 3 } }, [adder as never]);
+  check("runs valid tool calls", good.ok && good.content === "5");
+
+  // 16. An unknown tool is reported back, not thrown.
+  const missing = await runToolCall({ id: "3", name: "nope", input: {} }, [adder as never]);
+  check("reports unknown tools", !missing.ok && missing.content.includes("Unknown tool"));
+
+  // 17. Envelope parsing tolerates prose around the block, and plain prose ends the loop.
+  const withFence = parseToolCalls(
+    'Thinking.\n```json\n{"tool_calls":[{"name":"add","input":{"a":1,"b":2}}]}\n```',
+  );
+  const withoutFence = parseToolCalls("Here is the final answer.");
+  check("parses tool envelopes", withFence.calls.length === 1 && withoutFence.calls.length === 0);
+
+  // 18. The agent loop stops when the model stops asking for tools.
+  let turn = 0;
+  const agentProvider: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      turn += 1;
+      const text =
+        turn === 1
+          ? '```json\n{"tool_calls":[{"name":"add","input":{"a":2,"b":3}}]}\n```'
+          : "The answer is 5.";
+      return { text, inputTokens: 10, outputTokens: 10 };
+    },
+  };
+  const run = await runAgent("What is 2 + 3?", {
+    gateway: new AiGateway({ clients: { anthropic: agentProvider }, usage }),
+    task: "generation",
+    system: "You do arithmetic.",
+    tools: [adder as never],
+  });
+  check(
+    "agent loops then finishes",
+    run.stopReason === "complete" && run.steps.length === 2 && run.output.includes("5"),
+    `${run.steps.length} steps`,
+  );
+
+  // 19. A model that never stops calling tools is stopped by the step bound.
+  const looping: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      return {
+        text: '```json\n{"tool_calls":[{"name":"add","input":{"a":1,"b":1}}]}\n```',
+        inputTokens: 10,
+        outputTokens: 10,
+      };
+    },
+  };
+  const bounded = await runAgent("loop forever", {
+    gateway: new AiGateway({ clients: { anthropic: looping }, usage }),
+    task: "generation",
+    system: "s",
+    tools: [adder as never],
+    maxSteps: 3,
+  });
+  check(
+    "agent respects the step bound",
+    bounded.stoppedEarly && bounded.steps.length === 3,
+    `${bounded.steps.length} steps, ${bounded.stopReason}`,
+  );
+
+  // 20. And by the spend bound, which matters more than the step bound.
+  const costly = await runAgent("loop forever", {
+    gateway: new AiGateway({ clients: { anthropic: looping }, usage }),
+    task: "generation",
+    system: "s",
+    tools: [adder as never],
+    maxSteps: 50,
+    maxCostUsd: 0.002,
+  });
+  check(
+    "agent respects the spend bound",
+    costly.stopReason === "budget" && costly.totalCostUsd >= 0.002,
+    `$${costly.totalCostUsd.toFixed(4)} over ${costly.steps.length} steps`,
   );
 
   process.stdout.write(`${results.join("\n")}\n`);
