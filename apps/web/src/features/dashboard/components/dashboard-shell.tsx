@@ -104,11 +104,13 @@ export function DashboardShell({
               </button>
             </CommandPalette>
 
+            {/* Was href="#", so the upgrade call to action did nothing at all.
+                Padded to a real tap target too: it was 20px tall. */}
             <a
-              href="#"
-              className="inline-flex items-center gap-1.5 px-2 text-sm font-medium text-primary transition-opacity hover:opacity-80"
+              href="/dashboard/settings/billing"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-primary transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <Sparkle className="size-4 fill-current" />
+              <Sparkle className="size-4 fill-current" aria-hidden />
               Upgrade
             </a>
           </div>

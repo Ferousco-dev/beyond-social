@@ -72,8 +72,8 @@ export async function DashboardOverview(): Promise<ReactNode> {
             <p className="text-xs text-ink-soft">Resets in {credits.resetsInDays} days</p>
             {low ? (
               <a
-                href="#"
-                className="rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                href="/dashboard/settings/billing"
+                className="inline-flex min-h-9 items-center rounded-full bg-ink px-3.5 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Upgrade
               </a>
