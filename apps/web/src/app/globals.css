@@ -227,6 +227,19 @@
     @apply bg-background text-foreground;
   }
 
+  /*
+   * The dark palette is scoped to a subtree (`<div class="dark">`), so the
+   * document itself kept the light background. Anything outside the scrolled
+   * content showed it: the overscroll bounce at either end rendered a white
+   * band under a page that is otherwise entirely dark.
+   *
+   * Matching the document to the subtree fixes the bounce without giving up
+   * the scoping, which is what lets marketing and workspace share one app.
+   */
+  html:has(.dark) {
+    background-color: var(--canvas);
+  }
+
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
