@@ -2,6 +2,7 @@ import "server-only";
 
 import { composePrompt, generationRequestSchema } from "@beyond-social/prompt-engine";
 
+import { isFlagEnabled } from "@/lib/flags";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { logger } from "@/lib/logger";
 
@@ -30,6 +31,11 @@ const REWRITE_INSTRUCTION =
  */
 export async function enhancePrompt(input: EnhanceInput): Promise<EnhancedPrompt | null> {
   if (!isPromptEngineConfigured) return null;
+  // Kill switch: turning this off in the admin console falls back to the raw
+  // prompt without a deploy. Defaults to on, so a flag outage does not silently
+  // disable the engine.
+  if (!(await isFlagEnabled("prompt_engine", true))) return null;
+
   try {
     const request = generationRequestSchema.parse({
       prompt: input.prompt,

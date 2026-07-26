@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { authenticateRequest } from "@/lib/api/authenticate";
 import { checkApiRateLimit } from "@/lib/api/rate-limit";
+import { isFlagEnabled } from "@/lib/flags";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -19,6 +20,11 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request): Promise<NextResponse> {
+  // Kill switch for the whole public API, so it can be taken down without a deploy.
+  if (!(await isFlagEnabled("public_api", true))) {
+    return NextResponse.json({ error: "unavailable" }, { status: 503 });
+  }
+
   const caller = await authenticateRequest(request);
   if (!caller) {
     return NextResponse.json(
