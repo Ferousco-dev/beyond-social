@@ -1,10 +1,8 @@
-import { timingSafeEqual } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
+import { isCronAuthorised } from "@/lib/cron/auth";
 import { logger } from "@/lib/logger";
 import { withTrace } from "@/lib/observability/http";
-import { serverEnv } from "@/lib/server-env";
 import { discoverTrends } from "@/lib/trends/discover";
 
 /**
@@ -18,19 +16,8 @@ export const dynamic = "force-dynamic";
 /** Discovery walks every category, so it needs more than the default budget. */
 export const maxDuration = 300;
 
-function authorised(request: Request): boolean {
-  const expected = serverEnv.CRON_SECRET;
-  // Fail closed: with no secret set, nobody can trigger it.
-  if (expected === "") return false;
-
-  const provided = request.headers.get("authorization")?.replace(/^Bearer /, "") ?? "";
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
 export const GET = withTrace("GET /api/cron/discover-trends", async (request) => {
-  if (!authorised(request)) {
+  if (!isCronAuthorised(request)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

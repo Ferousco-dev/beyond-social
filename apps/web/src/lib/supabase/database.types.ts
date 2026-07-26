@@ -229,6 +229,30 @@ export type Database = {
           },
         ];
       };
+      embedding_cache: {
+        Row: {
+          created_at: string;
+          embedding: number[];
+          key: string;
+          last_used_at: string;
+          model: string;
+        };
+        Insert: {
+          created_at?: string;
+          embedding: number[];
+          key: string;
+          last_used_at?: string;
+          model: string;
+        };
+        Update: {
+          created_at?: string;
+          embedding?: number[];
+          key?: string;
+          last_used_at?: string;
+          model?: string;
+        };
+        Relationships: [];
+      };
       feature_flags: {
         Row: {
           description: string;
@@ -623,6 +647,36 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      response_cache: {
+        Row: {
+          created_at: string;
+          expires_at: string;
+          input_tokens: number;
+          key: string;
+          model: string;
+          output_tokens: number;
+          response: string;
+        };
+        Insert: {
+          created_at?: string;
+          expires_at: string;
+          input_tokens?: number;
+          key: string;
+          model: string;
+          output_tokens?: number;
+          response: string;
+        };
+        Update: {
+          created_at?: string;
+          expires_at?: string;
+          input_tokens?: number;
+          key?: string;
+          model?: string;
+          output_tokens?: number;
+          response?: string;
+        };
+        Relationships: [];
       };
       scheduled_posts: {
         Row: {
@@ -1028,6 +1082,13 @@ export type Database = {
         Args: { p_customer: string; p_user: string };
         Returns: undefined;
       };
+      cache_prune: {
+        Args: { p_max_embeddings?: number };
+        Returns: {
+          embeddings_removed: number;
+          responses_removed: number;
+        }[];
+      };
       claim_due_posts: {
         Args: { p_limit?: number };
         Returns: {
@@ -1058,6 +1119,11 @@ export type Database = {
       create_organization: {
         Args: { p_name: string; p_slug: string };
         Returns: string;
+      };
+      embedding_cache_get: { Args: { p_key: string }; Returns: number[] };
+      embedding_cache_put: {
+        Args: { p_embedding: number[]; p_key: string; p_model: string };
+        Returns: undefined;
       };
       fail_generation: {
         Args: { p_error: string; p_provider_task_id: string };
@@ -1162,6 +1228,18 @@ export type Database = {
         Returns: undefined;
       };
       reset_due_credits: { Args: never; Returns: undefined };
+      response_cache_get: { Args: { p_key: string }; Returns: string };
+      response_cache_put: {
+        Args: {
+          p_input_tokens?: number;
+          p_key: string;
+          p_model: string;
+          p_output_tokens?: number;
+          p_response: string;
+          p_ttl_seconds: number;
+        };
+        Returns: undefined;
+      };
       set_member_role: {
         Args: {
           p_org: string;
