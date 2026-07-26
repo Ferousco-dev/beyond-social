@@ -7,7 +7,7 @@ import {
   Users,
   PenSquare,
   Search,
-  Share2,
+  Settings,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -74,10 +74,10 @@ const LINKS: readonly NavLink[] = [
     motion: "group-hover:scale-110",
   },
   {
-    href: "/dashboard/settings/connections" as Route,
-    label: "Connections",
-    icon: Share2,
-    motion: "group-hover:scale-110",
+    href: "/dashboard/settings" as Route,
+    label: "Settings",
+    icon: Settings,
+    motion: "group-hover:rotate-45",
   },
   {
     href: "/dashboard/trends" as Route,

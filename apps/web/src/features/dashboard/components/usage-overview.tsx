@@ -1,7 +1,8 @@
 import { Activity, CircleSlash, Coins, Database, Timer, Zap } from "lucide-react";
 import { type ReactNode } from "react";
 
-import { UpgradePanel } from "@/features/billing/components/upgrade-panel";
+import Link from "next/link";
+
 import { getCurrentPlan } from "@/lib/billing/current-plan";
 import {
   USAGE_WINDOWS,
@@ -104,7 +105,17 @@ export async function UsageOverview({ window }: { window: UsageWindowId }): Prom
         </div>
       )}
 
-      <UpgradePanel currentPlan={plan} />
+      {/* Plan and credits live in Settings > Billing, so there is one place to
+          change a subscription rather than two that can disagree. */}
+      <p className="mt-8 text-xs text-ink-soft">
+        You are on the <span className="capitalize text-ink">{plan}</span> plan.{" "}
+        <Link
+          href="/dashboard/settings/billing"
+          className="text-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Manage billing
+        </Link>
+      </p>
     </div>
   );
 }

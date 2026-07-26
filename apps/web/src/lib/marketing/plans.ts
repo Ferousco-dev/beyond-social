@@ -1,44 +1,23 @@
 import { type FaqItem, type PricingTier } from "./types";
 
-export const PRICING_TIERS: readonly PricingTier[] = [
-  {
-    name: "Starter",
-    price: "$19",
-    description: "For creators finding their rhythm.",
-    videos: "15 videos / month",
-    features: ["Conversational creation", "In-browser editor", "Auto captions and hashtags"],
-    featured: false,
-    cta: "Start free",
-  },
-  {
-    name: "Creator",
-    price: "$49",
-    description: "For creators publishing every day.",
-    videos: "60 videos / month",
-    features: [
-      "Everything in Starter",
-      "AI scheduling across platforms",
-      "Trend discovery feed",
-      "Priority generation",
-    ],
-    featured: true,
-    cta: "Start free",
-  },
-  {
-    name: "Studio",
-    price: "$149",
-    description: "For teams running multiple brands.",
-    videos: "200 videos / month",
-    features: [
-      "Everything in Creator",
-      "Batch scheduling",
-      "Brand voice presets",
-      "Priority support",
-    ],
-    featured: false,
-    cta: "Talk to us",
-  },
-];
+import { PLAN_LIST, priceLabel } from "@/lib/billing/plans";
+
+/**
+ * Marketing pricing cards, derived from the billing catalogue.
+ *
+ * These were once a separate hand-written list and drifted from what Stripe
+ * charges, which meant the landing page advertised prices the product did not
+ * honour. Deriving them removes the possibility rather than the likelihood.
+ */
+export const PRICING_TIERS: readonly PricingTier[] = PLAN_LIST.map((plan) => ({
+  name: plan.name,
+  price: priceLabel(plan),
+  description: plan.description,
+  videos: `${plan.credits} videos / month`,
+  features: plan.features,
+  featured: plan.featured,
+  cta: plan.cta,
+}));
 
 export const FAQ_ITEMS: readonly FaqItem[] = [
   {
