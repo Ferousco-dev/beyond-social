@@ -10,6 +10,8 @@ interface GenerateBody {
   prompt?: string;
   aspectRatio?: string;
   imageUrls?: string[];
+  /** Seconds. Only present when the request actually asked for a length. */
+  duration?: number;
 }
 
 Deno.serve(async (req) => {
@@ -54,6 +56,15 @@ Deno.serve(async (req) => {
 
   const aspectRatio =
     body.aspectRatio === "16:9" || body.aspectRatio === "Auto" ? body.aspectRatio : "9:16";
+
+  // The provider accepts a fixed set of lengths; anything else is rejected
+  // outright rather than rounded, so an out-of-range request falls back to the
+  // default instead of failing the whole generation.
+  const ALLOWED_DURATIONS = [4, 6, 8];
+  const duration =
+    typeof body.duration === "number" && ALLOWED_DURATIONS.includes(body.duration)
+      ? body.duration
+      : 8;
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
@@ -63,6 +74,7 @@ Deno.serve(async (req) => {
       prompt,
       imageUrls: body.imageUrls?.slice(0, 2),
       aspectRatio,
+      duration,
       callBackUrl,
     });
   } catch (error) {
@@ -76,6 +88,7 @@ Deno.serve(async (req) => {
       user_id: user.id,
       prompt,
       aspect_ratio: aspectRatio,
+      duration,
       image_urls: body.imageUrls ?? [],
       status: "generating",
       provider_task_id: taskId,
