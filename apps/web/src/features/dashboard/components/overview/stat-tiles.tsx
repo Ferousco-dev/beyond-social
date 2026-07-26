@@ -1,12 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, type LucideIcon } from "lucide-react";
 
-import {
-  PLATFORM_REACH,
-  VIEWS_LAST_7_DAYS,
-  formatCount,
-  trendPercent,
-} from "@/lib/dashboard/analytics";
-import { type HistoryItem } from "@/lib/dashboard/data";
+import { formatCount, trendPercent, type ProductAnalytics } from "@/lib/dashboard/analytics";
 import { cn } from "@/lib/utils";
 
 interface Stat {
@@ -15,32 +9,26 @@ interface Stat {
   readonly delta?: number;
 }
 
-function buildStats(history: readonly HistoryItem[]): readonly Stat[] {
-  const weekViews = VIEWS_LAST_7_DAYS.reduce((total, day) => total + day.views, 0);
-  const totalReach = PLATFORM_REACH.reduce((total, row) => total + row.views, 0);
+function buildStats(analytics: ProductAnalytics): readonly Stat[] {
+  const { daily, funnel } = analytics;
+  const weekGenerated = daily.reduce((total, day) => total + day.generated, 0);
+  // Shown only once something has completed, so an empty account is not told
+  // its success rate is zero percent.
+  const successRate =
+    funnel.generated > 0 ? `${Math.round((funnel.ready / funnel.generated) * 100)}%` : "--";
 
   return [
-    {
-      label: "Views this week",
-      value: formatCount(weekViews),
-      delta: trendPercent(VIEWS_LAST_7_DAYS),
-    },
-    { label: "Total reach", value: formatCount(totalReach) },
-    {
-      label: "Published",
-      value: String(history.filter((item) => item.status === "Published").length),
-    },
-    {
-      label: "Scheduled",
-      value: String(history.filter((item) => item.status === "Scheduled").length),
-    },
+    { label: "Generated this week", value: formatCount(weekGenerated), delta: trendPercent(daily) },
+    { label: "Ready", value: formatCount(funnel.ready) },
+    { label: "Published", value: formatCount(funnel.published) },
+    { label: "Success rate", value: successRate },
   ];
 }
 
-export function StatTiles({ history }: { history: readonly HistoryItem[] }) {
+export function StatTiles({ analytics }: { analytics: ProductAnalytics }) {
   return (
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {buildStats(history).map((stat) => {
+      {buildStats(analytics).map((stat) => {
         const rising = (stat.delta ?? 0) >= 0;
         const Arrow: LucideIcon = rising ? ArrowUpRight : ArrowDownRight;
 

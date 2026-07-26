@@ -2,12 +2,7 @@
 
 import { useId, useState } from "react";
 
-import {
-  VIEWS_LAST_7_DAYS,
-  formatCount,
-  formatDayLabel,
-  type DailyViews,
-} from "@/lib/dashboard/analytics";
+import { formatCount, formatDayLabel, type DailyActivity } from "@/lib/dashboard/analytics";
 
 const WIDTH = 320;
 const HEIGHT = 88;
@@ -16,26 +11,26 @@ const PAD_Y = 8;
 interface Point {
   readonly x: number;
   readonly y: number;
-  readonly day: DailyViews;
+  readonly day: DailyActivity;
 }
 
-function buildPoints(series: readonly DailyViews[]): readonly Point[] {
-  const max = Math.max(...series.map((day) => day.views));
-  const min = Math.min(...series.map((day) => day.views));
+function buildPoints(series: readonly DailyActivity[]): readonly Point[] {
+  const max = Math.max(...series.map((day) => day.generated));
+  const min = Math.min(...series.map((day) => day.generated));
   const span = max - min || 1;
   const step = series.length > 1 ? WIDTH / (series.length - 1) : 0;
 
   return series.map((day, index) => ({
     x: index * step,
-    y: PAD_Y + (1 - (day.views - min) / span) * (HEIGHT - PAD_Y * 2),
+    y: PAD_Y + (1 - (day.generated - min) / span) * (HEIGHT - PAD_Y * 2),
     day,
   }));
 }
 
-export function ViewsChart() {
+export function ActivityChart({ series }: { series: readonly DailyActivity[] }) {
   const gradientId = useId();
   const [active, setActive] = useState<number | null>(null);
-  const points = buildPoints(VIEWS_LAST_7_DAYS);
+  const points = buildPoints(series);
 
   const line = points.map((point) => `${point.x},${point.y}`).join(" ");
   const area = `${line} ${WIDTH},${HEIGHT} 0,${HEIGHT}`;
@@ -48,7 +43,7 @@ export function ViewsChart() {
         preserveAspectRatio="none"
         className="h-24 w-full"
         role="img"
-        aria-label="Views over the last seven days"
+        aria-label="Videos generated over the last seven days"
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -100,7 +95,7 @@ export function ViewsChart() {
           style={{ left: `${(hovered.x / WIDTH) * 100}%` }}
           className="pointer-events-none absolute -top-1 -translate-x-1/2 rounded-md border border-hairline bg-paper px-2 py-1 text-xs shadow-card"
         >
-          <span className="font-medium text-ink">{formatCount(hovered.day.views)}</span>{" "}
+          <span className="font-medium text-ink">{formatCount(hovered.day.generated)}</span>{" "}
           <span className="text-ink-soft">{formatDayLabel(hovered.day.date)}</span>
         </div>
       ) : null}
@@ -114,12 +109,12 @@ export function ViewsChart() {
       {/* The same numbers, reachable without reading the plot. */}
       <figcaption className="sr-only">
         <table>
-          <caption>Views over the last seven days</caption>
+          <caption>Videos generated over the last seven days</caption>
           <tbody>
-            {VIEWS_LAST_7_DAYS.map((day) => (
+            {series.map((day) => (
               <tr key={day.date}>
                 <th scope="row">{day.date}</th>
-                <td>{day.views}</td>
+                <td>{day.generated}</td>
               </tr>
             ))}
           </tbody>
