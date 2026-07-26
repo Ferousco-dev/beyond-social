@@ -648,6 +648,24 @@ export type Database = {
           },
         ];
       };
+      rate_limits: {
+        Row: {
+          count: number;
+          key: string;
+          window_end: string;
+        };
+        Insert: {
+          count?: number;
+          key: string;
+          window_end: string;
+        };
+        Update: {
+          count?: number;
+          key?: string;
+          window_end?: string;
+        };
+        Relationships: [];
+      };
       response_cache: {
         Row: {
           created_at: string;
@@ -1227,6 +1245,15 @@ export type Database = {
         Args: { p_chunk: Json; p_embedding: Json };
         Returns: undefined;
       };
+      rate_limit_hit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number };
+        Returns: {
+          allowed: boolean;
+          remaining: number;
+          retry_after_seconds: number;
+        }[];
+      };
+      rate_limit_prune: { Args: never; Returns: number };
       reset_due_credits: { Args: never; Returns: undefined };
       response_cache_get: { Args: { p_key: string }; Returns: string };
       response_cache_put: {

@@ -44,7 +44,17 @@ export function LoginForm() {
       setResult(response);
       if (response.status === "success" && response.redirectTo) {
         if (values.rememberMe) window.localStorage.setItem(LAST_EMAIL_KEY, values.email);
-        router.push(response.redirectTo as Route);
+        else window.localStorage.removeItem(LAST_EMAIL_KEY);
+
+        // Middleware sends an unauthenticated deep link here with ?redirect=,
+        // and ignoring it dropped everyone on the dashboard regardless of where
+        // they were actually going.
+        const requested = new URLSearchParams(window.location.search).get("redirect");
+        const destination =
+          requested && requested.startsWith("/") && !requested.startsWith("//")
+            ? requested
+            : response.redirectTo;
+        router.push(destination as Route);
       }
     });
   }
@@ -80,7 +90,9 @@ export function LoginForm() {
             className="size-4 rounded border-border accent-primary"
             {...register("rememberMe")}
           />
-          Remember me
+          {/* Named for what it does. It stores the address for next time; it
+              does not extend the session, which persists either way. */}
+          Remember my email
         </label>
         <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
           Forgot password?
