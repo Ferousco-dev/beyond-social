@@ -12,7 +12,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { Ingestor, OpenAiEmbedder, SupabaseVectorStore, VoyageEmbedder } from "../src/index";
+import {
+  CachingEmbedder,
+  Ingestor,
+  OpenAiEmbedder,
+  SupabaseVectorStore,
+  VoyageEmbedder,
+} from "../src/index";
 import type { Embedder, SupabaseRpcClient } from "../src/index";
 
 const root = process.argv[2] ?? "prompts";
@@ -36,9 +42,13 @@ const rpc: SupabaseRpcClient = {
   },
 };
 
-const embedder: Embedder = process.env.VOYAGE_API_KEY
-  ? new VoyageEmbedder(process.env.VOYAGE_API_KEY, "voyage-3-large", 1024, "document")
-  : new OpenAiEmbedder(requireEnv("OPENAI_API_KEY"));
+// Cached because re-ingesting a corpus re-embeds every unchanged chunk, which
+// is the single most wasteful call pattern in the system.
+const embedder: Embedder = new CachingEmbedder(
+  process.env.VOYAGE_API_KEY
+    ? new VoyageEmbedder(process.env.VOYAGE_API_KEY, "voyage-3-large", 1024, "document")
+    : new OpenAiEmbedder(requireEnv("OPENAI_API_KEY")),
+);
 
 function mdFiles(dir: string): string[] {
   const out: string[] = [];
