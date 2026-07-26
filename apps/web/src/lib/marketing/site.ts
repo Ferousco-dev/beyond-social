@@ -3,7 +3,7 @@ import { type FooterColumn, type NavLink } from "./types";
 export const NAV_LINKS: readonly NavLink[] = [
   { label: "Features", href: "/#features" },
   { label: "Workflow", href: "/#ai-workflow" },
-  { label: "Pricing", href: "/#pricing" },
+  { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/#faq" },
 ];
 
@@ -15,7 +15,7 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
     links: [
       { label: "Features", href: "/#features" },
       { label: "Workflow", href: "/#ai-workflow" },
-      { label: "Pricing", href: "/#pricing" },
+      { label: "Pricing", href: "/pricing" },
       { label: "FAQ", href: "/#faq" },
     ],
   },
