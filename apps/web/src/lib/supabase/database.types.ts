@@ -881,6 +881,29 @@ export type Database = {
         };
         Returns: boolean;
       };
+      product_activity_daily: {
+        Args: { p_days?: number; p_user: string };
+        Returns: {
+          day: string;
+          generated: number;
+          ready: number;
+        }[];
+      };
+      product_funnel: {
+        Args: { p_since: string; p_user: string };
+        Returns: {
+          generated: number;
+          published: number;
+          ready: number;
+        }[];
+      };
+      product_platform_totals: {
+        Args: { p_user: string };
+        Returns: {
+          platform: string;
+          published: number;
+        }[];
+      };
       prompt_apply_scores: { Args: { p_scores: Json }; Returns: undefined };
       prompt_deprecate: { Args: { p_ids: string[] }; Returns: undefined };
       prompt_get_candidate: {

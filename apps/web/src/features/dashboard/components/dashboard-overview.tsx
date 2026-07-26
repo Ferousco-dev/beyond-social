@@ -3,12 +3,13 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { getProductAnalytics } from "@/lib/dashboard/analytics-queries";
 import { getCredits, getHistory, getProjectGroups } from "@/lib/dashboard/queries";
 
 import { HistoryList } from "./overview/history-list";
+import { ActivityChart } from "./overview/activity-chart";
 import { PlatformBars } from "./overview/platform-bars";
 import { StatTiles } from "./overview/stat-tiles";
-import { ViewsChart } from "./overview/views-chart";
 import { ScheduledPosts } from "./scheduled-posts";
 
 /** Below this share of the allowance the quota is worth calling out. */
@@ -24,10 +25,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export async function DashboardOverview(): Promise<ReactNode> {
-  const [credits, projectGroups, history] = await Promise.all([
+  const [credits, projectGroups, history, analytics] = await Promise.all([
     getCredits(),
     getProjectGroups(),
     getHistory(),
+    getProductAnalytics(),
   ]);
   const activeProjects = projectGroups.flatMap((group) => group.projects).slice(0, 3);
   const remaining = credits.total - credits.used;
@@ -37,23 +39,23 @@ export async function DashboardOverview(): Promise<ReactNode> {
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Dashboard</h1>
-      <p className="mt-1 text-sm text-ink-soft">How your videos are performing.</p>
+      <p className="mt-1 text-sm text-ink-soft">What you have made and where it went.</p>
 
       <div className="mt-6">
-        <StatTiles history={history} />
+        <StatTiles analytics={analytics} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <div className="rounded-2xl border border-hairline bg-paper p-5 lg:col-span-2">
-          <h2 className="text-sm font-semibold text-ink">Views</h2>
+          <h2 className="text-sm font-semibold text-ink">Videos generated</h2>
           <p className="mb-3 text-xs text-ink-soft">Last 7 days</p>
-          <ViewsChart />
+          <ActivityChart series={analytics.daily} />
         </div>
 
         <div className="rounded-2xl border border-hairline bg-paper p-5">
-          <h2 className="text-sm font-semibold text-ink">Reach by platform</h2>
+          <h2 className="text-sm font-semibold text-ink">Published by platform</h2>
           <p className="mb-3 text-xs text-ink-soft">All time</p>
-          <PlatformBars />
+          <PlatformBars totals={analytics.platforms} />
         </div>
       </div>
 
