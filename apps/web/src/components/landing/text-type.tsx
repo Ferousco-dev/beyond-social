@@ -86,22 +86,37 @@ export function TextType({
 
   const visible = reduced ? (phrases[0] ?? "") : shown;
 
+  // The longest phrase reserves the box. Without this the heading grew and
+  // shrank as characters were typed, and at some widths gained or lost a line,
+  // which shifted the entire page up and down while the animation ran.
+  const longest = useMemo(
+    () => phrases.reduce((a, b) => (b.length > a.length ? b : a), phrases[0] ?? ""),
+    [phrases],
+  );
+
   return (
-    <span className={className}>
-      {visible}
-      {showCursor && !reduced ? (
-        <span
-          aria-hidden
-          // `inline`, not `inline-block`: an inline-block caret grows the line
-          // box and pushes the following copy down.
-          className={cn(
-            "ml-1 inline motion-safe:animate-[blink_1s_steps(1)_infinite]",
-            cursorClassName,
-          )}
-        >
-          {cursorCharacter}
-        </span>
-      ) : null}
+    // `inline-grid` keeps the element in the flow of the heading while letting
+    // the reserved copy and the animated copy share one cell.
+    <span className={cn("inline-grid", className)}>
+      <span aria-hidden className="invisible col-start-1 row-start-1">
+        {longest}
+      </span>
+      <span className="col-start-1 row-start-1">
+        {visible}
+        {showCursor && !reduced ? (
+          <span
+            aria-hidden
+            // `inline`, not `inline-block`: an inline-block caret grows the line
+            // box and pushes the following copy down.
+            className={cn(
+              "ml-1 inline motion-safe:animate-[blink_1s_steps(1)_infinite]",
+              cursorClassName,
+            )}
+          >
+            {cursorCharacter}
+          </span>
+        ) : null}
+      </span>
     </span>
   );
 }
