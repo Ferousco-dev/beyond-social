@@ -42,5 +42,8 @@ jobs:
       - name: AI gateway behavioural tests
         run: pnpm --filter @beyond-social/ai-gateway test
 
+      - name: SDK tests
+        run: pnpm --filter @beyond-social/sdk test
+
       - name: Validate prompt knowledge base
         run: pnpm --filter @beyond-social/prompt-engine validate

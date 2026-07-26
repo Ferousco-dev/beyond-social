@@ -269,6 +269,27 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/sdk:
+    devDependencies:
+      '@beyond-social/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@beyond-social/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.5(jiti@2.7.0)
+      tsx:
+        specifier: ^4.19.2
+        version: 4.23.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/typescript-config: {}
 
 packages:
