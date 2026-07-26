@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "build": "tsup",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx scripts/publish-smoke.ts"
   },
   "dependencies": {
     "@beyond-social/env": "workspace:*",

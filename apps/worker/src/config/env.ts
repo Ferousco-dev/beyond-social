@@ -9,7 +9,6 @@ const workerEnvSchema = z.object({
   REDIS_URL: z.string().url().or(z.literal("")).default(""),
   SUPABASE_URL: z.string().url().or(z.literal("")).default(""),
   SUPABASE_SERVICE_ROLE_KEY: z.string().default(""),
-  UPLOAD_POST_API_KEY: z.string().default(""),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
