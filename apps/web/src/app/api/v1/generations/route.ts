@@ -4,6 +4,8 @@ import { z } from "zod";
 import { authenticateRequest } from "@/lib/api/authenticate";
 import { checkApiRateLimit } from "@/lib/api/rate-limit";
 import { isFlagEnabled } from "@/lib/flags";
+import { withTrace } from "@/lib/observability/http";
+import { currentTrace } from "@/lib/observability/trace";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -19,7 +21,7 @@ const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
-export async function GET(request: Request): Promise<NextResponse> {
+export const GET = withTrace("GET /api/v1/generations", async (request) => {
   // Kill switch for the whole public API, so it can be taken down without a deploy.
   if (!(await isFlagEnabled("public_api", true))) {
     return NextResponse.json({ error: "unavailable" }, { status: 503 });
@@ -60,8 +62,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     .limit(parsed.data.limit);
 
   if (error) {
-    return NextResponse.json({ error: "server_error" }, { status: 500 });
+    // The trace id is returned so a caller reporting a failure gives us the
+    // exact log line rather than a timestamp to search around.
+    return NextResponse.json(
+      { error: "server_error", trace_id: currentTrace()?.traceId },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ object: "list", data: data ?? [] });
-}
+});
