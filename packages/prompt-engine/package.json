@@ -18,7 +18,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "validate": "tsx scripts/validate-knowledge.ts ../../prompts",
-    "ingest": "tsx scripts/ingest.ts ../../prompts"
+    "ingest": "tsx scripts/ingest.ts ../../prompts",
+    "test": "tsx scripts/embedding-cache-smoke.ts"
   },
   "dependencies": {
     "zod": "^3.24.1"

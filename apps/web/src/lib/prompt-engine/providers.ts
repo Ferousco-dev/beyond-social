@@ -12,6 +12,7 @@ import {
   type Provider as GatewayProvider,
 } from "@beyond-social/ai-gateway";
 import {
+  CachingEmbedder,
   OpenAiEmbedder,
   PassthroughReranker,
   Retriever,
@@ -36,12 +37,19 @@ import { createServiceClient } from "@/lib/supabase/service";
  * exist only once enhancement actually runs. Guarded by `isPromptEngineConfigured`.
  */
 
-let embedderRef: Embedder | null = null;
+let embedderRef: CachingEmbedder | null = null;
+
+/**
+ * Wrapped in a cache because query embeddings repeat heavily: the same brief
+ * retried, the same phrasing across users, the same text on a page refresh.
+ * Embeddings are a pure function of (model, text), so a hit is always correct.
+ */
 export function getEmbedder(): Embedder {
   if (embedderRef) return embedderRef;
-  embedderRef = serverEnv.VOYAGE_API_KEY
+  const provider: Embedder = serverEnv.VOYAGE_API_KEY
     ? new VoyageEmbedder(serverEnv.VOYAGE_API_KEY, "voyage-3-large", 1024, "query")
     : new OpenAiEmbedder(serverEnv.OPENAI_API_KEY);
+  embedderRef = new CachingEmbedder(provider);
   return embedderRef;
 }
 
