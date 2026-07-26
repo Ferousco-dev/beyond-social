@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 
 import { authenticateRequest } from "@/lib/api/authenticate";
 import { checkApiRateLimit } from "@/lib/api/rate-limit";
+import { withTrace } from "@/lib/observability/http";
+import { currentTrace } from "@/lib/observability/trace";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /** Public API: rolled-up AI usage for the caller over the last 30 days. */
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request): Promise<NextResponse> {
+export const GET = withTrace("GET /api/v1/usage", async (request) => {
   const caller = await authenticateRequest(request);
   if (!caller) {
     return NextResponse.json(
@@ -32,8 +34,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     p_since: since,
   });
 
-  if (error) return NextResponse.json({ error: "server_error" }, { status: 500 });
+  if (error) {
+    return NextResponse.json(
+      { error: "server_error", trace_id: currentTrace()?.traceId },
+      { status: 500 },
+    );
+  }
 
   const row = Array.isArray(data) ? data[0] : data;
   return NextResponse.json({ object: "usage", period_days: 30, data: row ?? null });
-}
+});
