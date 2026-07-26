@@ -1,6 +1,6 @@
 # Production Readiness Review
 
-Beyond Social — architecture, scalability, security, and reliability review with a
+Beyond Social, architecture, scalability, security, and reliability review with a
 prioritized path to production for millions of users. Scope is the codebase as of
 the `feature/backend-integration` branch (Next.js web app, Supabase schema and
 edge functions, kie.ai video generation, BullMQ worker skeleton).
@@ -58,7 +58,7 @@ export async function persistRender(admin, userId, taskId, sourceUrl) {
 - **Problem:** Every Vercel function and edge function opens its own Postgres
   connection. Postgres caps connections (~60 on small instances); serverless fan-out
   exhausts them under load.
-- **Impact:** `remaining connection slots are reserved` errors — a hard outage at a
+- **Impact:** `remaining connection slots are reserved` errors, a hard outage at a
   few hundred concurrent requests.
 - **Risk:** Critical at scale.
 - **Fix:** Use Supabase **Supavisor** in transaction mode (port 6543) for all
@@ -86,7 +86,7 @@ export async function persistRender(admin, userId, taskId, sourceUrl) {
   constant time (`_shared/security.ts`) to close the timing side-channel. Still open:
   the secret rides in the query string (can leak in logs), so move it to a header, and
   add a dead-letter path so a failed RPC enqueues a retry rather than dropping the
-  event. `complete_generation` is already idempotent — keep that property.
+  event. `complete_generation` is already idempotent, keep that property.
 - **H3. Nonce-based CSP.** The current CSP allows `script-src 'unsafe-inline'` because
   the App Router injects inline bootstrap scripts. Generate a per-request nonce in
   middleware and switch to `'nonce-…' 'strict-dynamic'` to close the XSS gap.
@@ -116,7 +116,7 @@ export async function persistRender(admin, userId, taskId, sourceUrl) {
 ## Low Priority
 
 - **L1. `reset_due_credits`** needs a scheduler (Supabase cron / `pg_cron`).
-- **L2. Storage lifecycle** — expire abandoned `uploads` after N days.
+- **L2. Storage lifecycle**, expire abandoned `uploads` after N days.
 - **L3. Structured request IDs** threaded from middleware into `logger` for tracing.
 - **L4. E2E tests** for the generation and publish flows (Playwright + local Supabase).
 
@@ -189,7 +189,7 @@ partial unique index on `provider_task_id`, `scheduled_posts` due-partial index,
 `credit_ledger(user_id)`). Constraints and cascades are correct.
 
 Gaps: connection pooling (C2), keyset pagination (M2), a scheduler for
-`reset_due_credits` (L1), and — at very high scale — partitioning `messages` and
+`reset_due_credits` (L1), and, at very high scale, partitioning `messages` and
 `video_generations` by month or hashing by `user_id`.
 
 ---
@@ -219,7 +219,7 @@ Gaps: connection pooling (C2), keyset pagination (M2), a scheduler for
 
 ## Cost Optimization
 
-kie.ai generation is the dominant variable cost and scales linearly with videos — cache
+kie.ai generation is the dominant variable cost and scales linearly with videos, cache
 nothing there, but let users preview/trim before paying (charge on completion is
 already correct). Second is storage egress once renders are hosted (C1): put a CDN in
 front and set cache headers. Postgres and Vercel are minor until ~100k users. Use
@@ -232,7 +232,7 @@ simpler well past launch.
 ## Refactoring Suggestions
 
 - Extract a `lib/data/*` repository layer so components/actions never call Supabase
-  directly — one place to add caching, pagination, and tracing.
+  directly, one place to add caching, pagination, and tracing.
 - Share the generation status enum and DTOs between the web app and edge functions via
   a small `packages/contracts` package to prevent drift.
 - Introduce a typed `Result<T, E>` helper to standardize action/edge-function returns.

@@ -111,12 +111,12 @@ export function ClosingPanel(): ReactNode {
         {/* The wordmark is the footer's background, sitting behind the content. */}
         <TextPressure
           text="Beyond Social"
-          className="pointer-events-none absolute inset-x-0 bottom-0 select-none justify-center whitespace-nowrap text-[19vw] leading-[0.78] tracking-[-0.04em] text-ink/[0.04]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 select-none justify-center whitespace-nowrap text-[13vw] leading-[0.78] tracking-[-0.04em] text-ink/[0.04] sm:text-[19vw]"
         />
 
         <div className="relative z-10 mx-auto w-full max-w-6xl px-5 sm:px-6">
           <footer>
-            <div className="grid gap-10 pb-14 sm:grid-cols-2 lg:grid-cols-6">
+            <div className="grid gap-8 pb-10 sm:grid-cols-2 sm:gap-10 sm:pb-14 lg:grid-cols-6">
               <div className="lg:col-span-2">
                 <Link href="/" aria-label="Beyond Social home" className="inline-flex">
                   <Logo />
@@ -135,7 +135,9 @@ export function ClosingPanel(): ReactNode {
                   <ul className="mt-4 flex flex-col gap-2.5">
                     {column.links.map((link) => (
                       <li key={link.label}>
-                        <a href={link.href} className={LINK}>
+                        {/* Padded to clear the 24px minimum target size; the
+                            negative margin keeps the list's visual rhythm. */}
+                        <a href={link.href} className={`${LINK} -my-1 inline-block py-1`}>
                           {link.label}
                         </a>
                       </li>
@@ -148,36 +150,42 @@ export function ClosingPanel(): ReactNode {
             <div className="h-px bg-hairline" />
 
             <div className="flex flex-col items-center justify-between gap-5 py-7 sm:flex-row">
-              <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+              {/* Stacked on a phone: side by side these wrapped mid-sentence
+                  and left "Terms" stranded on its own line. */}
+              <div className="flex flex-col items-center gap-2 sm:flex-row sm:gap-x-5">
                 <p className="text-xs text-ink-soft">
                   © {year} Beyond Social. All rights reserved.
                 </p>
-                <a href="/privacy" className={`${LINK} text-xs`}>
-                  Privacy
-                </a>
-                <a href="/terms" className={`${LINK} text-xs`}>
-                  Terms
-                </a>
+                <span className="flex items-center gap-x-5">
+                  <a href="/privacy" className={`${LINK} -my-1 inline-block py-1 text-xs`}>
+                    Privacy
+                  </a>
+                  <a href="/terms" className={`${LINK} -my-1 inline-block py-1 text-xs`}>
+                    Terms
+                  </a>
+                </span>
               </div>
 
-              <ul className="flex items-center gap-2">
-                {SOCIAL_LINKS.map((social) => {
-                  const Icon = ICONS[social.label];
-                  return (
-                    <li key={social.label}>
-                      <a
-                        href={social.href}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        aria-label={social.label}
-                        className="inline-flex size-9 items-center justify-center rounded-full border border-hairline text-ink-soft transition-colors duration-200 hover:border-ink-soft/40 hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      >
-                        {Icon ? <Icon className="size-4" /> : null}
-                      </a>
-                    </li>
-                  );
-                })}
-              </ul>
+              {SOCIAL_LINKS.length > 0 ? (
+                <ul className="flex items-center gap-2">
+                  {SOCIAL_LINKS.map((social) => {
+                    const Icon = ICONS[social.label];
+                    return (
+                      <li key={social.label}>
+                        <a
+                          href={social.href}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          aria-label={social.label}
+                          className="inline-flex size-9 items-center justify-center rounded-full border border-hairline text-ink-soft transition-colors duration-200 hover:border-ink-soft/40 hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          {Icon ? <Icon className="size-4" /> : null}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
             </div>
           </footer>
         </div>

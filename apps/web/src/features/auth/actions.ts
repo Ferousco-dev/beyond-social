@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { rateLimit } from "@/lib/rate-limit";
+import { sharedRateLimit } from "@/lib/rate-limit-shared";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -39,11 +39,16 @@ async function clientIp(): Promise<string> {
   return store.get("x-forwarded-for")?.split(",")[0]?.trim() || store.get("x-real-ip") || "unknown";
 }
 
-// Throttle sensitive auth actions per client IP. Returns a user-safe error when
-// the caller should back off, otherwise null.
+/**
+ * Throttles a sensitive auth action per client IP.
+ *
+ * Shared across instances, because a per-instance limit is trivially bypassed
+ * on serverless by spreading attempts, which is precisely what a credential
+ * stuffing or OTP brute-force run does.
+ */
 async function throttle(action: string, limit: number): Promise<AuthResult | null> {
   const ip = await clientIp();
-  const result = rateLimit(`${action}:${ip}`, limit, 60_000);
+  const result = await sharedRateLimit(`${action}:${ip}`, limit, 60_000);
   if (!result.ok) {
     logger.warn("auth action rate limited", { action, ip });
     return { status: "error", message: RATE_LIMITED };
@@ -112,6 +117,8 @@ export async function requestPasswordResetAction(input: ForgotPasswordInput): Pr
 export async function resetPasswordAction(input: ResetPasswordInput): Promise<AuthResult> {
   const parsed = resetPasswordSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  const limited = await throttle("password-set", 10);
+  if (limited) return limited;
   if (!isSupabaseConfigured) return NOT_CONFIGURED;
 
   const supabase = await createClient();
@@ -124,6 +131,10 @@ export async function resetPasswordAction(input: ResetPasswordInput): Promise<Au
 export async function verifyOtpAction(input: OtpInput & { email: string }): Promise<AuthResult> {
   const parsed = otpSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Enter the 6-digit code." };
+  // A six-digit code is a million guesses. Tight, and keyed by email as well as
+  // IP so one address cannot be attacked from many clients.
+  const limited = await throttle(`otp:${input.email.toLowerCase()}`, 8);
+  if (limited) return limited;
   if (!isSupabaseConfigured) return NOT_CONFIGURED;
 
   const supabase = await createClient();

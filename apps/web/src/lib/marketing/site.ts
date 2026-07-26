@@ -56,9 +56,11 @@ export interface SocialLink {
  * Social profiles. These point at the handles reserved for the product; update
  * each URL as the account goes live.
  */
-export const SOCIAL_LINKS: readonly SocialLink[] = [
-  { label: "TikTok", href: "https://www.tiktok.com/@beyondsocial" },
-  { label: "Instagram", href: "https://www.instagram.com/beyondsocial" },
-  { label: "YouTube", href: "https://www.youtube.com/@beyondsocial" },
-  { label: "X", href: "https://x.com/beyondsocial" },
-];
+/**
+ * Our own social accounts.
+ *
+ * Empty on purpose. This previously listed `@beyondsocial` on four platforms,
+ * none of which we own: those links sent people to strangers' profiles or to
+ * nothing. Add the real handles here and the icons return automatically.
+ */
+export const SOCIAL_LINKS: readonly NavLink[] = [];

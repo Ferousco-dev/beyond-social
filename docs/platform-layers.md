@@ -28,7 +28,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 18  | Admin platform         | Partial   | Admin console with platform health, feature flags, and a knowledge review query, all admin-gated in the database. Flags gate the prompt engine, learning auto-promotion, and the public API. No user management or support tooling.                                                                                                                     |
 | 19  | Developer platform     | Partial   | OpenAPI 3.1 spec served unauthenticated at `/api/v1/openapi`, and a zero-dependency TypeScript SDK (`@beyond-social/sdk`) covering generations and usage. No CLI, no webhooks for customers, no hosted docs site yet.                                                                                                                                   |
 | 20  | DevOps & SRE           | Partial   | CI runs lint, typecheck, build, gateway tests, knowledge validation. Vercel deploys. No blue-green, rollback drill, or incident process.                                                                                                                                                                                                                |
-| 21  | Performance & cost     | Partial     | Cost-aware routing, cheap-task chains, and caches for both deterministic completions and embeddings, shared across instances in Postgres with an LRU prune on a schedule. In-process caching remains the fallback. No streaming yet.                  |
+| 21  | Performance & cost     | Partial   | Cost-aware routing, cheap-task chains, and caches for both deterministic completions and embeddings, shared across instances in Postgres with an LRU prune on a schedule. In-process caching remains the fallback. No streaming yet.                                                                                                                    |
 | 22  | AI safety & governance | Partial   | Rate limiting, review-gated learning, injection screening, and moderation on input and output. No abuse detection, consent flow, or retention policy.                                                                                                                                                                                                   |
 
 ## The gateway (layer 4)
@@ -72,26 +72,26 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
 
 ## Suggested order for what is left
 
-1. ~~Caching (21)~~ — **done**: deterministic responses are cached in the
+1. ~~Caching (21)~~, **done**: deterministic responses are cached in the
    gateway, keyed on task plus prompt plus sampling parameters, and skipped when
    temperature is non-zero. Embedding caching is still open.
-2. ~~Prompt-injection and moderation (13, 22)~~ — **done**: weighted injection
+2. ~~Prompt-injection and moderation (13, 22)~~, **done**: weighted injection
    detection, fenced untrusted content, and input/output moderation, all
    enforced in the gateway before any spend. Abuse detection and retention
    policy are still open.
-3. ~~Billing (16)~~ — **done**: Stripe Checkout, a signature-verified webhook
+3. ~~Billing (16)~~, **done**: Stripe Checkout, a signature-verified webhook
    that grants plan credits exactly once, and the billing portal. Invoices and
    overage are still open.
-4. ~~Usage dashboard (1, 15, 17)~~ — **done**: gateway usage persists to
+4. ~~Usage dashboard (1, 15, 17)~~, **done**: gateway usage persists to
    `ai_usage` (RLS-scoped, service-role writes) and surfaces at
    `/dashboard/usage` with spend, cache rate, latency, and failure rate.
-5. ~~Orgs, teams, RBAC (1, 2)~~ — **done**: organizations, membership with
+5. ~~Orgs, teams, RBAC (1, 2)~~, **done**: organizations, membership with
    three roles, RLS policies enforcing them, and a team page. Invitations and
    an org switcher are still open.
 
 ## Next
 
-1. **API platform (11)** — public REST, keys, and webhooks out.
-2. ~~Orchestration (6)~~ — **done** for tools and a single bounded agent;
+1. **API platform (11)**, public REST, keys, and webhooks out.
+2. ~~Orchestration (6)~~, **done** for tools and a single bounded agent;
    multi-agent handoff, agent memory, and reflection remain.
-3. **Data processing (8)** — PDF, OCR, transcription for knowledge ingestion.
+3. **Data processing (8)**, PDF, OCR, transcription for knowledge ingestion.
