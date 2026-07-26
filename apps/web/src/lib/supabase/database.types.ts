@@ -229,6 +229,30 @@ export type Database = {
           },
         ];
       };
+      feature_flags: {
+        Row: {
+          description: string;
+          enabled: boolean;
+          key: string;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          description?: string;
+          enabled?: boolean;
+          key: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          description?: string;
+          enabled?: boolean;
+          key?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
       messages: {
         Row: {
           content: string;
@@ -760,6 +784,27 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_pending_candidates: {
+        Args: { p_limit?: number };
+        Returns: {
+          created_at: string;
+          data: Json;
+          id: string;
+        }[];
+      };
+      admin_platform_stats: {
+        Args: { p_since: string };
+        Returns: {
+          ai_calls: number;
+          ai_cost: number;
+          ai_failures: number;
+          cached_calls: number;
+          failed_generations: number;
+          generations: number;
+          orgs: number;
+          users: number;
+        }[];
+      };
       ai_usage_record: { Args: { p_usage: Json }; Returns: undefined };
       ai_usage_summary: {
         Args: { p_since: string; p_user: string };
@@ -828,6 +873,7 @@ export type Database = {
         Args: { p_error: string; p_provider_task_id: string };
         Returns: undefined;
       };
+      is_admin: { Args: never; Returns: boolean };
       is_org_member: {
         Args: {
           p_min_role?: Database["public"]["Enums"]["org_role"];
