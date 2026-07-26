@@ -13,7 +13,7 @@ Legend: **Built** (working and verified) · **Partial** (real but incomplete) ·
 | 3   | AI experience          | Partial     | Chat surface, editor assistant, prompt library (`prompts/`), recipes as templates, chunk versioning. No playground or saved-prompt UI.                                                                                                                        |
 | 4   | **AI gateway**         | **Built**   | `packages/ai-gateway`: model registry with pricing, per-task routing, cross-provider fallback, retry with jittered backoff honouring `Retry-After`, token-bucket rate limiting, context-window checks, exact cost accounting, usage records on every attempt. |
 | 5   | Model providers        | Partial     | Anthropic and OpenAI clients behind a `ProviderClient` port. Google, xAI, DeepSeek, Mistral, local are registry entries away.                                                                                                                                 |
-| 6   | AI orchestration       | Not started | No multi-agent, tool calling, or planning loop.                                                                                                                                                                                                               |
+| 6   | AI orchestration       | Partial     | Typed tool definitions with validated dispatch and a bounded agent loop (step and spend ceilings, full transcript). No multi-agent handoff, memory, or reflection.                                                                                            |
 | 7   | Knowledge (RAG)        | Built       | Hybrid dense+sparse retrieval, RRF fusion, MMR, quality-weighted ranking, contextual chunking, pgvector store, 55-chunk corpus.                                                                                                                               |
 | 8   | Data processing        | Not started | No PDF, OCR, transcription, or scraping.                                                                                                                                                                                                                      |
 | 9   | Background workers     | Built       | BullMQ queue, scheduler claiming due posts, publish worker with backoff.                                                                                                                                                                                      |
@@ -92,5 +92,6 @@ cost arithmetic, failure recording, rate limiting, and missing-provider handling
 ## Next
 
 1. **API platform (11)** — public REST, keys, and webhooks out.
-2. **Orchestration (6)** — tool calling and multi-step agents.
+2. ~~Orchestration (6)~~ — **done** for tools and a single bounded agent;
+   multi-agent handoff, agent memory, and reflection remain.
 3. **Data processing (8)** — PDF, OCR, transcription for knowledge ingestion.
