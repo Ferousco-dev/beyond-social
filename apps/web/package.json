@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:trace": "tsx --tsconfig scripts/tsconfig.json scripts/trace-smoke.ts",
-    "test:analytics": "tsx --tsconfig scripts/tsconfig.json scripts/analytics-smoke.ts"
+    "test:analytics": "tsx --tsconfig scripts/tsconfig.json scripts/analytics-smoke.ts",
+    "test:social": "tsx --tsconfig scripts/tsconfig.json scripts/social-oauth-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

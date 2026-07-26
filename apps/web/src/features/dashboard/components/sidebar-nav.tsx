@@ -7,6 +7,7 @@ import {
   Users,
   PenSquare,
   Search,
+  Share2,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -70,6 +71,12 @@ const LINKS: readonly NavLink[] = [
     href: "/dashboard/api-keys" as Route,
     label: "API keys",
     icon: KeyRound,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/settings/connections" as Route,
+    label: "Connections",
+    icon: Share2,
     motion: "group-hover:scale-110",
   },
   {

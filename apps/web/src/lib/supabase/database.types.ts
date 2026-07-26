@@ -674,6 +674,59 @@ export type Database = {
           },
         ];
       };
+      social_connections: {
+        Row: {
+          access_token: string;
+          account_name: string;
+          created_at: string;
+          expires_at: string | null;
+          external_account_id: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"];
+          refresh_token: string | null;
+          revoked_at: string | null;
+          scopes: string[];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          access_token: string;
+          account_name?: string;
+          created_at?: string;
+          expires_at?: string | null;
+          external_account_id: string;
+          id?: string;
+          platform: Database["public"]["Enums"]["social_platform"];
+          refresh_token?: string | null;
+          revoked_at?: string | null;
+          scopes?: string[];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          access_token?: string;
+          account_name?: string;
+          created_at?: string;
+          expires_at?: string | null;
+          external_account_id?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"];
+          refresh_token?: string | null;
+          revoked_at?: string | null;
+          scopes?: string[];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean;
@@ -781,7 +834,39 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      social_connections_public: {
+        Row: {
+          account_name: string | null;
+          active: boolean | null;
+          created_at: string | null;
+          expires_at: string | null;
+          external_account_id: string | null;
+          id: string | null;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          account_name?: string | null;
+          active?: never;
+          created_at?: string | null;
+          expires_at?: string | null;
+          external_account_id?: string | null;
+          id?: string | null;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          account_name?: string | null;
+          active?: never;
+          created_at?: string | null;
+          expires_at?: string | null;
+          external_account_id?: string | null;
+          id?: string | null;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       admin_pending_candidates: {
@@ -966,6 +1051,10 @@ export type Database = {
           p_role: Database["public"]["Enums"]["org_role"];
           p_user: string;
         };
+        Returns: undefined;
+      };
+      social_connection_revoke: {
+        Args: { p_platform: Database["public"]["Enums"]["social_platform"] };
         Returns: undefined;
       };
     };

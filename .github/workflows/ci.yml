@@ -45,6 +45,9 @@ jobs:
       - name: Prompt engine tests
         run: pnpm --filter @beyond-social/prompt-engine test
 
+      - name: Social OAuth tests
+        run: pnpm --filter web test:social
+
       - name: Analytics tests
         run: pnpm --filter web test:analytics
 
