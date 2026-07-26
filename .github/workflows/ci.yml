@@ -48,6 +48,9 @@ jobs:
       - name: Publishing tests
         run: pnpm --filter @beyond-social/worker test
 
+      - name: Optimization tests
+        run: pnpm --filter web test:optimization
+
       - name: Trends tests
         run: pnpm --filter web test:trends
 

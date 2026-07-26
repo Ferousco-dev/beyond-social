@@ -5,7 +5,8 @@ import { Check, Clock, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { PLATFORMS, RECOMMENDED_TIMES } from "@/lib/publish/data";
+import { suggestPostingTimes } from "@/lib/optimization/posting-times";
+import { PLATFORMS } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
 
 import { PlatformScheduleCard, type PlatformScheduleValue } from "./platform-schedule-card";
@@ -33,7 +34,9 @@ export function PublishDialog({
         delete rest[id];
         return rest;
       }
-      const time = RECOMMENDED_TIMES[id]?.[0]?.time ?? "";
+      // Seed with the next recommended slot, which is a real future
+      // datetime rather than a label, so it can be scheduled as-is.
+      const time = suggestPostingTimes(id)[0]?.value ?? "";
       return { ...prev, [id]: { caption: "", hashtags: "", scheduledTime: time } };
     });
   }
