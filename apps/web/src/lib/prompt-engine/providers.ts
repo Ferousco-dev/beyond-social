@@ -27,6 +27,7 @@ import {
 } from "@beyond-social/prompt-engine";
 
 import { serverEnv } from "@/lib/server-env";
+import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
 import { SupabaseUsageSink } from "./usage-sink";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -49,7 +50,16 @@ export function getEmbedder(): Embedder {
   const provider: Embedder = serverEnv.VOYAGE_API_KEY
     ? new VoyageEmbedder(serverEnv.VOYAGE_API_KEY, "voyage-3-large", 1024, "query")
     : new OpenAiEmbedder(serverEnv.OPENAI_API_KEY);
-  embedderRef = new CachingEmbedder(provider);
+
+  // Shared across instances when there is a database to share through. The
+  // in-process cache is the fallback, not the goal: on serverless it is lost on
+  // every cold start, so the hit rate without this is close to zero.
+  embedderRef = new CachingEmbedder(
+    provider,
+    serverEnv.SUPABASE_SERVICE_ROLE_KEY !== ""
+      ? new SupabaseEmbeddingCache(provider.model)
+      : undefined,
+  );
   return embedderRef;
 }
 
@@ -81,7 +91,10 @@ export const usageSink: MemoryUsageSink | SupabaseUsageSink = isSupabaseConfigur
  * Deterministic calls (judging, extraction, anything at temperature 0) repeat
  * often and cost the same every time, so they are cached for an hour.
  */
-export const responseCache = new MemoryResponseCache();
+export const responseCache =
+  serverEnv.SUPABASE_SERVICE_ROLE_KEY !== ""
+    ? new SupabaseResponseCache()
+    : new MemoryResponseCache();
 
 let gatewayRef: AiGateway | null = null;
 
