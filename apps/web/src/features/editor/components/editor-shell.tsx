@@ -4,8 +4,10 @@ import { MessageSquare } from "lucide-react";
 import { type Route } from "next";
 import { useState, type ReactNode } from "react";
 
+import { type Project } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
 
+import { useAutosave } from "../hooks/use-autosave";
 import { useEditorState } from "../hooks/use-editor-state";
 import { useEditorShortcuts } from "../hooks/use-editor-shortcuts";
 import { usePlayback } from "../hooks/use-playback";
@@ -18,13 +20,26 @@ import { EditorTopBar } from "./editor-top-bar";
 export function EditorShell({
   conversationId,
   title,
+  initialProject,
+  initialRevision,
+  canSave,
 }: {
   conversationId: string;
   title: string;
+  initialProject: Project;
+  initialRevision: number;
+  /** False for an unsaved project or without a backend, so autosave stays off. */
+  canSave: boolean;
 }): ReactNode {
   const [chatOpen, setChatOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
-  const editor = useEditorState();
+  const editor = useEditorState(initialProject);
+  const autosave = useAutosave({
+    projectId: conversationId,
+    project: editor.project,
+    initialRevision,
+    enabled: canSave,
+  });
   const playback = usePlayback(editor.durationMs);
   const backHref = `/dashboard/c/${conversationId}` as Route;
   useEditorShortcuts(playback, editor);
@@ -38,6 +53,8 @@ export function EditorShell({
         title={title}
         panelOpen={panelOpen}
         onTogglePanel={() => setPanelOpen((open) => !open)}
+        saveState={autosave.state}
+        onRetrySave={autosave.saveNow}
       />
 
       {/* Panels sit above a timeline that spans the full window, as in a desktop editor. */}
