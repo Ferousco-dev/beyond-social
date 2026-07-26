@@ -12,6 +12,7 @@ import {
   type SupabaseRpcClient,
 } from "@beyond-social/prompt-engine";
 
+import { isFlagEnabled } from "@/lib/flags";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { logger } from "@/lib/logger";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -53,7 +54,14 @@ export async function learnFromPrompt(
 ): Promise<IngestResult | null> {
   if (!isPromptEngineConfigured) return null;
   try {
-    return await getPipeline().ingest({ prompt, output });
+    // Auto-promotion defaults to off: letting learned chunks into the base
+    // without review is the riskier setting, so it must be chosen explicitly.
+    const autoPromote = await isFlagEnabled("learning_autopromote", false);
+    return await getPipeline().ingest({
+      prompt,
+      output,
+      policy: { reviewByDefault: !autoPromote },
+    });
   } catch (error) {
     logger.warn("learning ingestion failed", {
       error: error instanceof Error ? error.message : String(error),
