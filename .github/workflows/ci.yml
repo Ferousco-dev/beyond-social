@@ -48,6 +48,9 @@ jobs:
       - name: Publishing tests
         run: pnpm --filter @beyond-social/worker test
 
+      - name: Generation intent tests
+        run: pnpm --filter web test:generation
+
       - name: Optimization tests
         run: pnpm --filter web test:optimization
 

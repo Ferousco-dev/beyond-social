@@ -5,6 +5,9 @@ import { z } from "zod";
 
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
+import { getLatestDirectedPrompt } from "@/lib/generation/history";
+import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
+import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
@@ -33,9 +36,11 @@ export type SendResult =
   | {
       status: "ok";
       projectId: string;
-      /** Null when generation could not start; the reply still stands. */
+      /** Null when generation could not start, or was not wanted. */
       generationId: string | null;
       reply: string;
+      /** What the message was taken to mean, so the UI can reflect it. */
+      intent: "create" | "adjust" | "ask";
       /** Present when the video pipeline refused, so the UI can say why. */
       notice?: string;
     }
@@ -77,33 +82,66 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
     projectId = created;
   }
 
-  // Grounded in the knowledge base when the engine is available, and the raw
-  // prompt otherwise, so the engine improves output without gating it.
-  const enhanced = await enhancePrompt({ prompt });
-  const finalPrompt = enhanced?.text ?? prompt;
+  // What did they actually mean? Every message used to start a generation,
+  // which spent a credit answering a question and turned "make it slower" into
+  // an unrelated video.
+  const previousPrompt = await getLatestDirectedPrompt(supabase, projectId);
+  const intent = await classify(prompt, previousPrompt !== null);
+
+  let finalPrompt = prompt;
+  let chunkIds: string[] = [];
+
+  if (intent.intent === "adjust" && previousPrompt) {
+    // The stored prompt is the full direction; the message is only the delta.
+    // Editing the former is what keeps the subject stable across versions.
+    const refined = await refinePrompt({ previousPrompt, change: prompt });
+    finalPrompt = refined ?? previousPrompt;
+  } else if (intent.intent === "create") {
+    const enhanced = await enhancePrompt({ prompt });
+    finalPrompt = enhanced?.text ?? prompt;
+    chunkIds = enhanced?.chunkIds ?? [];
+  }
 
   let generationId: string | null = null;
   let notice: string | undefined;
-  try {
-    const { data, error } = await supabase.functions.invoke("generate-video", {
-      body: {
-        projectId,
-        prompt: finalPrompt,
-        aspectRatio,
-        imageUrls,
-        sourceChunks: enhanced?.chunkIds ?? [],
-      },
-    });
-    if (error) throw new Error(error.message);
-    generationId = (data as { generationId?: string } | null)?.generationId ?? null;
-    if (!generationId) notice = "The video service did not accept that. Nothing was charged.";
-  } catch (error) {
-    // A failed generation must not lose the message. The turn is still recorded
-    // so the thread reads correctly and the user can retry.
-    logger.warn("generation could not start", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    notice = "Could not start the video just now. Your message was saved, so try again.";
+
+  // Asking for a length we cannot render is worth saying out loud. Silently
+  // producing eight seconds when someone asked for thirty is the kind of thing
+  // that makes a tool feel like it is not listening.
+  const requestedDuration = intent.durationSeconds;
+  const usableDuration =
+    requestedDuration !== null && isSupportedDuration(requestedDuration) ? requestedDuration : null;
+  if (requestedDuration !== null && usableDuration === null) {
+    notice = `Clips can be ${SUPPORTED_DURATIONS.join(", ")} seconds long, so this one is ${SUPPORTED_DURATIONS[SUPPORTED_DURATIONS.length - 1]} seconds rather than ${requestedDuration}.`;
+  }
+
+  // A question costs nothing. This is the whole point of classifying: not
+  // spending a credit on a video the person did not ask for.
+  if (intent.intent !== "ask") {
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-video", {
+        body: {
+          projectId,
+          prompt: finalPrompt,
+          // What the message asked for wins over the caller's default; neither
+          // is invented when the message is silent about it.
+          aspectRatio: intent.aspectRatio ?? aspectRatio,
+          ...(usableDuration ? { duration: usableDuration } : {}),
+          imageUrls,
+          sourceChunks: chunkIds,
+        },
+      });
+      if (error) throw new Error(error.message);
+      generationId = (data as { generationId?: string } | null)?.generationId ?? null;
+      if (!generationId) notice = "The video service did not accept that. Nothing was charged.";
+    } catch (error) {
+      // A failed generation must not lose the message. The turn is still
+      // recorded so the thread reads correctly and the user can retry.
+      logger.warn("generation could not start", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      notice = "Could not start the video just now. Your message was saved, so try again.";
+    }
   }
 
   const { data: previous } = await supabase.rpc("project_thread", { p_project: projectId });
@@ -116,8 +154,9 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
 
   const reply = await writeReply({
     brief: prompt,
-    directedPrompt: enhanced?.text ?? null,
+    directedPrompt: intent.intent === "ask" ? null : finalPrompt,
     history,
+    intent: intent.intent,
   });
 
   const { error: turnError } = await supabase.rpc("append_turn", {
@@ -132,9 +171,10 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
     return { status: "error", message: "Could not save that message" };
   }
 
-  // Best-effort background learning from the original phrasing.
-  void learnFromPrompt(prompt, enhanced?.text);
+  // Only a fresh brief teaches the engine anything: an adjustment is a delta
+  // and a question is not a prompt at all.
+  if (intent.intent === "create") void learnFromPrompt(prompt, finalPrompt);
 
   revalidatePath(`/dashboard/c/${projectId}`);
-  return { status: "ok", projectId, generationId, reply, notice };
+  return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };
 }
