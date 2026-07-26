@@ -59,8 +59,13 @@ export interface EditorState {
  * history hook can undo any of them. Items are constrained within their own
  * track: trimming or moving one never rewrites another track's timing.
  */
-export function useEditorState(): EditorState {
-  const history = useHistory<Project>(INITIAL_PROJECT);
+/**
+ * @param initial The saved timeline, or the starting template for a project
+ * that has never been edited. Undo cannot reach past it, which is correct:
+ * undoing into someone else's earlier session would be surprising.
+ */
+export function useEditorState(initial: Project = INITIAL_PROJECT): EditorState {
+  const history = useHistory<Project>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { present: project, apply } = history;
 

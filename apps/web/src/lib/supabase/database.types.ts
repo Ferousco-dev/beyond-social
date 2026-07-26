@@ -229,6 +229,45 @@ export type Database = {
           },
         ];
       };
+      editor_documents: {
+        Row: {
+          document: Json;
+          project_id: string;
+          revision: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          document: Json;
+          project_id: string;
+          revision?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          document?: Json;
+          project_id?: string;
+          revision?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "editor_documents_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "editor_documents_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       embedding_cache: {
         Row: {
           created_at: string;
@@ -1137,6 +1176,14 @@ export type Database = {
       create_organization: {
         Args: { p_name: string; p_slug: string };
         Returns: string;
+      };
+      editor_document_save: {
+        Args: {
+          p_document: Json;
+          p_expected_revision?: number;
+          p_project: string;
+        };
+        Returns: number;
       };
       embedding_cache_get: { Args: { p_key: string }; Returns: number[] };
       embedding_cache_put: {

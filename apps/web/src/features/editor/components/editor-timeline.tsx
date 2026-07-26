@@ -91,7 +91,11 @@ export function EditorTimeline({ playback, editor }: { playback: Playback; edito
       />
 
       <div className="flex max-h-64 overflow-y-auto">
-        <div className="w-40 shrink-0 space-y-1.5 border-r border-hairline pt-8">
+        {/* The label column was a fixed 160px, which is 43% of a 375px screen
+            and left the timeline itself unusable. It narrows to the icon and
+            the track toggles on small screens, where the type of a track is
+            legible from its icon anyway. */}
+        <div className="w-11 shrink-0 space-y-1.5 border-r border-hairline pt-8 sm:w-40">
           {project.tracks.map((track) => (
             <TrackHead
               key={track.id}

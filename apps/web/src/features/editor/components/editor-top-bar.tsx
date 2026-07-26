@@ -1,3 +1,5 @@
+import { type SaveState } from "../hooks/use-autosave";
+import { SaveIndicator } from "./save-indicator";
 import { ArrowLeft, PanelLeft } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
@@ -10,11 +12,15 @@ export function EditorTopBar({
   title,
   panelOpen,
   onTogglePanel,
+  saveState,
+  onRetrySave,
 }: {
   backHref: Route;
   title: string;
   panelOpen: boolean;
   onTogglePanel: () => void;
+  saveState: SaveState;
+  onRetrySave: () => void;
 }): ReactNode {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-3">
@@ -39,6 +45,7 @@ export function EditorTopBar({
         <span className="truncate text-sm font-medium">{title}</span>
       </div>
       <div className="flex items-center gap-2">
+        <SaveIndicator state={saveState} onRetry={onRetrySave} />
         <PublishDialog videoTitle={title}>
           <button
             type="button"
