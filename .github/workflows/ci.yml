@@ -48,6 +48,9 @@ jobs:
       - name: Publishing tests
         run: pnpm --filter @beyond-social/worker test
 
+      - name: Trends tests
+        run: pnpm --filter web test:trends
+
       - name: Social OAuth tests
         run: pnpm --filter web test:social
 

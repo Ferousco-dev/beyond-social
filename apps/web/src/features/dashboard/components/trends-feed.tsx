@@ -3,7 +3,8 @@
 import { Bookmark, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { CATEGORIES, TRENDS, type Trend } from "@/lib/trends/data";
+import { TREND_CATEGORIES } from "@/lib/trends/categories";
+import { type Trend, type TrendFeed } from "@/lib/trends/queries";
 import { cn } from "@/lib/utils";
 
 import { useSavedTrends } from "../hooks/use-saved-trends";
@@ -16,8 +17,8 @@ const FEATURE_THRESHOLD = 4;
 const PAGE_SIZE = 6;
 
 const SORTS = [
-  { id: "growth", label: "Fastest growing" },
-  { id: "views", label: "Most viewed" },
+  { id: "confidence", label: "Strongest signal" },
+  { id: "newest", label: "Newest" },
   { id: "title", label: "A to Z" },
 ] as const;
 
@@ -28,16 +29,16 @@ const CHIP =
 
 function sortTrends(trends: readonly Trend[], sort: SortId): readonly Trend[] {
   return [...trends].sort((a, b) => {
-    if (sort === "views") return b.views - a.views;
+    if (sort === "newest") return b.discoveredAt.localeCompare(a.discoveredAt);
     if (sort === "title") return a.title.localeCompare(b.title);
-    return b.growthPercent - a.growthPercent;
+    return b.confidence - a.confidence;
   });
 }
 
-export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
+export function TrendsFeed({ feed, onNavigate }: { feed: TrendFeed; onNavigate?: () => void }) {
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortId>("growth");
+  const [sort, setSort] = useState<SortId>("confidence");
   const [savedOnly, setSavedOnly] = useState(false);
   const [page, setPage] = useState(1);
   const saved = useSavedTrends();
@@ -49,7 +50,7 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const matched = TRENDS.filter((trend) => {
+    const matched = feed.trends.filter((trend) => {
       const inCategory = category === "all" || trend.category === category;
       const inSearch =
         needle === "" ||
@@ -59,7 +60,7 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
       return inCategory && inSearch && inSaved;
     });
     return sortTrends(matched, sort);
-  }, [category, query, sort, savedOnly, saved.ids]);
+  }, [feed.trends, category, query, sort, savedOnly, saved.ids]);
 
   // With only a handful of results a feature row would leave the list stranded,
   // so the split only happens once there is enough to fill both.
@@ -79,7 +80,7 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Trends</h1>
           <p className="mt-1 text-sm text-ink-soft">
-            Discover trending formats to remix for your content
+            What is working right now, with the source for every claim
           </p>
         </div>
 
@@ -149,7 +150,7 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
         >
           All
         </button>
-        {CATEGORIES.map((item) => (
+        {TREND_CATEGORIES.map((item) => (
           <button
             key={item.id}
             type="button"
@@ -171,11 +172,22 @@ export function TrendsFeed({ onNavigate }: { onNavigate?: () => void }) {
 
       {visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-hairline px-6 py-16 text-center">
-          <p className="text-sm font-medium text-ink">No trends found</p>
+          <p className="text-sm font-medium text-ink">
+            {feed.trends.length === 0 && !feed.configured
+              ? "Trend discovery is not switched on yet"
+              : "No trends found"}
+          </p>
           <p className="mt-1 text-sm text-ink-soft">
-            {savedOnly
-              ? "Save a trend with the bookmark button to find it here."
-              : "Try adjusting your search or category filter."}
+            {/* Three genuinely different situations, so three different
+                messages. "No results" for an unconfigured scraper would be a
+                lie of omission. */}
+            {feed.trends.length === 0 && !feed.configured
+              ? "Once discovery is connected, trends found across the web appear here."
+              : savedOnly
+                ? "Save a trend with the bookmark button to find it here."
+                : feed.trends.length === 0
+                  ? "The last discovery run found nothing new. Check back after the next one."
+                  : "Try adjusting your search or category filter."}
           </p>
         </div>
       ) : (

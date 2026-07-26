@@ -1,12 +1,14 @@
 "use client";
 
-import { Bookmark, TrendingDown, TrendingUp } from "lucide-react";
+import { Bookmark } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 
-import { formatCount } from "@/lib/dashboard/analytics";
-import { CATEGORIES, type Trend } from "@/lib/trends/data";
+import { categoryIcon, categoryLabel } from "@/lib/trends/categories";
+import { type Trend } from "@/lib/trends/queries";
 import { cn } from "@/lib/utils";
+
+import { ConfidenceBadge } from "./confidence-badge";
 
 export function TrendRow({
   trend,
@@ -21,16 +23,14 @@ export function TrendRow({
   onToggleSave: () => void;
   onNavigate?: () => void;
 }) {
-  const category = CATEGORIES.find((item) => item.id === trend.category);
-  const rising = trend.growthPercent >= 0;
-  const Direction = rising ? TrendingUp : TrendingDown;
+  const Icon = categoryIcon(trend.category);
 
   return (
     <li className="group relative flex items-center gap-4 border-b border-hairline px-4 py-3 last:border-0 hover:bg-cloud/60">
       <span className="w-5 shrink-0 text-right text-xs tabular-nums text-ink-soft">{rank}</span>
 
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-cloud">
-        <trend.icon className="size-4 text-ink-soft" aria-hidden />
+        <Icon className="size-4 text-ink-soft" aria-hidden />
       </span>
 
       <div className="min-w-0 flex-1">
@@ -47,22 +47,11 @@ export function TrendRow({
       </div>
 
       <span className="hidden w-32 shrink-0 truncate text-xs text-ink-soft md:block">
-        {category?.label}
+        {categoryLabel(trend.category)}
       </span>
 
-      <span className="hidden w-20 shrink-0 text-right text-xs tabular-nums text-ink-soft sm:block">
-        {formatCount(trend.views)}
-      </span>
-
-      <span
-        className={cn(
-          "inline-flex w-16 shrink-0 items-center justify-end gap-1 text-xs font-medium tabular-nums",
-          rising ? "text-success" : "text-ink-soft",
-        )}
-      >
-        <Direction className="size-3" aria-hidden />
-        {rising ? "+" : ""}
-        {trend.growthPercent}%
+      <span className="hidden shrink-0 sm:block">
+        <ConfidenceBadge confidence={trend.confidence} />
       </span>
 
       <button

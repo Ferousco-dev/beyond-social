@@ -760,6 +760,78 @@ export type Database = {
         };
         Relationships: [];
       };
+      trend_runs: {
+        Row: {
+          discovered: number;
+          error: string | null;
+          finished_at: string | null;
+          id: number;
+          ok: boolean;
+          sources: number;
+          started_at: string;
+        };
+        Insert: {
+          discovered?: number;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: number;
+          ok?: boolean;
+          sources?: number;
+          started_at?: string;
+        };
+        Update: {
+          discovered?: number;
+          error?: string | null;
+          finished_at?: string | null;
+          id?: number;
+          ok?: boolean;
+          sources?: number;
+          started_at?: string;
+        };
+        Relationships: [];
+      };
+      trends: {
+        Row: {
+          category: string;
+          confidence: number;
+          description: string;
+          discovered_at: string;
+          expires_at: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name: string;
+          source_url: string;
+          title: string;
+        };
+        Insert: {
+          category: string;
+          confidence?: number;
+          description?: string;
+          discovered_at?: string;
+          expires_at?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name?: string;
+          source_url: string;
+          title: string;
+        };
+        Update: {
+          category?: string;
+          confidence?: number;
+          description?: string;
+          discovered_at?: string;
+          expires_at?: string;
+          id?: string;
+          platform?: Database["public"]["Enums"]["social_platform"] | null;
+          prompt?: string;
+          source_name?: string;
+          source_url?: string;
+          title?: string;
+        };
+        Relationships: [];
+      };
       video_generations: {
         Row: {
           aspect_ratio: string;
@@ -1056,6 +1128,28 @@ export type Database = {
       social_connection_revoke: {
         Args: { p_platform: Database["public"]["Enums"]["social_platform"] };
         Returns: undefined;
+      };
+      trends_current: {
+        Args: { p_category?: string; p_limit?: number };
+        Returns: {
+          category: string;
+          confidence: number;
+          description: string;
+          discovered_at: string;
+          expires_at: string;
+          id: string;
+          platform: Database["public"]["Enums"]["social_platform"] | null;
+          prompt: string;
+          source_name: string;
+          source_url: string;
+          title: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "trends";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
       };
     };
     Enums: {

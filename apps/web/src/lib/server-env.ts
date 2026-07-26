@@ -26,6 +26,7 @@ const serverEnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
   FIRECRAWL_API_KEY: z.string().default(""),
+  CRON_SECRET: z.string().default(""),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -44,6 +45,7 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY,
+  CRON_SECRET: process.env.CRON_SECRET,
 });
 
 /**
