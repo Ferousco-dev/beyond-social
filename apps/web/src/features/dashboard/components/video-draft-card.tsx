@@ -3,13 +3,13 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { type VideoDraft } from "@/lib/dashboard/conversations";
+import { type MessageDraft } from "@/lib/chat/thread";
 
 export function VideoDraftCard({
   draft,
   editorHref,
 }: {
-  draft: VideoDraft;
+  draft: MessageDraft;
   editorHref: Route;
 }): ReactNode {
   const isReady = draft.status === "ready";
@@ -33,9 +33,6 @@ export function VideoDraftCard({
             <Play className="size-3.5 translate-x-px" />
           </span>
         )}
-        <span className="absolute inset-x-2 bottom-2 rounded-md bg-paper/85 px-2 py-1 text-[11px] font-medium text-ink backdrop-blur-sm">
-          {draft.caption}
-        </span>
         <span className="absolute inset-0 bg-ink/0 transition-colors group-hover:bg-ink/5" />
       </Link>
       <p className="mt-2 text-xs text-ink-soft">

@@ -257,6 +257,7 @@ export type Database = {
         Row: {
           content: string;
           created_at: string;
+          generation_id: string | null;
           id: string;
           project_id: string;
           role: Database["public"]["Enums"]["message_role"];
@@ -265,6 +266,7 @@ export type Database = {
         Insert: {
           content?: string;
           created_at?: string;
+          generation_id?: string | null;
           id?: string;
           project_id: string;
           role: Database["public"]["Enums"]["message_role"];
@@ -273,12 +275,20 @@ export type Database = {
         Update: {
           content?: string;
           created_at?: string;
+          generation_id?: string | null;
           id?: string;
           project_id?: string;
           role?: Database["public"]["Enums"]["message_role"];
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "messages_generation_id_fkey";
+            columns: ["generation_id"];
+            isOneToOne: false;
+            referencedRelation: "video_generations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "messages_project_id_fkey";
             columns: ["project_id"];
@@ -976,6 +986,29 @@ export type Database = {
         }[];
       };
       api_key_owner: { Args: { p_hash: string }; Returns: string };
+      append_turn: {
+        Args: {
+          p_assistant_content: string;
+          p_generation?: string;
+          p_project: string;
+          p_user_content: string;
+        };
+        Returns: {
+          content: string;
+          created_at: string;
+          generation_id: string | null;
+          id: string;
+          project_id: string;
+          role: Database["public"]["Enums"]["message_role"];
+          user_id: string;
+        }[];
+        SetofOptions: {
+          from: "*";
+          to: "messages";
+          isOneToOne: false;
+          isSetofReturn: true;
+        };
+      };
       billing_apply_subscription: {
         Args: {
           p_cancel_at_period_end: boolean;
@@ -1059,6 +1092,18 @@ export type Database = {
         Returns: {
           platform: string;
           published: number;
+        }[];
+      };
+      project_thread: {
+        Args: { p_project: string };
+        Returns: {
+          content: string;
+          created_at: string;
+          generation_id: string;
+          generation_status: Database["public"]["Enums"]["generation_status"];
+          id: string;
+          result_url: string;
+          role: Database["public"]["Enums"]["message_role"];
         }[];
       };
       prompt_apply_scores: { Args: { p_scores: Json }; Returns: undefined };

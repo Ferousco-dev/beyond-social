@@ -40,7 +40,17 @@ export function DashboardHome({ name }: { name: string }) {
         {greeting}
       </h1>
 
-      <PromptComposer value={prompt} onChange={setPrompt} onSubmit={handleSubmit} />
+      <PromptComposer
+        value={prompt}
+        onChange={setPrompt}
+        onSubmit={handleSubmit}
+        // The thread has no project until the first message lands, so photos
+        // are attached there rather than here.
+        projectId="new"
+        photos={[]}
+        onPhotosChange={() => undefined}
+        busy={false}
+      />
 
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
         {SUGGESTIONS.map((suggestion) => (
