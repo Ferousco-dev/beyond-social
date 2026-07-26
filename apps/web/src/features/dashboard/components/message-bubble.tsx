@@ -1,7 +1,7 @@
 import { type Route } from "next";
 import { type ReactNode } from "react";
 
-import { type Message } from "@/lib/dashboard/conversations";
+import { type ChatMessage } from "@/lib/chat/thread";
 
 import { CopyButton } from "./copy-button";
 import { GeneratingDraft } from "./generating-draft";
@@ -11,7 +11,7 @@ export function MessageBubble({
   message,
   editorHref,
 }: {
-  message: Message;
+  message: ChatMessage;
   editorHref: Route;
 }): ReactNode {
   if (message.role === "user") {
@@ -38,6 +38,13 @@ export function MessageBubble({
       {message.draft?.status === "generating" ? <GeneratingDraft /> : null}
       {message.draft?.status === "ready" ? (
         <VideoDraftCard draft={message.draft} editorHref={editorHref} />
+      ) : null}
+      {/* A failed draft says so. It used to be indistinguishable from a reply
+          with no video, which read as though nothing had been attempted. */}
+      {message.draft?.status === "failed" ? (
+        <p className="mt-3 rounded-xl border border-hairline bg-paper px-3 py-2 text-xs text-ink-soft">
+          This draft did not finish rendering. Send the message again to retry.
+        </p>
       ) : null}
     </div>
   );
