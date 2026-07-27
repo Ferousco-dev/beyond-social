@@ -74,6 +74,36 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
     maxOutput: 16_384,
     jsonMode: true,
   },
+  // Google pricing is tiered by prompt length; these are the rates for the
+  // short prompts this app sends. Verify against the current price list before
+  // relying on the cost dashboard for anything financial.
+  "gemini-2.5-pro": {
+    id: "gemini-2.5-pro",
+    provider: "google",
+    inputPerMillion: 1.25,
+    outputPerMillion: 10,
+    contextWindow: 1_048_576,
+    maxOutput: 65_536,
+    jsonMode: true,
+  },
+  "gemini-2.5-flash": {
+    id: "gemini-2.5-flash",
+    provider: "google",
+    inputPerMillion: 0.3,
+    outputPerMillion: 2.5,
+    contextWindow: 1_048_576,
+    maxOutput: 65_536,
+    jsonMode: true,
+  },
+  "gemini-2.0-flash": {
+    id: "gemini-2.0-flash",
+    provider: "google",
+    inputPerMillion: 0.1,
+    outputPerMillion: 0.4,
+    contextWindow: 1_048_576,
+    maxOutput: 8_192,
+    jsonMode: true,
+  },
 };
 
 /**
@@ -82,11 +112,18 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
  * take the task down.
  */
 export const ROUTES: Readonly<Record<Task, readonly string[]>> = {
-  generation: ["claude-opus-4-8", "claude-sonnet-5", "gpt-4o"],
-  judge: ["claude-sonnet-5", "gpt-4o-mini", "claude-haiku-4-5-20251001"],
-  extraction: ["claude-sonnet-5", "gpt-4o-mini"],
-  cheap: ["claude-haiku-4-5-20251001", "gpt-4o-mini"],
+  generation: ["claude-opus-4-8", "gemini-2.5-pro", "claude-sonnet-5", "gpt-4o"],
+  judge: ["gemini-2.5-flash", "claude-sonnet-5", "gpt-4o-mini"],
+  extraction: ["gemini-2.5-flash", "claude-sonnet-5", "gpt-4o-mini"],
+  cheap: ["gemini-2.0-flash", "claude-haiku-4-5-20251001", "gpt-4o-mini"],
 };
+
+/**
+ * The chains span providers on purpose, so one vendor outage cannot take a task
+ * down. The gateway skips any model whose provider has no client configured, so
+ * running on Gemini alone works: the Claude and OpenAI entries are simply never
+ * reached.
+ */
 
 export function modelSpec(id: string): ModelSpec | undefined {
   return MODELS[id];

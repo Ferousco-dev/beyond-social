@@ -42,6 +42,9 @@ jobs:
       - name: AI gateway behavioural tests
         run: pnpm --filter @beyond-social/ai-gateway test
 
+      - name: Gemini provider tests
+        run: pnpm --filter @beyond-social/ai-gateway test:gemini
+
       - name: Prompt engine tests
         run: pnpm --filter @beyond-social/prompt-engine test
 
