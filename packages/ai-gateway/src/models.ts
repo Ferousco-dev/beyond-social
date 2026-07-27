@@ -26,6 +26,16 @@ export interface ModelSpec {
   readonly maxOutput: number;
   /** Native strict-JSON support, as opposed to prompt-enforced JSON. */
   readonly jsonMode: boolean;
+  /**
+   * Reasoning budget for models that think before answering, in tokens.
+   *
+   * Thinking tokens are drawn from the same output budget as the answer, so a
+   * thinking model given a small budget spends all of it reasoning and returns
+   * nothing at all. Undefined means the model does not think; 0 means thinking
+   * can be switched off; a positive number is the smallest the model accepts
+   * (Gemini 2.5 Pro rejects 0 outright: it only works in thinking mode).
+   */
+  readonly minThinkingTokens?: number;
 }
 
 export const MODELS: Readonly<Record<string, ModelSpec>> = {
@@ -85,6 +95,7 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
     contextWindow: 1_048_576,
     maxOutput: 65_536,
     jsonMode: true,
+    minThinkingTokens: 128,
   },
   "gemini-2.5-flash": {
     id: "gemini-2.5-flash",
@@ -94,6 +105,9 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
     contextWindow: 1_048_576,
     maxOutput: 65_536,
     jsonMode: true,
+    // Flash can switch thinking off entirely, and none of this app's calls
+    // (write a prompt, classify a message, revise a prompt) need it.
+    minThinkingTokens: 0,
   },
   "gemini-2.0-flash": {
     id: "gemini-2.0-flash",

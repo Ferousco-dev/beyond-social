@@ -158,6 +158,113 @@ async function main(): Promise<void> {
     check("honours retry-after", retryAfter === 3);
   }
 
+  // Thinking tokens come out of the same budget as the answer. A thinking model
+  // given only the caller's budget spends all of it reasoning and returns
+  // nothing, with a finish reason that reads as success downstream.
+  {
+    const pro = MODELS["gemini-2.5-pro"];
+    const stub = install(ok);
+    await new GeminiClient("k").complete(pro!, {
+      system: "s",
+      messages: [{ role: "user", content: "m" }],
+      maxTokens: 300,
+    });
+    stub.restore();
+    const config = (stub.calls[0]?.body as { generationConfig?: Record<string, unknown> })
+      .generationConfig;
+    check(
+      "pro requests its minimum thinking budget",
+      (config?.thinkingConfig as { thinkingBudget?: number })?.thinkingBudget === 128,
+    );
+    check(
+      "thinking budget is added to the answer budget",
+      config?.maxOutputTokens === 428,
+      String(config?.maxOutputTokens),
+    );
+  }
+  {
+    const flash = MODELS["gemini-2.5-flash"];
+    const stub = install(ok);
+    await new GeminiClient("k").complete(flash!, {
+      system: "s",
+      messages: [{ role: "user", content: "m" }],
+      maxTokens: 300,
+    });
+    stub.restore();
+    const config = (stub.calls[0]?.body as { generationConfig?: Record<string, unknown> })
+      .generationConfig;
+    check(
+      "flash switches thinking off",
+      (config?.thinkingConfig as { thinkingBudget?: number })?.thinkingBudget === 0,
+    );
+  }
+  {
+    // 2.0-flash does not think, so sending the field at all would be rejected.
+    const legacy = MODELS["gemini-2.0-flash"];
+    const stub = install(ok);
+    await new GeminiClient("k").complete(legacy!, {
+      system: "s",
+      messages: [{ role: "user", content: "m" }],
+    });
+    stub.restore();
+    const config = (stub.calls[0]?.body as { generationConfig?: Record<string, unknown> })
+      .generationConfig;
+    check("no thinking config for a non-thinking model", config?.thinkingConfig === undefined);
+  }
+
+  // Thinking tokens are billed as output but reported in their own field.
+  {
+    const stub = install(
+      () =>
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "hi" }] } }],
+            usageMetadata: {
+              promptTokenCount: 10,
+              candidatesTokenCount: 20,
+              thoughtsTokenCount: 50,
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    const result = await new GeminiClient("k").complete(spec, {
+      system: "s",
+      messages: [{ role: "user", content: "m" }],
+    });
+    stub.restore();
+    check(
+      "counts thinking tokens as output",
+      result.outputTokens === 70,
+      String(result.outputTokens),
+    );
+  }
+
+  // Truncation returned an empty string that read as a successful completion.
+  {
+    const stub = install(
+      () =>
+        new Response(
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: "" }] }, finishReason: "MAX_TOKENS" }],
+          }),
+          { status: 200 },
+        ),
+    );
+    let status = 0;
+    try {
+      await new GeminiClient("k").complete(spec, {
+        system: "s",
+        messages: [{ role: "user", content: "m" }],
+      });
+    } catch (error) {
+      if (error instanceof ProviderError) status = error.status;
+    }
+    stub.restore();
+    // Retryable: a different budget may succeed, unlike a refusal.
+    check("an empty answer is an error, not a completion", status === 503, String(status));
+  }
+
   process.stdout.write(
     `${results.join("\n")}\n\n${results.length - failures}/${results.length} passed\n`,
   );

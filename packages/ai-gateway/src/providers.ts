@@ -130,7 +130,12 @@ interface GeminiResponse {
     content?: { parts?: { text?: string }[] };
     finishReason?: string;
   }[];
-  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    /** Billed as output, but reported separately and excluded from the count above. */
+    thoughtsTokenCount?: number;
+  };
   error?: { message?: string };
 }
 
@@ -165,7 +170,17 @@ export class GeminiClient implements ProviderClient {
         })),
         generationConfig: {
           temperature: request.temperature ?? 1,
-          maxOutputTokens: Math.min(request.maxTokens ?? 4096, spec.maxOutput),
+          // The thinking budget is added to the caller's budget rather than
+          // taken from it. Without this a thinking model spends the whole
+          // allowance reasoning and returns an empty answer with a MAX_TOKENS
+          // finish reason, which reads as success everywhere downstream.
+          maxOutputTokens: Math.min(
+            (request.maxTokens ?? 4096) + (spec.minThinkingTokens ?? 0),
+            spec.maxOutput,
+          ),
+          ...(spec.minThinkingTokens === undefined
+            ? {}
+            : { thinkingConfig: { thinkingBudget: spec.minThinkingTokens } }),
           ...(request.json && spec.jsonMode ? { responseMimeType: "application/json" } : {}),
         },
       }),
@@ -187,14 +202,32 @@ export class GeminiClient implements ProviderClient {
       );
     }
 
+    // Multi-part answers are joined; a single part is the common case.
+    const text = (candidate.content?.parts ?? [])
+      .map((part) => part.text ?? "")
+      .join("")
+      .trim();
+
+    // An empty answer is a failure, not a completion. Returning "" here would
+    // store an empty directed prompt and generate a video from nothing.
+    if (text === "") {
+      throw new ProviderError(
+        `gemini returned no text (finishReason: ${candidate.finishReason ?? "unknown"})`,
+        // Truncation may pass on a retry with a different budget; a refusal
+        // will not. Truncation is the recoverable one, so it is retryable.
+        candidate.finishReason === "MAX_TOKENS" ? 503 : 400,
+        null,
+      );
+    }
+
     return {
-      // Multi-part answers are joined; a single part is the common case.
-      text: (candidate.content?.parts ?? [])
-        .map((part) => part.text ?? "")
-        .join("")
-        .trim(),
+      text,
       inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
-      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+      // Thinking tokens are billed as output but reported separately, so they
+      // are added in; otherwise the cost dashboard silently under-reports.
+      outputTokens:
+        (data.usageMetadata?.candidatesTokenCount ?? 0) +
+        (data.usageMetadata?.thoughtsTokenCount ?? 0),
     };
   }
 }
