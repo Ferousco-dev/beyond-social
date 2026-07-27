@@ -3,6 +3,7 @@ import "server-only";
 import {
   AiGateway,
   AnthropicClient,
+  GeminiClient,
   GatewayLlm,
   MemoryResponseCache,
   MemoryUsageSink,
@@ -13,6 +14,7 @@ import {
 } from "@beyond-social/ai-gateway";
 import {
   CachingEmbedder,
+  GeminiEmbedder,
   OpenAiEmbedder,
   PassthroughReranker,
   Retriever,
@@ -47,9 +49,14 @@ let embedderRef: CachingEmbedder | null = null;
  */
 export function getEmbedder(): Embedder {
   if (embedderRef) return embedderRef;
+  // Voyage first on retrieval quality, then OpenAI, then Gemini. Whichever is
+  // used, `query` encoding is asymmetric with the `document` encoding used at
+  // ingest, which is what the two sides of a retrieval are supposed to be.
   const provider: Embedder = serverEnv.VOYAGE_API_KEY
     ? new VoyageEmbedder(serverEnv.VOYAGE_API_KEY, "voyage-3-large", 1024, "query")
-    : new OpenAiEmbedder(serverEnv.OPENAI_API_KEY);
+    : serverEnv.OPENAI_API_KEY
+      ? new OpenAiEmbedder(serverEnv.OPENAI_API_KEY)
+      : new GeminiEmbedder(serverEnv.GEMINI_API_KEY, "text-embedding-004", 768, "RETRIEVAL_QUERY");
 
   // Shared across instances when there is a database to share through. The
   // in-process cache is the fallback, not the goal: on serverless it is lost on
@@ -106,6 +113,9 @@ function getGateway(): AiGateway {
   }
   if (serverEnv.OPENAI_API_KEY) {
     clients.openai = new OpenAiClient(serverEnv.OPENAI_API_KEY);
+  }
+  if (serverEnv.GEMINI_API_KEY) {
+    clients.google = new GeminiClient(serverEnv.GEMINI_API_KEY);
   }
   gatewayRef = new AiGateway({
     clients,

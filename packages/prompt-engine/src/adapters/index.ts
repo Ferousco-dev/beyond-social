@@ -1,5 +1,5 @@
 export { postJson } from "./http";
-export { VoyageEmbedder, OpenAiEmbedder } from "./embeddings";
+export { VoyageEmbedder, OpenAiEmbedder, GeminiEmbedder } from "./embeddings";
 export {
   CachingEmbedder,
   MemoryEmbeddingCache,

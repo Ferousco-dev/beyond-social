@@ -13,6 +13,7 @@ const serverEnvSchema = z.object({
   VOYAGE_API_KEY: z.string().default(""),
   OPENAI_API_KEY: z.string().default(""),
   ANTHROPIC_API_KEY: z.string().default(""),
+  GEMINI_API_KEY: z.string().default(""),
   STRIPE_SECRET_KEY: z.string().default(""),
   STRIPE_WEBHOOK_SECRET: z.string().default(""),
   STRIPE_PRICE_CREATOR: z.string().default(""),
@@ -34,6 +35,7 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   VOYAGE_API_KEY: process.env.VOYAGE_API_KEY,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
   STRIPE_PRICE_CREATOR: process.env.STRIPE_PRICE_CREATOR,
@@ -69,8 +71,16 @@ export const STRIPE_PRICES: Readonly<Record<string, string | undefined>> = {
  */
 export const isPromptEngineConfigured =
   serverEnv.SUPABASE_SERVICE_ROLE_KEY !== "" &&
-  serverEnv.ANTHROPIC_API_KEY !== "" &&
-  (serverEnv.VOYAGE_API_KEY !== "" || serverEnv.OPENAI_API_KEY !== "");
+  // Any one generation provider is enough: the gateway skips models whose
+  // provider has no client, so a Gemini-only setup routes to Gemini.
+  (serverEnv.ANTHROPIC_API_KEY !== "" ||
+    serverEnv.GEMINI_API_KEY !== "" ||
+    serverEnv.OPENAI_API_KEY !== "") &&
+  // And any one embedding provider, which is a separate capability: a key that
+  // generates text does not necessarily embed it.
+  (serverEnv.VOYAGE_API_KEY !== "" ||
+    serverEnv.OPENAI_API_KEY !== "" ||
+    serverEnv.GEMINI_API_KEY !== "");
 
 /** Trend discovery runs only with a Firecrawl key; without it the feed is empty. */
 export const isTrendDiscoveryConfigured = serverEnv.FIRECRAWL_API_KEY !== "";

@@ -14,6 +14,7 @@ import { join } from "node:path";
 
 import {
   CachingEmbedder,
+  GeminiEmbedder,
   Ingestor,
   OpenAiEmbedder,
   SupabaseVectorStore,
@@ -44,11 +45,22 @@ const rpc: SupabaseRpcClient = {
 
 // Cached because re-ingesting a corpus re-embeds every unchanged chunk, which
 // is the single most wasteful call pattern in the system.
-const embedder: Embedder = new CachingEmbedder(
-  process.env.VOYAGE_API_KEY
-    ? new VoyageEmbedder(process.env.VOYAGE_API_KEY, "voyage-3-large", 1024, "document")
-    : new OpenAiEmbedder(requireEnv("OPENAI_API_KEY")),
-);
+// `document` encoding here is the counterpart to the `query` encoding used at
+// retrieval; mixing the two sides measurably degrades results.
+function pickEmbedder(): Embedder {
+  if (process.env.VOYAGE_API_KEY) {
+    return new VoyageEmbedder(process.env.VOYAGE_API_KEY, "voyage-3-large", 1024, "document");
+  }
+  if (process.env.OPENAI_API_KEY) return new OpenAiEmbedder(process.env.OPENAI_API_KEY);
+  return new GeminiEmbedder(
+    requireEnv("GEMINI_API_KEY"),
+    "text-embedding-004",
+    768,
+    "RETRIEVAL_DOCUMENT",
+  );
+}
+
+const embedder: Embedder = new CachingEmbedder(pickEmbedder());
 
 function mdFiles(dir: string): string[] {
   const out: string[] = [];

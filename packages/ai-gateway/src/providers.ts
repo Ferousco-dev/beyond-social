@@ -124,3 +124,77 @@ export class OpenAiClient implements ProviderClient {
     };
   }
 }
+
+interface GeminiResponse {
+  candidates?: {
+    content?: { parts?: { text?: string }[] };
+    finishReason?: string;
+  }[];
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  error?: { message?: string };
+}
+
+/**
+ * Google Gemini.
+ *
+ * Three things differ from the other providers and each one is a silent failure
+ * if missed: the system prompt is its own top-level field rather than a message,
+ * roles are `user` and `model` rather than `user` and `assistant`, and content
+ * is an array of parts rather than a string.
+ */
+export class GeminiClient implements ProviderClient {
+  constructor(
+    private readonly apiKey: string,
+    private readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta",
+  ) {}
+
+  async complete(spec: ModelSpec, request: CompletionRequest): Promise<CompletionResult> {
+    const response = await fetch(`${this.baseUrl}/models/${spec.id}:generateContent`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // Header rather than a query parameter, so the key cannot end up in a
+        // proxy log or an error URL.
+        "x-goog-api-key": this.apiKey,
+      },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: request.system }] },
+        contents: request.messages.map((message) => ({
+          role: message.role === "assistant" ? "model" : "user",
+          parts: [{ text: message.content }],
+        })),
+        generationConfig: {
+          temperature: request.temperature ?? 1,
+          maxOutputTokens: Math.min(request.maxTokens ?? 4096, spec.maxOutput),
+          ...(request.json && spec.jsonMode ? { responseMimeType: "application/json" } : {}),
+        },
+      }),
+      ...(request.signal ? { signal: request.signal } : {}),
+    });
+
+    if (!response.ok) throw await toProviderError(response);
+    const data = (await response.json()) as GeminiResponse;
+
+    // Gemini answers 200 with no candidate when a safety filter fires, so an ok
+    // status is not on its own a completed call.
+    const candidate = data.candidates?.[0];
+    if (!candidate) {
+      throw new ProviderError(
+        `gemini returned no candidate: ${data.error?.message ?? "blocked or empty"}`,
+        // Not retryable: asking again produces the same refusal.
+        400,
+        null,
+      );
+    }
+
+    return {
+      // Multi-part answers are joined; a single part is the common case.
+      text: (candidate.content?.parts ?? [])
+        .map((part) => part.text ?? "")
+        .join("")
+        .trim(),
+      inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    };
+  }
+}
