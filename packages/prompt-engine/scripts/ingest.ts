@@ -54,8 +54,8 @@ function pickEmbedder(): Embedder {
   if (process.env.OPENAI_API_KEY) return new OpenAiEmbedder(process.env.OPENAI_API_KEY);
   return new GeminiEmbedder(
     requireEnv("GEMINI_API_KEY"),
-    "text-embedding-004",
-    768,
+    "gemini-embedding-001",
+    1024,
     "RETRIEVAL_DOCUMENT",
   );
 }
