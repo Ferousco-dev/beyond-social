@@ -19,7 +19,10 @@ export default function Error({
   }, [error]);
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center">
+    <main
+      id="main"
+      className="flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center"
+    >
       <Logo />
       <p className="mt-10 text-sm font-semibold text-destructive">Something went wrong</p>
       <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">

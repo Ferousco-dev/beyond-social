@@ -27,7 +27,7 @@ export default function PricingPage(): ReactNode {
   return (
     <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
-      <main>
+      <main id="main">
         {/* Offset for the fixed header, which the landing page gets from its hero. */}
         <div className="pt-24 sm:pt-28">
           <LandingPricing />
