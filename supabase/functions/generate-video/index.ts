@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createVideoTask } from "../_shared/kie.ts";
+import { log, traceIdFrom } from "../_shared/trace.ts";
+import { log, traceIdFrom } from "../_shared/trace.ts";
 
 interface GenerateBody {
   projectId?: string;
@@ -26,6 +28,8 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? "",
     { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
   );
+
+  const traceId = traceIdFrom(req);
 
   const {
     data: { user },
@@ -92,13 +96,18 @@ Deno.serve(async (req) => {
       image_urls: body.imageUrls ?? [],
       status: "generating",
       provider_task_id: taskId,
+      // Carried on the row because the callback arrives in a different process,
+      // minutes later, where no header from the original request survives.
+      trace_id: traceId,
     })
     .select("id")
     .single();
 
   if (insertError || !generation) {
+    log("error", "could not record the generation", { traceId, taskId });
     return json({ error: "Could not record the generation" }, 500);
   }
 
+  log("info", "generation submitted", { traceId, taskId, generationId: generation.id });
   return json({ generationId: generation.id, taskId });
 });

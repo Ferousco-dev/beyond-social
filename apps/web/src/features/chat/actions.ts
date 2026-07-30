@@ -9,6 +9,7 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
+import { traceparent, withActionTrace } from "@/lib/observability/trace";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +56,12 @@ function titleFrom(prompt: string): string {
 }
 
 export async function sendMessage(input: z.input<typeof sendSchema>): Promise<SendResult> {
+  // Everything below, including the model calls and the edge function invoke,
+  // runs inside one trace, so a turn that goes wrong is one log query.
+  return withActionTrace("sendMessage", () => send(input));
+}
+
+async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   const parsed = sendSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -133,7 +140,12 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
     try {
+      // Hands the trace across the process boundary. The edge function stores it
+      // on the generation row, which is how the callback that arrives minutes
+      // later, in a different process, rejoins this request's trace.
+      const parent = traceparent();
       const { data, error } = await supabase.functions.invoke("generate-video", {
+        ...(parent ? { headers: { traceparent: parent } } : {}),
         body: {
           projectId,
           prompt: finalPrompt,
