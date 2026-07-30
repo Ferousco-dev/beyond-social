@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Users,
   PenSquare,
-  Search,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -15,10 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Fragment } from "react";
 
-import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
-
-import { CommandPalette } from "./command-palette";
 
 /** Shared shape so the search trigger sits flush with the real links. */
 const ITEM =
@@ -80,13 +76,12 @@ const LINKS: readonly NavLink[] = [
   },
 ];
 
-export function SidebarNav({
-  projects,
-  onNavigate,
-}: {
-  projects: readonly SidebarProject[];
-  onNavigate?: () => void;
-}) {
+/**
+ * The sidebar lists destinations. Search is an action, not a place, so it lives
+ * in the top bar with the other actions rather than being offered twice with
+ * two different labels.
+ */
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   const isActive = (link: NavLink): boolean =>
@@ -94,7 +89,7 @@ export function SidebarNav({
 
   return (
     <div className="flex flex-col gap-0.5 px-2">
-      {LINKS.map((link, index) => {
+      {LINKS.map((link) => {
         const active = isActive(link);
         return (
           <Fragment key={link.href}>
@@ -115,22 +110,6 @@ export function SidebarNav({
               />
               {link.label}
             </Link>
-
-            {/* The command palette sits directly under the primary action. */}
-            {index === 0 ? (
-              <CommandPalette projects={projects}>
-                <button type="button" className={cn(ITEM, "text-ink hover:bg-cloud")}>
-                  <Search
-                    className={cn("size-4 shrink-0", MOTION, "group-hover:scale-110")}
-                    aria-hidden
-                  />
-                  Search or command
-                  <kbd className="ml-auto hidden rounded border border-hairline px-1.5 py-0.5 text-[10px] font-medium text-ink-soft sm:inline">
-                    ⌘K
-                  </kbd>
-                </button>
-              </CommandPalette>
-            ) : null}
           </Fragment>
         );
       })}

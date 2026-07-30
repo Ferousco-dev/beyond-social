@@ -156,14 +156,6 @@ export function ClosingPanel(): ReactNode {
                 <p className="text-xs text-ink-soft">
                   © {year} Beyond Social. All rights reserved.
                 </p>
-                <span className="flex items-center gap-x-5">
-                  <a href="/privacy" className={`${LINK} -my-1 inline-block py-1 text-xs`}>
-                    Privacy
-                  </a>
-                  <a href="/terms" className={`${LINK} -my-1 inline-block py-1 text-xs`}>
-                    Terms
-                  </a>
-                </span>
               </div>
 
               {SOCIAL_LINKS.length > 0 ? (
