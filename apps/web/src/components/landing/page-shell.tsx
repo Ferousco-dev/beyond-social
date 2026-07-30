@@ -22,7 +22,7 @@ export function PageShell({
   return (
     <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
-      <main>
+      <main id="main">
         <section className="relative overflow-hidden pt-36 sm:pt-44">
           <div
             aria-hidden

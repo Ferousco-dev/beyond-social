@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 
 export default function NotFound(): ReactNode {
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center">
+    <main
+      id="main"
+      className="flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center"
+    >
       <Logo />
       <p className="mt-10 text-sm font-semibold text-primary">404</p>
       <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">

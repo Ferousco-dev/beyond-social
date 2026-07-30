@@ -21,7 +21,7 @@ export default function HomePage(): ReactNode {
     // page on small screens, which would let the layout scroll sideways.
     <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
-      <main>
+      <main id="main">
         <LandingHero />
         <PoweredBy />
         <FeatureBento />

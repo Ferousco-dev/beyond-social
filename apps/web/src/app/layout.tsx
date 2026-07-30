@@ -25,6 +25,17 @@ export default function RootLayout({ children }: { children: ReactNode }): React
       suppressHydrationWarning
     >
       <body>
+        {/*
+          First focusable element on every page. Without it a keyboard or screen
+          reader user has to walk the whole navigation to reach the content, on
+          every navigation. It is visually hidden until focused.
+        */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-ink focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-canvas focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        >
+          Skip to content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
