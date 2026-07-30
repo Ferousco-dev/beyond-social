@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, Search } from "lucide-react";
+import { Bookmark, ChevronDown, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { TREND_CATEGORIES } from "@/lib/trends/categories";
@@ -103,18 +103,30 @@ export function TrendsFeed({ feed, onNavigate }: { feed: TrendFeed; onNavigate?:
           <label className="sr-only" htmlFor="trend-sort">
             Sort trends
           </label>
-          <select
-            id="trend-sort"
-            value={sort}
-            onChange={(event) => setSort(event.target.value as SortId)}
-            className="h-11 cursor-pointer rounded-full border border-hairline bg-paper px-4 text-sm text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {SORTS.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+
+          {/* `appearance-none` is what makes the pill possible: the platform
+              otherwise draws its own rounded box and arrow button over ours, so
+              the corners never fully round. The chevron below replaces the one
+              that removes, and is not focusable, so the select stays the
+              control. */}
+          <div className="relative">
+            <select
+              id="trend-sort"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as SortId)}
+              className="h-11 cursor-pointer appearance-none rounded-full border border-hairline bg-paper pl-4 pr-10 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {SORTS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-4 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
+              aria-hidden
+            />
+          </div>
 
           <button
             type="button"
