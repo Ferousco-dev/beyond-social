@@ -4,10 +4,10 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import Link from "next/link";
+
 import { signOutAction } from "@/features/auth/actions";
 import { type DashboardUser } from "@/lib/dashboard/data";
-
-import { SettingsDialog } from "./settings-dialog";
 
 export function UserButton({ user }: { user: DashboardUser }) {
   const router = useRouter();
@@ -23,21 +23,22 @@ export function UserButton({ user }: { user: DashboardUser }) {
 
   return (
     <div className="flex items-center gap-1 border-t border-hairline p-2">
-      <SettingsDialog user={user}>
-        <button
-          type="button"
-          aria-label="Open settings"
-          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-cloud"
-        >
-          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-cloud text-xs font-medium text-ink">
-            {user.initials}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-ink">{user.name}</span>
-            <span className="block truncate text-xs text-ink-soft">Free plan</span>
-          </span>
-        </button>
-      </SettingsDialog>
+      {/* A link, not a modal. Connecting a social account leaves for an OAuth
+          round trip and comes back to a URL, which a dialog cannot receive, so
+          settings has to be a real route. */}
+      <Link
+        href="/dashboard/settings"
+        aria-label="Open settings"
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-cloud text-xs font-medium text-ink">
+          {user.initials}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm text-ink">{user.name}</span>
+          <span className="block truncate text-xs text-ink-soft">Free plan</span>
+        </span>
+      </Link>
       <button
         type="button"
         onClick={handleSignOut}

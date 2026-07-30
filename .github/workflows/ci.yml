@@ -174,17 +174,23 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Production: $url" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Smoke check the deployment
+      - name: Smoke check production
         if: steps.creds.outputs.configured == 'true'
+        env:
+          # The public alias, not the deployment URL the CLI prints. Deployment
+          # URLs sit behind Vercel's deployment protection and answer 302 to an
+          # SSO redirect, so checking one fails on a deploy that is perfectly
+          # healthy. The alias is what visitors actually reach.
+          PRODUCTION_URL: https://beyond-social-rust.vercel.app
         run: |
-          # A deploy that returns 200 on the landing page and the health probe is
-          # the minimum bar for calling it live. Without this the job goes green
-          # on a build that boots and then fails on first request.
+          # A deploy that cannot answer its landing page and health probe is not
+          # live, whatever the build said. Without this the job goes green on a
+          # bundle that boots and then falls over on the first request.
           for path in / /api/health; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 "${{ steps.deploy.outputs.url }}$path")
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 45 "$PRODUCTION_URL$path")
             echo "$path -> $code"
             if [ "$code" != "200" ]; then
-              echo "::error::$path returned $code on the new deployment."
+              echo "::error::$path returned $code on $PRODUCTION_URL after deploying."
               exit 1
             fi
           done
