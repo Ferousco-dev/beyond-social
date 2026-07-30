@@ -17,7 +17,13 @@ const csp = [
   "img-src 'self' data: blob: https:",
   "media-src 'self' blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai http://127.0.0.1:54321 ws://127.0.0.1:54321",
+  // The local Supabase stack is a development concern. Shipping it in the
+  // production policy let any script on the page reach a service on the
+  // visitor's own machine, which is a hole opened for our convenience and paid
+  // for by them.
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${
+    isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : ""
+  }`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

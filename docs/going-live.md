@@ -70,11 +70,12 @@ the migrations and functions that already live in the repo.
    `poll-generation` (or expose the callback with a tunnel). See
    `supabase/README.md`.
 
-5. Before real traffic, switch the database connection to the **Supavisor
-   pooler in transaction mode** (port 6543). Serverless functions plus the
-   worker plus the edge functions exhaust direct Postgres connections before
-   anything else in the system becomes a limit. See C2 in
-   [production-readiness.md](production-readiness.md).
+5. Connection pooling is **not** required for this stack, contrary to C2 in
+   [production-readiness.md](production-readiness.md), which predates the current
+   data access layer. Every query goes through supabase-js to PostgREST over
+   HTTP; nothing opens a Postgres socket, so there are no client connections to
+   pool. Revisit the moment anything adds a direct client such as Prisma,
+   Drizzle or `pg`.
 
 ## 3. Worker + Redis (publishing)
 

@@ -104,9 +104,19 @@ table, the service-role key server-only, and security-definer views for the two
 cases where a token must never be selectable. CQRS is not warranted; the read
 patterns are not independently scalable enough to justify a second model.
 
-**The real constraint is connections, not coupling.** Serverless functions plus
-a worker plus edge functions exhaust Postgres connections long before the schema
-becomes a bottleneck. Pooling is the thing to get right before launch.
+**On connections, a correction.** An earlier version of this document said
+direct Postgres connections would exhaust before anything else, and named the
+Supavisor pooler as the fix. That is the right advice for a stack that opens
+Postgres sockets from serverless functions, and this one does not: every query
+goes through supabase-js to PostgREST over HTTP, and PostgREST holds the
+connection pool on Supabase's side. There are no `pg`, Prisma or Drizzle clients
+anywhere in the repo.
+
+So the ceiling to watch is PostgREST's own pool, which is a plan setting rather
+than something to configure here, and after that it is ordinary query work:
+indexes that match the access patterns, pagination, and not selecting columns
+nobody reads. Pooling becomes relevant the day something in this system opens a
+direct connection, and nothing does yet.
 
 ### 3. The distributed monolith
 
