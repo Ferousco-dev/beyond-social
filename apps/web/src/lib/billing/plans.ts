@@ -47,7 +47,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     name: "Creator",
     description: "For one person publishing consistently.",
     credits: 100,
-    priceUsd: 24,
+    priceUsd: 0,
     features: [
       "Everything in Free",
       "100 videos a month",
@@ -63,7 +63,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     name: "Studio",
     description: "For a team running several brands.",
     credits: 400,
-    priceUsd: 79,
+    priceUsd: 0,
     features: [
       "Everything in Creator",
       "400 videos a month",

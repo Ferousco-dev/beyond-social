@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendMessage } from "@/features/chat/actions";
 import { type ChatMessage, type Thread } from "@/lib/chat/thread";
+import { cn } from "@/lib/utils";
 
 import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-poll";
 import { ConversationHeader } from "./conversation-header";
@@ -135,9 +136,18 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
       <ConversationHeader title={thread.title} editorHref={editorHref} />
 
-      <div className="flex-1 space-y-6 py-8">
+      {/* Centred while empty, top-aligned once there is a thread to read. A
+          fixed top alignment left the invitation stranded against the header
+          with ~425px of dead space beneath it, which reads as a broken layout
+          rather than a quiet one. */}
+      <div
+        className={cn(
+          "flex flex-1 flex-col gap-6 py-8",
+          messages.length === 0 && "justify-center pb-24",
+        )}
+      >
         {messages.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="text-center">
             <p className="text-sm font-medium text-ink">Describe the video you want</p>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
               Say what it is for and who it is for. Add photos and they become the footage.
