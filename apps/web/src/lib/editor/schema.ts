@@ -61,6 +61,8 @@ const videoItemSchema = z.object({
   filters: filtersSchema,
   transitionIn: z.enum(TRANSITIONS),
   transitionMs: z.number().finite().min(0).max(10_000),
+  sourceUrl: z.string().max(2000).optional(),
+  generationId: z.string().max(120).optional(),
 });
 
 const textItemSchema = z.object({

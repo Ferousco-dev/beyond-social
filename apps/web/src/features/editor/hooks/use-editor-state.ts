@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import { INITIAL_PROJECT } from "@/lib/editor/project";
+import { emptyProject } from "@/lib/editor/from-generations";
 import { clamp } from "@/lib/editor/timeline";
 import {
   MIN_ITEM_MS,
@@ -64,7 +64,7 @@ export interface EditorState {
  * that has never been edited. Undo cannot reach past it, which is correct:
  * undoing into someone else's earlier session would be surprising.
  */
-export function useEditorState(initial: Project = INITIAL_PROJECT): EditorState {
+export function useEditorState(initial: Project = emptyProject()): EditorState {
   const history = useHistory<Project>(initial);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { present: project, apply } = history;
