@@ -1,5 +1,6 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 import {
   type PostStatus,
   type ProfileRow,
@@ -40,9 +41,7 @@ export async function getCredits(): Promise<Credits> {
   if (!isSupabaseConfigured) return CREDITS;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return CREDITS;
 
   const { data } = await supabase

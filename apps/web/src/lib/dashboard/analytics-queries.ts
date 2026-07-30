@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 
 import { emptyDays, type Funnel, type ProductAnalytics } from "./analytics";
 
@@ -49,9 +50,7 @@ export async function getProductAnalytics(days = DEFAULT_DAYS): Promise<ProductA
   if (!isSupabaseConfigured) return empty(days);
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return empty(days);
 
   const since = new Date(Date.now() - days * 24 * 3600_000).toISOString();

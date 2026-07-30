@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { isSupabaseConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 
 import { type DashboardUser } from "./data";
 
@@ -25,10 +25,7 @@ const PLACEHOLDER: DashboardUser = {
 export async function getCurrentUser(): Promise<DashboardUser> {
   if (!isSupabaseConfigured) return PLACEHOLDER;
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const authUser = await getAuthUser();
   if (!authUser) redirect("/login");
 
   const metadataName = authUser.user_metadata.full_name;
