@@ -4,6 +4,7 @@ import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { type Theme } from "@/lib/theme";
+import { applyTheme } from "@/lib/theme-client";
 import { cn } from "@/lib/utils";
 
 import { saveTheme } from "../actions";
@@ -23,11 +24,7 @@ export function ThemePicker({ current }: { current: Theme }) {
 
     // Applied immediately rather than waiting for the round trip. The cookie is
     // what makes it survive a return visit; this is what makes it feel instant.
-    const root = document.documentElement;
-    const dark =
-      theme === "dark" ||
-      (theme === "auto" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    root.classList.toggle("dark", dark);
+    applyTheme(theme);
 
     startTransition(async () => {
       await saveTheme({ theme });

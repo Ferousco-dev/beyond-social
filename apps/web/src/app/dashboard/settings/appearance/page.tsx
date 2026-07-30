@@ -1,7 +1,7 @@
 import { type Metadata } from "next";
 
 import { ThemePicker } from "@/features/settings/components/theme-picker";
-import { getTheme } from "@/lib/theme";
+import { getTheme } from "@/lib/theme-server";
 
 export const metadata: Metadata = { title: "Appearance" };
 
