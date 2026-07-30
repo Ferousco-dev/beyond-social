@@ -348,6 +348,45 @@ async function main(): Promise<void> {
     `${elapsedMs}ms, ${rescue.fallbacks} fallback(s)`,
   );
 
+  // The breaker's whole job is to stop asking a provider that is down. Counting
+  // the calls is the only way to see it: without it the chain still returns the
+  // right answer, just after paying for every dead attempt first.
+  let downCalls = 0;
+  const down: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      downCalls += 1;
+      throw new ProviderError("service unavailable", 503);
+    },
+  };
+  let clock = 0;
+  const isolated = new AiGateway({
+    clients: { google: down, anthropic: standby, openai: standby },
+    breaker: { threshold: 2, cooldownMs: 10_000 },
+    retry: { attempts: 1, baseDelayMs: 1, maxDelayMs: 1 },
+    now: () => clock,
+  });
+  const ask = (): Promise<unknown> =>
+    isolated.complete({ task: "chat", messages: [{ role: "user", content: "hi" }] });
+
+  await ask();
+  await ask();
+  const callsBeforeOpen = downCalls;
+  await ask();
+  await ask();
+  check(
+    "a failing provider is dropped from the chain once the circuit opens",
+    downCalls === callsBeforeOpen && callsBeforeOpen === 2,
+    `${callsBeforeOpen} attempts before opening, ${downCalls - callsBeforeOpen} after`,
+  );
+
+  clock += 10_001;
+  await ask();
+  check(
+    "the circuit half-opens after the cooldown and tries again",
+    downCalls === callsBeforeOpen + 1,
+    `${downCalls - callsBeforeOpen} trial call(s)`,
+  );
+
   process.stdout.write(`${results.join("\n")}\n`);
   process.stdout.write(
     `\n${results.length - failures}/${results.length} passed. Recorded spend: $${usage.totalCostUsd().toFixed(6)}\n`,

@@ -10,7 +10,8 @@ import {
 import { cacheKey, isCacheable, type ResponseCache } from "./cache";
 import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
 import { estimateTokens } from "./tokens";
-import { withRetry, type RetryOptions } from "./retry";
+import { CircuitBreaker, type BreakerOptions } from "./breaker";
+import { isRetryable, withRetry, type RetryOptions } from "./retry";
 import { type CompletionRequest, type CompletionResult, type ProviderClient } from "./providers";
 import {
   InjectionError,
@@ -30,6 +31,8 @@ export interface GatewayOptions {
   /** How long a cached response stays valid. */
   cacheTtlMs?: number;
   retry?: Partial<RetryOptions>;
+  /** Per-provider failure isolation. Defaults are usually right. */
+  breaker?: Partial<BreakerOptions>;
   /**
    * How long one attempt may take before it is abandoned.
    *
@@ -105,6 +108,7 @@ export class AiGateway {
   private readonly limiter: RateLimiter;
   private readonly usage: UsageSink;
   private readonly retry: RetryOptions;
+  private readonly breaker: CircuitBreaker;
   private readonly now: () => number;
   private readonly newId: () => string;
 
@@ -112,6 +116,7 @@ export class AiGateway {
     this.limiter = options.limiter ?? new NoopLimiter();
     this.usage = options.usage ?? new NoopUsageSink();
     this.retry = { ...DEFAULT_RETRY, ...options.retry };
+    this.breaker = new CircuitBreaker({ ...options.breaker, now: options.now });
     this.now = options.now ?? Date.now;
     this.newId = options.newId ?? (() => `req_${Math.random().toString(36).slice(2, 10)}`);
   }
@@ -201,12 +206,22 @@ export class AiGateway {
         continue;
       }
 
+      // A provider that has been failing is skipped outright rather than
+      // retried into. The chain moves to the next candidate immediately, so an
+      // outage costs one hop instead of a full backoff schedule per model.
+      if (!this.breaker.allows(spec.provider)) {
+        lastError = new Error(`${spec.provider} circuit is open`);
+        continue;
+      }
+
       let attempts = 0;
       try {
         const result = await withRetry(() => {
           attempts += 1;
           return this.completeWithDeadline(client, spec, request);
         }, this.retry);
+
+        this.breaker.recordSuccess(spec.provider);
 
         this.screenOutput(result.text);
 
@@ -243,6 +258,12 @@ export class AiGateway {
         };
       } catch (error) {
         lastError = error;
+        // Only a transient failure says anything about the provider's health. A
+        // rejected prompt or a retired model is this request's problem, and
+        // counting it would take a healthy provider out of rotation.
+        if (isRetryable(error) || error instanceof ProviderTimeoutError) {
+          this.breaker.recordFailure(spec.provider);
+        }
         void this.usage.record(
           this.buildRecord(requestId, request, spec, {
             result: { text: "", inputTokens: 0, outputTokens: 0 },

@@ -84,10 +84,12 @@ The exposure is [`features/chat/actions.ts`](../apps/web/src/features/chat/actio
 That is a deliberate trade, because the reply is the product and a queued reply
 would be worse. It does mean a slow provider is a slow send.
 
-**Missing: a deadline.** `providers.ts` accepts an optional `AbortSignal` and no
-caller sets one. Retry and cross-provider fallback already exist in
-`gateway.ts`, but a hang is not a failure, so a hung provider never triggers the
-fallback written to survive it.
+Provider calls are now bounded. They were not: `providers.ts` accepted an
+`AbortSignal` and no caller ever set one, so a provider that hung never produced
+the error that retry and cross-provider failover both trigger on. The fallback
+chain written to survive exactly that case could not see it. One attempt is now
+deadlined and the signal is passed down, so the connection is torn down rather
+than left running while we stop waiting.
 
 ### 2. The God database
 
@@ -141,27 +143,46 @@ a deploy checklist rather than in someone's memory.
 
 ### 5. The blind cascade
 
-**This is the real gap.**
+**This was the real gap. Half of it is now closed.**
 
-`lib/observability/trace.ts` mints a trace id and returns it as `x-trace-id`.
-It stops there. Nothing carries it into the edge functions, the callback, or the
-worker, so the one flow that spans every unit in the system cannot be followed
-end to end. When generation breaks in production, "where did this die" has no
-answer.
+A trace id was minted and returned as `x-trace-id`, and stopped there. Nothing
+carried it further, so the one flow spanning every unit in the system could not
+be followed end to end.
 
-There are also no circuit breakers. Retry with backoff exists in the gateway and
-in BullMQ, which is right for a blip and wrong for an outage: retrying into a
-provider that is down turns one failure into several and slows the recovery.
+The generation pipeline is now traceable: `sendMessage` runs inside a trace,
+which it did not before because a server action has no incoming `Request` for
+`withTrace` to read; the id crosses to the edge function as a `traceparent`
+header; and it is stored on the generation row, which is what carries it across
+the asynchronous gap to a callback arriving minutes later in another process.
+
+**Still open: the worker.** Publishing jobs carry no trace id, so a failed post
+cannot be traced back to the request that scheduled it.
+
+Circuit breakers now exist per provider. Retry alone is right for a blip and
+wrong for an outage, where every request pays the full backoff schedule before
+failing anyway and the retries become load on something already struggling. A
+provider that has failed repeatedly is skipped, so the chain moves to the next
+model immediately and one trial call is allowed through after a cooldown. Only
+transient failures count toward it: a retired model is this request's problem
+and must not take a healthy provider out of rotation.
+
+The breaker's state is per process. On serverless each instance learns an outage
+once, rather than once globally; a shared breaker needs the same Redis the
+distributed rate limiter needs, and is not worth it at this volume yet.
 
 ## What to fix, in order
 
-1. **Deadlines on every provider call.** The plumbing exists; nothing sets it.
-2. **Propagate the trace id** through the edge functions, callback, and worker,
-   and log it at every hop.
-3. **Connection pooling** before real traffic. This breaks first.
-4. **Circuit breakers** per provider, so an outage fails fast instead of
-   retrying into it.
-5. **A deploy checklist** for edge functions, covering JWT verification.
+1. ~~Deadlines on every provider call.~~ Done. One attempt is bounded, and a
+   hang now fails over instead of hanging the caller.
+2. ~~Propagate the trace id.~~ Done for the generation pipeline: the web app
+   traces the action, the header crosses to the edge function, and the id is
+   carried on the generation row so the callback rejoins the trace. **The worker
+   still does not carry it**, so publishing is not yet traceable.
+3. **Connection pooling** before real traffic. This breaks first. See C2 in
+   [production-readiness.md](production-readiness.md).
+4. ~~Circuit breakers per provider.~~ Done, per process.
+5. ~~A deploy checklist for edge functions.~~ Done, in
+   [going-live.md](going-live.md).
 
 ## When to revisit
 
