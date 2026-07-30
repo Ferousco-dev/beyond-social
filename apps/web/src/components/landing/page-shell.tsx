@@ -20,7 +20,7 @@ export function PageShell({
   children?: ReactNode;
 }): ReactNode {
   return (
-    <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
+    <div className="min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
       <main id="main">
         <section className="relative overflow-hidden pt-36 sm:pt-44">

@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     // workspace, so the funnel does not jump from a black page to a white one
     // for readers whose system theme is light. The `dark` class scopes the dark
     // token set to this subtree.
-    <div className="dark grid min-h-dvh bg-canvas text-ink lg:grid-cols-2">
+    <div className="grid min-h-dvh bg-canvas text-ink lg:grid-cols-2">
       <AuthBrandingPanel />
       <main
         id="main"

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
  */
 export default function PricingPage(): ReactNode {
   return (
-    <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
+    <div className="min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
       <main id="main">
         {/* Offset for the fixed header, which the landing page gets from its hero. */}
