@@ -1,15 +1,14 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Menu, PanelLeft, Search, Sparkle, SquarePen } from "lucide-react";
-import Link from "next/link";
+import { Menu, Search, Sparkle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
+import { SidebarRail } from "./sidebar-rail";
 import { CommandPalette } from "./command-palette";
 import { RouteProgress } from "./route-progress";
 import { WorkspaceMenu } from "./workspace-menu";
@@ -30,13 +29,21 @@ export function DashboardShell({
     // The workspace is a dark "operating environment" regardless of the global
     // theme; the `dark` class scopes the dark token set to this subtree.
     <div className="flex h-dvh bg-canvas pl-safe pr-safe text-ink">
+      {/* Collapsing narrows the sidebar to a rail rather than removing it. The
+          width is transitioned so the content beside it slides rather than
+          jumping, and the swap between the two is a cross-fade at the same
+          duration. Both are suppressed under reduced motion. */}
       <aside
         className={cn(
-          "shrink-0 border-r border-hairline",
-          collapsed ? "hidden" : "hidden w-[260px] lg:block",
+          "hidden shrink-0 overflow-hidden border-r border-hairline transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block",
+          collapsed ? "w-14" : "w-[260px]",
         )}
       >
-        <AppSidebar user={user} projects={projects} onCollapse={() => setCollapsed(true)} />
+        {collapsed ? (
+          <SidebarRail user={user} projects={projects} onExpand={() => setCollapsed(false)} />
+        ) : (
+          <AppSidebar user={user} projects={projects} onCollapse={() => setCollapsed(true)} />
+        )}
       </aside>
 
       {/* A real dialog rather than a positioned div: on a phone this is the only
@@ -69,29 +76,9 @@ export function DashboardShell({
             <Menu className="size-5" />
           </button>
 
-          {collapsed ? (
-            <div className="hidden items-center gap-1 lg:flex">
-              <span className="px-1">
-                <Logo showWordmark={false} />
-              </span>
-              <button
-                type="button"
-                onClick={() => setCollapsed(false)}
-                aria-label="Open sidebar"
-                className="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-ink transition-colors hover:bg-cloud"
-              >
-                <PanelLeft className="size-5" />
-              </button>
-              <Link
-                href="/dashboard"
-                aria-label="New project"
-                className="inline-flex size-9 items-center justify-center rounded-lg text-ink transition-colors hover:bg-cloud"
-              >
-                <SquarePen className="size-5" />
-              </Link>
-            </div>
-          ) : null}
-
+          {/* The logo, the expand control and New project used to be copied up
+              here whenever the sidebar collapsed. The rail holds all three now,
+              so the top bar keeps one job. */}
           <WorkspaceMenu />
 
           <div className="ml-auto flex items-center gap-2">
