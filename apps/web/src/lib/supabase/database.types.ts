@@ -463,6 +463,7 @@ export type Database = {
           id: string;
           plan: string;
           role: Database["public"]["Enums"]["user_role"];
+          timezone: string;
           updated_at: string;
         };
         Insert: {
@@ -476,6 +477,7 @@ export type Database = {
           id: string;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
+          timezone?: string;
           updated_at?: string;
         };
         Update: {
@@ -489,6 +491,7 @@ export type Database = {
           id?: string;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
+          timezone?: string;
           updated_at?: string;
         };
         Relationships: [];
