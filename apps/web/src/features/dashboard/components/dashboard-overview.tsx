@@ -3,6 +3,7 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { dayCount } from "@/lib/dashboard/analytics";
 import { getProductAnalytics } from "@/lib/dashboard/analytics-queries";
 import { getCredits, getHistory, getProjectGroups } from "@/lib/dashboard/queries";
 
@@ -69,7 +70,7 @@ export async function DashboardOverview(): Promise<ReactNode> {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <p className="text-xs text-ink-soft">Resets in {credits.resetsInDays} days</p>
+            <p className="text-xs text-ink-soft">Resets in {dayCount(credits.resetsInDays)}</p>
             {low ? (
               <a
                 href="/dashboard/settings/billing"

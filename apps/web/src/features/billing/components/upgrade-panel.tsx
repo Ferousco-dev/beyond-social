@@ -16,8 +16,19 @@ type UpgradeablePlan = (typeof UPGRADEABLE)[number];
 /**
  * Plan chooser. Checkout happens on Stripe's hosted page, so no card details
  * are ever entered into this app.
+ *
+ * When checkout is not connected the buttons say so and are disabled, rather
+ * than looking live and failing on click. A control that cannot do its job
+ * should not look like one that can.
  */
-export function UpgradePanel({ currentPlan }: { currentPlan: string }) {
+export function UpgradePanel({
+  currentPlan,
+  checkoutReady,
+}: {
+  currentPlan: string;
+  /** False until the Stripe keys exist; passed from the server. */
+  checkoutReady: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [busyPlan, setBusyPlan] = useState<UpgradeablePlan | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -48,7 +59,7 @@ export function UpgradePanel({ currentPlan }: { currentPlan: string }) {
             Currently on <span className="capitalize text-ink">{currentPlan}</span>.
           </p>
         </div>
-        {currentPlan !== "free" ? (
+        {currentPlan !== "free" && checkoutReady ? (
           <button
             type="button"
             onClick={() => go(openBillingPortal)}
@@ -92,7 +103,8 @@ export function UpgradePanel({ currentPlan }: { currentPlan: string }) {
 
               <button
                 type="button"
-                disabled={active || pending}
+                disabled={active || pending || !checkoutReady}
+                title={checkoutReady ? undefined : "Checkout is not connected yet."}
                 onClick={() => {
                   setBusyPlan(id);
                   go(() => startCheckout({ plan: id }));
@@ -102,12 +114,23 @@ export function UpgradePanel({ currentPlan }: { currentPlan: string }) {
                 {busyPlan === id && pending ? (
                   <Loader2 className="size-3.5 animate-spin" aria-hidden />
                 ) : null}
-                {active ? "Current plan" : `Upgrade to ${plan.name}`}
+                {active
+                  ? "Current plan"
+                  : checkoutReady
+                    ? `Upgrade to ${plan.name}`
+                    : "Not available yet"}
               </button>
             </article>
           );
         })}
       </div>
+
+      {!checkoutReady ? (
+        <p className="mt-3 text-xs text-ink-soft">
+          Paid plans are not purchasable yet: checkout is not connected. Nothing on this page can
+          charge you.
+        </p>
+      ) : null}
 
       {message ? (
         <p role="status" className="mt-3 text-xs text-ink-soft">
