@@ -136,7 +136,12 @@ jobs:
   deploy-production:
     name: Deploy production
     needs: verify
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # A manual run must be able to deploy, which is the whole reason
+    # workflow_dispatch exists here: re-releasing after an environment change
+    # should not need an empty commit.
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     # Serialised: two deploys racing to become production is how an older commit
     # ends up live.
