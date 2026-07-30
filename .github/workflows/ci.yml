@@ -5,6 +5,9 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Lets a deploy be re-run without an empty commit, which matters when a
+  # deployment failed for a reason outside the code, such as a rotated token.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
