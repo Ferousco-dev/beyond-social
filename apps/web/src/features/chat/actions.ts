@@ -85,7 +85,13 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
   // What did they actually mean? Every message used to start a generation,
   // which spent a credit answering a question and turned "make it slower" into
   // an unrelated video.
-  const previousPrompt = await getLatestDirectedPrompt(supabase, projectId);
+  //
+  // The prior prompt and the thread are independent reads, so they go together;
+  // classification needs the first of them, so it follows.
+  const [previousPrompt, previous] = await Promise.all([
+    getLatestDirectedPrompt(supabase, projectId),
+    supabase.rpc("project_thread", { p_project: projectId }),
+  ]);
   const intent = await classify(prompt, previousPrompt !== null);
 
   let finalPrompt = prompt;
@@ -102,6 +108,13 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
     chunkIds = enhanced?.chunkIds ?? [];
   }
 
+  const history = Array.isArray(previous.data)
+    ? (previous.data as { role: string; content: string }[]).map((row) => ({
+        role: row.role,
+        content: row.content,
+      }))
+    : [];
+
   let generationId: string | null = null;
   let notice: string | undefined;
 
@@ -117,7 +130,8 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
 
   // A question costs nothing. This is the whole point of classifying: not
   // spending a credit on a video the person did not ask for.
-  if (intent.intent !== "ask") {
+  const startGeneration = async (): Promise<void> => {
+    if (intent.intent === "ask") return;
     try {
       const { data, error } = await supabase.functions.invoke("generate-video", {
         body: {
@@ -142,22 +156,22 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
       });
       notice = "Could not start the video just now. Your message was saved, so try again.";
     }
-  }
+  };
 
-  const { data: previous } = await supabase.rpc("project_thread", { p_project: projectId });
-  const history = Array.isArray(previous)
-    ? (previous as { role: string; content: string }[]).map((row) => ({
-        role: row.role,
-        content: row.content,
-      }))
-    : [];
-
-  const reply = await writeReply({
-    brief: prompt,
-    directedPrompt: intent.intent === "ask" ? null : finalPrompt,
-    history,
-    intent: intent.intent,
-  });
+  /**
+   * The render request and the reply are independent, so they run together.
+   * Waiting for the provider to acknowledge before starting to write added the
+   * whole round trip to how long the user stares at a spinner.
+   */
+  const [, reply] = await Promise.all([
+    startGeneration(),
+    writeReply({
+      brief: prompt,
+      directedPrompt: intent.intent === "ask" ? null : finalPrompt,
+      history,
+      intent: intent.intent,
+    }),
+  ]);
 
   const { error: turnError } = await supabase.rpc("append_turn", {
     p_project: projectId,

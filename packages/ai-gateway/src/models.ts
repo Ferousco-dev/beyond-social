@@ -12,7 +12,7 @@ export const PROVIDERS = ["anthropic", "openai", "google", "local"] as const;
 export type Provider = (typeof PROVIDERS)[number];
 
 /** What a call is for. Routing picks a chain per task. */
-export const TASKS = ["generation", "judge", "extraction", "cheap"] as const;
+export const TASKS = ["generation", "chat", "judge", "extraction", "cheap"] as const;
 export type Task = (typeof TASKS)[number];
 
 export interface ModelSpec {
@@ -109,15 +109,6 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
     // (write a prompt, classify a message, revise a prompt) need it.
     minThinkingTokens: 0,
   },
-  "gemini-2.0-flash": {
-    id: "gemini-2.0-flash",
-    provider: "google",
-    inputPerMillion: 0.1,
-    outputPerMillion: 0.4,
-    contextWindow: 1_048_576,
-    maxOutput: 8_192,
-    jsonMode: true,
-  },
 };
 
 /**
@@ -127,9 +118,13 @@ export const MODELS: Readonly<Record<string, ModelSpec>> = {
  */
 export const ROUTES: Readonly<Record<Task, readonly string[]>> = {
   generation: ["claude-opus-4-8", "gemini-2.5-pro", "claude-sonnet-5", "gpt-4o"],
+  // Conversation is latency-bound, not quality-bound. Measured on this project,
+  // 2.5-pro answers a two-sentence reply in ~2.8s and 2.5-flash in ~0.6s, and
+  // nobody waits three seconds to be told what shot is being set up.
+  chat: ["gemini-2.5-flash", "claude-haiku-4-5-20251001", "gpt-4o-mini"],
   judge: ["gemini-2.5-flash", "claude-sonnet-5", "gpt-4o-mini"],
   extraction: ["gemini-2.5-flash", "claude-sonnet-5", "gpt-4o-mini"],
-  cheap: ["gemini-2.0-flash", "claude-haiku-4-5-20251001", "gpt-4o-mini"],
+  cheap: ["gemini-2.5-flash", "claude-haiku-4-5-20251001", "gpt-4o-mini"],
 };
 
 /**

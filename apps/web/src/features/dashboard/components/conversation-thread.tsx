@@ -12,6 +12,7 @@ import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-pol
 import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
+import { ThinkingIndicator } from "./thinking-indicator";
 import { type PendingPhoto } from "./compose-menu";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
@@ -109,7 +110,33 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           router.replace(`/dashboard/c/${result.projectId}` as Route);
           return;
         }
-        router.refresh();
+
+        /**
+         * The reply is appended from what the action already returned rather
+         * than refetching the thread. `router.refresh()` re-rendered the whole
+         * server component to obtain a message we were already holding, which
+         * added a full round trip to every turn before the answer appeared.
+         *
+         * The server is still the source of truth: the next navigation or
+         * revalidation replaces this with the persisted rows.
+         */
+        setMessages((current) => [
+          ...current,
+          {
+            id: `${OPTIMISTIC}reply-${counter.current++}`,
+            role: "assistant",
+            content: result.reply,
+            ...(result.generationId
+              ? {
+                  draft: {
+                    generationId: result.generationId,
+                    status: "generating" as const,
+                    resultUrl: null,
+                  },
+                }
+              : {}),
+          },
+        ]);
       })();
     },
     [projectId, photos, router, sending],
@@ -158,6 +185,10 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} editorHref={editorHref} />
         ))}
+
+        {/* Sits where the reply will appear, so the answer replaces the
+            progress rather than arriving somewhere else. */}
+        {sending ? <ThinkingIndicator /> : null}
 
         {notice ? (
           <p role="status" className="text-center text-xs text-ink-soft">
