@@ -50,9 +50,24 @@ export function PreviewFrame({
         frameClassName,
       )}
     >
-      {/* Stand-in for the rendered frame, carrying the clip's transform and grade
-          so the panels visibly do something before real media is attached. */}
-      {clip ? (
+      {/* The real render when the clip has one, and the labelled stand-in when
+          it does not, both carrying the clip's transform and grade so the panels
+          visibly do something either way. */}
+      {clip?.sourceUrl ? (
+        <video
+          key={clip.sourceUrl}
+          src={clip.sourceUrl}
+          muted
+          playsInline
+          preload="metadata"
+          style={{
+            opacity: clip.opacity,
+            filter: filterCss(clip),
+            transform: `translate(${clip.transform.x}%, ${clip.transform.y}%) scale(${clip.transform.scale}) rotate(${clip.transform.rotation}deg)`,
+          }}
+          className="absolute inset-0 size-full object-cover transition-[filter,opacity,transform] duration-150"
+        />
+      ) : clip ? (
         <div
           aria-hidden
           style={{

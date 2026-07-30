@@ -52,6 +52,13 @@ interface BaseItem {
 export interface VideoItem extends BaseItem {
   readonly kind: "video";
   readonly label: string;
+  /**
+   * The rendered file this clip plays. Absent on a clip that has no render
+   * behind it, which is why the preview has a stand-in at all.
+   */
+  readonly sourceUrl?: string;
+  /** The generation this came from, so a clip can be traced to its prompt. */
+  readonly generationId?: string;
   /** Playback rate; the timeline length already reflects it. */
   readonly speed: number;
   readonly volume: number;

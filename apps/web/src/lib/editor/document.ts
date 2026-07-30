@@ -3,8 +3,8 @@ import "server-only";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
+import { emptyProject, projectFromGenerations, type GenerationClip } from "./from-generations";
 import { parseProject } from "./schema";
-import { INITIAL_PROJECT } from "./project";
 import { type Project } from "./types";
 
 /** Loading a saved timeline. */
@@ -18,15 +18,50 @@ export interface EditorDocument {
 }
 
 export async function getEditorDocument(projectId: string): Promise<EditorDocument> {
-  const fresh: EditorDocument = { project: INITIAL_PROJECT, revision: 0, saved: false };
-  if (!isSupabaseConfigured || projectId === "new") return fresh;
+  const blank: EditorDocument = { project: emptyProject(), revision: 0, saved: false };
+  if (!isSupabaseConfigured || projectId === "new") return blank;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("editor_documents")
-    .select("document, revision")
-    .eq("project_id", projectId)
-    .maybeSingle();
+
+  const [{ data }, { data: renders }] = await Promise.all([
+    supabase
+      .from("editor_documents")
+      .select("document, revision")
+      .eq("project_id", projectId)
+      .maybeSingle(),
+    // Finished renders only: a queued or failed generation has no file to cut.
+    supabase
+      .from("video_generations")
+      .select("id, prompt, result_url, duration")
+      .eq("project_id", projectId)
+      .eq("status", "ready")
+      .order("created_at", { ascending: true }),
+  ]);
+
+  /**
+   * With no saved document the timeline is assembled from the project's own
+   * renders. It used to open on a hardcoded four-clip template, so every
+   * project showed the same invented cuts whatever the user had actually made.
+   */
+  const clips: GenerationClip[] = (
+    (renders ?? []) as {
+      id: string;
+      prompt: string;
+      result_url: string | null;
+      duration: number | null;
+    }[]
+  ).map((row) => ({
+    id: row.id,
+    prompt: row.prompt,
+    resultUrl: row.result_url,
+    durationSeconds: row.duration,
+  }));
+
+  const fresh: EditorDocument = {
+    project: clips.length > 0 ? projectFromGenerations(clips) : emptyProject(),
+    revision: 0,
+    saved: false,
+  };
 
   const row = data as { document: unknown; revision: number } | null;
   if (!row) return fresh;
