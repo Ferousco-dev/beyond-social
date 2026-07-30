@@ -198,16 +198,20 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         <div ref={endRef} />
       </div>
 
-      <div className="sticky bottom-0 bg-canvas pb-4 pt-2">
-        <PromptComposer
-          value={prompt}
-          onChange={setPrompt}
-          onSubmit={() => submit(prompt)}
-          projectId={projectId}
-          photos={photos}
-          onPhotosChange={setPhotos}
-          busy={sending}
-        />
+      {/* pb-safe on the outer edge, so the composer clears the home indicator on
+          an installed app without the padding doubling on a desktop. */}
+      <div className="sticky bottom-0 bg-canvas pb-safe pt-2">
+        <div className="pb-4">
+          <PromptComposer
+            value={prompt}
+            onChange={setPrompt}
+            onSubmit={() => submit(prompt)}
+            projectId={projectId}
+            photos={photos}
+            onPhotosChange={setPhotos}
+            busy={sending}
+          />
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { type ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 
+import { ServiceWorker } from "@/components/pwa/service-worker";
 import { env } from "@/lib/env";
 import { THEME_SCRIPT } from "@/lib/theme";
 
@@ -15,6 +16,34 @@ export const metadata: Metadata = {
     template: "%s · Beyond Social",
   },
   description: "AI-powered social media video platform, from idea to published short-form video.",
+  applicationName: "Beyond Social",
+  appleWebApp: {
+    // iOS has no manifest support worth relying on, so standalone mode and the
+    // home-screen title are declared separately here.
+    capable: true,
+    title: "Beyond",
+    statusBarStyle: "default",
+  },
+  icons: {
+    icon: "/icons/favicon-32.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // Lets the app paint under the notch and the home indicator. Every fixed edge
+  // in the app pads itself with env(safe-area-inset-*) to compensate.
+  viewportFit: "cover",
+  // The one place the theme has to be inferred rather than read: a status bar
+  // colour cannot be set from our cookie, only from the system preference. A
+  // visitor who picks dark on a light phone gets a light status bar, which is
+  // the smallest available mismatch.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0b0e" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
@@ -42,6 +71,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
           Skip to content
         </a>
         {children}
+        <ServiceWorker />
       </body>
     </html>
   );
