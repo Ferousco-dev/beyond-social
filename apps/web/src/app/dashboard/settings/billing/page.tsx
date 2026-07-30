@@ -3,6 +3,8 @@ import { type Metadata } from "next";
 import { UpgradePanel } from "@/features/billing/components/upgrade-panel";
 import { getCurrentPlan } from "@/lib/billing/current-plan";
 import { PLAN_CATALOGUE, PLANS, priceLabel, type PlanId } from "@/lib/billing/plans";
+import { dayCount } from "@/lib/dashboard/analytics";
+import { isBillingConfigured } from "@/lib/server-env";
 import { getCredits } from "@/lib/dashboard/queries";
 
 export const metadata: Metadata = { title: "Billing" };
@@ -26,10 +28,11 @@ export default async function BillingPage() {
             <h2 className="text-sm font-semibold text-ink">Current plan</h2>
             <p className="mt-1 text-2xl font-semibold text-ink">{plan.name}</p>
           </div>
-          <p className="text-sm tabular-nums text-ink-soft">
-            {priceLabel(plan)}
-            {plan.priceUsd > 0 ? " / month" : ""}
-          </p>
+          {/* Only shown when there is a figure to show. On the free plan the
+              price repeated the plan name, so the card read "Free ... Free". */}
+          {plan.priceUsd > 0 ? (
+            <p className="text-sm tabular-nums text-ink-soft">{priceLabel(plan)} / month</p>
+          ) : null}
         </div>
 
         <div className="mt-5">
@@ -50,13 +53,13 @@ export default async function BillingPage() {
             <div className="h-full rounded-full bg-primary" style={{ width: `${usedPercent}%` }} />
           </div>
           <p className="mt-2 text-xs text-ink-soft">
-            Credits reset in {credits.resetsInDays} days.
+            Credits reset in {dayCount(credits.resetsInDays)}.
           </p>
         </div>
       </div>
 
       {/* Owns its own heading and the billing-portal button. */}
-      <UpgradePanel currentPlan={planId} />
+      <UpgradePanel currentPlan={planId} checkoutReady={isBillingConfigured} />
     </section>
   );
 }

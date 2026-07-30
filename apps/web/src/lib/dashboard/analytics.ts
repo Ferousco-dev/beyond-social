@@ -76,3 +76,13 @@ export function emptyDays(days: number, today = new Date()): DailyActivity[] {
     return { date: date.toISOString().slice(0, 10), generated: 0, ready: 0 };
   });
 }
+
+/**
+ * "1 day" rather than "1 days".
+ *
+ * Both places that showed a reset countdown hardcoded the plural, so on the day
+ * before a reset the app said "1 days".
+ */
+export function dayCount(days: number): string {
+  return `${days} ${days === 1 ? "day" : "days"}`;
+}
