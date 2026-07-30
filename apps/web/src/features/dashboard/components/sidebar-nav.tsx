@@ -1,14 +1,6 @@
 "use client";
 
-import {
-  Gauge,
-  KeyRound,
-  LayoutDashboard,
-  Users,
-  PenSquare,
-  TrendingUp,
-  type LucideIcon,
-} from "lucide-react";
+import { LayoutDashboard, PenSquare, TrendingUp, type LucideIcon } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -48,24 +40,6 @@ const LINKS: readonly NavLink[] = [
     href: "/dashboard/overview" as Route,
     label: "Dashboard",
     icon: LayoutDashboard,
-    motion: "group-hover:scale-110",
-  },
-  {
-    href: "/dashboard/usage" as Route,
-    label: "Usage",
-    icon: Gauge,
-    motion: "group-hover:scale-110",
-  },
-  {
-    href: "/dashboard/team" as Route,
-    label: "Team",
-    icon: Users,
-    motion: "group-hover:scale-110",
-  },
-  {
-    href: "/dashboard/api-keys" as Route,
-    label: "API keys",
-    icon: KeyRound,
     motion: "group-hover:scale-110",
   },
   {

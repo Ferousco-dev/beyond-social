@@ -3,8 +3,8 @@ import { GeistSans } from "geist/font/sans";
 import { type ReactNode } from "react";
 import type { Metadata } from "next";
 
-import { ThemeProvider } from "@/components/theme-provider";
 import { env } from "@/lib/env";
+import { AUTO_THEME_SCRIPT, getTheme } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -17,13 +17,27 @@ export const metadata: Metadata = {
   description: "AI-powered social media video platform, from idea to published short-form video.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}): Promise<ReactNode> {
+  const theme = await getTheme();
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      // The class is decided on the server from the cookie, so the first paint
+      // is already the right colours.
+      className={`${GeistSans.variable} ${GeistMono.variable}${theme === "dark" ? " dark" : ""}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Only `auto` needs a script: the explicit choices are already on the
+            html element above. Runs before paint, so there is no flash. */}
+        {theme === "auto" ? (
+          <script dangerouslySetInnerHTML={{ __html: AUTO_THEME_SCRIPT }} />
+        ) : null}
+      </head>
       <body>
         {/*
           First focusable element on every page. Without it a keyboard or screen
@@ -36,14 +50,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         >
           Skip to content
         </a>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        {children}
       </body>
     </html>
   );

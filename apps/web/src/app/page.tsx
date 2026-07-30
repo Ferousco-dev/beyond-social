@@ -19,7 +19,7 @@ export default function HomePage(): ReactNode {
   return (
     // `overflow-x-hidden` guards against any decorative element widening the
     // page on small screens, which would let the layout scroll sideways.
-    <div className="dark min-h-dvh overflow-x-hidden bg-canvas text-ink">
+    <div className="min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
       <main id="main">
         <LandingHero />

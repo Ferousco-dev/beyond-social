@@ -39,6 +39,15 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    /**
+     * Next 15 caches dynamic segments on the client for 0 seconds by default, so
+     * going back to a page you were just on refetches the whole thing. Thirty
+     * seconds makes back, forward, and repeat navigation instant without letting
+     * anyone read genuinely stale data for long.
+     */
+    staleTimes: { dynamic: 30, static: 180 },
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   // The env package ships as TypeScript source, so Next must transpile it.
