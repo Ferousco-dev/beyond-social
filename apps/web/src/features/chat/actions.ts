@@ -9,6 +9,9 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
+import { extractMemories } from "@/lib/memory/extract";
+import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
+import { getSummary, updateSummary } from "@/lib/memory/summarise";
 import { traceparent, withActionTrace } from "@/lib/observability/trace";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
@@ -95,9 +98,14 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   //
   // The prior prompt and the thread are independent reads, so they go together;
   // classification needs the first of them, so it follows.
-  const [previousPrompt, previous] = await Promise.all([
+  // Recall joins the existing parallel reads rather than adding a stage: it is
+  // an independent lookup, and running it in series would put an embedding round
+  // trip in front of every message.
+  const [previousPrompt, previous, memories, summary] = await Promise.all([
     getLatestDirectedPrompt(supabase, projectId),
     supabase.rpc("project_thread", { p_project: projectId }),
+    recallFacts(prompt),
+    getSummary(projectId),
   ]);
   const intent = await classify(prompt, previousPrompt !== null);
 
@@ -182,6 +190,8 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
       directedPrompt: intent.intent === "ask" ? null : finalPrompt,
       history,
       intent: intent.intent,
+      memories: renderMemories(memories),
+      summary,
     }),
   ]);
 
@@ -200,6 +210,15 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   // Only a fresh brief teaches the engine anything: an adjustment is a delta
   // and a question is not a prompt at all.
   if (intent.intent === "create") void learnFromPrompt(prompt, finalPrompt);
+
+  // Deliberately after the turn is persisted, and deliberately not awaited.
+  // Extraction costs a model call and yields nothing on most turns, so making
+  // the user wait for it would be paying latency for a usually-empty result.
+  void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
+
+  // Also after the fact: the summary is for the *next* turn, so making this one
+  // wait for it would be charging the user for someone else's benefit.
+  void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
 
   revalidatePath(`/dashboard/c/${projectId}`);
   return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };

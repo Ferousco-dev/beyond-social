@@ -56,7 +56,11 @@ export function getEmbedder(): Embedder {
     ? new VoyageEmbedder(serverEnv.VOYAGE_API_KEY, "voyage-3-large", 1024, "query")
     : serverEnv.OPENAI_API_KEY
       ? new OpenAiEmbedder(serverEnv.OPENAI_API_KEY)
-      : new GeminiEmbedder(serverEnv.GEMINI_API_KEY, "text-embedding-004", 768, "RETRIEVAL_QUERY");
+      : // Deliberately no model or width override. This call site pinned
+        // `text-embedding-004` at 768, which is wrong twice: that model was
+        // retired and returns 404, and 768 does not fit the vector(1024) column
+        // it would be written to. The class defaults are the working pair.
+        new GeminiEmbedder(serverEnv.GEMINI_API_KEY, undefined, undefined, "RETRIEVAL_QUERY");
 
   // Shared across instances when there is a database to share through. The
   // in-process cache is the fallback, not the goal: on serverless it is lost on

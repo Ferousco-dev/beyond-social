@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
   public: {
     Tables: {
       ai_usage: {
@@ -186,6 +181,41 @@ export type Database = {
           type?: string;
         };
         Relationships: [];
+      };
+      conversation_summaries: {
+        Row: {
+          covered_through: string;
+          message_count: number;
+          project_id: string;
+          summary: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          covered_through: string;
+          message_count?: number;
+          project_id: string;
+          summary: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          covered_through?: string;
+          message_count?: number;
+          project_id?: string;
+          summary?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conversation_summaries_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: true;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       credit_ledger: {
         Row: {
@@ -953,6 +983,56 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_memories: {
+        Row: {
+          created_at: string;
+          embedding: string | null;
+          fact: string;
+          fact_hash: string;
+          id: string;
+          importance: number;
+          kind: string;
+          last_used_at: string | null;
+          source_project: string | null;
+          use_count: number;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          embedding?: string | null;
+          fact: string;
+          fact_hash: string;
+          id?: string;
+          importance?: number;
+          kind?: string;
+          last_used_at?: string | null;
+          source_project?: string | null;
+          use_count?: number;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          embedding?: string | null;
+          fact?: string;
+          fact_hash?: string;
+          id?: string;
+          importance?: number;
+          kind?: string;
+          last_used_at?: string | null;
+          source_project?: string | null;
+          use_count?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_memories_source_project_fkey";
+            columns: ["source_project"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       video_generations: {
         Row: {
           aspect_ratio: string;
@@ -969,6 +1049,7 @@ export type Database = {
           resolution: string;
           result_url: string | null;
           status: Database["public"]["Enums"]["generation_status"];
+          trace_id: string | null;
           updated_at: string;
           user_id: string;
         };
@@ -987,6 +1068,7 @@ export type Database = {
           resolution?: string;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
+          trace_id?: string | null;
           updated_at?: string;
           user_id: string;
         };
@@ -1005,6 +1087,7 @@ export type Database = {
           resolution?: string;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
+          trace_id?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -1202,6 +1285,20 @@ export type Database = {
         };
         Returns: boolean;
       };
+      match_user_memories: {
+        Args: {
+          p_embedding: string;
+          p_limit?: number;
+          p_min_similarity?: number;
+        };
+        Returns: {
+          fact: string;
+          id: string;
+          importance: number;
+          kind: string;
+          similarity: number;
+        }[];
+      };
       product_activity_daily: {
         Args: { p_days?: number; p_user: string };
         Returns: {
@@ -1326,6 +1423,7 @@ export type Database = {
         Args: { p_platform: Database["public"]["Enums"]["social_platform"] };
         Returns: undefined;
       };
+      touch_user_memories: { Args: { p_ids: string[] }; Returns: undefined };
       trends_current: {
         Args: { p_category?: string; p_limit?: number };
         Returns: {
