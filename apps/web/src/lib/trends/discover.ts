@@ -8,7 +8,7 @@ import { isPromptEngineConfigured, isTrendDiscoveryConfigured } from "@/lib/serv
 import { createServiceClient } from "@/lib/supabase/service";
 
 import { Firecrawl, type ScrapedPage } from "./firecrawl";
-import { TREND_CATEGORIES } from "./categories";
+import { isTrendCategory, SEARCHABLE_CATEGORIES, TREND_CATEGORY_IDS } from "./categories";
 
 /**
  * Trend discovery.
@@ -37,6 +37,12 @@ const extractedSchema = z.object({
         description: z.string().max(400).default(""),
         prompt: z.string().min(10).max(600),
         confidence: z.number().min(0).max(1).default(0.5),
+        /**
+         * Named by the extractor rather than inherited from the search.
+         * A trend found while searching one niche is often not about that
+         * niche, and filing it there made the filters lie.
+         */
+        category: z.string().default("general"),
       }),
     )
     .default([]),
@@ -65,9 +71,12 @@ function extractionPrompt(category: string, pages: readonly ScrapedPage[]): stri
     "Return only formats and content patterns that a creator could actually shoot. A topic is not a trend; a repeatable format is.",
     "For each one, write a `prompt` that is a complete, self-contained brief for generating that video, specific enough to use unedited.",
     "Set `confidence` to how strongly the sources support the trend being current: 0.9 when several sources agree it is rising now, 0.3 when it is a single passing mention.",
+    "",
+    `Set \`category\` to the niche the trend actually belongs to, one of: ${TREND_CATEGORY_IDS.join(", ")}.`,
+    `You are reading sources found by searching "${category}", but say what the trend is really about: a format that works for any subject is "general", not "${category}".`,
     `Return at most ${MAX_TRENDS_PER_CATEGORY} trends. If the sources say nothing useful, return an empty list rather than inventing something.`,
     "",
-    'Respond with JSON only: {"trends":[{"title":"","description":"","prompt":"","confidence":0.0}]}',
+    'Respond with JSON only: {"trends":[{"title":"","description":"","prompt":"","confidence":0.0,"category":""}]}',
     "",
     corpus,
   ].join("\n");
@@ -115,7 +124,7 @@ export async function discoverTrends(): Promise<DiscoveryResult> {
   let failure: string | undefined;
 
   try {
-    for (const category of TREND_CATEGORIES) {
+    for (const category of SEARCHABLE_CATEGORIES) {
       const pages = await firecrawl.search(
         `trending short-form video formats ${category.label} TikTok Reels this month`,
         PAGES_PER_CATEGORY,
@@ -138,7 +147,9 @@ export async function discoverTrends(): Promise<DiscoveryResult> {
       const rows = trends.slice(0, MAX_TRENDS_PER_CATEGORY).map((trend) => ({
         title: trend.title,
         description: trend.description,
-        category: category.id,
+        // The searched niche is the fallback, not the default: a model that
+        // invents a category must not put an unfilterable value in the table.
+        category: isTrendCategory(trend.category) ? trend.category : category.id,
         source_url: pages[0]?.url ?? "",
         source_name: pages[0]?.title ?? "",
         prompt: trend.prompt,
