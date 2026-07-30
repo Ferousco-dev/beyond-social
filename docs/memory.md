@@ -11,6 +11,7 @@ well because they are not the same kind of thing.
 | Long-term memory | Durable facts about one person | `user_memories` | Built here |
 | Conversation summary | The middle of a long thread, compressed | `conversation_summaries` | Built here |
 | Knowledge base | Craft knowledge, the same for everyone | `prompt_chunks` | Was already built |
+| Semantic conversation search | Past threads, findable by meaning | `message_embeddings` | Built here |
 
 ## What a turn does now
 
@@ -97,10 +98,42 @@ Fencing is not a guarantee on its own. The reason it is safe enough here is that
 a memory can only ever influence that same user's own generations: there is no
 path by which one person's stored text reaches another person's prompt.
 
-## Not built yet
+## Searching past conversations
 
-**Semantic conversation memory**, searching old conversations by meaning so
-"continue the project we discussed last month" finds the right thread. The
-infrastructure is all present, since it is the same embedding and the same vector
-store; what is missing is embedding the messages themselves and a search over
-them. It is the natural next piece.
+The layer that answers "continue the project we discussed last month". The thread
+cannot: that question is about a conversation the current thread has never seen.
+Long-term memory cannot either: it holds distilled claims about a person, not
+what they were working on in June.
+
+Only the user's own messages are indexed. Assistant replies are derivative, and
+embedding them would double the cost to make searches match text the assistant
+wrote rather than what the person asked for. Messages shorter than 25 characters
+are skipped: "make it slower" matches everything and means nothing.
+
+Results are grouped by project, one row each, scored by the project's best
+matching message. Ungrouped, a long conversation about one subject floods the
+results with ten near-identical rows and buries the four other projects that were
+also relevant. The current thread is excluded, since it is the closest match to
+itself by definition.
+
+The similarity floor is deliberately high. A weak match dragged into the prompt
+is worse than no match, because it invites the model to discuss unrelated work as
+though it were the subject.
+
+## What testing against a real model changed
+
+The extraction prompt worked first time. The code around it did not, and the
+failure was silent, which is the kind worth writing down.
+
+The model returned two good memories, one labelled `kind: "audience"`. That is a
+reasonable label and was not in our list. Zod's `.default()` only fills a value
+that is *missing*, not one that is invalid, so the item failed validation, which
+failed the array, which discarded the other memory alongside it. Extraction
+returned nothing and looked, from the outside, exactly like a conservative
+extractor doing its job.
+
+Two changes came out of it. Fields that classify now use `.catch()` rather than
+`.default()`, so an unanticipated label costs us the label and not the memory.
+And items are validated individually, so one malformed entry cannot take the rest
+of the batch with it. The catch that swallowed this also logs now: an extractor
+that answers but produces nothing usable is worth knowing about.

@@ -346,6 +346,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      message_embeddings: {
+        Row: {
+          created_at: string;
+          embedding: string;
+          message_id: string;
+          project_id: string;
+          snippet: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          embedding: string;
+          message_id: string;
+          project_id: string;
+          snippet: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          embedding?: string;
+          message_id?: string;
+          project_id?: string;
+          snippet?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "message_embeddings_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: true;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "message_embeddings_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       messages: {
         Row: {
           content: string;
@@ -1287,6 +1329,21 @@ export type Database = {
           p_org: string;
         };
         Returns: boolean;
+      };
+      match_conversations: {
+        Args: {
+          p_embedding: string;
+          p_exclude?: string;
+          p_limit?: number;
+          p_min_similarity?: number;
+        };
+        Returns: {
+          last_active: string;
+          project_id: string;
+          similarity: number;
+          snippet: string;
+          title: string;
+        }[];
       };
       match_user_memories: {
         Args: {

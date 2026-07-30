@@ -10,6 +10,11 @@ import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/genera
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { extractMemories } from "@/lib/memory/extract";
+import {
+  findRelatedConversations,
+  indexMessage,
+  renderRelated,
+} from "@/lib/memory/conversations";
 import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
 import { getSummary, updateSummary } from "@/lib/memory/summarise";
 import { traceparent, withActionTrace } from "@/lib/observability/trace";
@@ -101,11 +106,14 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
   // trip in front of every message.
-  const [previousPrompt, previous, memories, summary] = await Promise.all([
+  const [previousPrompt, previous, memories, summary, related] = await Promise.all([
     getLatestDirectedPrompt(supabase, projectId),
     supabase.rpc("project_thread", { p_project: projectId }),
     recallFacts(prompt),
     getSummary(projectId),
+    // Past conversations, excluding this one: it is the closest match to itself
+    // and returning it as "earlier work" would be noise.
+    findRelatedConversations(prompt, projectId),
   ]);
   const intent = await classify(prompt, previousPrompt !== null);
 
@@ -190,12 +198,12 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
       directedPrompt: intent.intent === "ask" ? null : finalPrompt,
       history,
       intent: intent.intent,
-      memories: renderMemories(memories),
+      memories: [renderMemories(memories), renderRelated(related)].filter(Boolean).join("\n\n"),
       summary,
     }),
   ]);
 
-  const { error: turnError } = await supabase.rpc("append_turn", {
+  const { data: turnRows, error: turnError } = await supabase.rpc("append_turn", {
     p_project: projectId,
     p_user_content: prompt,
     p_assistant_content: reply,
@@ -215,6 +223,14 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   // Extraction costs a model call and yields nothing on most turns, so making
   // the user wait for it would be paying latency for a usually-empty result.
   void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
+
+  // Makes this turn findable by a later "continue what we started". Indexed from
+  // the row that was actually written, so the embedding can never point at a
+  // message id that does not exist.
+  const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
+    (row) => row.role === "user",
+  );
+  if (userMessage) void indexMessage(userMessage.id, projectId, prompt);
 
   // Also after the fact: the summary is for the *next* turn, so making this one
   // wait for it would be charging the user for someone else's benefit.
