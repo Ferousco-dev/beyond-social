@@ -199,10 +199,12 @@ async function main(): Promise<void> {
     );
   }
   {
-    // 2.0-flash does not think, so sending the field at all would be rejected.
-    const legacy = MODELS["gemini-2.0-flash"];
+    // A model that declares no thinking budget must be sent no thinking field:
+    // a non-thinking model rejects it outright. Built here rather than taken
+    // from the registry, which currently has no such Gemini entry.
+    const nonThinking = { ...spec, minThinkingTokens: undefined };
     const stub = install(ok);
-    await new GeminiClient("k").complete(legacy!, {
+    await new GeminiClient("k").complete(nonThinking, {
       system: "s",
       messages: [{ role: "user", content: "m" }],
     });
