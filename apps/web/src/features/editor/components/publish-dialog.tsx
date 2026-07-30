@@ -1,10 +1,11 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Clock, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Check, Clock, Loader2, Sparkles, X } from "lucide-react";
+import { useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { writeCaptions } from "@/features/optimization/actions";
 import { suggestPostingTimes } from "@/lib/optimization/posting-times";
 import { PLATFORMS } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ export function PublishDialog({
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [schedules, setSchedules] = useState<Record<string, PlatformScheduleValue>>({});
+  const [writing, startWriting] = useTransition();
+  const [captionError, setCaptionError] = useState<string | null>(null);
 
   function togglePlatform(id: string) {
     setSelected((prev) => {
@@ -46,6 +49,39 @@ export function PublishDialog({
       ...prev,
       [id]: { ...(prev[id] ?? { caption: "", hashtags: "", scheduledTime: "" }), [field]: value },
     }));
+  }
+
+  /**
+   * Fills every selected platform's caption and hashtags from the video's own
+   * brief, adapted per platform.
+   *
+   * The generator existed and nothing called it, so the feature was written but
+   * unreachable. Only selected platforms are filled, and anything already typed
+   * is left alone: overwriting words someone wrote is not a convenience.
+   */
+  function generateCaptions() {
+    setCaptionError(null);
+    startWriting(async () => {
+      const result = await writeCaptions({ brief: videoTitle });
+      if (result.status === "error") {
+        setCaptionError(result.message);
+        return;
+      }
+      setSchedules((prev) => {
+        const next = { ...prev };
+        for (const id of selected) {
+          const written = result.captions[id as keyof typeof result.captions];
+          const current = next[id];
+          if (!written || !current) continue;
+          next[id] = {
+            ...current,
+            caption: current.caption.trim() === "" ? written.caption : current.caption,
+            hashtags: current.hashtags.trim() === "" ? written.hashtags : current.hashtags,
+          };
+        }
+        return next;
+      });
+    });
   }
 
   const active = PLATFORMS.filter((platform) => selected.has(platform.id));
@@ -117,6 +153,33 @@ export function PublishDialog({
                 </div>
               ) : (
                 <div className="flex flex-col gap-6 p-6">
+                  {/* Sits above the cards it fills, so the relationship between
+                      the action and what it changes is visible. */}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs text-ink-soft">
+                      Write each caption yourself, or start from a draft per platform.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={generateCaptions}
+                      disabled={writing}
+                      className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-hairline px-3.5 text-xs font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {writing ? (
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                      ) : (
+                        <Sparkles className="size-3.5" aria-hidden />
+                      )}
+                      {writing ? "Writing" : "Draft captions"}
+                    </button>
+                  </div>
+
+                  {captionError ? (
+                    <p role="status" className="text-xs text-destructive">
+                      {captionError}
+                    </p>
+                  ) : null}
+
                   {active.map((platform) => (
                     <PlatformScheduleCard
                       key={platform.id}
