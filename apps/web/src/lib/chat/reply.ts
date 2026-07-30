@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getGenerator } from "@/lib/prompt-engine/providers";
+import { getChat } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 
 /**
@@ -101,7 +101,7 @@ export async function writeReply(context: ReplyContext): Promise<string> {
   const asking = context.intent === "ask";
 
   try {
-    const reply = await getGenerator().complete({
+    const reply = await getChat().complete({
       system:
         "You are a video director collaborating with a creator. You are specific about craft, brief in conversation, and you never pad.",
       messages: [

@@ -142,6 +142,16 @@ export function getJudge(userId?: string): Llm {
   return new GatewayLlm(getGateway(), "judge", userId);
 }
 
+/**
+ * The chain for talking to the user.
+ *
+ * Separate from `generation` because the two optimise for different things: a
+ * directed video prompt is worth waiting on, a two-sentence reply is not.
+ */
+export function getChat(userId?: string): Llm {
+  return new GatewayLlm(getGateway(), "chat", userId);
+}
+
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */
 export const SYSTEM_LAYERS: ReadonlyMap<string, string> = new Map([
   [
