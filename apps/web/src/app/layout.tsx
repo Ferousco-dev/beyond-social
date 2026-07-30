@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import type { Metadata } from "next";
 
 import { env } from "@/lib/env";
-import { AUTO_THEME_SCRIPT, getTheme } from "@/lib/theme";
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -17,26 +17,17 @@ export const metadata: Metadata = {
   description: "AI-powered social media video platform, from idea to published short-form video.",
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: ReactNode;
-}): Promise<ReactNode> {
-  const theme = await getTheme();
+export default function RootLayout({ children }: { children: ReactNode }): ReactNode {
   return (
     <html
       lang="en"
-      // The class is decided on the server from the cookie, so the first paint
-      // is already the right colours.
-      className={`${GeistSans.variable} ${GeistMono.variable}${theme === "dark" ? " dark" : ""}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <head>
-        {/* Only `auto` needs a script: the explicit choices are already on the
-            html element above. Runs before paint, so there is no flash. */}
-        {theme === "auto" ? (
-          <script dangerouslySetInnerHTML={{ __html: AUTO_THEME_SCRIPT }} />
-        ) : null}
+        {/* Before paint, so there is no flash. Deliberately not read with
+            `cookies()`: that would make every page in the app dynamic. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
         {/*

@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-
 /**
  * Theme, stored in a cookie rather than local storage.
  *
@@ -7,6 +5,9 @@ import { cookies } from "next/headers";
  * emits the correct class in the first byte. Local storage can only be read
  * after JavaScript runs, which is why theme switchers usually flash the wrong
  * colours for a frame on every load.
+ *
+ * Nothing here touches `next/headers`, so both the server read in
+ * `theme-server.ts` and the browser half in `theme-client.ts` can share it.
  */
 
 export const THEMES = ["light", "dark", "auto"] as const;
@@ -21,15 +22,16 @@ export function isTheme(value: string | undefined): value is Theme {
   return value !== undefined && (THEMES as readonly string[]).includes(value);
 }
 
-/** Light unless the visitor has chosen otherwise. */
-export async function getTheme(): Promise<Theme> {
-  const stored = (await cookies()).get(THEME_COOKIE)?.value;
-  return isTheme(stored) ? stored : "light";
-}
-
 /**
- * Runs before first paint when the choice is `auto`, so the system preference is
- * applied without a flash. Only needed for `auto`: the explicit choices are
- * already on the server-rendered html element.
+ * Applies the theme before first paint, reading the cookie in the browser.
+ *
+ * Reading the cookie on the server instead would be tidier, but `cookies()` in
+ * the root layout opts every page out of static rendering. That measurably cost
+ * more than it bought: the marketing pages went from being served off the CDN to
+ * server-rendering per request, to decide one class name.
+ *
+ * A blocking script in `<head>` runs before the body paints, so there is no
+ * flash either way. This is the same trick a theme library uses, reading a
+ * cookie rather than local storage so the value survives in one place.
  */
-export const AUTO_THEME_SCRIPT = `try{if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.classList.add('dark')}catch(e){}`;
+export const THEME_SCRIPT = `try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE}=([^;]*)/);var t=m?decodeURIComponent(m[1]):'light';if(t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}`;
