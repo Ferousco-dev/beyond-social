@@ -313,6 +313,41 @@ async function main(): Promise<void> {
     `$${costly.totalCostUsd.toFixed(4)} over ${costly.steps.length} steps`,
   );
 
+  // A provider that hangs is the case the fallback chain was written for and the
+  // one it could not see: retry and failover both trigger on an error, and a
+  // call that never returns never produces one. Without a deadline this test
+  // does not fail, it hangs, which is exactly what production did.
+  const hanging: ProviderClient = {
+    async complete(_spec, request): Promise<CompletionResult> {
+      return new Promise((_resolve, reject) => {
+        request.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    },
+  };
+  let rescued = false;
+  const standby: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      rescued = true;
+      return { text: "second opinion", inputTokens: 1, outputTokens: 1 };
+    },
+  };
+  const deadlined = new AiGateway({
+    clients: { google: hanging, anthropic: standby, openai: standby },
+    timeoutMs: 300,
+    retry: { attempts: 1, baseDelayMs: 1, maxDelayMs: 1 },
+  });
+  const startedAt = Date.now();
+  const rescue = await deadlined.complete({
+    task: "chat",
+    messages: [{ role: "user", content: "hello" }],
+  });
+  const elapsedMs = Date.now() - startedAt;
+  check(
+    "a hung provider is abandoned and the chain fails over",
+    rescued && rescue.text === "second opinion" && rescue.fallbacks >= 1 && elapsedMs < 3_000,
+    `${elapsedMs}ms, ${rescue.fallbacks} fallback(s)`,
+  );
+
   process.stdout.write(`${results.join("\n")}\n`);
   process.stdout.write(
     `\n${results.length - failures}/${results.length} passed. Recorded spend: $${usage.totalCostUsd().toFixed(6)}\n`,

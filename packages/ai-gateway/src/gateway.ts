@@ -30,6 +30,16 @@ export interface GatewayOptions {
   /** How long a cached response stays valid. */
   cacheTtlMs?: number;
   retry?: Partial<RetryOptions>;
+  /**
+   * How long one attempt may take before it is abandoned.
+   *
+   * Without this the fallback chain below is unreachable in the case it was
+   * written for. Retry and cross-provider failover both trigger on an error, and
+   * a provider that hangs never produces one: the call simply never returns, and
+   * the caller waits until something further up the stack gives up. A deadline
+   * is what turns a hang into a failure the chain can act on.
+   */
+  timeoutMs?: number;
   /** Overrides the default candidate chain for a task. */
   routes?: Partial<Record<Task, readonly string[]>>;
   now?: () => number;
@@ -64,6 +74,20 @@ export interface GatewayResponse extends CompletionResult {
 }
 
 const DEFAULT_RETRY: RetryOptions = { attempts: 3, baseDelayMs: 500, maxDelayMs: 8_000 };
+
+/**
+ * Generous, because a long completion is not a stuck one. This exists to catch a
+ * connection that has died quietly, not to cap how long a model may think.
+ */
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+/** Distinguishable from a provider's own errors, so callers can report honestly. */
+export class ProviderTimeoutError extends Error {
+  constructor(model: string, timeoutMs: number) {
+    super(`${model} did not respond within ${timeoutMs}ms`);
+    this.name = "ProviderTimeoutError";
+  }
+}
 const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
@@ -181,7 +205,7 @@ export class AiGateway {
       try {
         const result = await withRetry(() => {
           attempts += 1;
-          return client.complete(spec, request);
+          return this.completeWithDeadline(client, spec, request);
         }, this.retry);
 
         this.screenOutput(result.text);
@@ -256,6 +280,41 @@ export class AiGateway {
     if (safety.moderateInput) {
       const verdict = moderate(text);
       if (verdict.action === "block") throw new ModerationError("input", verdict);
+    }
+  }
+
+  /**
+   * One attempt, bounded.
+   *
+   * The signal is passed to the provider so the connection is actually torn
+   * down rather than left running while we stop waiting for it, which is the
+   * difference between a timeout and a leak. A caller that supplies its own
+   * signal still wins: aborting that one aborts this.
+   */
+  private async completeWithDeadline(
+    client: ProviderClient,
+    spec: ModelSpec,
+    request: GatewayRequest,
+  ): Promise<CompletionResult> {
+    const timeoutMs = this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const abortFromCaller = (): void => controller.abort();
+    request.signal?.addEventListener("abort", abortFromCaller);
+
+    try {
+      return await client.complete(spec, { ...request, signal: controller.signal });
+    } catch (error) {
+      // The provider reports an abort as its own generic error, so the reason
+      // has to be reconstructed here or the log says "fetch failed".
+      if (controller.signal.aborted && !request.signal?.aborted) {
+        throw new ProviderTimeoutError(spec.id, timeoutMs);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      request.signal?.removeEventListener("abort", abortFromCaller);
     }
   }
 
