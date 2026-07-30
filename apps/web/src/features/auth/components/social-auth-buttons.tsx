@@ -70,14 +70,18 @@ export function SocialAuthButtons() {
 
   return (
     <div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* One per row, not two columns. The form is 384px wide, so a two-column
+          layout left 130px for a label needing 141px, and because the height was
+          fixed the overflow was clipped rather than wrapping visibly. Stacked,
+          each button has the full width and the labels stay on one line. */}
+      <div className="grid grid-cols-1 gap-3">
         {PROVIDERS.map(({ provider, label, Icon }) => (
           <button
             key={provider}
             type="button"
             onClick={() => void handleSignIn(provider)}
             disabled={pending !== null}
-            className="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending === provider ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
