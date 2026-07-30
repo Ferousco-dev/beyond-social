@@ -8,6 +8,7 @@ import {
   MemoryResponseCache,
   MemoryUsageSink,
   OpenAiClient,
+  TieredLimiter,
   TokenBucketLimiter,
   type ProviderClient,
   type Provider as GatewayProvider,
@@ -28,6 +29,7 @@ import {
   type VectorStore,
 } from "@beyond-social/prompt-engine";
 
+import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
 import { serverEnv } from "@/lib/server-env";
 import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
 import { SupabaseUsageSink } from "./usage-sink";
@@ -129,9 +131,21 @@ function getGateway(): AiGateway {
     // text, so screening is on. `medium` blocks clear injection attempts while
     // leaving ordinary creative briefs alone.
     safety: { blockInjectionAt: "medium", moderateInput: true, moderateOutput: true },
-    // Generous per-user ceiling in estimated input tokens, sized to stop a
-    // runaway loop rather than to throttle normal use.
-    limiter: new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
+    /*
+     * Two tiers, because they fail differently.
+     *
+     * The token bucket is in-process: free, instant, and weighted by prompt
+     * size, so it stops a runaway loop before anything leaves the process. It is
+     * also per instance, which on serverless means a fleet of ten enforces ten
+     * times the limit and a cold start resets it.
+     *
+     * The shared counter is the one that holds across instances, and is the only
+     * one that can express "this many an hour" as a real number.
+     */
+    limiter: new TieredLimiter([
+      new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
+      new SupabaseRateLimiter({ bucket: "ai", limit: 120, windowSeconds: 3_600 }),
+    ]),
   });
   return gatewayRef;
 }

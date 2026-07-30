@@ -10,7 +10,7 @@ import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
 import { z } from "zod";
 import { type CompletionResult, type ProviderClient } from "../src/providers";
-import { TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
+import { TieredLimiter, TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
 import { ProviderError } from "../src/retry";
 import {
   InjectionError,
@@ -385,6 +385,67 @@ async function main(): Promise<void> {
     "the circuit half-opens after the cooldown and tries again",
     downCalls === callsBeforeOpen + 1,
     `${downCalls - callsBeforeOpen} trial call(s)`,
+  );
+
+  // A shared limiter is asynchronous by nature, and the tier in front of it is
+  // not. Both have to compose, or the durable limit cannot be added without
+  // rewriting every call site.
+  const local = new TokenBucketLimiter({ capacity: 100, refillPerSec: 0 });
+  let sharedCalls = 0;
+  const shared = {
+    async take(): Promise<{ allowed: boolean; retryAfterMs: number }> {
+      sharedCalls += 1;
+      return { allowed: sharedCalls <= 2, retryAfterMs: 5_000 };
+    },
+  };
+  const tiered = new TieredLimiter([local, shared]);
+  const decisions = [
+    await tiered.take("u", 1),
+    await tiered.take("u", 1),
+    await tiered.take("u", 1),
+  ];
+  check(
+    "a shared limit refuses after the local one allows",
+    decisions[0]?.allowed === true &&
+      decisions[1]?.allowed === true &&
+      decisions[2]?.allowed === false &&
+      decisions[2]?.retryAfterMs === 5_000,
+    `${decisions.filter((d) => d.allowed).length} of 3 allowed`,
+  );
+
+  // The cheap tier must short-circuit the expensive one, or every refusal still
+  // pays for a round trip it did not need.
+  const drained = new TieredLimiter([
+    new TokenBucketLimiter({ capacity: 1, refillPerSec: 0 }),
+    shared,
+  ]);
+  await drained.take("v", 5);
+  const callsBefore = sharedCalls;
+  await drained.take("v", 5);
+  check(
+    "a local refusal never reaches the shared limiter",
+    sharedCalls === callsBefore,
+    `${sharedCalls - callsBefore} extra shared call(s)`,
+  );
+
+  // A prompt that fits but leaves no room for the answer must be treated as too
+  // long. Checking the prompt alone sends it and collects a provider 400.
+  const bigPrompt = "x".repeat(4 * 190_000);
+  let windowError = "";
+  try {
+    await new AiGateway({ clients: { anthropic: standby } }).complete({
+      task: "chat",
+      system: bigPrompt,
+      messages: [{ role: "user", content: "hi" }],
+      maxTokens: 32_000,
+    });
+  } catch (error) {
+    windowError = error instanceof Error ? error.message : String(error);
+  }
+  check(
+    "output is reserved when checking the context window",
+    windowError.includes("reserved for output"),
+    windowError.slice(0, 70),
   );
 
   process.stdout.write(`${results.join("\n")}\n`);

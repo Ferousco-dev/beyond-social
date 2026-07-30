@@ -84,6 +84,15 @@ const DEFAULT_RETRY: RetryOptions = { attempts: 3, baseDelayMs: 500, maxDelayMs:
  */
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+/**
+ * Headroom on the token estimate, which is a character count divided by four.
+ * Right for English prose, optimistic for JSON, code and non-Latin scripts.
+ */
+const ESTIMATE_MARGIN = 1.15;
+
+/** Assumed output when a caller does not say, so the window check has both halves. */
+const DEFAULT_OUTPUT_RESERVE = 4_096;
+
 /** Distinguishable from a provider's own errors, so callers can report honestly. */
 export class ProviderTimeoutError extends Error {
   constructor(model: string, timeoutMs: number) {
@@ -188,7 +197,7 @@ export class AiGateway {
     const promptTokens = estimateTokens(
       request.system + request.messages.map((message) => message.content).join(" "),
     );
-    const decision = this.limiter.take(request.userId ?? "anonymous", Math.max(1, promptTokens));
+    const decision = await this.limiter.take(request.userId ?? "anonymous", Math.max(1, promptTokens));
     if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
 
     let lastError: unknown;
@@ -197,11 +206,27 @@ export class AiGateway {
       const client = this.options.clients[spec.provider];
       if (!client) continue;
 
-      // A prompt that cannot fit is a terminal error for this model, not a
-      // retryable one; skip straight to the next candidate.
-      if (promptTokens > spec.contextWindow) {
+      /*
+       * A prompt that cannot fit is a terminal error for this model, not a
+       * retryable one; skip straight to the next candidate.
+       *
+       * The budget is input *plus* output, because they share one window. The
+       * check here compared the prompt alone, which passes a prompt sitting at
+       * 95% of the window and then asks for 8k of completion on top, and the
+       * provider rejects the whole thing. That reads as a mysterious 400 from
+       * every model in the chain rather than as "too long".
+       *
+       * The margin covers the estimate itself: ~4 characters per token is right
+       * for English prose and optimistic for JSON, code and non-Latin scripts,
+       * all of which appear in real briefs. Being wrong in this direction costs
+       * a slightly smaller usable window; being wrong in the other costs the
+       * request.
+       */
+      const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
+      const budget = Math.ceil(promptTokens * ESTIMATE_MARGIN) + reservedOutput;
+      if (budget > spec.contextWindow) {
         lastError = new Error(
-          `Prompt of ~${promptTokens} tokens exceeds ${spec.id} context window`,
+          `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
         );
         continue;
       }
