@@ -9,5 +9,10 @@
       "path": "/api/cron/prune-caches",
       "schedule": "30 6 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  }
 }

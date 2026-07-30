@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { HeaderAuthActions } from "@/features/auth/components/header-auth-actions";
 import { NAV_LINKS } from "@/lib/marketing/site";
 import { cn } from "@/lib/utils";
 
@@ -64,21 +65,10 @@ export function LandingHeader() {
           </nav>
 
           <div className="hidden items-center gap-1.5 md:flex">
-            <Link
-              href="/login"
-              className={cn(
-                "rounded-full px-3.5 py-2 text-sm text-ink-soft transition-all hover:text-ink",
-                shrunk && "hidden lg:inline-flex",
-              )}
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-canvas transition-all duration-200 hover:scale-[1.03] hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:scale-100"
-            >
-              Start free
-            </Link>
+            {/* Signed in, this is one link to the dashboard. Inviting someone to
+                "Start free" when they already have an account reads as a site
+                that does not know who is looking at it. */}
+            <HeaderAuthActions compact={shrunk} />
           </div>
 
           <button
@@ -108,20 +98,7 @@ export function LandingHeader() {
             ))}
           </nav>
           <div className="mt-2 flex flex-col gap-2 border-t border-hairline pt-3">
-            <Link
-              href="/login"
-              onClick={() => setOpen(false)}
-              className="rounded-full border border-hairline px-4 py-2.5 text-center text-sm font-medium text-ink"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/signup"
-              onClick={() => setOpen(false)}
-              className="rounded-full bg-ink px-4 py-2.5 text-center text-sm font-medium text-canvas"
-            >
-              Start free
-            </Link>
+            <HeaderAuthActions stacked onNavigate={() => setOpen(false)} />
           </div>
         </div>
       ) : null}
