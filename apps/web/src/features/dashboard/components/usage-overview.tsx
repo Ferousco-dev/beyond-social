@@ -44,15 +44,15 @@ export async function UsageOverview({ window }: { window: UsageWindowId }): Prom
   const failureRate = summary.calls > 0 ? summary.failedCalls / summary.calls : 0;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Usage</h1>
-      <p className="mt-1 text-sm text-ink-soft">AI spend and reliability, last {label}.</p>
+    // The frame and the title come from the settings layout this now sits in.
+    <section className="mt-6 lg:mt-8">
+      <p className="text-sm text-ink-soft">AI spend and reliability, last {label}.</p>
 
-      <nav aria-label="Time window" className="mt-6 flex gap-1.5">
+      <nav aria-label="Time window" className="mt-6 flex flex-wrap gap-1.5">
         {USAGE_WINDOWS.map((option) => (
           <a
             key={option.id}
-            href={`/dashboard/usage?window=${option.id}`}
+            href={`/dashboard/settings/usage?window=${option.id}`}
             aria-current={option.id === window}
             className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
               option.id === window
@@ -116,6 +116,6 @@ export async function UsageOverview({ window }: { window: UsageWindowId }): Prom
           Manage billing
         </Link>
       </p>
-    </div>
+    </section>
   );
 }

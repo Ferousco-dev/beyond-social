@@ -9,7 +9,7 @@ export default async function AppearancePage() {
   const theme = await getTheme();
 
   return (
-    <section className="mt-8">
+    <section className="mt-6 lg:mt-8">
       <ThemePicker current={theme} />
     </section>
   );

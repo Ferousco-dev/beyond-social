@@ -38,7 +38,7 @@ export async function createApiKey(input: z.input<typeof createSchema>): Promise
     });
     if (error) throw new Error(error.message);
 
-    revalidatePath("/dashboard/api-keys");
+    revalidatePath("/dashboard/settings/api-keys");
     return { status: "ok", plaintext: key.plaintext };
   } catch (error) {
     logger.warn("failed to create api key", {
@@ -58,7 +58,7 @@ export async function revokeApiKey(id: string): Promise<{ status: "ok" | "error"
       .update({ revoked_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw new Error(error.message);
-    revalidatePath("/dashboard/api-keys");
+    revalidatePath("/dashboard/settings/api-keys");
     return { status: "ok" };
   } catch {
     return { status: "error" };

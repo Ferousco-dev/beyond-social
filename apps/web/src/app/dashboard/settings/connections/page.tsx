@@ -14,7 +14,7 @@ export default async function ConnectionsPage({
   const [connections, params] = await Promise.all([listConnections(), searchParams]);
 
   return (
-    <section className="mt-8">
+    <section className="mt-6 lg:mt-8">
       <p className="text-sm text-ink-soft">
         Connect the accounts you publish to. Beyond Social posts on your behalf and never stores
         your platform password.

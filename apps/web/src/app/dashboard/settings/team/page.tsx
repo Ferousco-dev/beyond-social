@@ -10,9 +10,8 @@ export default async function TeamPage() {
   const organizations = await getOrganizations();
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Team</h1>
-      <p className="mt-1 text-sm text-ink-soft">
+    <section className="mt-6 lg:mt-8">
+      <p className="text-sm text-ink-soft">
         Share projects with people you work with. Personal projects stay private.
       </p>
 
@@ -50,6 +49,6 @@ export default async function TeamPage() {
           </p>
         </div>
       )}
-    </div>
+    </section>
   );
 }
