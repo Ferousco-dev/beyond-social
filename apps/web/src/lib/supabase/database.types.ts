@@ -819,9 +819,12 @@ export type Database = {
           generation_id: string | null;
           hashtags: string;
           id: string;
+          idempotency_key: string | null;
           platform: Database["public"]["Enums"]["social_platform"];
+          publish_started_at: string | null;
           scheduled_for: string;
           status: Database["public"]["Enums"]["post_status"];
+          trace_id: string | null;
           updated_at: string;
           user_id: string;
         };
@@ -833,9 +836,12 @@ export type Database = {
           generation_id?: string | null;
           hashtags?: string;
           id?: string;
+          idempotency_key?: string | null;
           platform: Database["public"]["Enums"]["social_platform"];
+          publish_started_at?: string | null;
           scheduled_for: string;
           status?: Database["public"]["Enums"]["post_status"];
+          trace_id?: string | null;
           updated_at?: string;
           user_id: string;
         };
@@ -847,9 +853,12 @@ export type Database = {
           generation_id?: string | null;
           hashtags?: string;
           id?: string;
+          idempotency_key?: string | null;
           platform?: Database["public"]["Enums"]["social_platform"];
+          publish_started_at?: string | null;
           scheduled_for?: string;
           status?: Database["public"]["Enums"]["post_status"];
+          trace_id?: string | null;
           updated_at?: string;
           user_id?: string;
         };
@@ -1284,9 +1293,12 @@ export type Database = {
           generation_id: string | null;
           hashtags: string;
           id: string;
+          idempotency_key: string | null;
           platform: Database["public"]["Enums"]["social_platform"];
+          publish_started_at: string | null;
           scheduled_for: string;
           status: Database["public"]["Enums"]["post_status"];
+          trace_id: string | null;
           updated_at: string;
           user_id: string;
         }[];
@@ -1296,6 +1308,18 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      claim_post_for_publish: {
+        Args: { p_post: string };
+        Returns: {
+          caption: string;
+          generation_id: string;
+          hashtags: string;
+          id: string;
+          platform: string;
+          trace_id: string;
+          user_id: string;
+        }[];
       };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };

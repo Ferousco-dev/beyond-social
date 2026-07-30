@@ -6,6 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { writeCaptions } from "@/features/optimization/actions";
+import { schedulePosts } from "@/features/publishing/actions";
 import { suggestPostingTimes } from "@/lib/optimization/posting-times";
 import { PLATFORMS } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
@@ -15,14 +16,57 @@ import { PlatformScheduleCard, type PlatformScheduleValue } from "./platform-sch
 export function PublishDialog({
   children,
   videoTitle,
+  generationId,
+  /** Platforms with credentials configured. Everything else is shown as unavailable. */
+  availablePlatforms,
 }: {
   children: ReactNode;
   videoTitle: string;
+  /** Null while the video is still rendering: there is nothing to publish yet. */
+  generationId: string | null;
+  availablePlatforms: readonly string[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [schedules, setSchedules] = useState<Record<string, PlatformScheduleValue>>({});
   const [writing, startWriting] = useTransition();
   const [captionError, setCaptionError] = useState<string | null>(null);
+  const [scheduling, startScheduling] = useTransition();
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  /*
+   * Stable for the life of this dialog, so every retry of the same submission
+   * carries the same key. Generating it per click would defeat the point: the
+   * case being protected against is the second click.
+   */
+  const [idempotencyKey] = useState(
+    () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+  );
+
+  function submit() {
+    if (!generationId) return;
+    setResult(null);
+    startScheduling(async () => {
+      const response = await schedulePosts({
+        generationId,
+        idempotencyKey,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        posts: active.map((platform) => ({
+          platform: platform.id as "tiktok" | "instagram" | "facebook" | "youtube",
+          caption: schedules[platform.id]?.caption ?? "",
+          hashtags: schedules[platform.id]?.hashtags ?? "",
+          scheduledLocal: schedules[platform.id]?.scheduledTime ?? "",
+        })),
+      });
+      setResult(
+        response.status === "ok"
+          ? {
+              ok: true,
+              message: `Scheduled ${response.scheduled} post${response.scheduled === 1 ? "" : "s"}.`,
+            }
+          : { ok: false, message: response.message },
+      );
+    });
+  }
 
   function togglePlatform(id: string) {
     setSelected((prev) => {
@@ -85,6 +129,11 @@ export function PublishDialog({
   }
 
   const active = PLATFORMS.filter((platform) => selected.has(platform.id));
+  // A post with no time is not schedulable, and the server would refuse it. The
+  // button says so instead of letting someone find out by pressing it.
+  const everyTimeSet = active.every(
+    (platform) => (schedules[platform.id]?.scheduledTime ?? "") !== "",
+  );
 
   return (
     <Dialog.Root>
@@ -114,13 +163,21 @@ export function PublishDialog({
               <div className="mt-4 flex flex-col gap-2">
                 {PLATFORMS.map((platform) => {
                   const isSelected = selected.has(platform.id);
+                  // A platform with no credentials configured cannot be
+                  // published to, so it says so here rather than accepting the
+                  // selection and failing later, when nothing can be done about
+                  // it.
+                  const available = availablePlatforms.includes(platform.id);
                   return (
                     <button
                       key={platform.id}
                       type="button"
+                      disabled={!available}
+                      title={available ? undefined : `${platform.name} is not connected yet`}
                       onClick={() => togglePlatform(platform.id)}
                       className={cn(
-                        "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
+                        "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
+                        available ? "cursor-pointer" : "cursor-not-allowed opacity-50",
                         isSelected
                           ? "border-primary bg-primary/5 text-ink"
                           : "border-hairline text-ink-soft hover:bg-cloud",
@@ -196,15 +253,31 @@ export function PublishDialog({
           </div>
 
           <div className="flex items-center justify-between border-t border-hairline px-6 py-4">
-            <p className="text-xs text-ink-soft">
-              {active.length} platform{active.length === 1 ? "" : "s"} selected
+            <p className={cn("text-xs", result && !result.ok ? "text-danger" : "text-ink-soft")}>
+              {result
+                ? result.message
+                : !generationId
+                  ? "The video is still rendering"
+                  : active.length > 0 && !everyTimeSet
+                    ? "Pick a time for every selected platform"
+                    : `${active.length} platform${active.length === 1 ? "" : "s"} selected`}
             </p>
             <div className="flex gap-2">
               <Dialog.Close asChild>
                 <Button variant="outline">Cancel</Button>
               </Dialog.Close>
-              <Button disabled={active.length === 0}>
-                Schedule {active.length > 1 ? "all" : "video"}
+              <Button
+                onClick={submit}
+                disabled={active.length === 0 || scheduling || !generationId || !everyTimeSet}
+              >
+                {scheduling ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    Scheduling
+                  </>
+                ) : (
+                  `Schedule ${active.length > 1 ? "all" : "video"}`
+                )}
               </Button>
             </div>
           </div>

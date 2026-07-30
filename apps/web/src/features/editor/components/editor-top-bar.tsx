@@ -14,6 +14,8 @@ export function EditorTopBar({
   onTogglePanel,
   saveState,
   onRetrySave,
+  generationId,
+  availablePlatforms,
 }: {
   backHref: Route;
   title: string;
@@ -21,6 +23,9 @@ export function EditorTopBar({
   onTogglePanel: () => void;
   saveState: SaveState;
   onRetrySave: () => void;
+  /** The finished render to publish, or null while none is ready. */
+  generationId: string | null;
+  availablePlatforms: readonly string[];
 }): ReactNode {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-hairline px-3">
@@ -46,7 +51,11 @@ export function EditorTopBar({
       </div>
       <div className="flex items-center gap-2">
         <SaveIndicator state={saveState} onRetry={onRetrySave} />
-        <PublishDialog videoTitle={title}>
+        <PublishDialog
+          videoTitle={title}
+          generationId={generationId}
+          availablePlatforms={availablePlatforms}
+        >
           <button
             type="button"
             className="cursor-pointer rounded-full bg-ink px-4 py-1.5 text-sm font-medium text-paper transition-opacity hover:opacity-90"
