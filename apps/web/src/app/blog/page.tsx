@@ -10,14 +10,21 @@ export default function Page(): ReactNode {
     <PageShell
       eyebrow="Company"
       title="Notes"
-      lede="Writing on what we learn building an AI video engine: retrieval, evaluation, and the craft of directing a model."
+      lede="Working notes on building an AI video engine: retrieval, evaluation, and what it takes to make a generated shot look directed."
     >
       <Prose>
         <p>
-          We are preparing the first posts now. They will cover the architecture of the prompt
-          intelligence engine and what we learned making generated video look intentional.
+          There is nothing here yet. This page will hold notes written while building the product,
+          which means the first one gets published when there is a result worth reporting rather
+          than on a schedule. We would rather leave it empty than fill it with posts that exist to
+          be posted.
         </p>
-        <p>Nothing published yet. Check back shortly.</p>
+        <p>
+          The subjects are already obvious to us: how craft knowledge is retrieved and assembled
+          into a prompt, how to judge output quality without watching every frame by hand, what the
+          generation actually costs to run, and the times a change made the video worse. If you want
+          to be told when the first note goes up, email hello@beyondsocial.app.
+        </p>
       </Prose>
     </PageShell>
   );
