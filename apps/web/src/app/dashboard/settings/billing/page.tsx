@@ -1,11 +1,18 @@
 import { type Metadata } from "next";
 
+import { BalanceCard } from "@/features/billing/components/balance-card";
+import { CreditPackGrid } from "@/features/billing/components/credit-pack-grid";
+import { PlanSummary } from "@/features/billing/components/plan-summary";
+import { TransactionHistory } from "@/features/billing/components/transaction-history";
 import { UpgradePanel } from "@/features/billing/components/upgrade-panel";
+import { getCreditHistory } from "@/features/billing/ledger";
 import { getCurrentPlan } from "@/lib/billing/current-plan";
-import { PLAN_CATALOGUE, PLANS, priceLabel, type PlanId } from "@/lib/billing/plans";
-import { dayCount } from "@/lib/dashboard/analytics";
+import { PLAN_CATALOGUE, PLANS, type PlanId } from "@/lib/billing/plans";
+import { getCreditBalance } from "@/lib/credits/queries";
+import { listModels } from "@/lib/models/catalog";
+import { type CatalogModel } from "@/lib/models/types";
 import { isBillingConfigured } from "@/lib/server-env";
-import { getCredits } from "@/lib/dashboard/queries";
+import { getUserTimeZone } from "@/lib/time/user-zone";
 
 export const metadata: Metadata = { title: "Billing" };
 export const dynamic = "force-dynamic";
@@ -14,52 +21,42 @@ function asPlanId(value: string): PlanId {
   return (PLANS as readonly string[]).includes(value) ? (value as PlanId) : "free";
 }
 
+/**
+ * Billing, as a credit system: one balance, one place to top it up, and the
+ * ledger that explains both. The balance comes from `credit_balance()` rather
+ * than the profile counters, because the ledger is the source of truth and the
+ * counters are a cache of it.
+ */
 export default async function BillingPage() {
-  const [planId, credits] = await Promise.all([getCurrentPlan(), getCredits()]);
+  const [planId, balance, models, entries, timeZone] = await Promise.all([
+    getCurrentPlan(),
+    getCreditBalance(),
+    listModels(),
+    getCreditHistory(),
+    getUserTimeZone(),
+  ]);
+
   const plan = PLAN_CATALOGUE[asPlanId(planId)];
-  const remaining = Math.max(credits.total - credits.used, 0);
-  const usedPercent = credits.total > 0 ? Math.round((credits.used / credits.total) * 100) : 0;
+  // The catalogue is ordered for display, not by price, so the anchor for "what
+  // does my balance buy" has to be chosen rather than assumed.
+  const cheapest = models.reduce<CatalogModel | null>(
+    (best, model) => (best === null || model.creditCost < best.creditCost ? model : best),
+    null,
+  );
 
   return (
     <section className="mt-6 lg:mt-8">
-      <div className="rounded-xl border border-hairline bg-paper p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-ink">Current plan</h2>
-            <p className="mt-1 text-2xl font-semibold text-ink">{plan.name}</p>
-          </div>
-          {/* Only shown when there is a figure to show. On the free plan the
-              price repeated the plan name, so the card read "Free ... Free". */}
-          {plan.priceUsd > 0 ? (
-            <p className="text-sm tabular-nums text-ink-soft">{priceLabel(plan)} / month</p>
-          ) : null}
-        </div>
-
-        <div className="mt-5">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="text-ink-soft">Video credits</span>
-            <span className="tabular-nums text-ink">
-              {remaining} of {credits.total} left
-            </span>
-          </div>
-          <div
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={credits.total}
-            aria-valuenow={credits.used}
-            aria-label="Video credits used"
-            className="mt-2 h-2 overflow-hidden rounded-full bg-cloud"
-          >
-            <div className="h-full rounded-full bg-primary" style={{ width: `${usedPercent}%` }} />
-          </div>
-          <p className="mt-2 text-xs text-ink-soft">
-            Credits reset in {dayCount(credits.resetsInDays)}.
-          </p>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BalanceCard balance={balance} cheapest={cheapest} />
+        <PlanSummary plan={plan} models={models} />
       </div>
+
+      <CreditPackGrid checkoutReady={isBillingConfigured} />
 
       {/* Owns its own heading and the billing-portal button. */}
       <UpgradePanel currentPlan={planId} checkoutReady={isBillingConfigured} />
+
+      <TransactionHistory entries={entries} timeZone={timeZone} />
     </section>
   );
 }

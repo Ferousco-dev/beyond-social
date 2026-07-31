@@ -42,10 +42,13 @@ export function UpgradePanel({
         return;
       }
       setBusyPlan(null);
+      // The fallback says what did not happen to their money, because that is
+      // the question someone asks when a checkout button fails.
       setMessage(
         result.status === "unconfigured"
           ? "Billing is not connected yet."
-          : (result.message ?? "Something went wrong."),
+          : (result.message ??
+              "We could not start checkout. You were not charged and your plan is unchanged. Try again in a moment."),
       );
     });
   };

@@ -50,8 +50,16 @@ export function withTrace(name: string, handler: Handler): Handler {
           route: name,
           error: error instanceof Error ? error.message : String(error),
         });
+        // The envelope already carries the trace id, so the message points at
+        // it: a caller who quotes it hands us the exact log line for this
+        // failure instead of a timestamp to search around.
         return Response.json(
-          { error: "internal_error", message: "Something went wrong.", trace_id: context.traceId },
+          {
+            error: "internal_error",
+            message:
+              "We hit an error on our side and the request did not complete. Try again, and quote the trace id if it keeps happening.",
+            trace_id: context.traceId,
+          },
           { status: 500, headers: { [TRACE_HEADER]: context.traceId } },
         );
       }

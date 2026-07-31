@@ -1,0 +1,130 @@
+import { UnrecoverableError, Worker, type Job } from "bullmq";
+
+import { createProvider, PermanentSendError, SendBlockedError } from "../lib/providers";
+import { createRedis } from "../lib/redis";
+import { createServiceClient } from "../lib/supabase";
+import { logger } from "../lib/logger";
+import { mailPayloadSchema, renderTemplate } from "../lib/template";
+import { MAIL_QUEUE, type MailJobData } from "../queues/mail";
+
+/**
+ * Sends one delivery.
+ *
+ * The property that matters: running this twice must send one email. BullMQ
+ * retries five times, and a socket that dies after the provider accepted the
+ * message is indistinguishable from one that died before it. Without a guard, a
+ * transient network error becomes a second password reset or a second receipt
+ * in someone's inbox, which cannot be taken back.
+ *
+ * The guard is a claim in the database rather than a check in this process. The
+ * row is transitioned and read in one statement, so two instances racing for the
+ * same delivery cannot both proceed, and a row already carrying a provider
+ * message id is never claimed at all.
+ */
+
+/** Providers rate limit well below this; the ceiling is here to bound memory. */
+const CONCURRENCY = 10;
+
+interface DeliveryClaim {
+  id: string;
+  to_email: string;
+  template_key: string;
+  payload: unknown;
+  attempts: number;
+}
+
+export function startMailWorker(): Worker<MailJobData> {
+  const supabase = createServiceClient();
+  const provider = createProvider();
+
+  const worker = new Worker<MailJobData>(
+    MAIL_QUEUE,
+    async (job: Job<MailJobData>) => {
+      const { deliveryId } = job.data;
+
+      const { data: claimed, error: claimError } = await supabase.rpc("claim_delivery_for_send", {
+        p_delivery: deliveryId,
+      });
+      if (claimError) throw new Error(claimError.message);
+
+      const delivery = (claimed as DeliveryClaim[] | null)?.[0];
+      if (!delivery) {
+        // The row already has a provider message id, so a previous attempt
+        // reached the provider. Doing nothing is the entire point.
+        logger.info("send skipped, already handled", { deliveryId, jobId: job.id });
+        return;
+      }
+
+      const payload = mailPayloadSchema.parse(delivery.payload ?? {});
+      const rendered = await renderTemplate(delivery.template_key, payload);
+
+      let providerMessageId: string;
+      try {
+        ({ providerMessageId } = await provider.send({
+          to: delivery.to_email,
+          subject: rendered.subject,
+          text: rendered.text,
+        }));
+      } catch (error) {
+        // Not configured to send at all. The delivery is parked rather than
+        // retried, because five exponential retries will not conjure an API key,
+        // and it is not marked failed because nothing about it is wrong.
+        if (error instanceof SendBlockedError) {
+          await supabase.rpc("block_delivery", { p_delivery: deliveryId, p_error: error.message });
+          logger.error("delivery blocked, no mail provider configured", {
+            deliveryId,
+            templateKey: delivery.template_key,
+            reason: error.message,
+          });
+          throw new UnrecoverableError(error.message);
+        }
+        // A rejected address or a bad payload will not succeed on the fifth
+        // attempt either, so these end the job immediately.
+        if (error instanceof PermanentSendError) {
+          throw new UnrecoverableError(error.message);
+        }
+        throw error;
+      }
+
+      await supabase
+        .from("mail_deliveries")
+        .update({
+          status: "sent",
+          provider_message_id: providerMessageId,
+          sent_at: new Date().toISOString(),
+          error: null,
+        })
+        .eq("id", deliveryId);
+
+      logger.info("sent", {
+        deliveryId,
+        templateKey: delivery.template_key,
+        provider: provider.name,
+        attempt: delivery.attempts,
+      });
+    },
+    { connection: createRedis(), concurrency: CONCURRENCY },
+  );
+
+  worker.on("failed", (job, error) => {
+    logger.warn("mail job failed", {
+      jobId: job?.id,
+      attempts: job?.attemptsMade,
+      error: error.message,
+    });
+    // Exhausted, or permanent and therefore never retried. Either way this
+    // delivery is over, and leaving it in "sending" would hide that.
+    const exhausted = job !== undefined && job.attemptsMade >= (job.opts.attempts ?? 1);
+    if (job && (exhausted || error instanceof UnrecoverableError)) {
+      void supabase
+        .from("mail_deliveries")
+        .update({ status: "failed", error: error.message })
+        .eq("id", job.data.deliveryId)
+        // A blocked delivery already has its terminal status and must keep it,
+        // otherwise a backlog waiting on credentials reads as a pile of failures.
+        .neq("status", "blocked");
+    }
+  });
+
+  return worker;
+}

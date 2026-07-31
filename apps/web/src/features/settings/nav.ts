@@ -3,9 +3,11 @@ import {
   Gauge,
   KeyRound,
   Palette,
+  ScrollText,
   Share2,
   UserRound,
   Users,
+  Webhook,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,13 +45,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     href: "/dashboard/settings/billing",
     label: "Billing",
-    description: "Your plan, credits, and invoices.",
+    // No invoice record exists anywhere in the schema, so this does not promise
+    // one. Receipts live in Stripe's portal, which the page links to.
+    description: "Your plan, your credit balance, and top-ups.",
     icon: CreditCard,
   },
   {
     href: "/dashboard/settings/usage",
     label: "Usage",
-    description: "What the AI has cost and how fast it ran.",
+    // Credits, not dollars: the page reports what the user spent, not what the
+    // provider bills us, because only the first is a number they hold.
+    description: "Credits spent, runs, and how fast models ran.",
     icon: Gauge,
   },
   {
@@ -63,5 +69,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "API keys",
     description: "Call the API from your own code.",
     icon: KeyRound,
+  },
+  {
+    href: "/dashboard/settings/webhooks",
+    label: "Webhooks",
+    description: "Get a signed request when something finishes.",
+    icon: Webhook,
+  },
+  {
+    href: "/dashboard/settings/logs",
+    label: "Activity log",
+    description: "Everything the platform did on your behalf.",
+    icon: ScrollText,
   },
 ];

@@ -1,16 +1,15 @@
 import { type Metadata } from "next";
 
-import { UsageOverview } from "@/features/dashboard/components/usage-overview";
-import { USAGE_WINDOWS, type UsageWindowId } from "@/lib/dashboard/usage";
+import { UsagePage } from "@/features/usage/components/usage-page";
+import { parseRange } from "@/features/usage/lib/range";
 
 export const metadata: Metadata = { title: "Usage" };
 
-export default async function UsagePage({
+export default async function Usage({
   searchParams,
 }: {
-  searchParams: Promise<{ window?: string }>;
+  searchParams: Promise<{ range?: string }>;
 }) {
-  const { window } = await searchParams;
-  const valid = USAGE_WINDOWS.some((option) => option.id === window);
-  return <UsageOverview window={valid ? (window as UsageWindowId) : "24h"} />;
+  const { range } = await searchParams;
+  return <UsagePage range={parseRange(range)} />;
 }
