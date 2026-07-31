@@ -13,6 +13,16 @@ export interface RateLimitResult {
   ok: boolean;
   remaining: number;
   retryAfterMs: number;
+  /**
+   * Why the request was refused, when it was.
+   *
+   * `throttled` means the caller genuinely exceeded the limit and waiting will
+   * help. `unavailable` means the limiter itself could not answer and we denied
+   * by default, where waiting helps nobody: the fix is configuration, not
+   * patience. Telling someone to wait a minute for a limiter that never counted
+   * them sends them to do nothing, repeatedly.
+   */
+  reason?: "throttled" | "unavailable";
 }
 
 export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {

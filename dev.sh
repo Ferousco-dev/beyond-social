@@ -150,6 +150,54 @@ if [ "$START_INFRA" = "1" ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Which database is the app actually pointed at?
+#
+# This script starts a local Supabase and applies every migration to it, then
+# launches an app that reads its own env and may be talking to production
+# instead. Three things can disagree: the URL, the anon key and the service-role
+# key, and a mismatch does not fail loudly. It surfaces as something else
+# entirely: a service-role key from the wrong project made the rate limiter fail
+# closed, and the sign-in page reported "too many attempts" for a limiter that
+# had never counted anything.
+# ---------------------------------------------------------------------------
+step "Configuration"
+
+WEB_ENV=""
+for candidate in apps/web/.env.local apps/web/.env; do
+  [ -f "$candidate" ] && WEB_ENV="$candidate" && break
+done
+
+if [ -z "$WEB_ENV" ]; then
+  warn "the web app has no env file, so it will run unconfigured"
+else
+  APP_URL=$(grep -E '^NEXT_PUBLIC_SUPABASE_URL=' "$WEB_ENV" | tail -1 | cut -d= -f2- | tr -d '"' || true)
+  APP_SERVICE=$(grep -E '^SUPABASE_SERVICE_ROLE_KEY=' "$WEB_ENV" | tail -1 | cut -d= -f2- | tr -d '"' || true)
+
+  case "$APP_URL" in
+    *127.0.0.1*|*localhost*)
+      ok "web points at the local stack ($WEB_ENV)"
+      # The local stack issues `sb_secret_` keys. A JWT here is the hosted
+      # project's, and every service-role call will be rejected.
+      case "$APP_SERVICE" in
+        sb_secret_*) ok "service-role key matches the local stack" ;;
+        "") warn "SUPABASE_SERVICE_ROLE_KEY is empty, so anything needing it will fail" ;;
+        *) die "SUPABASE_SERVICE_ROLE_KEY in $WEB_ENV is not this stack's key. Local Supabase issues an sb_secret_ key; a JWT belongs to the hosted project and will be rejected, which shows up as rate limits and permission errors rather than as a config error. Get the right one with: supabase status -o env | grep SECRET_KEY" ;;
+      esac
+      ;;
+    "")
+      warn "NEXT_PUBLIC_SUPABASE_URL is unset in $WEB_ENV"
+      ;;
+    *)
+      # Not an error. Pointing at the hosted project is a legitimate choice, but
+      # it should never be an accident, so it is stated every time.
+      warn "web points at a REMOTE Supabase, not the local stack you just started:"
+      warn "  $APP_URL"
+      warn "  local migrations and local accounts will not apply. Override in apps/web/.env.local."
+      ;;
+  esac
+fi
+
+# ---------------------------------------------------------------------------
 # Application services.
 # ---------------------------------------------------------------------------
 step "Services"

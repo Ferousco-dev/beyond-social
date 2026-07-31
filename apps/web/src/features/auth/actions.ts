@@ -36,6 +36,16 @@ const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
 const GENERIC_ERROR = "Something went wrong. Please try again.";
 const RATE_LIMITED = "Too many attempts. Please wait a minute and try again.";
 
+/*
+ * Deliberately different from the message above.
+ *
+ * When the limiter cannot answer we deny by default, which is right for auth.
+ * But saying "wait a minute" would be a lie: nothing counted the attempt, so
+ * waiting changes nothing and the person retries forever. This says the service
+ * is the problem, which is both true and actionable by whoever is on call.
+ */
+const RATE_LIMITER_DOWN = "We could not verify this request just now. Please try again shortly.";
+
 async function clientIp(): Promise<string> {
   const store = await headers();
   return store.get("x-forwarded-for")?.split(",")[0]?.trim() || store.get("x-real-ip") || "unknown";
@@ -52,8 +62,12 @@ async function throttle(action: string, limit: number): Promise<AuthResult | nul
   const ip = await clientIp();
   const result = await sharedRateLimit(`${action}:${ip}`, limit, 60_000);
   if (!result.ok) {
-    logger.warn("auth action rate limited", { action, ip });
-    return { status: "error", message: RATE_LIMITED };
+    const unavailable = result.reason === "unavailable";
+    logger[unavailable ? "error" : "warn"](
+      unavailable ? "auth denied because the limiter is unavailable" : "auth action rate limited",
+      { action, ip },
+    );
+    return { status: "error", message: unavailable ? RATE_LIMITER_DOWN : RATE_LIMITED };
   }
   return null;
 }
