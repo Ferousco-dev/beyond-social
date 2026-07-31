@@ -1,6 +1,13 @@
 "use client";
 
-import { LayoutDashboard, PenSquare, TrendingUp, type LucideIcon } from "lucide-react";
+import {
+  Boxes,
+  CalendarClock,
+  LayoutDashboard,
+  PenSquare,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -43,10 +50,23 @@ const LINKS: readonly NavLink[] = [
     motion: "group-hover:scale-110",
   },
   {
+    href: "/dashboard/schedule" as Route,
+    label: "Schedule",
+    icon: CalendarClock,
+    // A clock hand advancing, which is the one thing this page is about.
+    motion: "group-hover:rotate-12",
+  },
+  {
     href: "/dashboard/trends" as Route,
     label: "Trends",
     icon: TrendingUp,
     motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
+  },
+  {
+    href: "/dashboard/models" as Route,
+    label: "Models",
+    icon: Boxes,
+    motion: "group-hover:-translate-y-px",
   },
 ];
 

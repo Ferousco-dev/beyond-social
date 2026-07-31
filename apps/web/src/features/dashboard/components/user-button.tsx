@@ -4,8 +4,9 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronsUpDown, LogOut, Settings, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useTransition } from "react";
+import { type ReactNode, useState, useTransition } from "react";
 
+import { useConfirm } from "@/components/ui/use-confirm";
 import { signOutAction } from "@/features/auth/actions";
 import { ThemeToggle } from "@/features/settings/components/theme-toggle";
 import { type DashboardUser } from "@/lib/dashboard/data";
@@ -41,8 +42,23 @@ function Avatar({ initials }: { initials: string }): ReactNode {
 export function UserButton({ user, compact = false }: { user: DashboardUser; compact?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { confirm, dialog } = useConfirm();
 
-  function handleSignOut() {
+  // Signing out costs nothing but a sign in, so the wording stays light and the
+  // confirm button is an ordinary one. The dialog exists because the control
+  // sits one slip below "Plan", not because the action is dangerous.
+  async function handleSignOut() {
+    const confirmed = await confirm({
+      title: "Sign out?",
+      description:
+        "You will be sent back to the sign in page. Nothing is deleted, and signing back in brings you straight to where you left off.",
+      confirmLabel: "Sign out",
+      tone: "neutral",
+    });
+    if (!confirmed) return;
+
+    setMenuOpen(false);
     startTransition(async () => {
       await signOutAction();
       router.push("/login");
@@ -52,7 +68,8 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
 
   return (
     <div className={compact ? "" : "border-t border-hairline p-2"}>
-      <DropdownMenu.Root>
+      {dialog}
+      <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         {/* Named explicitly: the visible text is the account name, which does
             not say what the control does. In the collapsed rail there is no
             visible text at all, so the label is the only name it has. */}
@@ -133,7 +150,12 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
             <div className="p-1.5">
               <DropdownMenu.Item
                 disabled={pending}
-                onSelect={handleSignOut}
+                // The menu is held open behind the dialog so that cancelling
+                // returns focus to this row rather than to nothing.
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleSignOut();
+                }}
                 className={`${ROW} data-disabled:cursor-default data-disabled:opacity-50`}
               >
                 Sign out

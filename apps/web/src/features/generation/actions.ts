@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { checkVideoRun } from "@/lib/generation/gate";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { recordChunkOutcome } from "@/lib/prompt-engine/feedback";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
@@ -24,6 +25,8 @@ export type StartInput = z.input<typeof startInputSchema>;
 export type StartResult =
   | { status: "ok"; generationId: string; sourceChunks: string[] }
   | { status: "unconfigured" }
+  /** The plan or the balance refused the run. Nothing was sent to the provider. */
+  | { status: "denied"; message: string }
   | { status: "error"; message: string };
 
 // Kicks off a kie.ai video generation through the edge function. Returns
@@ -36,6 +39,10 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
   const { projectId, prompt, aspectRatio } = parsed.data;
+
+  // Tier and balance first, before any work is done or any money is spent.
+  const gate = await checkVideoRun();
+  if (!gate.allowed) return { status: "denied", message: gate.notice };
 
   // Ground the prompt in the knowledge base when the engine is configured; falls
   // back to the raw prompt otherwise, so the engine improves output but is never

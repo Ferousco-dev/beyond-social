@@ -2,6 +2,8 @@
 
 import { headers } from "next/headers";
 
+import { isCurrentAccountDeleted } from "@/lib/account/deletion";
+import { ACCOUNT_DELETED_MESSAGE } from "@/lib/account/types";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { sharedRateLimit } from "@/lib/rate-limit-shared";
@@ -70,6 +72,16 @@ export async function signInAction(input: LoginInput): Promise<AuthResult> {
   });
 
   if (error) return { status: "error", message: INVALID_CREDENTIALS };
+
+  // Checked after authentication, not instead of it, so the deleted state is
+  // never disclosed to someone who does not know the password. Named plainly
+  // rather than folded into INVALID_CREDENTIALS: no password reset can fix a
+  // deleted account, and being told otherwise sends people round that loop.
+  if (await isCurrentAccountDeleted()) {
+    await supabase.auth.signOut();
+    return { status: "error", message: ACCOUNT_DELETED_MESSAGE };
+  }
+
   return { status: "success", redirectTo: "/dashboard" };
 }
 

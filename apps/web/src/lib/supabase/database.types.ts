@@ -221,24 +221,30 @@ export type Database = {
         Row: {
           created_at: string;
           delta: number;
+          external_ref: string | null;
           generation_id: string | null;
           id: string;
+          kind: string;
           reason: string;
           user_id: string;
         };
         Insert: {
           created_at?: string;
           delta: number;
+          external_ref?: string | null;
           generation_id?: string | null;
           id?: string;
+          kind?: string;
           reason: string;
           user_id: string;
         };
         Update: {
           created_at?: string;
           delta?: number;
+          external_ref?: string | null;
           generation_id?: string | null;
           id?: string;
+          kind?: string;
           reason?: string;
           user_id?: string;
         };
@@ -468,6 +474,51 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      model_catalog: {
+        Row: {
+          capabilities: string[];
+          created_at: string;
+          credit_cost: number;
+          description: string;
+          family: string;
+          id: string;
+          is_active: boolean;
+          min_plan: string;
+          name: string;
+          provider: string;
+          sort_order: number;
+          updated_at: string;
+        };
+        Insert: {
+          capabilities?: string[];
+          created_at?: string;
+          credit_cost: number;
+          description: string;
+          family: string;
+          id: string;
+          is_active?: boolean;
+          min_plan?: string;
+          name: string;
+          provider: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Update: {
+          capabilities?: string[];
+          created_at?: string;
+          credit_cost?: number;
+          description?: string;
+          family?: string;
+          id?: string;
+          is_active?: boolean;
+          min_plan?: string;
+          name?: string;
+          provider?: string;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
       organizations: {
         Row: {
@@ -1087,6 +1138,89 @@ export type Database = {
           },
         ];
       };
+      user_model_preferences: {
+        Row: {
+          family: string;
+          model_id: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          family: string;
+          model_id: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          family?: string;
+          model_id?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_model_preferences_model_id_fkey";
+            columns: ["model_id"];
+            isOneToOne: false;
+            referencedRelation: "model_catalog";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_model_preferences_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_webhooks: {
+        Row: {
+          created_at: string;
+          events: string[];
+          failure_count: number;
+          id: string;
+          is_active: boolean;
+          last_delivery_at: string | null;
+          secret_hash: string;
+          secret_last_four: string;
+          url: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          events: string[];
+          failure_count?: number;
+          id?: string;
+          is_active?: boolean;
+          last_delivery_at?: string | null;
+          secret_hash: string;
+          secret_last_four: string;
+          url: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          events?: string[];
+          failure_count?: number;
+          id?: string;
+          is_active?: boolean;
+          last_delivery_at?: string | null;
+          secret_hash?: string;
+          secret_last_four?: string;
+          url?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_webhooks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       video_generations: {
         Row: {
           aspect_ratio: string;
@@ -1321,10 +1455,20 @@ export type Database = {
           user_id: string;
         }[];
       };
+      can_run_model: {
+        Args: { p_model: string };
+        Returns: {
+          allowed: boolean;
+          balance: number;
+          credit_cost: number;
+          reason: string;
+        }[];
+      };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
         Returns: undefined;
       };
+      credit_balance: { Args: never; Returns: number };
       create_organization: {
         Args: { p_name: string; p_slug: string };
         Returns: string;
@@ -1473,6 +1617,16 @@ export type Database = {
         Args: { p_chunk: Json; p_embedding: Json };
         Returns: undefined;
       };
+      grant_credits: {
+        Args: {
+          p_amount: number;
+          p_external_ref?: string;
+          p_reason: string;
+          p_user: string;
+        };
+        Returns: number;
+      };
+      plan_rank: { Args: { p_plan: string }; Returns: number };
       rate_limit_hit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: {
@@ -1482,7 +1636,6 @@ export type Database = {
         }[];
       };
       rate_limit_prune: { Args: never; Returns: number };
-      reset_due_credits: { Args: never; Returns: undefined };
       response_cache_get: { Args: { p_key: string }; Returns: string };
       response_cache_put: {
         Args: {
@@ -1529,6 +1682,32 @@ export type Database = {
           isOneToOne: false;
           isSetofReturn: true;
         };
+      };
+      usage_generation_daily: {
+        Args: { p_days: number; p_tz: string };
+        Returns: {
+          credits_refunded: number;
+          credits_spent: number;
+          day: string;
+          failed: number;
+          model: string;
+          runs: number;
+          succeeded: number;
+        }[];
+      };
+      usage_model_calls: {
+        Args: { p_days: number };
+        Returns: {
+          calls: number;
+          cached: number;
+          failed: number;
+          input_tokens: number;
+          model: string;
+          output_tokens: number;
+          p50_latency_ms: number;
+          provider: string;
+          task: string;
+        }[];
       };
     };
     Enums: {

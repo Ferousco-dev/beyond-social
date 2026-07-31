@@ -6,6 +6,7 @@ import { type Route } from "next";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { useConfirm } from "@/components/ui/use-confirm";
 import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +27,9 @@ export function SidebarProjects({
   const [items, setItems] = useState<Item[]>(() => [...initialItems]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => {
     if (!editingId) return;
@@ -43,6 +46,20 @@ export function SidebarProjects({
       );
     }
     setEditingId(null);
+  }
+
+  async function handleDelete(item: Item) {
+    const confirmed = await confirm({
+      title: `Delete "${item.title}"?`,
+      description:
+        "The project goes, and its videos and messages go with it. This cannot be undone.",
+      confirmLabel: "Delete project",
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+
+    setOpenMenuId(null);
+    setItems((prev) => prev.filter((entry) => entry.id !== item.id));
   }
 
   function renderRow(item: Item) {
@@ -72,7 +89,10 @@ export function SidebarProjects({
         >
           {item.title}
         </Link>
-        <DropdownMenu.Root>
+        <DropdownMenu.Root
+          open={openMenuId === item.id}
+          onOpenChange={(next) => setOpenMenuId(next ? item.id : null)}
+        >
           <DropdownMenu.Trigger asChild>
             <button
               type="button"
@@ -112,7 +132,12 @@ export function SidebarProjects({
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={cn(MENU_ITEM, "text-destructive data-[highlighted]:bg-destructive/10")}
-                onSelect={() => setItems((prev) => prev.filter((entry) => entry.id !== item.id))}
+                // The menu is held open behind the dialog so that cancelling
+                // returns focus to this row rather than to nothing.
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleDelete(item);
+                }}
               >
                 <Trash2 className="size-4" />
                 Delete
@@ -128,6 +153,7 @@ export function SidebarProjects({
 
   return (
     <div>
+      {dialog}
       {pinned.length > 0 ? (
         <div className="mb-5">
           <p className="px-3 pb-1 text-xs font-medium text-ink-soft">Pinned</p>

@@ -5,16 +5,13 @@ import { z } from "zod";
 
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
+import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { extractMemories } from "@/lib/memory/extract";
-import {
-  findRelatedConversations,
-  indexMessage,
-  renderRelated,
-} from "@/lib/memory/conversations";
+import { findRelatedConversations, indexMessage, renderRelated } from "@/lib/memory/conversations";
 import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
 import { getSummary, updateSummary } from "@/lib/memory/summarise";
 import { traceparent, withActionTrace } from "@/lib/observability/trace";
@@ -155,6 +152,15 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   // spending a credit on a video the person did not ask for.
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
+
+    // Tier and balance, checked server-side before the provider is called. A
+    // refusal here costs nothing and leaves no half-started generation row.
+    const gate = await checkVideoRun();
+    if (!gate.allowed) {
+      notice = gate.notice;
+      return;
+    }
+
     try {
       // Hands the trace across the process boundary. The edge function stores it
       // on the generation row, which is how the callback that arrives minutes

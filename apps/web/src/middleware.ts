@@ -18,6 +18,10 @@ export const config = {
    *
    * The protected prefixes still need it, because that is where access is
    * decided, and the auth pages need it to bounce an already-signed-in user.
+   *
+   * Being an allowlist is also what keeps the deleted-account redirect from
+   * looping: `/account-deleted` is not listed, so the middleware never runs on
+   * the page it redirects to. Do not broaden this to a catch-all pattern.
    */
   matcher: [
     "/dashboard/:path*",
