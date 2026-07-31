@@ -93,6 +93,14 @@ if [ "$START_INFRA" = "1" ]; then
     # Started explicitly rather than automatically: bringing up a virtual
     # machine is a decision the person running this should make knowingly.
     if command -v colima >/dev/null 2>&1; then
+      # `colima start` on a stale socket prints "already running, ignoring" and
+      # changes nothing, because the VM genuinely is running: it is the daemon
+      # inside it that died, usually after the laptop slept. Telling someone to
+      # start what is already started sends them in a circle, so distinguish the
+      # two states and name the command that actually helps.
+      if colima status >/dev/null 2>&1; then
+        die "Colima is running but its Docker daemon is not answering, which is a stale socket after a sleep. Fix it with: colima restart"
+      fi
       die "Docker is not running. Start it with: colima start"
     fi
     die "Docker is not running. Start Docker Desktop, or install colima."
