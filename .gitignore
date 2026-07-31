@@ -42,3 +42,6 @@ next-env.d.ts
 # Local brand source drop (copies live in apps/web/public/brand)
 logo/
 .vercel
+
+# Redis dump written by the native redis-server dev.sh starts.
+dump.rdb
