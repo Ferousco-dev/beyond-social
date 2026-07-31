@@ -8,6 +8,7 @@ import { corsHeaders, json } from "../_shared/http.ts";
 import { parseUrls } from "../_shared/kie.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
 import { persistRender } from "../_shared/store.ts";
+import { log } from "../_shared/trace.ts";
 
 interface CallbackBody {
   code?: number;
@@ -45,22 +46,27 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
+  // Read once, before branching: the trace id belongs on both the success and
+  // the failure line, and a failure is the case somebody will actually be
+  // searching for.
+  const { data: generation } = await admin
+    .from("video_generations")
+    .select("user_id, trace_id")
+    .eq("provider_task_id", taskId)
+    .single();
+  const traceId = generation?.trace_id ?? null;
+
   const urls = parseUrls(body.data?.info?.resultUrls);
   if (body.code === 200 && urls.length > 0) {
-    const { data: generation } = await admin
-      .from("video_generations")
-      .select("user_id")
-      .eq("provider_task_id", taskId)
-      .single();
     const resultUrl = generation
       ? await persistRender(admin, generation.user_id, taskId, urls[0])
       : urls[0];
     await admin.rpc("complete_generation", { p_provider_task_id: taskId, p_result_url: resultUrl });
+    log("info", "generation completed", { traceId, taskId });
   } else {
-    await admin.rpc("fail_generation", {
-      p_provider_task_id: taskId,
-      p_error: body.msg ?? "Generation failed",
-    });
+    const reason = body.msg ?? "Generation failed";
+    await admin.rpc("fail_generation", { p_provider_task_id: taskId, p_error: reason });
+    log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
   }
 
   return json({ received: true });

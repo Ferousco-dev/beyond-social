@@ -55,3 +55,10 @@ verify_jwt = true
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]
 verify_jwt = false
+
+# The analytics container mounts the host Docker socket, which a Colima or
+# Lima-backed daemon cannot provide. It powers the local log explorer in Studio
+# and nothing the application depends on, so local development turns it off.
+# Hosted projects are unaffected: this file configures the local stack only.
+[analytics]
+enabled = false

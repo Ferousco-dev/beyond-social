@@ -9,6 +9,15 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
+import { extractMemories } from "@/lib/memory/extract";
+import {
+  findRelatedConversations,
+  indexMessage,
+  renderRelated,
+} from "@/lib/memory/conversations";
+import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
+import { getSummary, updateSummary } from "@/lib/memory/summarise";
+import { traceparent, withActionTrace } from "@/lib/observability/trace";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { createClient } from "@/lib/supabase/server";
@@ -55,6 +64,12 @@ function titleFrom(prompt: string): string {
 }
 
 export async function sendMessage(input: z.input<typeof sendSchema>): Promise<SendResult> {
+  // Everything below, including the model calls and the edge function invoke,
+  // runs inside one trace, so a turn that goes wrong is one log query.
+  return withActionTrace("sendMessage", () => send(input));
+}
+
+async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   const parsed = sendSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -88,9 +103,17 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
   //
   // The prior prompt and the thread are independent reads, so they go together;
   // classification needs the first of them, so it follows.
-  const [previousPrompt, previous] = await Promise.all([
+  // Recall joins the existing parallel reads rather than adding a stage: it is
+  // an independent lookup, and running it in series would put an embedding round
+  // trip in front of every message.
+  const [previousPrompt, previous, memories, summary, related] = await Promise.all([
     getLatestDirectedPrompt(supabase, projectId),
     supabase.rpc("project_thread", { p_project: projectId }),
+    recallFacts(prompt),
+    getSummary(projectId),
+    // Past conversations, excluding this one: it is the closest match to itself
+    // and returning it as "earlier work" would be noise.
+    findRelatedConversations(prompt, projectId),
   ]);
   const intent = await classify(prompt, previousPrompt !== null);
 
@@ -133,7 +156,12 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
     try {
+      // Hands the trace across the process boundary. The edge function stores it
+      // on the generation row, which is how the callback that arrives minutes
+      // later, in a different process, rejoins this request's trace.
+      const parent = traceparent();
       const { data, error } = await supabase.functions.invoke("generate-video", {
+        ...(parent ? { headers: { traceparent: parent } } : {}),
         body: {
           projectId,
           prompt: finalPrompt,
@@ -170,10 +198,12 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
       directedPrompt: intent.intent === "ask" ? null : finalPrompt,
       history,
       intent: intent.intent,
+      memories: [renderMemories(memories), renderRelated(related)].filter(Boolean).join("\n\n"),
+      summary,
     }),
   ]);
 
-  const { error: turnError } = await supabase.rpc("append_turn", {
+  const { data: turnRows, error: turnError } = await supabase.rpc("append_turn", {
     p_project: projectId,
     p_user_content: prompt,
     p_assistant_content: reply,
@@ -188,6 +218,23 @@ export async function sendMessage(input: z.input<typeof sendSchema>): Promise<Se
   // Only a fresh brief teaches the engine anything: an adjustment is a delta
   // and a question is not a prompt at all.
   if (intent.intent === "create") void learnFromPrompt(prompt, finalPrompt);
+
+  // Deliberately after the turn is persisted, and deliberately not awaited.
+  // Extraction costs a model call and yields nothing on most turns, so making
+  // the user wait for it would be paying latency for a usually-empty result.
+  void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
+
+  // Makes this turn findable by a later "continue what we started". Indexed from
+  // the row that was actually written, so the embedding can never point at a
+  // message id that does not exist.
+  const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
+    (row) => row.role === "user",
+  );
+  if (userMessage) void indexMessage(userMessage.id, projectId, prompt);
+
+  // Also after the fact: the summary is for the *next* turn, so making this one
+  // wait for it would be charging the user for someone else's benefit.
+  void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
 
   revalidatePath(`/dashboard/c/${projectId}`);
   return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };

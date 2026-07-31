@@ -218,6 +218,31 @@
   }
 }
 
+/*
+ * Safe areas.
+ *
+ * The viewport is declared `viewport-fit=cover` so an installed app paints
+ * edge to edge, under the notch and the home indicator. Everything pinned to a
+ * screen edge has to pay that back, or the first row of controls sits under the
+ * hardware and the last row sits under the gesture bar.
+ *
+ * The inset is zero on every device without a cutout, so these are inert on a
+ * desktop. Where an element also needs padding of its own, put the inset on a
+ * wrapper rather than trying to add the two together.
+ */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pl-safe {
+  padding-left: env(safe-area-inset-left);
+}
+@utility pr-safe {
+  padding-right: env(safe-area-inset-right);
+}
+
 @layer base {
   * {
     @apply border-border;

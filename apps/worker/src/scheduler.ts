@@ -27,14 +27,24 @@ export function startScheduler(queue: PublishQueue): () => void {
     }
     const posts = (data ?? []) as DuePost[];
     for (const post of posts) {
-      await queue.add("publish", {
-        scheduledPostId: post.id,
-        userId: post.user_id,
-        platform: post.platform,
-        caption: post.caption,
-        hashtags: post.hashtags,
-        generationId: post.generation_id,
-      });
+      await queue.add(
+        "publish",
+        {
+          scheduledPostId: post.id,
+          userId: post.user_id,
+          platform: post.platform,
+          caption: post.caption,
+          hashtags: post.hashtags,
+          generationId: post.generation_id,
+        },
+        // The post's own id is the job id, so the same post can never be in the
+        // queue twice. Two schedulers scanning at once, or one scan retried
+        // after a partial failure, both produce the same id and BullMQ keeps
+        // one. Without this the claim in the database is the only thing standing
+        // between a retry and a duplicate post; with it, the duplicate never
+        // reaches the queue.
+        { jobId: `post:${post.id}` },
+      );
     }
     if (posts.length > 0) logger.info("enqueued due posts", { count: posts.length });
   };

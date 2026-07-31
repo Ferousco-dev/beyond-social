@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/brand/logo";
-import { HeaderAuthActions } from "@/features/auth/components/header-auth-actions";
+import { HeaderAuthActions } from "@/features/auth/components/header-auth-actions-lazy";
 import { NAV_LINKS } from "@/lib/marketing/site";
 import { cn } from "@/lib/utils";
 

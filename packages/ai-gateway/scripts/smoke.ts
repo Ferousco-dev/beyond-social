@@ -10,7 +10,7 @@ import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
 import { z } from "zod";
 import { type CompletionResult, type ProviderClient } from "../src/providers";
-import { TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
+import { TieredLimiter, TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
 import { ProviderError } from "../src/retry";
 import {
   InjectionError,
@@ -311,6 +311,141 @@ async function main(): Promise<void> {
     "agent respects the spend bound",
     costly.stopReason === "budget" && costly.totalCostUsd >= 0.002,
     `$${costly.totalCostUsd.toFixed(4)} over ${costly.steps.length} steps`,
+  );
+
+  // A provider that hangs is the case the fallback chain was written for and the
+  // one it could not see: retry and failover both trigger on an error, and a
+  // call that never returns never produces one. Without a deadline this test
+  // does not fail, it hangs, which is exactly what production did.
+  const hanging: ProviderClient = {
+    async complete(_spec, request): Promise<CompletionResult> {
+      return new Promise((_resolve, reject) => {
+        request.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    },
+  };
+  let rescued = false;
+  const standby: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      rescued = true;
+      return { text: "second opinion", inputTokens: 1, outputTokens: 1 };
+    },
+  };
+  const deadlined = new AiGateway({
+    clients: { google: hanging, anthropic: standby, openai: standby },
+    timeoutMs: 300,
+    retry: { attempts: 1, baseDelayMs: 1, maxDelayMs: 1 },
+  });
+  const startedAt = Date.now();
+  const rescue = await deadlined.complete({
+    task: "chat",
+    messages: [{ role: "user", content: "hello" }],
+  });
+  const elapsedMs = Date.now() - startedAt;
+  check(
+    "a hung provider is abandoned and the chain fails over",
+    rescued && rescue.text === "second opinion" && rescue.fallbacks >= 1 && elapsedMs < 3_000,
+    `${elapsedMs}ms, ${rescue.fallbacks} fallback(s)`,
+  );
+
+  // The breaker's whole job is to stop asking a provider that is down. Counting
+  // the calls is the only way to see it: without it the chain still returns the
+  // right answer, just after paying for every dead attempt first.
+  let downCalls = 0;
+  const down: ProviderClient = {
+    async complete(): Promise<CompletionResult> {
+      downCalls += 1;
+      throw new ProviderError("service unavailable", 503);
+    },
+  };
+  let clock = 0;
+  const isolated = new AiGateway({
+    clients: { google: down, anthropic: standby, openai: standby },
+    breaker: { threshold: 2, cooldownMs: 10_000 },
+    retry: { attempts: 1, baseDelayMs: 1, maxDelayMs: 1 },
+    now: () => clock,
+  });
+  const ask = (): Promise<unknown> =>
+    isolated.complete({ task: "chat", messages: [{ role: "user", content: "hi" }] });
+
+  await ask();
+  await ask();
+  const callsBeforeOpen = downCalls;
+  await ask();
+  await ask();
+  check(
+    "a failing provider is dropped from the chain once the circuit opens",
+    downCalls === callsBeforeOpen && callsBeforeOpen === 2,
+    `${callsBeforeOpen} attempts before opening, ${downCalls - callsBeforeOpen} after`,
+  );
+
+  clock += 10_001;
+  await ask();
+  check(
+    "the circuit half-opens after the cooldown and tries again",
+    downCalls === callsBeforeOpen + 1,
+    `${downCalls - callsBeforeOpen} trial call(s)`,
+  );
+
+  // A shared limiter is asynchronous by nature, and the tier in front of it is
+  // not. Both have to compose, or the durable limit cannot be added without
+  // rewriting every call site.
+  const local = new TokenBucketLimiter({ capacity: 100, refillPerSec: 0 });
+  let sharedCalls = 0;
+  const shared = {
+    async take(): Promise<{ allowed: boolean; retryAfterMs: number }> {
+      sharedCalls += 1;
+      return { allowed: sharedCalls <= 2, retryAfterMs: 5_000 };
+    },
+  };
+  const tiered = new TieredLimiter([local, shared]);
+  const decisions = [
+    await tiered.take("u", 1),
+    await tiered.take("u", 1),
+    await tiered.take("u", 1),
+  ];
+  check(
+    "a shared limit refuses after the local one allows",
+    decisions[0]?.allowed === true &&
+      decisions[1]?.allowed === true &&
+      decisions[2]?.allowed === false &&
+      decisions[2]?.retryAfterMs === 5_000,
+    `${decisions.filter((d) => d.allowed).length} of 3 allowed`,
+  );
+
+  // The cheap tier must short-circuit the expensive one, or every refusal still
+  // pays for a round trip it did not need.
+  const drained = new TieredLimiter([
+    new TokenBucketLimiter({ capacity: 1, refillPerSec: 0 }),
+    shared,
+  ]);
+  await drained.take("v", 5);
+  const callsBefore = sharedCalls;
+  await drained.take("v", 5);
+  check(
+    "a local refusal never reaches the shared limiter",
+    sharedCalls === callsBefore,
+    `${sharedCalls - callsBefore} extra shared call(s)`,
+  );
+
+  // A prompt that fits but leaves no room for the answer must be treated as too
+  // long. Checking the prompt alone sends it and collects a provider 400.
+  const bigPrompt = "x".repeat(4 * 190_000);
+  let windowError = "";
+  try {
+    await new AiGateway({ clients: { anthropic: standby } }).complete({
+      task: "chat",
+      system: bigPrompt,
+      messages: [{ role: "user", content: "hi" }],
+      maxTokens: 32_000,
+    });
+  } catch (error) {
+    windowError = error instanceof Error ? error.message : String(error);
+  }
+  check(
+    "output is reserved when checking the context window",
+    windowError.includes("reserved for output"),
+    windowError.slice(0, 70),
   );
 
   process.stdout.write(`${results.join("\n")}\n`);

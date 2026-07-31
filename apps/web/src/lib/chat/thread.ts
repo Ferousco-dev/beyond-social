@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 
 /**
  * Reading a conversation.
@@ -81,9 +82,7 @@ export async function getThread(id: string): Promise<Thread> {
   if (!isSupabaseConfigured || id === "new") return { ...EMPTY, live: isSupabaseConfigured };
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return { ...EMPTY, live: isSupabaseConfigured };
 
   const [{ data: project }, { data: rows }] = await Promise.all([

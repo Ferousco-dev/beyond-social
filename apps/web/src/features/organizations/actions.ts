@@ -44,7 +44,7 @@ export async function createOrganization(input: z.input<typeof createSchema>): P
     });
     if (error) throw new Error(error.message);
 
-    revalidatePath("/dashboard/team");
+    revalidatePath("/dashboard/settings/team");
     return { status: "ok" };
   } catch (error) {
     logger.warn("failed to create organization", {

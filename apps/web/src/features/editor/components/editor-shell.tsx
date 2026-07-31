@@ -23,6 +23,8 @@ export function EditorShell({
   initialProject,
   initialRevision,
   canSave,
+  generationId,
+  availablePlatforms,
 }: {
   conversationId: string;
   title: string;
@@ -30,6 +32,10 @@ export function EditorShell({
   initialRevision: number;
   /** False for an unsaved project or without a backend, so autosave stays off. */
   canSave: boolean;
+  /** The finished render to publish, or null while none is ready. */
+  generationId: string | null;
+  /** Platforms with credentials configured; the rest are shown as unavailable. */
+  availablePlatforms: readonly string[];
 }): ReactNode {
   const [chatOpen, setChatOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -55,6 +61,8 @@ export function EditorShell({
         onTogglePanel={() => setPanelOpen((open) => !open)}
         saveState={autosave.state}
         onRetrySave={autosave.saveNow}
+        generationId={generationId}
+        availablePlatforms={availablePlatforms}
       />
 
       {/* Panels sit above a timeline that spans the full window, as in a desktop editor. */}

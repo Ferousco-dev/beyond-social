@@ -50,7 +50,7 @@ export async function startCheckout(
       // account even though Stripe knows nothing about our user ids.
       client_reference_id: user.id,
       subscription_data: { metadata: { userId: user.id, plan: parsed.data.plan } },
-      success_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/usage?upgraded=1`,
+      success_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/settings/usage?upgraded=1`,
       cancel_url: `${env.NEXT_PUBLIC_APP_URL}/pricing`,
     });
 
@@ -87,7 +87,7 @@ export async function openBillingPortal(): Promise<CheckoutResult> {
     const stripe = new Stripe(serverEnv.STRIPE_SECRET_KEY);
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/usage`,
+      return_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/settings/usage`,
     });
     return { status: "redirect", url: session.url };
   } catch (error) {

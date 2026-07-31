@@ -64,3 +64,30 @@ export function currentTrace(): TraceContext | undefined {
 export function runWithTrace<T>(context: TraceContext, fn: () => T): T {
   return storage.run(context, fn);
 }
+
+/**
+ * Runs a server action inside a trace.
+ *
+ * Route handlers get this from `withTrace` in `http.ts`, which reads the
+ * incoming headers. A server action has no `Request` to read, so it starts its
+ * own root trace. Without this the actions that do the most interesting work,
+ * sending a message and starting a generation, produced log lines with no id on
+ * them at all.
+ */
+export function withActionTrace<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  return runWithTrace({ traceId: newTraceId(), spanId: newSpanId(), name }, fn);
+}
+
+/**
+ * The current trace formatted as a W3C `traceparent`, for handing to something
+ * outside this process.
+ *
+ * `01` is the sampled flag: everything is sampled, because at this volume the
+ * failures are rare enough that discarding any of them is the expensive choice.
+ * Returns null outside a trace rather than inventing one, so a caller cannot
+ * accidentally start a trace that corresponds to no request.
+ */
+export function traceparent(): string | null {
+  const context = currentTrace();
+  return context ? `00-${context.traceId}-${context.spanId}-01` : null;
+}

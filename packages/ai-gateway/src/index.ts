@@ -4,6 +4,7 @@ export * from "./orchestration";
 export * from "./models";
 export * from "./providers";
 export * from "./rate-limit";
+export * from "./breaker";
 export * from "./retry";
 export * from "./tokens";
 export * from "./usage";

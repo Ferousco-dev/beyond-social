@@ -1,5 +1,8 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
+import { describeSchedule } from "@/lib/time/zone";
+import { getUserTimeZone } from "@/lib/time/user-zone";
 import {
   type PostStatus,
   type ProfileRow,
@@ -40,9 +43,7 @@ export async function getCredits(): Promise<Credits> {
   if (!isSupabaseConfigured) return CREDITS;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return CREDITS;
 
   const { data } = await supabase
@@ -79,15 +80,21 @@ export async function getHistory(): Promise<readonly HistoryItem[]> {
   if (!isSupabaseConfigured) return HISTORY;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("scheduled_posts")
-    .select("id, platform, caption, scheduled_for, status")
-    .order("scheduled_for", { ascending: false })
-    .limit(20)
-    .returns<PostSummary[]>();
+  // The zone is read alongside the posts rather than per row: it is one value
+  // for the whole list, and asking once is the difference between one query and
+  // twenty.
+  const [{ data }, timeZone] = await Promise.all([
+    supabase
+      .from("scheduled_posts")
+      .select("id, platform, caption, scheduled_for, status")
+      .order("scheduled_for", { ascending: false })
+      .limit(20)
+      .returns<PostSummary[]>(),
+    getUserTimeZone(),
+  ]);
   if (!data) return [];
 
-  return data.map((post) => toHistoryItem(post));
+  return data.map((post) => toHistoryItem(post, timeZone));
 }
 
 const SIDEBAR_FALLBACK: readonly SidebarProject[] = PROJECT_GROUPS.flatMap((group) =>
@@ -160,23 +167,15 @@ type PostSummary = Pick<
   "id" | "platform" | "caption" | "scheduled_for" | "status"
 >;
 
-function toHistoryItem(post: PostSummary): HistoryItem {
+function toHistoryItem(post: PostSummary, timeZone: string | null): HistoryItem {
   return {
     id: post.id,
     title: post.caption,
     platform: PLATFORM_LABELS[post.platform],
-    when: relativeTime(post.scheduled_for),
+    // Both directions and the reader's own clock. The version here computed
+    // `now - scheduled_for` and phrased everything in the past, so a post
+    // scheduled for next week read as "1h ago".
+    when: describeSchedule(post.scheduled_for, timeZone),
     status: HISTORY_STATUS[post.status],
   };
-}
-
-function relativeTime(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diffMs / DAY_MS);
-  if (days <= 0) {
-    const hours = Math.max(1, Math.floor(diffMs / 3_600_000));
-    return `${hours}h ago`;
-  }
-  if (days === 1) return "Yesterday";
-  return `${days} days ago`;
 }

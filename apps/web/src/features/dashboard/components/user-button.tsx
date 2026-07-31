@@ -9,6 +9,7 @@ import { type ReactNode, useTransition } from "react";
 import { signOutAction } from "@/features/auth/actions";
 import { ThemeToggle } from "@/features/settings/components/theme-toggle";
 import { type DashboardUser } from "@/lib/dashboard/data";
+import { cn } from "@/lib/utils";
 
 /**
  * The account menu at the foot of the sidebar.
@@ -37,7 +38,7 @@ function Avatar({ initials }: { initials: string }): ReactNode {
   );
 }
 
-export function UserButton({ user }: { user: DashboardUser }) {
+export function UserButton({ user, compact = false }: { user: DashboardUser; compact?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -50,20 +51,28 @@ export function UserButton({ user }: { user: DashboardUser }) {
   }
 
   return (
-    <div className="border-t border-hairline p-2">
+    <div className={compact ? "" : "border-t border-hairline p-2"}>
       <DropdownMenu.Root>
         {/* Named explicitly: the visible text is the account name, which does
-            not say what the control does. */}
+            not say what the control does. In the collapsed rail there is no
+            visible text at all, so the label is the only name it has. */}
         <DropdownMenu.Trigger
           aria-label="Account menu"
-          className="flex w-full cursor-pointer items-center gap-2 rounded-lg p-1.5 text-left transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary data-[state=open]:bg-cloud"
+          className={cn(
+            "flex cursor-pointer items-center rounded-lg text-left transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary data-[state=open]:bg-cloud",
+            compact ? "w-full justify-center p-1.5" : "w-full gap-2 p-1.5",
+          )}
         >
           <Avatar initials={user.initials} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm text-ink">{user.name}</span>
-            <span className="block truncate text-xs text-ink-soft">Free plan</span>
-          </span>
-          <ChevronsUpDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
+          {compact ? null : (
+            <>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm text-ink">{user.name}</span>
+                <span className="block truncate text-xs text-ink-soft">Free plan</span>
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
+            </>
+          )}
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Portal>
@@ -72,8 +81,9 @@ export function UserButton({ user }: { user: DashboardUser }) {
             align="start"
             sideOffset={8}
             // Sized from the trigger, so the panel reads as an expansion of the
-            // row it came from rather than a floating card of its own.
-            className="z-50 w-[var(--radix-dropdown-menu-trigger-width)] min-w-64 overflow-hidden rounded-xl border border-hairline bg-paper shadow-lg"
+            // row it came from rather than a floating card of its own. In the
+            // collapsed rail the trigger is an avatar, so the minimum carries it.
+            className="z-50 w-[var(--radix-dropdown-menu-trigger-width)] min-w-64 overflow-hidden rounded-xl border border-hairline bg-paper shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-1"
           >
             <div className="flex items-center gap-3 px-3 py-3">
               <span className="min-w-0 flex-1">

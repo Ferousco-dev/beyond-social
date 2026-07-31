@@ -47,19 +47,19 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: CreditCard,
   },
   {
-    href: "/dashboard/usage",
+    href: "/dashboard/settings/usage",
     label: "Usage",
     description: "What the AI has cost and how fast it ran.",
     icon: Gauge,
   },
   {
-    href: "/dashboard/team",
+    href: "/dashboard/settings/team",
     label: "Team",
     description: "Who else can work in this workspace.",
     icon: Users,
   },
   {
-    href: "/dashboard/api-keys",
+    href: "/dashboard/settings/api-keys",
     label: "API keys",
     description: "Call the API from your own code.",
     icon: KeyRound,

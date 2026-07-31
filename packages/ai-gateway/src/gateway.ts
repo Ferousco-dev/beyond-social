@@ -10,7 +10,8 @@ import {
 import { cacheKey, isCacheable, type ResponseCache } from "./cache";
 import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
 import { estimateTokens } from "./tokens";
-import { withRetry, type RetryOptions } from "./retry";
+import { CircuitBreaker, type BreakerOptions } from "./breaker";
+import { isRetryable, withRetry, type RetryOptions } from "./retry";
 import { type CompletionRequest, type CompletionResult, type ProviderClient } from "./providers";
 import {
   InjectionError,
@@ -30,6 +31,18 @@ export interface GatewayOptions {
   /** How long a cached response stays valid. */
   cacheTtlMs?: number;
   retry?: Partial<RetryOptions>;
+  /** Per-provider failure isolation. Defaults are usually right. */
+  breaker?: Partial<BreakerOptions>;
+  /**
+   * How long one attempt may take before it is abandoned.
+   *
+   * Without this the fallback chain below is unreachable in the case it was
+   * written for. Retry and cross-provider failover both trigger on an error, and
+   * a provider that hangs never produces one: the call simply never returns, and
+   * the caller waits until something further up the stack gives up. A deadline
+   * is what turns a hang into a failure the chain can act on.
+   */
+  timeoutMs?: number;
   /** Overrides the default candidate chain for a task. */
   routes?: Partial<Record<Task, readonly string[]>>;
   now?: () => number;
@@ -64,6 +77,29 @@ export interface GatewayResponse extends CompletionResult {
 }
 
 const DEFAULT_RETRY: RetryOptions = { attempts: 3, baseDelayMs: 500, maxDelayMs: 8_000 };
+
+/**
+ * Generous, because a long completion is not a stuck one. This exists to catch a
+ * connection that has died quietly, not to cap how long a model may think.
+ */
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * Headroom on the token estimate, which is a character count divided by four.
+ * Right for English prose, optimistic for JSON, code and non-Latin scripts.
+ */
+const ESTIMATE_MARGIN = 1.15;
+
+/** Assumed output when a caller does not say, so the window check has both halves. */
+const DEFAULT_OUTPUT_RESERVE = 4_096;
+
+/** Distinguishable from a provider's own errors, so callers can report honestly. */
+export class ProviderTimeoutError extends Error {
+  constructor(model: string, timeoutMs: number) {
+    super(`${model} did not respond within ${timeoutMs}ms`);
+    this.name = "ProviderTimeoutError";
+  }
+}
 const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
@@ -81,6 +117,7 @@ export class AiGateway {
   private readonly limiter: RateLimiter;
   private readonly usage: UsageSink;
   private readonly retry: RetryOptions;
+  private readonly breaker: CircuitBreaker;
   private readonly now: () => number;
   private readonly newId: () => string;
 
@@ -88,6 +125,7 @@ export class AiGateway {
     this.limiter = options.limiter ?? new NoopLimiter();
     this.usage = options.usage ?? new NoopUsageSink();
     this.retry = { ...DEFAULT_RETRY, ...options.retry };
+    this.breaker = new CircuitBreaker({ ...options.breaker, now: options.now });
     this.now = options.now ?? Date.now;
     this.newId = options.newId ?? (() => `req_${Math.random().toString(36).slice(2, 10)}`);
   }
@@ -159,7 +197,7 @@ export class AiGateway {
     const promptTokens = estimateTokens(
       request.system + request.messages.map((message) => message.content).join(" "),
     );
-    const decision = this.limiter.take(request.userId ?? "anonymous", Math.max(1, promptTokens));
+    const decision = await this.limiter.take(request.userId ?? "anonymous", Math.max(1, promptTokens));
     if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
 
     let lastError: unknown;
@@ -168,12 +206,36 @@ export class AiGateway {
       const client = this.options.clients[spec.provider];
       if (!client) continue;
 
-      // A prompt that cannot fit is a terminal error for this model, not a
-      // retryable one; skip straight to the next candidate.
-      if (promptTokens > spec.contextWindow) {
+      /*
+       * A prompt that cannot fit is a terminal error for this model, not a
+       * retryable one; skip straight to the next candidate.
+       *
+       * The budget is input *plus* output, because they share one window. The
+       * check here compared the prompt alone, which passes a prompt sitting at
+       * 95% of the window and then asks for 8k of completion on top, and the
+       * provider rejects the whole thing. That reads as a mysterious 400 from
+       * every model in the chain rather than as "too long".
+       *
+       * The margin covers the estimate itself: ~4 characters per token is right
+       * for English prose and optimistic for JSON, code and non-Latin scripts,
+       * all of which appear in real briefs. Being wrong in this direction costs
+       * a slightly smaller usable window; being wrong in the other costs the
+       * request.
+       */
+      const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
+      const budget = Math.ceil(promptTokens * ESTIMATE_MARGIN) + reservedOutput;
+      if (budget > spec.contextWindow) {
         lastError = new Error(
-          `Prompt of ~${promptTokens} tokens exceeds ${spec.id} context window`,
+          `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
         );
+        continue;
+      }
+
+      // A provider that has been failing is skipped outright rather than
+      // retried into. The chain moves to the next candidate immediately, so an
+      // outage costs one hop instead of a full backoff schedule per model.
+      if (!this.breaker.allows(spec.provider)) {
+        lastError = new Error(`${spec.provider} circuit is open`);
         continue;
       }
 
@@ -181,8 +243,10 @@ export class AiGateway {
       try {
         const result = await withRetry(() => {
           attempts += 1;
-          return client.complete(spec, request);
+          return this.completeWithDeadline(client, spec, request);
         }, this.retry);
+
+        this.breaker.recordSuccess(spec.provider);
 
         this.screenOutput(result.text);
 
@@ -219,6 +283,12 @@ export class AiGateway {
         };
       } catch (error) {
         lastError = error;
+        // Only a transient failure says anything about the provider's health. A
+        // rejected prompt or a retired model is this request's problem, and
+        // counting it would take a healthy provider out of rotation.
+        if (isRetryable(error) || error instanceof ProviderTimeoutError) {
+          this.breaker.recordFailure(spec.provider);
+        }
         void this.usage.record(
           this.buildRecord(requestId, request, spec, {
             result: { text: "", inputTokens: 0, outputTokens: 0 },
@@ -256,6 +326,41 @@ export class AiGateway {
     if (safety.moderateInput) {
       const verdict = moderate(text);
       if (verdict.action === "block") throw new ModerationError("input", verdict);
+    }
+  }
+
+  /**
+   * One attempt, bounded.
+   *
+   * The signal is passed to the provider so the connection is actually torn
+   * down rather than left running while we stop waiting for it, which is the
+   * difference between a timeout and a leak. A caller that supplies its own
+   * signal still wins: aborting that one aborts this.
+   */
+  private async completeWithDeadline(
+    client: ProviderClient,
+    spec: ModelSpec,
+    request: GatewayRequest,
+  ): Promise<CompletionResult> {
+    const timeoutMs = this.options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    const abortFromCaller = (): void => controller.abort();
+    request.signal?.addEventListener("abort", abortFromCaller);
+
+    try {
+      return await client.complete(spec, { ...request, signal: controller.signal });
+    } catch (error) {
+      // The provider reports an abort as its own generic error, so the reason
+      // has to be reconstructed here or the log says "fetch failed".
+      if (controller.signal.aborted && !request.signal?.aborted) {
+        throw new ProviderTimeoutError(spec.id, timeoutMs);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+      request.signal?.removeEventListener("abort", abortFromCaller);
     }
   }
 

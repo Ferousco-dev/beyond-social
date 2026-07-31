@@ -15,7 +15,33 @@ export interface RateLimitDecision {
 }
 
 export interface RateLimiter {
-  take(key: string, cost?: number): RateLimitDecision;
+  /**
+   * May be synchronous or not. The in-process bucket answers immediately; a
+   * shared limiter has to ask something over a network, and forcing that to be
+   * synchronous is what pushes people into keeping limits per instance.
+   */
+  take(key: string, cost?: number): RateLimitDecision | Promise<RateLimitDecision>;
+}
+
+/**
+ * Applies several limiters in order, and stops at the first refusal.
+ *
+ * The point is that they are not redundant. A local token bucket costs nothing
+ * and stops an obvious flood before it leaves the process; a shared counter
+ * costs a round trip and is the only thing that can enforce a real quota across
+ * a fleet where every instance has its own memory. Cheapest first, so the common
+ * case never pays for the expensive one.
+ */
+export class TieredLimiter implements RateLimiter {
+  constructor(private readonly limiters: readonly RateLimiter[]) {}
+
+  async take(key: string, cost = 1): Promise<RateLimitDecision> {
+    for (const limiter of this.limiters) {
+      const decision = await limiter.take(key, cost);
+      if (!decision.allowed) return decision;
+    }
+    return { allowed: true, retryAfterMs: 0 };
+  }
 }
 
 interface Bucket {

@@ -51,10 +51,31 @@ the migrations and functions that already live in the repo.
    The callback URL is derived as
    `${SUPABASE_URL}/functions/v1/kie-callback?token=${KIE_CALLBACK_SECRET}`.
 
-3. For local development without a public webhook, run
+3. **Check the JWT setting after every deploy.** This has been wrong once
+   already: all three functions were deployed with `--no-verify-jwt`, which left
+   two authenticated endpoints open to anyone who knew the URL. Nothing about a
+   successful deploy shows it, which is why it needs checking rather than
+   remembering.
+
+   ```bash
+   supabase functions list
+   ```
+
+   Expected: `generate-video` and `poll-generation` verify JWTs,
+   `kie-callback` does not. The intended state is declared in
+   `supabase/config.toml`, so that file is the answer, not memory.
+
+4. For local development without a public webhook, run
    `supabase functions serve --env-file supabase/functions/.env` and rely on
    `poll-generation` (or expose the callback with a tunnel). See
    `supabase/README.md`.
+
+5. Connection pooling is **not** required for this stack, contrary to C2 in
+   [production-readiness.md](production-readiness.md), which predates the current
+   data access layer. Every query goes through supabase-js to PostgREST over
+   HTTP; nothing opens a Postgres socket, so there are no client connections to
+   pool. Revisit the moment anything adds a direct client such as Prisma,
+   Drizzle or `pg`.
 
 ## 3. Worker + Redis (publishing)
 

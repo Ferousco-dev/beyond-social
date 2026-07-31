@@ -5,6 +5,7 @@ import { z } from "zod";
 import { isSupabaseConfigured } from "@/lib/env";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 
 /** Windows the usage page offers. */
 export const USAGE_WINDOWS = [
@@ -60,9 +61,7 @@ export async function getUsageSummary(window: UsageWindowId): Promise<UsageSumma
   const since = new Date(Date.now() - hours * 3600_000).toISOString();
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return EMPTY;
 
   const { data, error } = await supabase.rpc("ai_usage_summary", {

@@ -11,7 +11,7 @@ export default async function AccountPage() {
   const account = await getAccount();
 
   return (
-    <section className="mt-8">
+    <section className="mt-6 lg:mt-8">
       <AccountForm email={account.email} fullName={account.fullName} />
       <PasswordForm />
     </section>

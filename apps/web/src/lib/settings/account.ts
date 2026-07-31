@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/session";
 
 /** The signed-in user's own profile, for the account screen. */
 
@@ -23,9 +24,7 @@ export async function getAccount(): Promise<Account> {
   if (!isSupabaseConfigured) return EMPTY;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getAuthUser();
   if (!user) return EMPTY;
 
   const { data } = await supabase

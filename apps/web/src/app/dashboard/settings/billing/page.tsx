@@ -21,7 +21,7 @@ export default async function BillingPage() {
   const usedPercent = credits.total > 0 ? Math.round((credits.used / credits.total) * 100) : 0;
 
   return (
-    <section className="mt-8">
+    <section className="mt-6 lg:mt-8">
       <div className="rounded-xl border border-hairline bg-paper p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
