@@ -10,6 +10,7 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
+import { runWithAiUser } from "@/lib/ai/request-user";
 import { extractMemories } from "@/lib/memory/extract";
 import { findRelatedConversations, indexMessage, renderRelated } from "@/lib/memory/conversations";
 import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
@@ -73,16 +74,29 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
-  const { prompt, aspectRatio, imageUrls } = parsed.data;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to continue" };
 
+  // Everything below reaches the model gateway, and the gateway keys its rate
+  // limit on this. Without it every call landed in one shared `anonymous`
+  // bucket, so the whole platform throttled together.
+  return runWithAiUser(user.id, () => sendForUser(parsed.data, user.id, supabase));
+}
+
+async function sendForUser(
+  parsed: z.output<typeof sendSchema>,
+  userId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<SendResult> {
+  const { prompt, aspectRatio, imageUrls } = parsed;
+  const user = { id: userId };
+
   // The project is created on the first message, not on page load, so opening
   // the composer and changing your mind leaves nothing behind.
-  let projectId = parsed.data.projectId;
+  let projectId = parsed.projectId;
   if (projectId === "new") {
     const { data, error } = await supabase
       .from("projects")

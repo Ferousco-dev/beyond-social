@@ -29,6 +29,7 @@ import {
   type VectorStore,
 } from "@beyond-social/prompt-engine";
 
+import { currentAiUser } from "@/lib/ai/request-user";
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
 import { serverEnv } from "@/lib/server-env";
 import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
@@ -142,21 +143,42 @@ function getGateway(): AiGateway {
      * The shared counter is the one that holds across instances, and is the only
      * one that can express "this many an hour" as a real number.
      */
+    /*
+     * The shared limit counts gateway calls, and one message costs four or five
+     * of them: classify, enhance, reply, extract a memory, refresh a summary. At
+     * 120 an hour that read as a generous ceiling and behaved like roughly
+     * twenty-five messages, which is a limit on the product rather than on
+     * abuse.
+     *
+     * A shorter window matters as much as the number. An hour means a person who
+     * hits the ceiling is locked out for up to an hour with no way to tell how
+     * long is left; ten minutes bounds the wait to something a person will
+     * simply wait out.
+     */
     limiter: new TieredLimiter([
       new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
-      new SupabaseRateLimiter({ bucket: "ai", limit: 120, windowSeconds: 3_600 }),
+      new SupabaseRateLimiter({ bucket: "ai", limit: 150, windowSeconds: 600 }),
     ]),
   });
   return gatewayRef;
 }
 
+/*
+ * Each accessor defaults to the user the current request belongs to.
+ *
+ * Every call site reached these with no argument, so the rate limit keyed on
+ * `anonymous` and one bucket was shared by the whole platform. Defaulting here
+ * fixes every caller at once, and an explicit id still wins for the cases that
+ * have one to hand.
+ */
+
 /** The generation model chain for a task; falls back across providers. */
-export function getGenerator(userId?: string): Llm {
+export function getGenerator(userId: string | undefined = currentAiUser()): Llm {
   return new GatewayLlm(getGateway(), "generation", userId);
 }
 
 /** A cheaper chain for grading and extraction. */
-export function getJudge(userId?: string): Llm {
+export function getJudge(userId: string | undefined = currentAiUser()): Llm {
   return new GatewayLlm(getGateway(), "judge", userId);
 }
 
@@ -166,7 +188,7 @@ export function getJudge(userId?: string): Llm {
  * Separate from `generation` because the two optimise for different things: a
  * directed video prompt is worth waiting on, a two-sentence reply is not.
  */
-export function getChat(userId?: string): Llm {
+export function getChat(userId: string | undefined = currentAiUser()): Llm {
   return new GatewayLlm(getGateway(), "chat", userId);
 }
 
