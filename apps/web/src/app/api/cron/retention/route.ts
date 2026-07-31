@@ -45,18 +45,33 @@ export const GET = withTrace("GET /api/cron/retention", async (request) => {
     return { affected: Number(row?.affected ?? 0), oldest: row?.oldest ?? null };
   };
 
+  // Mail returns two counts rather than one, because clearing a payload and
+  // deleting a record are different acts with different consequences.
+  const runMail = async (): Promise<{ payloadsCleared: number; rowsDeleted: number }> => {
+    const { data, error } = await supabase.rpc("retention_prune_mail", { p_dry_run: !apply });
+    if (error) throw new Error(`retention_prune_mail: ${error.message}`);
+    const row = (data as { payloads_cleared: number; rows_deleted: number }[] | null)?.[0];
+    return {
+      payloadsCleared: Number(row?.payloads_cleared ?? 0),
+      rowsDeleted: Number(row?.rows_deleted ?? 0),
+    };
+  };
+
   try {
     // Sequential, not parallel. Both are write-heavy against the same database,
     // and nothing here is urgent enough to make them compete.
     const embeddings = await run("retention_prune_embeddings");
     const usage = await run("retention_rollup_ai_usage");
+    const mail = await runMail();
 
     logger.info(apply ? "retention applied" : "retention dry run", {
       embeddingsAffected: embeddings.affected,
       usageAffected: usage.affected,
+      mailPayloadsCleared: mail.payloadsCleared,
+      mailRowsDeleted: mail.rowsDeleted,
     });
 
-    return NextResponse.json({ ok: true, applied: apply, embeddings, usage });
+    return NextResponse.json({ ok: true, applied: apply, embeddings, usage, mail });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("retention failed", { error: message });

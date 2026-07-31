@@ -2366,6 +2366,18 @@ export type Database = {
           oldest: string;
         }[];
       };
+      retention_prune_mail: {
+        Args: {
+          p_delete_after?: string;
+          p_dry_run?: boolean;
+          p_strip_payload_after?: string;
+        };
+        Returns: {
+          dry_run: boolean;
+          payloads_cleared: number;
+          rows_deleted: number;
+        }[];
+      };
       retention_rollup_ai_usage: {
         Args: { p_dry_run?: boolean; p_older_than?: string };
         Returns: {
