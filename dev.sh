@@ -8,7 +8,13 @@
 # script starts a curated set of services, staggered and one at a time, with
 # per-service logs and clean teardown on Ctrl+C.
 #
-# Add new services to the SERVICES list below as the platform grows.
+# It also brings up what the apps depend on, because a dev server started
+# against a database that is not running fails in a way that looks like a code
+# problem.
+#
+#   ./dev.sh              everything
+#   ./dev.sh web admin    only those services
+#   ./dev.sh --no-infra   skip Docker, Supabase and Redis (already running)
 
 set -euo pipefail
 
@@ -23,8 +29,20 @@ mkdir -p "$LOG_DIR"
 # Order matters: lighter services first so heavy bundlers start last.
 SERVICES=(
   "worker|@beyond-social/worker|9100"
+  "mail|@beyond-social/mail|9200"
+  "admin|@beyond-social/admin|3001"
   "web|@beyond-social/web|3000"
 )
+
+START_INFRA=1
+WANTED=()
+for arg in "$@"; do
+  case "$arg" in
+    --no-infra) START_INFRA=0 ;;
+    -h|--help) sed -n '3,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) WANTED+=("$arg") ;;
+  esac
+done
 
 PIDS=()
 CLEANED=0
@@ -38,18 +56,25 @@ cleanup() {
     kill "$pid" 2>/dev/null || true
   done
   wait 2>/dev/null || true
-  echo "All dev services stopped."
+  # Supabase and Redis are left running on purpose: they are slow to start and
+  # keeping state between runs is the point. Stop them with `supabase stop`.
+  echo "All dev services stopped. Supabase and Redis are still up."
 }
 trap cleanup INT TERM EXIT
+
+step() { printf "\n\033[1m%s\033[0m\n" "$1"; }
+ok()   { printf "  \033[32mok\033[0m    %s\n" "$1"; }
+warn() { printf "  \033[33mwarn\033[0m  %s\n" "$1"; }
+die()  { printf "  \033[31mfail\033[0m  %s\n" "$1"; exit 1; }
 
 wait_ready() {
   local label="$1" port="$2" attempts=0
   [ "$port" = "-" ] && return 0
-  printf "Waiting for %s on port %s" "$label" "$port"
+  printf "  waiting for %s on :%s" "$label" "$port"
   until nc -z localhost "$port" 2>/dev/null; do
     attempts=$((attempts + 1))
-    if [ "$attempts" -gt 60 ]; then
-      printf " timed out (continuing)\n"
+    if [ "$attempts" -gt 90 ]; then
+      printf " timed out, see %s/%s.log\n" "$LOG_DIR" "$label"
       return 0
     fi
     printf "."
@@ -58,15 +83,98 @@ wait_ready() {
   printf " ready\n"
 }
 
+# ---------------------------------------------------------------------------
+# Infrastructure: everything underneath the apps.
+# ---------------------------------------------------------------------------
+if [ "$START_INFRA" = "1" ]; then
+  step "Infrastructure"
+
+  if ! docker info >/dev/null 2>&1; then
+    # Started explicitly rather than automatically: bringing up a virtual
+    # machine is a decision the person running this should make knowingly.
+    if command -v colima >/dev/null 2>&1; then
+      die "Docker is not running. Start it with: colima start"
+    fi
+    die "Docker is not running. Start Docker Desktop, or install colima."
+  fi
+  ok "docker is running"
+
+  command -v supabase >/dev/null 2>&1 \
+    || die "Supabase CLI missing. Install with: brew install supabase/tap/supabase"
+
+  if supabase status >/dev/null 2>&1; then
+    ok "supabase is already up"
+  else
+    printf "  starting supabase (the first run pulls images and takes a while)"
+    supabase start >"$LOG_DIR/supabase.log" 2>&1 \
+      || die "supabase failed to start, see $LOG_DIR/supabase.log"
+    printf " ready\n"
+  fi
+
+  # Applied every run: a migration added since the last start would otherwise
+  # surface as a schema error at request time rather than here.
+  if supabase migration up >"$LOG_DIR/migrations.log" 2>&1; then
+    ok "migrations applied ($(ls supabase/migrations/*.sql | wc -l | tr -d ' ') files)"
+  else
+    warn "migrations did not apply cleanly, see $LOG_DIR/migrations.log"
+  fi
+
+  # Three ways to get Redis, cheapest first. BullMQ requires `noeviction`, so
+  # every path sets it: an evicting Redis silently drops queued jobs, which
+  # looks like publishing that mysteriously never happened.
+  if nc -z localhost 6379 2>/dev/null; then
+    ok "redis is already up"
+  elif command -v redis-server >/dev/null 2>&1; then
+    redis-server --port 6379 --maxmemory 256mb --maxmemory-policy noeviction \
+      --daemonize yes >"$LOG_DIR/redis.log" 2>&1 && ok "redis started (native)" \
+      || warn "redis did not start, so the worker and mail queues stay idle"
+  elif docker compose version >/dev/null 2>&1; then
+    docker compose up -d >"$LOG_DIR/redis.log" 2>&1 && ok "redis started (compose)" \
+      || warn "redis did not start, so the worker and mail queues stay idle"
+  else
+    # The brew `docker` CLI ships without the compose plugin, which is why the
+    # compose path above cannot be assumed.
+    docker run -d --name beyond-redis -p 6379:6379 redis:7-alpine \
+      redis-server --maxmemory 256mb --maxmemory-policy noeviction \
+      >"$LOG_DIR/redis.log" 2>&1 && ok "redis started (docker)" \
+      || warn "redis did not start, so the worker and mail queues stay idle"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# Application services.
+# ---------------------------------------------------------------------------
+step "Services"
 for entry in "${SERVICES[@]}"; do
   IFS="|" read -r label filter port <<<"$entry"
-  echo "Starting $label ($filter)..."
+
+  # With arguments, run only what was asked for.
+  if [ "${#WANTED[@]}" -gt 0 ]; then
+    match=0
+    for want in "${WANTED[@]}"; do [ "$want" = "$label" ] && match=1; done
+    [ "$match" = "1" ] || continue
+  fi
+
+  if nc -z localhost "$port" 2>/dev/null; then
+    warn "$label already running on :$port, leaving it alone"
+    continue
+  fi
+
+  printf "  starting %s\n" "$label"
   pnpm --filter "$filter" dev >"$LOG_DIR/$label.log" 2>&1 &
   PIDS+=("$!")
   wait_ready "$label" "$port"
 done
 
+step "Ready"
+cat <<'SUMMARY'
+  User app         http://localhost:3000
+  Admin console    http://localhost:3001
+  Supabase Studio  http://127.0.0.1:54323
+  Mailpit (email)  http://127.0.0.1:54324
+
+  Logs             .dev-logs/<service>.log
+  Stop             Ctrl+C here, then `supabase stop` for the database
+SUMMARY
 echo ""
-echo "Dev stack is up. Logs: $LOG_DIR/<service>.log"
-echo "Press Ctrl+C to stop."
 wait

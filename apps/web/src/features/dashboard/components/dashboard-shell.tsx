@@ -28,7 +28,9 @@ export function DashboardShell({
   return (
     // The workspace is a dark "operating environment" regardless of the global
     // theme; the `dark` class scopes the dark token set to this subtree.
-    <div className="flex h-dvh bg-canvas pl-safe pr-safe text-ink">
+    // The marker lets the document itself adopt this surface, so an overscroll
+    // bounce shows the workspace colour rather than the page behind it.
+    <div data-surface="workspace" className="flex h-dvh bg-canvas pl-safe pr-safe text-ink">
       {/* Collapsing narrows the sidebar to a rail rather than removing it. The
           width is transitioned so the content beside it slides rather than
           jumping, and the swap between the two is a cross-fade at the same
