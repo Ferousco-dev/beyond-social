@@ -38,13 +38,18 @@ export function startScheduler(queue: PublishQueue): () => void {
           hashtags: post.hashtags,
           generationId: post.generation_id,
         },
+        // A hyphen, not a colon: BullMQ namespaces its own Redis keys with
+        // colons and rejects a custom id containing one. This threw on the
+        // first due post, and only ever on the first due post, so it survived
+        // until something was actually scheduled.
+        //
         // The post's own id is the job id, so the same post can never be in the
         // queue twice. Two schedulers scanning at once, or one scan retried
         // after a partial failure, both produce the same id and BullMQ keeps
         // one. Without this the claim in the database is the only thing standing
         // between a retry and a duplicate post; with it, the duplicate never
         // reaches the queue.
-        { jobId: `post:${post.id}` },
+        { jobId: `post-${post.id}` },
       );
     }
     if (posts.length > 0) logger.info("enqueued due posts", { count: posts.length });
@@ -94,7 +99,7 @@ export function startRenderScheduler(queue: RenderQueue): () => void {
       await queue.add(
         "render",
         { renderId: render.id, userId: render.user_id, clipPaths: render.clip_paths },
-        { jobId: `render:${render.id}` },
+        { jobId: `render-${render.id}` },
       );
     }
     if (renders.length > 0) logger.info("enqueued renders", { count: renders.length });
