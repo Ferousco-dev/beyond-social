@@ -24,23 +24,33 @@ function check(name: string, passed: boolean, detail = ""): void {
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+/** A 1x1 transparent PNG. The smallest thing the bucket's mime list accepts. */
+const PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 async function main(): Promise<void> {
   if (URL === undefined || SERVICE_KEY === undefined) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
   }
   const supabase = createClient(URL, SERVICE_KEY);
 
-  // Whatever is actually in the bucket, so the test does not depend on a
-  // fixture that has to be uploaded first.
-  const { data: listed } = await supabase.storage.from("uploads").list("", { limit: 1 });
-  const folder = listed?.[0]?.name;
-  if (folder === undefined) throw new Error("the uploads bucket is empty, nothing to sign");
+  // The fixtures are uploaded rather than found. Reading whatever happened to
+  // be in the bucket meant the test passed or failed on ambient state and could
+  // not run at all against a freshly migrated database, which is exactly where
+  // CI runs it.
+  const folder = "smoke-attachments";
+  const real = [`${folder}/one.png`, `${folder}/two.png`];
+  for (const path of real) {
+    const { error } = await supabase.storage
+      .from("uploads")
+      .upload(path, PIXEL_PNG, { contentType: "image/png", upsert: true });
+    if (error) throw new Error(`could not seed ${path}: ${error.message}`);
+  }
+  check("seeded objects to sign", real.length > 0, `${real.length} objects`);
 
-  const { data: objects } = await supabase.storage.from("uploads").list(folder, { limit: 2 });
-  const real = (objects ?? []).map((object) => `${folder}/${object.name}`);
-  check("found objects to sign", real.length > 0, `${real.length} objects`);
-
-  const missing = `${folder}/does-not-exist-${real.length}.jpg`;
+  const missing = `${folder}/does-not-exist.png`;
   const { data } = await supabase.storage.from("uploads").createSignedUrls([...real, missing], 60);
 
   const map = toSignedMap(data);
@@ -60,6 +70,10 @@ async function main(): Promise<void> {
   // omitted, a positional read would silently hand one object's URL to another.
   check("a path that cannot be signed is absent rather than misaligned", !map.has(missing));
   check("one bad path does not discard the good ones", map.size === real.length);
+
+  // Left behind, the fixtures would accumulate in a real developer's bucket and
+  // show up as mystery attachments the next time somebody browses it.
+  await supabase.storage.from("uploads").remove(real);
 
   process.stdout.write(
     `${results.join("\n")}\n\n${results.length - failures}/${results.length} passed\n`,

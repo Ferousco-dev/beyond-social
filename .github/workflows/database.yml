@@ -1,0 +1,84 @@
+name: Database
+
+# The migrations were the one part of this repo with no automated check at all.
+# They are also where the sharpest failures live: a constraint widened in SQL
+# without the matching change in TypeScript emptied the models page while every
+# row sat there readable, and nothing in the type system relates the two. This
+# applies every migration to an empty database and then asserts the schema and
+# the code still agree.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrations:
+    name: Migrations and schema
+    runs-on: ubuntu-latest
+    # The stack is pulled as Docker images, which is the slow part. Well under
+    # the default timeout, but a hung `supabase start` should not burn an hour.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      # The actual migration test. `db reset` drops the database and replays
+      # every migration in order against an empty one, so a migration that only
+      # works because of state left by a developer's machine fails here.
+      - name: Apply every migration from scratch
+        run: supabase db reset
+
+      - name: Lint the schema
+        run: supabase db lint --level warning
+
+      # Reads the running stack's own credentials rather than hardcoding keys
+      # that change between CLI versions.
+      - name: Export stack credentials
+        run: |
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2- | tr -d '\"')"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')"
+            # SECRET_KEY, not SERVICE_ROLE_KEY. The local stack issues an
+            # `sb_secret_` key; the JWT belongs to a hosted project and is
+            # rejected here, which surfaces as permission errors rather than as
+            # a config error.
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SECRET_KEY=' | cut -d= -f2- | tr -d '\"')"
+          } >> "$GITHUB_ENV"
+
+      # These two need a database, which is why they are here and not in the
+      # verify job. The catalogue test is the drift guard described above.
+      - name: Model catalogue tests
+        run: pnpm --filter web test:catalog
+
+      - name: Attachment signing tests
+        run: pnpm --filter web test:attachments
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup
