@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUp, Loader2, X } from "lucide-react";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
@@ -39,14 +39,21 @@ export function PromptComposer({
   const [error, setError] = useState<string | null>(null);
   const canSubmit = value.trim().length > 0 && !busy && !uploading;
 
-  function handleChange(next: string) {
-    onChange(next);
+  /*
+   * Keyed on the value rather than done in the change handler, so it responds
+   * to every way the text can change and not only to typing.
+   *
+   * Sending clears the prompt from the parent, which never called the change
+   * handler, so the inline height set while typing was left behind: the
+   * composer stayed as tall as the message that had just been sent, empty,
+   * with the placeholder floating at the top of it.
+   */
+  useEffect(() => {
     const element = textareaRef.current;
-    if (element) {
-      element.style.height = "auto";
-      element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
-    }
-  }
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  }, [value]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -86,7 +93,7 @@ export function PromptComposer({
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(event) => handleChange(event.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         rows={1}
         placeholder="Describe a video to create"

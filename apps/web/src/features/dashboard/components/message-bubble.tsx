@@ -50,6 +50,7 @@ export function MessageBubble({
       ) : null}
       {message.draft?.status === "generating" ? (
         <GeneratingDraft
+          startedAt={message.draft.startedAt}
           onCancel={
             onCancelDraft && message.draft.generationId
               ? () => onCancelDraft(message.draft?.generationId ?? "")

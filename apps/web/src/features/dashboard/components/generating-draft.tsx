@@ -25,21 +25,35 @@ const SLOW_AFTER_SECONDS = 150;
 interface GeneratingDraftProps {
   /** Stops the waiting. The render itself cannot be stopped, so this is not undo. */
   onCancel?: () => void;
+  /** When the render actually started, ISO 8601. Absent until it is persisted. */
+  startedAt?: string;
 }
 
-export function GeneratingDraft({ onCancel }: GeneratingDraftProps) {
+export function GeneratingDraft({ onCancel, startedAt }: GeneratingDraftProps) {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
-    // Counted from mount rather than from the row's created_at, which the
-    // thread does not carry. A reload therefore restarts the count; it is a
-    // rough elapsed time for the person watching, not an audit trail.
-    const startedAt = Date.now();
-    const interval = window.setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
-    }, 1000);
+    /*
+     * Counted from when the turn was recorded, falling back to mount for a
+     * draft that has not been persisted yet.
+     *
+     * Counting from mount alone meant leaving the page and coming back
+     * restarted the clock, so a render two minutes in claimed to have just
+     * started. The number is the only honest signal this placeholder has, and
+     * one that resets is worse than none.
+     */
+    const parsed = startedAt ? Date.parse(startedAt) : Number.NaN;
+    const origin = Number.isNaN(parsed) ? Date.now() : parsed;
+
+    const tick = () =>
+      // Clamped at zero: the timestamp comes from the database, and a clock
+      // even slightly ahead of the browser would otherwise show a negative age.
+      setSeconds(Math.max(0, Math.floor((Date.now() - origin) / 1000)));
+
+    tick();
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [startedAt]);
 
   const slow = seconds >= SLOW_AFTER_SECONDS;
 

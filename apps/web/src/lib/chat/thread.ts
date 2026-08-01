@@ -37,6 +37,16 @@ export interface MessageDraft {
   readonly generationId: string;
   readonly status: DraftStatus;
   readonly resultUrl: string | null;
+  /**
+   * When the turn was recorded, ISO 8601. Absent on a draft the client has
+   * just created optimistically, which has not been persisted yet.
+   *
+   * Carried so the "generating" elapsed time survives a navigation. Counted
+   * from mount, leaving the page and coming back restarted it at zero, which
+   * made a render that had been running two minutes look like it had just
+   * begun.
+   */
+  readonly startedAt?: string;
 }
 
 export interface ChatMessage {
@@ -80,6 +90,7 @@ function toMessage(
           generationId: row.generation_id,
           status: toDraftStatus(row.generation_status),
           resultUrl: row.result_url,
+          startedAt: row.created_at,
         }
       : undefined,
   };
