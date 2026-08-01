@@ -97,10 +97,21 @@ the thread fixes it properly.
 
 ## Medium
 
-**M1. No `loading.tsx` for most routes.** Impact medium, effort S. 39 pages
-exist; the dashboard root, docs, blog, status, and every marketing route lack a
-loading state, so navigation to a slow route shows nothing. `app/dashboard/c/[id]`
-and the settings routes already have one, so the pattern exists to copy.
+**M1. Loading states. Mostly a false alarm, now closed.** I originally listed
+this as "no `loading.tsx` for most routes", counting every page that lacked
+one. That was wrong, and worth recording as a caution about counting files
+instead of reading them.
+
+The marketing routes (about, privacy, terms, contact, blog, careers, status,
+community, docs) are statically prerendered, so a loading state there would
+never render. `settings/voice` is a static page with no data fetching at all.
+Every dashboard route that does fetch already had one.
+
+Two genuinely lacked a loading state, and both now have one: the dashboard
+root and `dashboard/admin`. The root needed a new skeleton rather than the
+shared `SkeletonPage`, because the home screen is a centred greeting and
+composer in a narrower column, and reusing the left-aligned page skeleton would
+have made the content visibly jump on arrival.
 
 **M2. The public API contract constrains the schema.** Impact medium, effort L.
 `result_url` is returned by `/api/v1/generations`, declared in `openapi.ts` and
