@@ -3,7 +3,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
-import { createVideoTask, uploadImage } from "../_shared/kie.ts";
+import { createVideoTask } from "../_shared/kie.ts";
+import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 interface GenerateBody {

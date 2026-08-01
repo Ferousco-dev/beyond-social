@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
+import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 /** Bumped with the wording of the consent statement; older acceptances lapse. */
@@ -17,6 +18,9 @@ interface AvatarBody {
   prompt?: string;
   imageUrl?: string;
   audioUrl?: string;
+  /** Object paths in the uploads bucket. Preferred over the URLs above. */
+  imagePath?: string;
+  audioPath?: string;
 }
 
 Deno.serve(async (req) => {
@@ -89,11 +93,34 @@ Deno.serve(async (req) => {
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
+  /*
+   * Both inputs are handed to the provider as bytes rather than as links to
+   * our own storage, for the reason set out in `handToProvider`: a signed link
+   * is unreachable in local development and expires in production. This path
+   * had never dispatched successfully, and this was why.
+   */
+  let imageUrl: string;
+  let audioUrl: string;
+  try {
+    imageUrl = body.imagePath
+      ? await handToProvider(supabase, "uploads", body.imagePath, traceId)
+      : (body.imageUrl as string);
+    audioUrl = body.audioPath
+      ? await handToProvider(supabase, "uploads", body.audioPath, traceId)
+      : (body.audioUrl as string);
+  } catch (error) {
+    log("error", "could not hand the avatar inputs to the provider", { traceId });
+    return json(
+      { error: error instanceof Error ? error.message : "Could not prepare the inputs" },
+      502,
+    );
+  }
+
   let taskId: string;
   try {
     taskId = await createAvatarTask({
-      imageUrl: body.imageUrl,
-      audioUrl: body.audioUrl,
+      imageUrl,
+      audioUrl,
       prompt,
       callBackUrl,
     });

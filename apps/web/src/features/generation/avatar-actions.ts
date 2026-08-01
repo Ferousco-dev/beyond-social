@@ -110,8 +110,21 @@ export async function startAvatarGeneration(
     return { status: "error", message: "Those attachments could not be saved" };
   }
 
-  const { attachments, ...body } = parsed.data;
-  // The edge function takes the signed URLs; the paths are for the thread.
+  const { attachments, ...rest } = parsed.data;
+
+  /*
+   * The paths are sent alongside the URLs, and the edge function prefers them.
+   * It reads the objects from storage and uploads the bytes to the provider,
+   * because a signed link to our own storage is unreachable from the
+   * provider's network in development and expires after two hours in
+   * production. The URLs stay for now so a caller that has only those still
+   * works.
+   */
+  const body = {
+    ...rest,
+    imagePath: attachments?.find((item) => item.kind === "photo")?.path,
+    audioPath: attachments?.find((item) => item.kind === "audio")?.path,
+  };
   const { data, error } = await supabase.functions.invoke("generate-avatar", { body });
 
   if (error) {

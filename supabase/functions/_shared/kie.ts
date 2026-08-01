@@ -9,7 +9,9 @@ function apiKey(): string {
 }
 
 /**
- * Hands a reference image to kie as bytes and returns the URL they serve it on.
+ * Hands a reference file to kie as bytes and returns the URL they serve it on.
+ *
+ * Used for both the photo a render animates and the voice clip it lip-syncs.
  *
  * The alternative is passing a link to our own storage, which is what this
  * replaced, and it fails in two different ways. In local development the link
@@ -30,7 +32,7 @@ function apiKey(): string {
  */
 const KIE_UPLOAD_URL = "https://kieai.redpandaai.co/api/file-base64-upload";
 
-export async function uploadImage(bytes: Uint8Array, fileName: string): Promise<string> {
+export async function uploadFile(bytes: Uint8Array, fileName: string): Promise<string> {
   // Chunked rather than String.fromCharCode(...bytes): spreading a multi-megabyte
   // array as arguments overflows the call stack, which shows up as a render that
   // fails only for large photos.
