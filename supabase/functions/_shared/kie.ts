@@ -8,6 +8,63 @@ function apiKey(): string {
   return key;
 }
 
+/**
+ * Hands a reference image to kie as bytes and returns the URL they serve it on.
+ *
+ * The alternative is passing a link to our own storage, which is what this
+ * replaced, and it fails in two different ways. In local development the link
+ * points at 127.0.0.1, so kie fetches its own loopback and rejects the task
+ * with "Image fetch failed. Check access settings or use our File Upload API
+ * instead." In production the link works but is signed for two hours, so a
+ * render that sits in a queue longer than that fails on an expired URL after
+ * the credit has already been reserved.
+ *
+ * Uploading removes both. kie keeps the file for three days, which is longer
+ * than any render takes, and our storage never has to be reachable from
+ * outside at all.
+ *
+ * The host is not api.kie.ai and not a typo. kie's own documentation gives
+ * `https://api.kie.ai/api/file-base64-upload`, which 404s with a valid key.
+ * The live route is on kieai.redpandaai.co, which is what its own
+ * `available_apis` list reports, and it returns a tempfile.redpandaai.co URL.
+ */
+const KIE_UPLOAD_URL = "https://kieai.redpandaai.co/api/file-base64-upload";
+
+export async function uploadImage(bytes: Uint8Array, fileName: string): Promise<string> {
+  // Chunked rather than String.fromCharCode(...bytes): spreading a multi-megabyte
+  // array as arguments overflows the call stack, which shows up as a render that
+  // fails only for large photos.
+  let binary = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+
+  const response = await fetch(KIE_UPLOAD_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      base64Data: btoa(binary),
+      uploadPath: "beyond-social/references",
+      fileName,
+    }),
+  });
+
+  if (!response.ok) throw new Error(`kie upload failed: ${response.status}`);
+
+  const body = (await response.json()) as {
+    success?: boolean;
+    msg?: string;
+    data?: { downloadUrl?: string };
+  };
+  const url = body.data?.downloadUrl;
+  if (!url) throw new Error(`kie upload returned no url: ${body.msg ?? "unknown error"}`);
+  return url;
+}
+
 export interface KieGenerateInput {
   prompt: string;
   imageUrls?: string[];

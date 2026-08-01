@@ -3,7 +3,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
-import { createVideoTask } from "../_shared/kie.ts";
+import { createVideoTask, uploadImage } from "../_shared/kie.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 interface GenerateBody {
@@ -11,6 +11,8 @@ interface GenerateBody {
   prompt?: string;
   aspectRatio?: string;
   imageUrls?: string[];
+  /** Object paths in the uploads bucket, preferred over imageUrls. */
+  imagePaths?: string[];
   /** Seconds. Only present when the request actually asked for a length. */
   duration?: number;
 }
@@ -71,11 +73,49 @@ Deno.serve(async (req) => {
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
+  /*
+   * Reference images are handed to kie as bytes rather than as links to our
+   * own storage.
+   *
+   * The bytes are read here through the service client, which talks to storage
+   * over the platform's internal network, so this works regardless of whether
+   * our storage is reachable from the public internet. That is the whole point:
+   * passing a signed link meant kie had to fetch us, and in local development
+   * that link is a 127.0.0.1 address pointing at kie's own loopback.
+   *
+   * Paths, not URLs, for the same reason the thread stores paths: a signed URL
+   * is a fact that expires.
+   */
+  let referenceUrls: string[] | undefined;
+  try {
+    const paths = body.imagePaths?.slice(0, 2);
+    if (paths && paths.length > 0) {
+      referenceUrls = [];
+      for (const path of paths) {
+        const { data: file, error } = await supabase.storage.from("uploads").download(path);
+        if (error || !file)
+          throw new Error(`could not read ${path}: ${error?.message ?? "no file"}`);
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        referenceUrls.push(await uploadImage(bytes, path.split("/").pop() ?? "reference.jpg"));
+      }
+    } else {
+      // Nothing was uploaded through the composer, so whatever the caller sent
+      // is already a URL kie can reach.
+      referenceUrls = body.imageUrls?.slice(0, 2);
+    }
+  } catch (error) {
+    log("error", "could not hand the reference image to the provider", { traceId });
+    return json(
+      { error: error instanceof Error ? error.message : "Could not prepare the reference image" },
+      502,
+    );
+  }
+
   let taskId: string;
   try {
     taskId = await createVideoTask({
       prompt,
-      imageUrls: body.imageUrls?.slice(0, 2),
+      imageUrls: referenceUrls,
       aspectRatio,
       duration,
       callBackUrl,

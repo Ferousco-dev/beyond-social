@@ -211,6 +211,14 @@ async function sendForUser(
           aspectRatio: intent.aspectRatio ?? aspectRatio,
           ...(usableDuration ? { duration: usableDuration } : {}),
           imageUrls,
+          // Preferred over imageUrls. The edge function reads these from
+          // storage and hands the bytes to the provider, so the provider never
+          // has to reach our storage: a signed link expires, and in local
+          // development it is a loopback address that resolves to the
+          // provider's own machine.
+          imagePaths: attachments
+            ?.filter((attachment) => attachment.kind === "photo")
+            .map((attachment) => attachment.path),
           sourceChunks: chunkIds,
         },
       });
