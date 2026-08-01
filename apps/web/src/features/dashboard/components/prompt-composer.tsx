@@ -5,6 +5,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
+import { RecordButton } from "./record-button";
 import { VoiceChip } from "./voice-chip";
 
 interface PromptComposerProps {
@@ -104,19 +105,27 @@ export function PromptComposer({
           onError={setError}
           onBusyChange={setUploading}
         />
-        <button
-          type="button"
-          onClick={() => canSubmit && onSubmit()}
-          disabled={!canSubmit}
-          aria-label="Send"
-          className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          {busy || uploading ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <ArrowUp className="size-4" />
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <RecordButton
+            projectId={projectId}
+            onVoice={onVoice}
+            onError={setError}
+            onBusyChange={setUploading}
+          />
+          <button
+            type="button"
+            onClick={() => canSubmit && onSubmit()}
+            disabled={!canSubmit}
+            aria-label="Send"
+            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {busy || uploading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <ArrowUp className="size-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       {error ? (

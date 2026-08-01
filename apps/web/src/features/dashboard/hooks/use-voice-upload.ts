@@ -40,13 +40,15 @@ export function useVoiceUpload({ projectId, onVoice, onError, onBusyChange }: Op
 
   const open = useCallback(() => inputRef.current?.click(), []);
 
-  const handleChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.currentTarget.files?.[0];
-      // Cleared immediately, so choosing the same clip twice still fires change.
-      event.currentTarget.value = "";
-      if (!file) return;
-
+  /**
+   * Uploads a clip, whichever way it was obtained.
+   *
+   * Taken as a File rather than a change event so a recording made in the app
+   * uses the same path as one picked from the device. There is nothing
+   * different about the two once the bytes exist.
+   */
+  const upload = useCallback(
+    (file: File) => {
       setUploading(true);
       onBusyChange(true);
       void (async () => {
@@ -93,5 +95,15 @@ export function useVoiceUpload({ projectId, onVoice, onError, onBusyChange }: Op
     [projectId, onVoice, onError, onBusyChange],
   );
 
-  return { inputRef, open, uploading, handleChange };
+  const handleChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.currentTarget.files?.[0];
+      // Cleared immediately, so choosing the same clip twice still fires change.
+      event.currentTarget.value = "";
+      if (file) upload(file);
+    },
+    [upload],
+  );
+
+  return { inputRef, open, uploading, upload, handleChange };
 }

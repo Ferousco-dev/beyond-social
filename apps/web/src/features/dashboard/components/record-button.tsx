@@ -1,0 +1,76 @@
+"use client";
+
+import { Loader2, Mic, Square } from "lucide-react";
+
+import { useVoiceRecorder } from "../hooks/use-voice-recorder";
+import { useVoiceUpload, type PendingVoice } from "../hooks/use-voice-upload";
+
+/**
+ * Recording a clip from the composer.
+ *
+ * Sits next to send because recording the line you want spoken is the common
+ * path, and burying it in the attachment menu would put two taps and a file
+ * picker in front of the thing most people came to do. Enrolling a voice to
+ * reuse is a different, longer flow and belongs in settings.
+ *
+ * The recording is uploaded the moment it stops, on the same path as a clip
+ * picked from the device, and appears as the same chip.
+ */
+export function RecordButton({
+  projectId,
+  onVoice,
+  onError,
+  onBusyChange,
+}: {
+  projectId: string;
+  onVoice: (voice: PendingVoice) => void;
+  onError: (message: string) => void;
+  onBusyChange: (busy: boolean) => void;
+}) {
+  const { upload, uploading } = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
+  const { state, seconds, start, stop, maxSeconds } = useVoiceRecorder(onError);
+
+  const recording = state === "recording";
+  const busy = state === "encoding" || uploading;
+
+  async function toggle() {
+    if (recording) {
+      const result = await stop();
+      if (result) upload(result.file);
+      return;
+    }
+    await start();
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => void toggle()}
+      disabled={busy}
+      // The label carries the state because the icon alone does not: a square
+      // means nothing without knowing a recording is in progress.
+      aria-label={recording ? `Stop recording, ${seconds} seconds` : "Record your voice"}
+      className={
+        recording
+          ? "inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-destructive px-3 text-paper transition-opacity hover:opacity-90"
+          : "inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
+      }
+    >
+      {busy ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden />
+      ) : recording ? (
+        <>
+          <Square className="size-3.5 fill-current" aria-hidden />
+          {/* Counts up rather than down: there is no deadline to dread, and the
+              cap exists to stop a forgotten recording, not to hurry anyone. */}
+          <span className="text-xs tabular-nums">
+            {seconds}s
+            {seconds > maxSeconds - 10 ? ` / ${maxSeconds}s` : ""}
+          </span>
+        </>
+      ) : (
+        <Mic className="size-4" aria-hidden />
+      )}
+    </button>
+  );
+}
