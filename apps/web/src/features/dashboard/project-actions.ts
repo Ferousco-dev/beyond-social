@@ -51,7 +51,8 @@ export async function renameProject(input: z.input<typeof titleSchema>): Promise
   }
   // No rows means the policy hid it, which for a rename is someone else's
   // project. Reported as a failure so the sidebar puts the old name back.
-  if (!data || data.length === 0) return { status: "error", message: "Could not rename that project" };
+  if (!data || data.length === 0)
+    return { status: "error", message: "Could not rename that project" };
 
   revalidatePath("/dashboard", "layout");
   return { status: "ok" };
@@ -100,7 +101,8 @@ export async function deleteProject(input: z.input<typeof idSchema>): Promise<Pr
     logger.error("project delete failed", { error: error.message });
     return { status: "error", message: "Could not delete that project" };
   }
-  if (!data || data.length === 0) return { status: "error", message: "Could not delete that project" };
+  if (!data || data.length === 0)
+    return { status: "error", message: "Could not delete that project" };
 
   revalidatePath("/dashboard", "layout");
   return { status: "ok" };

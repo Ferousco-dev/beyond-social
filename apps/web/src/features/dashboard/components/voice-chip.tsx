@@ -11,13 +11,7 @@ import { type PendingVoice } from "../hooks/use-voice-upload";
  * is in words. Without it the clip uploaded invisibly and the only way to know
  * it had worked was to send and see what came back.
  */
-export function VoiceChip({
-  voice,
-  onRemove,
-}: {
-  voice: PendingVoice;
-  onRemove: () => void;
-}) {
+export function VoiceChip({ voice, onRemove }: { voice: PendingVoice; onRemove: () => void }) {
   return (
     <div className="mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-hairline bg-canvas p-2.5">
       <span

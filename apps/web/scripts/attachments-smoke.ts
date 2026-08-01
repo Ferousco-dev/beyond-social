@@ -47,7 +47,10 @@ async function main(): Promise<void> {
 
   // The real assertion: the response parsed, and every real path is present
   // under its own key rather than at whatever index it was sent in.
-  check("every real path is signed", real.every((path) => map.has(path)));
+  check(
+    "every real path is signed",
+    real.every((path) => map.has(path)),
+  );
   check(
     "signed urls point at the object they were asked for",
     real.every((path) => map.get(path)?.includes(encodeURI(path)) ?? false),

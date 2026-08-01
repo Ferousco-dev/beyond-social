@@ -78,8 +78,7 @@ export const CONSOLE_GROUPS: readonly ConsoleGroup[] = [
       {
         href: "/deleted",
         label: "Deleted accounts",
-        description:
-          "Accounts pending erasure, who deleted them, and how long is left to restore.",
+        description: "Accounts pending erasure, who deleted them, and how long is left to restore.",
         icon: Trash2,
       },
       {

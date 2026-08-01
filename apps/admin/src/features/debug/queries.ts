@@ -30,7 +30,10 @@ export async function getTraceTimeline(traceId: string): Promise<TraceTimeline |
 }
 
 /** Failures on one UTC day with the provider's own error text, untruncated. */
-export async function getFailureDetails(day: string, kind: FailureKind): Promise<FailureDetails | null> {
+export async function getFailureDetails(
+  day: string,
+  kind: FailureKind,
+): Promise<FailureDetails | null> {
   const { since, until } = dayBounds(day);
   const row = await readDebugRpc("admin_failure_details", {
     p_since: since,

@@ -38,10 +38,7 @@ export function ActivityPanel({
   return (
     <Card>
       <MetricRow>
-        <Metric
-          label={`Signups, last ${windowDays} days`}
-          value={formatCount(signupsInWindow)}
-        />
+        <Metric label={`Signups, last ${windowDays} days`} value={formatCount(signupsInWindow)} />
         <Metric
           label="Active today"
           value={latest ? formatCount(latest.dau) : "no data"}
@@ -61,9 +58,9 @@ export function ActivityPanel({
       />
 
       <p className="mt-4 text-xs text-ink-soft">
-        Active means a user who sent or received a message, or started a video generation, on
-        that day. The product records no sessions or page views, so someone who signed in and
-        only browsed is not counted here.
+        Active means a user who sent or received a message, or started a video generation, on that
+        day. The product records no sessions or page views, so someone who signed in and only
+        browsed is not counted here.
       </p>
     </Card>
   );

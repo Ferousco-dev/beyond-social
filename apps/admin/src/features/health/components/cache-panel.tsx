@@ -33,8 +33,8 @@ export function CachePanel({ data }: { data: CacheHealth | null }) {
           </MetricRow>
 
           <p className="text-xs text-ink-soft">
-            The rate is the share of recorded AI calls that were answered from cache, which
-            is the only hit rate the schema records. <code className="font-mono">response_cache</code>{" "}
+            The rate is the share of recorded AI calls that were answered from cache, which is the
+            only hit rate the schema records. <code className="font-mono">response_cache</code>{" "}
             counts no hits, so a per-table hit rate would be invented rather than measured.
             {data.newestEntryAt
               ? ` Newest cache entry written ${formatAge(data.newestEntryAt, data.observedAt)} ago.`

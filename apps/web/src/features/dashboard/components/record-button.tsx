@@ -77,8 +77,7 @@ export function RecordButton({
           {/* Counts up rather than down: there is no deadline to dread, and the
               cap exists to stop a forgotten recording, not to hurry anyone. */}
           <span className="text-xs tabular-nums">
-            {seconds}s
-            {seconds > maxSeconds - 10 ? ` / ${maxSeconds}s` : ""}
+            {seconds}s{seconds > maxSeconds - 10 ? ` / ${maxSeconds}s` : ""}
           </span>
         </>
       ) : (

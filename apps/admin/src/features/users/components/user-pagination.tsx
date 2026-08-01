@@ -16,13 +16,7 @@ const CONTROL =
   "transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 " +
   "focus-visible:outline-primary";
 
-export function UserPagination({
-  page,
-  query,
-}: {
-  page: UserPage;
-  query: UserQuery;
-}): ReactNode {
+export function UserPagination({ page, query }: { page: UserPage; query: UserQuery }): ReactNode {
   const paged = query.cursor !== "";
 
   if (!paged && !page.nextCursor) return null;

@@ -194,9 +194,10 @@ export async function regenerateGeneration(
     content: REGENERATE_REPLY,
     generation_id: generationId,
   });
-  if (messageError) logger.error("could not record regenerated draft", {
-    error: messageError.message,
-  });
+  if (messageError)
+    logger.error("could not record regenerated draft", {
+      error: messageError.message,
+    });
 
   revalidatePath(`/dashboard/c/${data.project_id}`);
   revalidatePath("/dashboard", "layout");

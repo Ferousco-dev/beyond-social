@@ -11,7 +11,10 @@ import { configRowSchema, configRowsSchema, type ConfigJson, type ConfigRow } fr
  * Delete this adapter when `database.types.ts` is generated.
  */
 interface ConfigRpcClient {
-  rpc(fn: string, args?: Record<string, string | ConfigJson>): PromiseLike<{
+  rpc(
+    fn: string,
+    args?: Record<string, string | ConfigJson>,
+  ): PromiseLike<{
     data: unknown;
     error: { message: string } | null;
   }>;
@@ -38,9 +41,7 @@ export async function fetchConfigRows(): Promise<readonly ConfigRow[] | null> {
   return parsed.data;
 }
 
-export type SetConfigResult =
-  | { ok: true; row: ConfigRow }
-  | { ok: false; message: string };
+export type SetConfigResult = { ok: true; row: ConfigRow } | { ok: false; message: string };
 
 /**
  * Writes one value. The audit row is written inside `admin_set_app_config`, so

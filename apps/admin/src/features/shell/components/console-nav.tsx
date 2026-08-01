@@ -46,7 +46,11 @@ export function ConsoleNav({ onNavigate }: { onNavigate?: () => void }): ReactNo
                   active ? "bg-cloud font-medium text-ink" : "text-ink hover:bg-cloud",
                 )}
               >
-                <route.icon className="size-4 shrink-0" aria-hidden strokeWidth={active ? 2.25 : 2} />
+                <route.icon
+                  className="size-4 shrink-0"
+                  aria-hidden
+                  strokeWidth={active ? 2.25 : 2}
+                />
                 {route.label}
               </Link>
             );

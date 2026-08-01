@@ -10,8 +10,7 @@ import { getAuthUser } from "@/lib/supabase/session";
 /** The one irreversible thing a person can do to their own account. */
 
 export type DeleteAccountResult =
-  | { readonly status: "ok" }
-  | { readonly status: "error"; readonly message: string };
+  { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
 
 const CONFIRM_MISMATCH = "Type your account email exactly to confirm.";
 const SIGNED_OUT = "Sign in again to delete your account.";

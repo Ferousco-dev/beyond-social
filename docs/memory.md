@@ -5,13 +5,13 @@ four different problems. Conflating them is how you end up with one vector table
 holding documents, preferences, and transcript fragments, none of which retrieve
 well because they are not the same kind of thing.
 
-| Layer | What it holds | Where it lives | Status |
-| --- | --- | --- | --- |
-| Conversation context | This thread, verbatim | `messages`, `project_thread` | Was already built |
-| Long-term memory | Durable facts about one person | `user_memories` | Built here |
-| Conversation summary | The middle of a long thread, compressed | `conversation_summaries` | Built here |
-| Knowledge base | Craft knowledge, the same for everyone | `prompt_chunks` | Was already built |
-| Semantic conversation search | Past threads, findable by meaning | `message_embeddings` | Built here |
+| Layer                        | What it holds                           | Where it lives               | Status            |
+| ---------------------------- | --------------------------------------- | ---------------------------- | ----------------- |
+| Conversation context         | This thread, verbatim                   | `messages`, `project_thread` | Was already built |
+| Long-term memory             | Durable facts about one person          | `user_memories`              | Built here        |
+| Conversation summary         | The middle of a long thread, compressed | `conversation_summaries`     | Built here        |
+| Knowledge base               | Craft knowledge, the same for everyone  | `prompt_chunks`              | Was already built |
+| Semantic conversation search | Past threads, findable by meaning       | `message_embeddings`         | Built here        |
 
 ## What a turn does now
 
@@ -35,7 +35,7 @@ message
 
 The three reads run together with the ones already there, so recall does not add
 a stage to the request. Both writes happen after the answer is returned: they
-improve the *next* turn, and making this turn wait for them would charge the user
+improve the _next_ turn, and making this turn wait for them would charge the user
 for someone else's benefit.
 
 ## The part that matters: not remembering everything
@@ -81,7 +81,7 @@ that is never recalled is a memory that was not worth keeping.
 A long thread cannot keep being sent in full, or cost and latency grow with the
 length of the conversation while the useful signal does not.
 
-The summary replaces the *middle* of a thread, never the end. Recent turns are
+The summary replaces the _middle_ of a thread, never the end. Recent turns are
 still sent verbatim, because "make it slower" refers to something specific that a
 summary would have flattened into "discussed pacing". It only regenerates once
 the thread has moved on meaningfully, so a long conversation does not pay for a
@@ -91,7 +91,7 @@ model call per turn to restate what is already stored.
 
 Memories and summaries are derived from the user's own messages and then placed
 in a prompt, which is a path from user input to instruction. Both are fenced and
-labelled as things the model is told *about* rather than told to do, and the
+labelled as things the model is told _about_ rather than told to do, and the
 extractor is given the transcript inside tags as content to evaluate.
 
 Fencing is not a guarantee on its own. The reason it is safe enough here is that
@@ -127,7 +127,7 @@ failure was silent, which is the kind worth writing down.
 
 The model returned two good memories, one labelled `kind: "audience"`. That is a
 reasonable label and was not in our list. Zod's `.default()` only fills a value
-that is *missing*, not one that is invalid, so the item failed validation, which
+that is _missing_, not one that is invalid, so the item failed validation, which
 failed the array, which discarded the other memory alongside it. Extraction
 returned nothing and looked, from the outside, exactly like a conservative
 extractor doing its job.

@@ -30,8 +30,8 @@ export default function VoicePage() {
           <div className="min-w-0">
             <h2 className="text-sm font-medium text-ink">Record for a video</h2>
             <p className="mt-1 text-sm text-ink-soft">
-              Use the microphone next to the message box. Record what you want said, attach a
-              photo, and the video is made of you saying it, in your own voice.
+              Use the microphone next to the message box. Record what you want said, attach a photo,
+              and the video is made of you saying it, in your own voice.
             </p>
           </div>
         </div>

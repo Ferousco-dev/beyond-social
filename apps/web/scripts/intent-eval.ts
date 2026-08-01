@@ -44,17 +44,50 @@ interface Case {
 
 const CASES: readonly Case[] = [
   // Explicit creation. Failing any of these makes the product look broken.
-  { message: "Generate a 9:16 shot of a matte black wristwatch resting on wet slate at dawn. Start wide, then push in slowly on the crown as the light shifts across it. Cool blue tones, shallow depth of field, no text.", expect: "create", hasPrevious: false, note: "the message that exposed the bug" },
-  { message: "Make me a video of a coffee cup on a marble counter", expect: "create", hasPrevious: false },
-  { message: "A 6 second vertical clip of trail shoes on a wet forest path", expect: "create", hasPrevious: false },
+  {
+    message:
+      "Generate a 9:16 shot of a matte black wristwatch resting on wet slate at dawn. Start wide, then push in slowly on the crown as the light shifts across it. Cool blue tones, shallow depth of field, no text.",
+    expect: "create",
+    hasPrevious: false,
+    note: "the message that exposed the bug",
+  },
+  {
+    message: "Make me a video of a coffee cup on a marble counter",
+    expect: "create",
+    hasPrevious: false,
+  },
+  {
+    message: "A 6 second vertical clip of trail shoes on a wet forest path",
+    expect: "create",
+    hasPrevious: false,
+  },
   { message: "Create a short ad for our new running shoe", expect: "create", hasPrevious: false },
-  { message: "product shot, white ceramic mug, morning light, slow orbit", expect: "create", hasPrevious: false, note: "terse, no verb at all" },
-  { message: "I need something for TikTok showing the watch in the rain", expect: "create", hasPrevious: false },
-  { message: "Generate another one, this time with the shoe on sand", expect: "create", hasPrevious: true, note: "new subject, so not an adjustment" },
+  {
+    message: "product shot, white ceramic mug, morning light, slow orbit",
+    expect: "create",
+    hasPrevious: false,
+    note: "terse, no verb at all",
+  },
+  {
+    message: "I need something for TikTok showing the watch in the rain",
+    expect: "create",
+    hasPrevious: false,
+  },
+  {
+    message: "Generate another one, this time with the shoe on sand",
+    expect: "create",
+    hasPrevious: true,
+    note: "new subject, so not an adjustment",
+  },
 
   // Adjustments to an existing video.
   { message: "make it slower", expect: "adjust", hasPrevious: true },
-  { message: "can you make the lighting warmer", expect: "adjust", hasPrevious: true, note: "phrased as a question but wants a change" },
+  {
+    message: "can you make the lighting warmer",
+    expect: "adjust",
+    hasPrevious: true,
+    note: "phrased as a question but wants a change",
+  },
   { message: "hold on the crown a bit longer", expect: "adjust", hasPrevious: true },
   { message: "try it in 16:9", expect: "adjust", hasPrevious: true },
   { message: "remove the text overlay", expect: "adjust", hasPrevious: true },
@@ -63,10 +96,20 @@ const CASES: readonly Case[] = [
   { message: "what shutter speed would suit this?", expect: "ask", hasPrevious: true },
   { message: "which aspect ratio works best on Instagram?", expect: "ask", hasPrevious: false },
   { message: "how many credits does a video cost?", expect: "ask", hasPrevious: false },
-  { message: "hmm nice i gues", expect: "ask", hasPrevious: true, note: "a throwaway remark, not a brief" },
+  {
+    message: "hmm nice i gues",
+    expect: "ask",
+    hasPrevious: true,
+    note: "a throwaway remark, not a brief",
+  },
   { message: "thanks", expect: "ask", hasPrevious: true },
   { message: "why does the push-in look jittery?", expect: "ask", hasPrevious: true },
-  { message: "I always shoot vertical, my whole audience is on TikTok", expect: "ask", hasPrevious: true, note: "states a preference, does not ask for a video" },
+  {
+    message: "I always shoot vertical, my whole audience is on TikTok",
+    expect: "ask",
+    hasPrevious: true,
+    note: "states a preference, does not ask for a video",
+  },
   { message: "what can you do?", expect: "ask", hasPrevious: false },
 ];
 
@@ -82,9 +125,7 @@ const wrong = results.filter((r) => r.got !== r.c.expect);
 for (const r of results) {
   const mark = r.got === r.c.expect ? "  ok  " : "  FAIL";
   const detail = r.got === r.c.expect ? "" : `  expected ${r.c.expect}, got ${r.got}`;
-  process.stdout.write(
-    `${mark} [${r.c.expect}] ${r.c.message.slice(0, 58).padEnd(58)}${detail}\n`,
-  );
+  process.stdout.write(`${mark} [${r.c.expect}] ${r.c.message.slice(0, 58).padEnd(58)}${detail}\n`);
 }
 
 // Broken out because the two directions have different costs: a missed create

@@ -30,7 +30,9 @@ export function QueueDepthPanel({ snapshot }: { snapshot: QueueSnapshot }): Reac
         <MetricRow>
           <Metric
             label="Oldest waiting"
-            value={oldestWaiting ? formatAge(oldestWaiting.enqueuedAt, observedAt) : "nothing waiting"}
+            value={
+              oldestWaiting ? formatAge(oldestWaiting.enqueuedAt, observedAt) : "nothing waiting"
+            }
             hint={oldestWaiting ? `Job ${oldestWaiting.jobId}, still unclaimed` : undefined}
             tone={waitTone(waitMs)}
           />

@@ -23,10 +23,9 @@ const FIELD =
 export function ConfigField({ row }: { row: ConfigRow }): ReactNode {
   const stored = formatConfigValue(row.value_type, row.value);
   const [draft, setDraft] = useState(stored);
-  const [state, formAction, pending] = useActionState<ConfigFormState, FormData>(
-    saveConfigAction,
-    { status: "idle" },
-  );
+  const [state, formAction, pending] = useActionState<ConfigFormState, FormData>(saveConfigAction, {
+    status: "idle",
+  });
 
   const dirty = draft !== stored;
   const local = dirty ? parseConfigInput(row.value_type, draft) : null;

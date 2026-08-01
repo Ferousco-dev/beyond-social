@@ -14,11 +14,7 @@ import { isValidTimeZone } from "@/lib/time/zone";
  * zones is the runtime's, and it changes when tzdata does.
  */
 const schema = z.object({
-  timeZone: z
-    .string()
-    .min(1)
-    .max(64)
-    .refine(isValidTimeZone, "Not a recognised IANA timezone"),
+  timeZone: z.string().min(1).max(64).refine(isValidTimeZone, "Not a recognised IANA timezone"),
 });
 
 export async function saveTimeZone(input: z.input<typeof schema>): Promise<{ ok: boolean }> {

@@ -1,13 +1,7 @@
 import "server-only";
 
 import { searchUsers } from "./rpc";
-import {
-  formatCursor,
-  PAGE_SIZE,
-  parseCursor,
-  type UserPage,
-  type UserQuery,
-} from "./schema";
+import { formatCursor, PAGE_SIZE, parseCursor, type UserPage, type UserQuery } from "./schema";
 
 /**
  * One page of accounts, with the cursor that reaches the next one.

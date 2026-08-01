@@ -70,9 +70,7 @@ export function useProjectMutations(initialItems: readonly SidebarProject[]) {
   const togglePinned = useCallback((item: SidebarProject) => {
     setError(null);
     const pinned = !item.pinned;
-    setItems((prev) =>
-      prev.map((entry) => (entry.id === item.id ? { ...entry, pinned } : entry)),
-    );
+    setItems((prev) => prev.map((entry) => (entry.id === item.id ? { ...entry, pinned } : entry)));
 
     void setProjectPinned({ projectId: item.id, pinned }).then((result) => {
       if (result.status === "ok") return;

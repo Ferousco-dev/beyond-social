@@ -67,7 +67,10 @@ export function isSafeRenderUrl(raw: string): boolean {
     .split(",")
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
-  if (allowlist.length > 0 && !allowlist.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) {
+  if (
+    allowlist.length > 0 &&
+    !allowlist.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))
+  ) {
     return false;
   }
 
@@ -80,7 +83,10 @@ export function isSafeRenderUrl(raw: string): boolean {
  * A truncated video that looks successful is worse than a failed copy: the
  * failure path already falls back to the provider URL, which still plays.
  */
-export async function readBounded(response: Response, maxBytes: number): Promise<Uint8Array | null> {
+export async function readBounded(
+  response: Response,
+  maxBytes: number,
+): Promise<Uint8Array | null> {
   const declared = Number(response.headers.get("content-length") ?? "0");
   if (declared > maxBytes) return null;
 

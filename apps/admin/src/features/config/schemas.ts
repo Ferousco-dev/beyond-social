@@ -22,12 +22,7 @@ const jsonValue: z.ZodType<ConfigJson> = z.lazy(() =>
 );
 
 export type ConfigJson =
-  | string
-  | number
-  | boolean
-  | null
-  | ConfigJson[]
-  | { [key: string]: ConfigJson };
+  string | number | boolean | null | ConfigJson[] | { [key: string]: ConfigJson };
 
 export const configRowSchema = z.object({
   key: z.string().min(1),

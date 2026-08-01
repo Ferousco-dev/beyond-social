@@ -6,13 +6,7 @@ import { type ReactNode } from "react";
  * readers even though it is not drawn.
  */
 
-export function Table({
-  caption,
-  children,
-}: {
-  caption: string;
-  children: ReactNode;
-}): ReactNode {
+export function Table({ caption, children }: { caption: string; children: ReactNode }): ReactNode {
   return (
     <div className="-mx-5 overflow-x-auto px-5">
       <table className="w-full min-w-[32rem] border-collapse text-sm">

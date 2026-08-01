@@ -234,7 +234,11 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       // The links are still fresh right now, so the optimistic turn can show
       // what was attached without waiting for the server to sign them again.
       const optimisticAttachments = [
-        ...attachments.map((photo) => ({ kind: "photo" as const, path: photo.path, url: photo.url })),
+        ...attachments.map((photo) => ({
+          kind: "photo" as const,
+          path: photo.path,
+          url: photo.url,
+        })),
         ...(voiceClip
           ? [{ kind: "audio" as const, path: voiceClip.path, url: voiceClip.url }]
           : []),

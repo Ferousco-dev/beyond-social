@@ -16,8 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Beyond Social",
     short_name: "Beyond",
-    description:
-      "AI-powered social media video platform, from idea to published short-form video.",
+    description: "AI-powered social media video platform, from idea to published short-form video.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

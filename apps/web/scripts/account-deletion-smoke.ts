@@ -234,7 +234,10 @@ check("anonymous requests make no deletion probe", rpcCalls === 0, `rpcs=${rpcCa
 
 await setDeleted(false);
 const live = await visit("/login", await sessionCookies());
-check("a live session on /login is still sent to /dashboard", live.location?.endsWith("/dashboard") === true);
+check(
+  "a live session on /login is still sent to /dashboard",
+  live.location?.endsWith("/dashboard") === true,
+);
 
 await admin.auth.admin.deleteUser(userId);
 

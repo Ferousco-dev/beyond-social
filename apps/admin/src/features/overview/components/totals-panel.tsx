@@ -22,7 +22,11 @@ export function TotalsPanel({
     <Card>
       {totals ? (
         <MetricRow>
-          <Metric label="Accounts" value={formatCount(totals.total_users)} hint="Profiles, one per signup" />
+          <Metric
+            label="Accounts"
+            value={formatCount(totals.total_users)}
+            hint="Profiles, one per signup"
+          />
           <Metric
             label="Live subscriptions"
             value={formatCount(totals.active_subscriptions)}

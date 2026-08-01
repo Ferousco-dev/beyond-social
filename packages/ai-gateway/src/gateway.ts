@@ -197,7 +197,10 @@ export class AiGateway {
     const promptTokens = estimateTokens(
       request.system + request.messages.map((message) => message.content).join(" "),
     );
-    const decision = await this.limiter.take(request.userId ?? "anonymous", Math.max(1, promptTokens));
+    const decision = await this.limiter.take(
+      request.userId ?? "anonymous",
+      Math.max(1, promptTokens),
+    );
     if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
 
     let lastError: unknown;

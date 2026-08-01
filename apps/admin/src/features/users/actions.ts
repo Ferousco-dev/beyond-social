@@ -52,7 +52,9 @@ export async function adjustCreditsAction(
 
   const input = creditsSchema.safeParse(fields(formData));
   if (!input.success) {
-    return invalid("Enter whole, non-negative credit figures and a reason of at least 3 characters.");
+    return invalid(
+      "Enter whole, non-negative credit figures and a reason of at least 3 characters.",
+    );
   }
 
   const { userId: id, creditsTotal, creditsUsed, reason: why } = input.data;

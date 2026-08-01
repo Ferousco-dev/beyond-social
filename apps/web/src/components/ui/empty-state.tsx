@@ -110,6 +110,13 @@ export interface EmptyStateProps {
  */
 export function EmptyState({ icon, title, body, action, className }: EmptyStateProps) {
   return (
-    <StatePanel tone="empty" icon={icon} title={title} body={body} action={action} className={className} />
+    <StatePanel
+      tone="empty"
+      icon={icon}
+      title={title}
+      body={body}
+      action={action}
+      className={className}
+    />
   );
 }

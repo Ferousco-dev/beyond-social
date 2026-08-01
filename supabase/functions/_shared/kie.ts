@@ -100,10 +100,9 @@ export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
  * callers do not have to care which one produced a task.
  */
 export async function getJobInfo(taskId: string): Promise<KieRecordInfo> {
-  const response = await fetch(
-    `${KIE_BASE}/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
-    { headers: { Authorization: `Bearer ${apiKey()}` } },
-  );
+  const response = await fetch(`${KIE_BASE}/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
+    headers: { Authorization: `Bearer ${apiKey()}` },
+  });
   const body = await response.json().catch(() => null);
   const data = body?.data ?? {};
   const state = String(data.state ?? "");

@@ -23,8 +23,8 @@ export default function ConfigPage(): ReactNode {
       <p className="rounded-xl border border-hairline bg-cloud px-4 py-3 text-sm text-ink-soft">
         Every setting below is stored in the database and every change is written to the audit log
         with its old and new value. None of them is marked live yet: the code that uses these
-        numbers still holds them as constants, so a change here records the intended value and
-        takes effect on the next deploy that reads it. Each description names the file to change.
+        numbers still holds them as constants, so a change here records the intended value and takes
+        effect on the next deploy that reads it. Each description names the file to change.
       </p>
 
       <ConfigView />

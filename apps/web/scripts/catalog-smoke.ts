@@ -68,7 +68,11 @@ async function main(): Promise<void> {
   const missing = constrained.filter(
     (family) => !(MODEL_FAMILIES as readonly string[]).includes(family),
   );
-  check("every family the constraint allows is parseable", missing.length === 0, missing.join(", "));
+  check(
+    "every family the constraint allows is parseable",
+    missing.length === 0,
+    missing.join(", "),
+  );
 
   process.stdout.write(
     `${results.join("\n")}\n\n${results.length - failures}/${results.length} passed\n`,

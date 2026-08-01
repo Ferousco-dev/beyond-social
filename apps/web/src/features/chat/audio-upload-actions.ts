@@ -78,7 +78,10 @@ export async function createAudioTicket(input: {
 }): Promise<AudioTicketResult> {
   const parsed = ticketSchema.safeParse(input);
   if (!parsed.success) {
-    return { status: "error", message: parsed.error.issues[0]?.message ?? "That clip cannot be used" };
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "That clip cannot be used",
+    };
   }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 

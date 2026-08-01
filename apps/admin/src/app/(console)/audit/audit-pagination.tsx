@@ -20,13 +20,7 @@ function Disabled({ children }: { children: ReactNode }): ReactNode {
   );
 }
 
-export function AuditPagination({
-  query,
-  total,
-}: {
-  query: AuditQuery;
-  total: number;
-}): ReactNode {
+export function AuditPagination({ query, total }: { query: AuditQuery; total: number }): ReactNode {
   const first = total === 0 ? 0 : (query.page - 1) * PAGE_SIZE + 1;
   const last = Math.min(query.page * PAGE_SIZE, total);
   const hasNext = query.page * PAGE_SIZE < total;

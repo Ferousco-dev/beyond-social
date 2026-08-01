@@ -96,7 +96,10 @@ async function setLiveMark(response: NextResponse, request: NextRequest, userId:
  * cast is confined here and the payload stays `unknown`, forcing the parse below.
  */
 type DeletionRpc = {
-  rpc: (fn: "is_account_deleted", args: Record<string, never>) => PromiseLike<{
+  rpc: (
+    fn: "is_account_deleted",
+    args: Record<string, never>,
+  ) => PromiseLike<{
     data: unknown;
     error: { message: string } | null;
   }>;
@@ -185,7 +188,11 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return isProtected ? redirect("/login", pathname) : response;
   }
 
-  const { state, cached } = await accountState(request, supabase as unknown as DeletionRpc, user.id);
+  const { state, cached } = await accountState(
+    request,
+    supabase as unknown as DeletionRpc,
+    user.id,
+  );
 
   if (state === "deleted") {
     // Checked before the auth-route bounce, so a deleted session landing on
