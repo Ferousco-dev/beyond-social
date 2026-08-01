@@ -50,6 +50,7 @@ export interface KieAvatarInput {
   imageUrl: string;
   audioUrl: string;
   prompt: string;
+  /** 480p unless asked otherwise: 720p is four times the price. */
   resolution?: string; // 480p | 720p
   callBackUrl?: string;
 }
@@ -77,7 +78,7 @@ export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
         image_url: input.imageUrl,
         audio_url: input.audioUrl,
         prompt: input.prompt,
-        resolution: input.resolution ?? "720p",
+        resolution: input.resolution ?? "480p",
       },
     }),
   });
