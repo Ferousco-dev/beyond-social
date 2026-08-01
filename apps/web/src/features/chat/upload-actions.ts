@@ -9,24 +9,28 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Photo upload.
  *
- * The product generates video from the user's own photos, and the compose menu
- * has always had an "Add photos" item that discarded the file. This stores it.
+ * The bytes never pass through the server. They used to: the file went to a
+ * server action as form data, which capped uploads at Next's 1MB server action
+ * body limit, so every photo a phone takes was rejected before the action ran
+ * and the compose menu appeared to do nothing. Raising that limit would not
+ * have helped in production either, because the serverless platform caps
+ * request bodies at 4.5MB regardless of framework config.
  *
- * Uploads go to the `uploads` bucket under the user's own id, which is exactly
- * the prefix its storage policy scopes to, so a path is only writable by its
- * owner.
+ * So the server issues a short-lived signed URL for a path it chooses, and the
+ * browser uploads straight to storage. The path always starts with the caller's
+ * own id, which is the prefix the bucket policy scopes writes to, so a ticket
+ * cannot be aimed at anyone else's folder.
  *
- * The bucket is private, so the URL handed back is signed. That matters because
- * the video provider fetches the image itself: a public-style URL would simply
- * 403 and the generation would fail with an unhelpful error. The signature has
- * to outlive the generation, hence hours rather than minutes.
+ * Type and size are checked here for a useful error message and enforced again
+ * by the bucket, which is the check that counts: everything the client sends
+ * about a file can be a lie.
  */
 
 /** Kept in step with what the video model will accept as an input frame. */
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"] as const;
 
-/** Large enough for a phone photo, small enough to bound a request. */
-const MAX_BYTES = 8 * 1024 * 1024;
+/** Matches the bucket's own limit, so a rejection can be explained rather than raw. */
+const MAX_BYTES = 10 * 1024 * 1024;
 
 /** The generator takes a small number of reference frames, not an album. */
 const MAX_FILES = 4;
@@ -34,46 +38,72 @@ const MAX_FILES = 4;
 /** Comfortably longer than a generation, so a slow queue cannot expire the link. */
 const SIGNED_URL_TTL_SECONDS = 2 * 60 * 60;
 
+const EXTENSIONS: Record<(typeof ACCEPTED)[number], string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+const ticketSchema = z.object({
+  files: z
+    .array(
+      z.object({
+        type: z.enum(ACCEPTED, { message: "Photos must be JPEG, PNG, or WebP" }),
+        size: z.number().int().positive().max(MAX_BYTES, "Each photo must be under 10 MB"),
+      }),
+    )
+    .min(1, "Choose a photo first")
+    .max(MAX_FILES, `Up to ${MAX_FILES} photos at a time`),
+});
+
+const attachSchema = z.object({
+  projectId: z.string().min(1),
+  paths: z.array(z.string().min(1)).min(1).max(MAX_FILES),
+});
+
+export interface UploadTicket {
+  readonly path: string;
+  /** Handed to `uploadToSignedUrl` in the browser. */
+  readonly token: string;
+}
+
 export interface UploadedPhoto {
   readonly url: string;
   readonly path: string;
 }
+
+export type TicketResult =
+  | { status: "ok"; tickets: readonly UploadTicket[] }
+  | { status: "unconfigured" }
+  | { status: "error"; message: string };
 
 export type UploadResult =
   | { status: "ok"; photos: readonly UploadedPhoto[] }
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
-const projectSchema = z.string().min(1);
-
-/** Extension from the mime type, so a path never trusts the client's filename. */
-function extensionFor(type: string): string {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
+/**
+ * What the browser knows about a chosen file. Deliberately typed loosely: a
+ * `File`'s type is a plain string, and narrowing it is this action's job rather
+ * than the caller's.
+ */
+export interface ChosenFile {
+  readonly type: string;
+  readonly size: number;
 }
 
-export async function uploadPhotos(formData: FormData): Promise<UploadResult> {
+/** Issues one signed upload URL per file, each under the caller's own prefix. */
+export async function createUploadTickets(input: {
+  files: readonly ChosenFile[];
+}): Promise<TicketResult> {
+  const parsed = ticketSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "Those files cannot be used",
+    };
+  }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
-
-  const projectId = projectSchema.safeParse(formData.get("projectId"));
-  const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
-
-  if (files.length === 0) return { status: "error", message: "Choose a photo first" };
-  if (files.length > MAX_FILES) {
-    return { status: "error", message: `Up to ${MAX_FILES} photos at a time` };
-  }
-
-  // Validated before any upload, so a rejected batch does not leave half its
-  // files stored.
-  for (const file of files) {
-    if (!(ACCEPTED as readonly string[]).includes(file.type)) {
-      return { status: "error", message: "Photos must be JPEG, PNG, or WebP" };
-    }
-    if (file.size > MAX_BYTES) {
-      return { status: "error", message: "Each photo must be under 8 MB" };
-    }
-  }
 
   const supabase = await createClient();
   const {
@@ -81,28 +111,63 @@ export async function uploadPhotos(formData: FormData): Promise<UploadResult> {
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to upload" };
 
+  const tickets: UploadTicket[] = [];
+  for (const [index, file] of parsed.data.files.entries()) {
+    // Built here rather than accepted from the client, so the owning prefix and
+    // the extension both come from something the server decided.
+    const path = `${user.id}/${crypto.randomUUID()}-${index}.${EXTENSIONS[file.type]}`;
+    const { data, error } = await supabase.storage.from("uploads").createSignedUploadUrl(path);
+    if (error || !data) {
+      logger.error("could not create upload ticket", { error: error?.message ?? "no data" });
+      return { status: "error", message: "Could not start that upload" };
+    }
+    tickets.push({ path: data.path, token: data.token });
+  }
+
+  return { status: "ok", tickets };
+}
+
+/**
+ * Records the uploaded objects and signs them for reading.
+ *
+ * The bucket is private and the video provider fetches the image itself, so an
+ * unsigned URL would 403 and the generation would fail with an unhelpful error.
+ */
+export async function attachUploadedPhotos(
+  input: z.input<typeof attachSchema>,
+): Promise<UploadResult> {
+  const parsed = attachSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Invalid input" };
+  if (!isSupabaseConfigured) return { status: "unconfigured" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sign in again to upload" };
+
+  // The paths come back from the client, so ownership is re-checked rather than
+  // assumed. Signing for reading is not gated by the write policy, so without
+  // this a caller could ask for a readable link to somebody else's object.
+  const foreign = parsed.data.paths.some((path) => !path.startsWith(`${user.id}/`));
+  if (foreign) return { status: "error", message: "Those photos could not be attached" };
+
+  const { projectId } = parsed.data;
   const photos: UploadedPhoto[] = [];
   try {
-    for (const [index, file] of files.entries()) {
-      // The user id must be the first path segment: the storage policy checks it.
-      const path = `${user.id}/${crypto.randomUUID()}-${index}.${extensionFor(file.type)}`;
-      const { error } = await supabase.storage
-        .from("uploads")
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (error) throw new Error(error.message);
-
-      const { data, error: signError } = await supabase.storage
+    for (const path of parsed.data.paths) {
+      const { data, error } = await supabase.storage
         .from("uploads")
         .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-      if (signError || !data?.signedUrl) {
-        throw new Error(signError?.message ?? "Uploaded photo has no reachable URL");
+      if (error || !data?.signedUrl) {
+        throw new Error(error?.message ?? "Uploaded photo has no reachable URL");
       }
 
       // Recorded so a thread can be rebuilt with the photos that fed it, and so
       // an orphaned object can be found later.
       await supabase.from("assets").insert({
         user_id: user.id,
-        project_id: projectId.success && projectId.data !== "new" ? projectId.data : null,
+        project_id: projectId !== "new" ? projectId : null,
         kind: "photo",
         storage_path: path,
       });
@@ -110,10 +175,10 @@ export async function uploadPhotos(formData: FormData): Promise<UploadResult> {
       photos.push({ url: data.signedUrl, path });
     }
   } catch (error) {
-    logger.error("photo upload failed", {
+    logger.error("photo attach failed", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return { status: "error", message: "Could not upload that photo" };
+    return { status: "error", message: "Could not attach that photo" };
   }
 
   return { status: "ok", photos };

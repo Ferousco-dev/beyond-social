@@ -1,12 +1,15 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ImagePlus, Music, Plus, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import { ImagePlus, Mic, Music, Plus, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
-import { uploadPhotos } from "@/features/chat/upload-actions";
+import { attachUploadedPhotos, createUploadTickets } from "@/features/chat/upload-actions";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
+
+import { useVoiceUpload, VOICE_ACCEPT, type PendingVoice } from "../hooks/use-voice-upload";
 
 /** A photo already uploaded and waiting to be attached to the next message. */
 export interface PendingPhoto {
@@ -19,6 +22,7 @@ interface MenuItem {
   label: string;
   hint: string;
   upload?: boolean;
+  voice?: boolean;
   navigate?: string;
 }
 
@@ -30,6 +34,7 @@ const ITEMS: readonly MenuItem[] = [
     hint: "Find a format to remix",
     navigate: "/dashboard/trends",
   },
+  { icon: Mic, label: "Add your voice", hint: "Speak, and the photo speaks it", voice: true },
   { icon: Music, label: "Music library", hint: "Add a track in the editor" },
   { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
@@ -43,17 +48,20 @@ const ITEMS: readonly MenuItem[] = [
 export function ComposeMenu({
   projectId,
   onPhotos,
+  onVoice,
   onError,
   onBusyChange,
 }: {
   projectId: string;
   onPhotos: (photos: readonly PendingPhoto[]) => void;
+  onVoice: (voice: PendingVoice) => void;
   onError: (message: string) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
+  const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
 
   return (
     <>
@@ -69,34 +77,76 @@ export function ComposeMenu({
           event.currentTarget.value = "";
           if (files.length === 0) return;
 
-          const form = new FormData();
-          form.set("projectId", projectId);
-          for (const file of files) form.append("files", file);
-
           setUploading(true);
           onBusyChange(true);
           void (async () => {
-            const result = await uploadPhotos(form);
-            setUploading(false);
-            onBusyChange(false);
-            if (result.status === "ok") {
-              onPhotos(result.photos);
-              return;
+            try {
+              // The server only issues tickets. Sending the files themselves
+              // through a server action capped them at 1MB, which is smaller
+              // than any photo a phone takes.
+              const ticketed = await createUploadTickets({
+                files: files.map((file) => ({ type: file.type, size: file.size })),
+              });
+              if (ticketed.status !== "ok") {
+                onError(
+                  ticketed.status === "unconfigured"
+                    ? "Uploads need the backend connected."
+                    : ticketed.message,
+                );
+                return;
+              }
+
+              const supabase = createBrowserClient();
+              await Promise.all(
+                ticketed.tickets.map((ticket, index) => {
+                  const file = files[index];
+                  if (!file) throw new Error("Missing file for ticket");
+                  return supabase.storage
+                    .from("uploads")
+                    .uploadToSignedUrl(ticket.path, ticket.token, file, {
+                      contentType: file.type,
+                    })
+                    .then(({ error }) => {
+                      if (error) throw new Error(error.message);
+                    });
+                }),
+              );
+
+              const attached = await attachUploadedPhotos({
+                projectId,
+                paths: ticketed.tickets.map((ticket) => ticket.path),
+              });
+              if (attached.status === "ok") {
+                onPhotos(attached.photos);
+                return;
+              }
+              onError(
+                attached.status === "unconfigured"
+                  ? "Uploads need the backend connected."
+                  : attached.message,
+              );
+            } catch (error) {
+              onError(error instanceof Error ? error.message : "Could not upload that photo");
+            } finally {
+              setUploading(false);
+              onBusyChange(false);
             }
-            onError(
-              result.status === "unconfigured"
-                ? "Uploads need the backend connected."
-                : result.message,
-            );
           })();
         }}
+      />
+      <input
+        ref={voice.inputRef}
+        type="file"
+        accept={VOICE_ACCEPT}
+        className="hidden"
+        onChange={voice.handleChange}
       />
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
             aria-label="Add photos and more"
-            disabled={uploading}
+            disabled={uploading || voice.uploading}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="size-4" />
@@ -114,6 +164,8 @@ export function ComposeMenu({
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
+                  } else if (item.voice) {
+                    voice.open();
                   } else if (item.navigate) {
                     router.push(item.navigate as Route);
                   }
