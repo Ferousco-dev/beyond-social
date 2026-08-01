@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import { Download, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -20,10 +20,13 @@ export function DraftMenu({
   editorHref,
   onRegenerate,
   busy,
+  downloadUrl,
 }: {
   editorHref: Route;
   onRegenerate?: () => void;
   busy?: boolean;
+  /** The signed link for this render, if it has finished. */
+  downloadUrl?: string | null;
 }): ReactNode {
   return (
     <DropdownMenu.Root>
@@ -43,6 +46,23 @@ export function DraftMenu({
           sideOffset={6}
           className="z-50 min-w-44 rounded-xl border border-hairline bg-paper p-1 shadow-card"
         >
+          {downloadUrl ? (
+            <DropdownMenu.Item asChild className={MENU_ITEM}>
+              {/*
+                A plain anchor, not a fetch-and-blob. The link is already signed
+                and short-lived, so the browser can pull it straight to disk
+                without the whole video passing through JavaScript memory first.
+                `download` names the file; Supabase also sets the disposition
+                from the query parameter, which is what makes Safari save it
+                rather than navigate to it.
+              */}
+              <a href={`${downloadUrl}&download=video.mp4`} download="video.mp4">
+                <Download className="size-4 text-ink-soft" aria-hidden />
+                Download
+              </a>
+            </DropdownMenu.Item>
+          ) : null}
+
           <DropdownMenu.Item asChild className={MENU_ITEM}>
             <Link href={editorHref}>
               <Pencil className="size-4 text-ink-soft" aria-hidden />

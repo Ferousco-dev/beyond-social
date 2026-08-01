@@ -95,6 +95,7 @@ export function VideoDraftCard({
           <DraftMenu
             editorHref={editorHref}
             busy={regenerating}
+            downloadUrl={draft.resultUrl}
             onRegenerate={
               onRegenerate && draft.generationId
                 ? () => onRegenerate(draft.generationId)
