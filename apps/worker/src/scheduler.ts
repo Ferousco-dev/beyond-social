@@ -1,6 +1,7 @@
 import { createServiceClient } from "./lib/supabase";
 import { logger } from "./lib/logger";
 import { type PublishQueue } from "./queues/publishing";
+import { type RenderQueue } from "./queues/rendering";
 
 const SCAN_INTERVAL_MS = 30_000;
 const CLAIM_BATCH = 20;
@@ -50,6 +51,56 @@ export function startScheduler(queue: PublishQueue): () => void {
   };
 
   const timer = setInterval(() => void scan(), SCAN_INTERVAL_MS);
+  void scan();
+
+  return () => clearInterval(timer);
+}
+
+interface QueuedRender {
+  id: string;
+  user_id: string;
+  clip_paths: string[];
+}
+
+/**
+ * Claims queued renders and enqueues one job each.
+ *
+ * The same shape as the publish scan above, and for the same reasons: the
+ * claim is atomic in the database so several workers can scan at once, and the
+ * row's own id is the job id so a scan retried after a partial failure cannot
+ * put the same render in the queue twice.
+ *
+ * Scanned more often than posts. A scheduled post is due at a time the user
+ * picked minutes or hours ahead, where an export is something they are sitting
+ * and waiting for, so half a minute of latency before it even starts is felt.
+ */
+const RENDER_SCAN_INTERVAL_MS = 5_000;
+const RENDER_CLAIM_BATCH = 5;
+
+export function startRenderScheduler(queue: RenderQueue): () => void {
+  const supabase = createServiceClient();
+
+  const scan = async (): Promise<void> => {
+    const { data, error } = await supabase.rpc("claim_queued_renders", {
+      p_limit: RENDER_CLAIM_BATCH,
+    });
+    if (error) {
+      logger.error("failed to claim queued renders", { error: error.message });
+      return;
+    }
+
+    const renders = (data ?? []) as QueuedRender[];
+    for (const render of renders) {
+      await queue.add(
+        "render",
+        { renderId: render.id, userId: render.user_id, clipPaths: render.clip_paths },
+        { jobId: `render:${render.id}` },
+      );
+    }
+    if (renders.length > 0) logger.info("enqueued renders", { count: renders.length });
+  };
+
+  const timer = setInterval(() => void scan(), RENDER_SCAN_INTERVAL_MS);
   void scan();
 
   return () => clearInterval(timer);

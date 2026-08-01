@@ -924,6 +924,67 @@ export type Database = {
         };
         Relationships: [];
       };
+      project_renders: {
+        Row: {
+          clip_paths: string[];
+          created_at: string;
+          duration_seconds: number | null;
+          error: string | null;
+          id: string;
+          project_id: string;
+          result_path: string | null;
+          status: Database["public"]["Enums"]["generation_status"];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          clip_paths: string[];
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          id?: string;
+          project_id: string;
+          result_path?: string | null;
+          status?: Database["public"]["Enums"]["generation_status"];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          clip_paths?: string[];
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          id?: string;
+          project_id?: string;
+          result_path?: string | null;
+          status?: Database["public"]["Enums"]["generation_status"];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_renders_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_renders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "project_renders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       projects: {
         Row: {
           created_at: string;
@@ -2253,6 +2314,14 @@ export type Database = {
           id: string;
           platform: string;
           trace_id: string;
+          user_id: string;
+        }[];
+      };
+      claim_queued_renders: {
+        Args: { p_limit?: number };
+        Returns: {
+          clip_paths: string[];
+          id: string;
           user_id: string;
         }[];
       };

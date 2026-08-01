@@ -197,6 +197,26 @@ else
   esac
 fi
 
+# The worker was never checked, only the web app, and it is the one that matters
+# more: it runs with a service-role key and its publishing queue posts to real
+# social accounts. Pointed at the hosted project it will happily claim a due
+# post and publish it from a laptop mid-edit. Loud, and refuses to be silent
+# about it, because nothing else in the stack would tell you.
+if [ -f apps/worker/.env ]; then
+  WORKER_URL=$(grep -E '^SUPABASE_URL=' apps/worker/.env | tail -1 | cut -d= -f2- | tr -d '"' || true)
+  case "$WORKER_URL" in
+    *127.0.0.1*|*localhost*) ok "worker points at the local stack" ;;
+    "") warn "SUPABASE_URL is unset in apps/worker/.env, so the worker will idle" ;;
+    *)
+      warn "worker points at a REMOTE Supabase:"
+      warn "  $WORKER_URL"
+      warn "  its publishing queue can publish real scheduled posts to real accounts"
+      warn "  from this machine. Point apps/worker/.env at the local stack unless"
+      warn "  you deliberately mean to operate on production data."
+      ;;
+  esac
+fi
+
 # ---------------------------------------------------------------------------
 # Application services.
 # ---------------------------------------------------------------------------
