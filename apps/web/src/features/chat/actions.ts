@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
 import { checkVideoRun } from "@/lib/generation/gate";
@@ -31,12 +32,24 @@ import { createClient } from "@/lib/supabase/server";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
 
+/** The composer's ceiling: four reference photos plus one voice clip. */
+const MAX_ATTACHMENTS = 5;
+
 const sendSchema = z.object({
   /** `new` means no project exists yet. */
   projectId: z.string().min(1),
   prompt: z.string().trim().min(1, "Describe the video first").max(2000),
   aspectRatio: z.enum(ASPECT_RATIOS).optional(),
   imageUrls: z.array(z.string().url()).max(4).optional(),
+  /**
+   * Object paths, not URLs. The signed URLs in `imageUrls` are what the
+   * provider fetches and they expire in two hours; the path is what the thread
+   * stores so it can re-sign and still render the attachment next week.
+   */
+  attachments: z
+    .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
+    .max(MAX_ATTACHMENTS)
+    .optional(),
 });
 
 export type SendResult =
@@ -91,8 +104,16 @@ async function sendForUser(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SendResult> {
-  const { prompt, aspectRatio, imageUrls } = parsed;
+  const { prompt, aspectRatio, imageUrls, attachments } = parsed;
   const user = { id: userId };
+
+  // The paths come back from the client, so ownership is re-checked here rather
+  // than assumed, exactly as the upload actions do. `append_turn` filters these
+  // too, but it does so silently, and a caller that sent something wrong is
+  // better told than quietly ignored.
+  if (attachments?.some((attachment) => !attachment.path.startsWith(`${user.id}/`))) {
+    return { status: "error", message: "Those attachments could not be saved" };
+  }
 
   // The project is created on the first message, not on page load, so opening
   // the composer and changing your mind leaves nothing behind.
@@ -229,6 +250,7 @@ async function sendForUser(
     p_assistant_content: reply,
     // The generated type spells an optional argument as undefined, not null.
     p_generation: generationId ?? undefined,
+    p_attachments: attachments ?? [],
   });
   if (turnError) {
     logger.error("could not persist turn", { error: turnError.message });
@@ -257,5 +279,10 @@ async function sendForUser(
   void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
 
   revalidatePath(`/dashboard/c/${projectId}`);
+  // The sidebar is rendered by the dashboard layout, which a page-level
+  // revalidate does not touch, so a new project did not appear in it until a
+  // full reload. Every turn bumps the project's updated_at and reorders that
+  // list too, so this is not only a first-message concern.
+  revalidatePath("/dashboard", "layout");
   return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };
 }

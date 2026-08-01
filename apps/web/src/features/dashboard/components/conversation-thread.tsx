@@ -7,12 +7,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { sendMessage } from "@/features/chat/actions";
 import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
+import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { type ChatMessage, type Thread } from "@/lib/chat/thread";
+import { type AttachmentKind, type ChatMessage, type Thread } from "@/lib/chat/thread";
 import { cn } from "@/lib/utils";
 
 import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-poll";
+import { useRegenerateDraft } from "../hooks/use-regenerate-draft";
 import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
@@ -25,6 +27,13 @@ const PENDING_PHOTOS_KEY = "bs:pending-photos";
 
 /** Optimistic ids are prefixed so a server id can never collide with one. */
 const OPTIMISTIC = "pending:";
+
+/**
+ * What the server persists for an attachment: the object, not a link to it.
+ * Mutable because it crosses a server action boundary, and the generated input
+ * type for one is not readonly.
+ */
+type AttachmentRef = { kind: AttachmentKind; path: string };
 
 export function ConversationThread({ thread }: { thread: Thread }) {
   const router = useRouter();
@@ -44,7 +53,23 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   // The server is the source of truth: a navigation or revalidation replaces
   // whatever optimistic state is on screen.
   useEffect(() => {
-    setMessages(thread.messages);
+    setMessages((current) => {
+      /*
+       * With one exception. The first message of a new chat is sent from
+       * `/dashboard/c/new`, whose thread is empty by definition, and the
+       * project is only created by that send. Until the navigation to the real
+       * project lands, any re-render of the layout pushes that empty thread
+       * back down here, and adopting it wiped the message the user had just
+       * sent: they watched their own turn disappear.
+       *
+       * An empty thread never has anything to teach a screen that is already
+       * showing unsaved messages, so it is ignored. Anything the server
+       * actually has still wins, which is what settles the optimistic ids.
+       */
+      const unsaved = current.some((message) => message.id.startsWith(OPTIMISTIC));
+      if (thread.messages.length === 0 && unsaved) return current;
+      return thread.messages;
+    });
   }, [thread.messages]);
 
   const applyOutcome = useCallback((generationId: string, outcome: PollOutcome) => {
@@ -65,6 +90,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   }, []);
 
   const { watch, stop } = useGenerationPoll(applyOutcome);
+
+  const { regenerate, busyId: regeneratingId } = useRegenerateDraft({
+    confirm,
+    onMessage: (message) => setMessages((current) => [...current, message]),
+    onNotice: setNotice,
+    onStarted: watch,
+  });
 
   /**
    * Stops waiting for a render. The provider cannot be told to stop, so the
@@ -115,13 +147,15 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       imageUrl: string,
       audioUrl: string,
       optimisticId: string,
+      attachments: AttachmentRef[],
     ): Promise<boolean> => {
       if (projectId === "new") {
         setNotice("Send a message first, then attach a photo and a voice clip.");
         return false;
       }
 
-      const attempt = () => startAvatarGeneration({ projectId, prompt: text, imageUrl, audioUrl });
+      const attempt = () =>
+        startAvatarGeneration({ projectId, prompt: text, imageUrl, audioUrl, attachments });
       let result = await attempt();
 
       if (result.status === "consent") {
@@ -159,7 +193,8 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         {
           id: `${OPTIMISTIC}avatar-${counter.current++}`,
           role: "assistant",
-          content: "Making a video of you saying that.",
+          content: AVATAR_REPLY,
+          attachments: [],
           draft: {
             generationId: result.generationId,
             status: "generating" as const,
@@ -189,16 +224,41 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       const attachments = seeded ?? photos;
       const attached = attachments.map((photo) => photo.url);
       const voiceClip = voice;
+
+      // Paths, not URLs, are what gets persisted: the signed links above expire
+      // in two hours, so a thread reloaded tomorrow re-signs from these.
+      const attachmentRefs = [
+        ...attachments.map((photo) => ({ kind: "photo" as const, path: photo.path })),
+        ...(voiceClip ? [{ kind: "audio" as const, path: voiceClip.path }] : []),
+      ];
+      // The links are still fresh right now, so the optimistic turn can show
+      // what was attached without waiting for the server to sign them again.
+      const optimisticAttachments = [
+        ...attachments.map((photo) => ({ kind: "photo" as const, path: photo.path, url: photo.url })),
+        ...(voiceClip
+          ? [{ kind: "audio" as const, path: voiceClip.path, url: voiceClip.url }]
+          : []),
+      ];
+
       setPhotos([]);
       setVoice(null);
-      setMessages((current) => [...current, { id: optimisticId, role: "user", content: trimmed }]);
+      setMessages((current) => [
+        ...current,
+        { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
+      ]);
 
       void (async () => {
         // A photo plus a voice clip means an avatar render rather than an
         // ordinary generation: the two inputs together are the whole signal, so
         // there is no separate mode to switch into.
         if (voiceClip && attached.length > 0 && attached[0]) {
-          const outcome = await runAvatar(trimmed, attached[0], voiceClip.url, optimisticId);
+          const outcome = await runAvatar(
+            trimmed,
+            attached[0],
+            voiceClip.url,
+            optimisticId,
+            attachmentRefs,
+          );
           setSending(false);
           if (outcome) return;
           return;
@@ -208,6 +268,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           projectId,
           prompt: trimmed,
           imageUrls: attached.length > 0 ? attached : undefined,
+          attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
         });
         setSending(false);
 
@@ -226,13 +287,6 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
         if (result.notice) setNotice(result.notice);
 
-        // A brand-new thread now has a real project, so move to its URL and let
-        // the server component load the persisted turn.
-        if (projectId === "new") {
-          router.replace(`/dashboard/c/${result.projectId}` as Route);
-          return;
-        }
-
         /**
          * The reply is appended from what the action already returned rather
          * than refetching the thread. `router.refresh()` re-rendered the whole
@@ -248,6 +302,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             id: `${OPTIMISTIC}reply-${counter.current++}`,
             role: "assistant",
             content: result.reply,
+            attachments: [],
             ...(result.generationId
               ? {
                   draft: {
@@ -259,6 +314,17 @@ export function ConversationThread({ thread }: { thread: Thread }) {
               : {}),
           },
         ]);
+
+        /*
+         * A brand-new thread now has a real project, so move to its URL. This
+         * happens after the reply is on screen, not instead of it: navigating
+         * first and letting the server render the turn meant the whole
+         * exchange blinked out and came back, and if the render lost the race
+         * the first message looked like it had never been sent.
+         */
+        if (projectId === "new") {
+          router.replace(`/dashboard/c/${result.projectId}` as Route);
+        }
       })();
     },
     [projectId, photos, voice, router, sending, rendering, runAvatar],
@@ -326,6 +392,8 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             message={message}
             editorHref={editorHref}
             onCancelDraft={cancelDraft}
+            onRegenerate={(id) => void regenerate(id)}
+            regeneratingId={regeneratingId}
           />
         ))}
 

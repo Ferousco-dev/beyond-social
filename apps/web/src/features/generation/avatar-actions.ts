@@ -2,10 +2,14 @@
 
 import { z } from "zod";
 
+import { revalidatePath } from "next/cache";
+
+import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
+import { AVATAR_REPLY } from "./avatar-copy";
 import { CONSENT_VERSION } from "./consent";
 
 /**
@@ -23,6 +27,15 @@ const startSchema = z.object({
   prompt: z.string().trim().min(1, "Describe what should happen").max(2000),
   imageUrl: z.string().url(),
   audioUrl: z.string().url(),
+  /**
+   * The same objects as the two URLs above, by path rather than signed link.
+   * The URLs are what the provider fetches and they expire; these are what the
+   * thread keeps so the turn still shows its photo and clip on a later visit.
+   */
+  attachments: z
+    .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
+    .max(2)
+    .optional(),
 });
 
 export type AvatarResult =
@@ -86,9 +99,20 @@ export async function startAvatarGeneration(
   if (!(await hasLikenessConsent())) return { status: "consent" };
 
   const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("generate-avatar", {
-    body: parsed.data,
-  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sign in again to continue" };
+
+  // Paths come from the client, so ownership is re-checked rather than assumed,
+  // as it is in the upload actions and in `sendMessage`.
+  if (parsed.data.attachments?.some((item) => !item.path.startsWith(`${user.id}/`))) {
+    return { status: "error", message: "Those attachments could not be saved" };
+  }
+
+  const { attachments, ...body } = parsed.data;
+  // The edge function takes the signed URLs; the paths are for the thread.
+  const { data, error } = await supabase.functions.invoke("generate-avatar", { body });
 
   if (error) {
     logger.warn("avatar generation could not start", { error: error.message });
@@ -100,5 +124,29 @@ export async function startAvatarGeneration(
   if (!result?.generationId) {
     return { status: "error", message: "The avatar service did not accept that" };
   }
+
+  // The turn is persisted here because nothing else does it. An avatar render
+  // went straight to the provider and never wrote a message, so a reload lost
+  // the request, the reply and the attachments, leaving a finished video
+  // sitting in a thread with nothing that explains where it came from.
+  //
+  // Deliberately after the render has been accepted: writing the turn first
+  // would leave a message promising a video that was never started.
+  const { error: turnError } = await supabase.rpc("append_turn", {
+    p_project: parsed.data.projectId,
+    p_user_content: parsed.data.prompt,
+    p_assistant_content: AVATAR_REPLY,
+    p_generation: result.generationId,
+    p_attachments: attachments ?? [],
+  });
+  // The render is already under way and will be charged, so a failure to record
+  // it must not read as a failure to start it. Logged, and the caller still
+  // gets its generation id so the draft can be watched.
+  if (turnError) logger.error("could not persist avatar turn", { error: turnError.message });
+
+  revalidatePath(`/dashboard/c/${parsed.data.projectId}`);
+  // The turn bumped the project's updated_at, which is what orders the sidebar
+  // in the dashboard layout. A page-level revalidate does not reach it.
+  revalidatePath("/dashboard", "layout");
   return { status: "ok", generationId: result.generationId };
 }

@@ -2,7 +2,7 @@
 
 import { type Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   deleteProject,
@@ -28,6 +28,20 @@ export function useProjectMutations(initialItems: readonly SidebarProject[]) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+
+  /*
+   * The seed above runs once, so the list was frozen at whatever the sidebar
+   * was first rendered with: starting a new chat wrote the project and
+   * revalidated the layout, and the new row still did not appear until a full
+   * reload. Adopting each new server render is what makes it show up, and it
+   * settles optimistic renames and deletes onto their persisted values too.
+   *
+   * `initialItems` is a fresh array only when the layout actually re-renders
+   * from the server, so this does not fight the optimistic updates below.
+   */
+  useEffect(() => {
+    setItems([...initialItems]);
+  }, [initialItems]);
 
   /*
    * The lookup happens outside the updater on purpose. A state updater has to

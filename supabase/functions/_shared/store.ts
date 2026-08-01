@@ -57,5 +57,35 @@ export async function persistRender(
   if (error) return sourceUrl;
 
   const { data } = admin.storage.from("renders").getPublicUrl(path);
-  return data?.publicUrl ?? sourceUrl;
+  return data?.publicUrl ? toBrowserOrigin(data.publicUrl) : sourceUrl;
+}
+
+/**
+ * Rewrites a storage URL onto the origin a browser can actually reach.
+ *
+ * `getPublicUrl` builds from the client's own base URL, which is whatever
+ * `SUPABASE_URL` says. Inside the platform network that is an internal address:
+ * in local development it is `http://kong:8000`, which resolves for this
+ * function and for nothing else. The result is stored on the row, so a render
+ * saved that way is unplayable in a browser for good, and it looks like a
+ * broken player rather than a bad URL.
+ *
+ * Hosted Supabase already sets `SUPABASE_URL` to the public origin, so this
+ * only rewrites when `PUBLIC_SUPABASE_URL` is set to say otherwise. Only the
+ * origin is replaced; the path `getPublicUrl` produced is left alone.
+ */
+function toBrowserOrigin(url: string): string {
+  const override = Deno.env.get("PUBLIC_SUPABASE_URL");
+  if (!override) return url;
+
+  try {
+    const target = new URL(url);
+    const base = new URL(override);
+    target.protocol = base.protocol;
+    target.host = base.host;
+    return target.toString();
+  } catch {
+    // A malformed override must not cost us the render.
+    return url;
+  }
 }

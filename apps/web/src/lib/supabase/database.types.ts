@@ -633,6 +633,41 @@ export type Database = {
         }
         Relationships: []
       }
+      message_attachments: {
+        Row: {
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["asset_kind"]
+          message_id: string
+          sort_order: number
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["asset_kind"]
+          message_id: string
+          sort_order?: number
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["asset_kind"]
+          message_id?: string
+          sort_order?: number
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_embeddings: {
         Row: {
           created_at: string
@@ -1644,6 +1679,39 @@ export type Database = {
           },
         ]
       }
+      voice_profiles: {
+        Row: {
+          consent_version: number
+          created_at: string
+          id: string
+          phrase: string
+          provider_voice_id: string | null
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consent_version: number
+          created_at?: string
+          id?: string
+          phrase: string
+          provider_voice_id?: string | null
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consent_version?: number
+          created_at?: string
+          id?: string
+          phrase?: string
+          provider_voice_id?: string | null
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       deleted_accounts_grace: {
@@ -2082,6 +2150,7 @@ export type Database = {
       append_turn: {
         Args: {
           p_assistant_content: string
+          p_attachments?: Json
           p_generation?: string
           p_project: string
           p_user_content: string
@@ -2294,6 +2363,7 @@ export type Database = {
       project_thread: {
         Args: { p_project: string }
         Returns: {
+          attachments: Json
           content: string
           created_at: string
           generation_id: string

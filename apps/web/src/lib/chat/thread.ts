@@ -6,6 +6,10 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/session";
 
+import { type Attachment, attachmentRowSchema, signAttachmentPaths } from "./attachments";
+
+export { type Attachment, type AttachmentKind } from "./attachments";
+
 /**
  * Reading a conversation.
  *
@@ -22,6 +26,9 @@ const rowSchema = z.object({
   generation_id: z.string().nullable(),
   generation_status: z.enum(["queued", "generating", "ready", "failed"]).nullable(),
   result_url: z.string().nullable(),
+  // `project_thread` coalesces to an empty array, so this is never null. The
+  // default covers a stale build reading a thread before the migration lands.
+  attachments: z.array(attachmentRowSchema).default([]),
 });
 
 export type DraftStatus = "generating" | "ready" | "failed";
@@ -37,6 +44,8 @@ export interface ChatMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly draft?: MessageDraft;
+  /** What was sent with the message. Empty for almost every assistant turn. */
+  readonly attachments: readonly Attachment[];
 }
 
 export interface Thread {
@@ -54,11 +63,18 @@ function toDraftStatus(status: string | null): DraftStatus {
   return "generating";
 }
 
-function toMessage(row: z.infer<typeof rowSchema>): ChatMessage {
+function toMessage(
+  row: z.infer<typeof rowSchema>,
+  signed: ReadonlyMap<string, string>,
+): ChatMessage {
   return {
     id: row.id,
     role: row.role,
     content: row.content,
+    attachments: row.attachments.map((attachment) => ({
+      ...attachment,
+      url: signed.get(attachment.path) ?? null,
+    })),
     draft: row.generation_id
       ? {
           generationId: row.generation_id,
@@ -96,10 +112,19 @@ export async function getThread(id: string): Promise<Thread> {
   if (!found) return { ...EMPTY, live: true };
 
   const parsed = z.array(rowSchema).safeParse(rows);
+  if (!parsed.success) return { ...EMPTY, projectId: found.id, title: found.title, live: true };
+
+  // One signing call for the whole thread, after parsing rather than during it,
+  // so the number of round trips does not grow with the number of photos.
+  const signed = await signAttachmentPaths(
+    supabase,
+    parsed.data.flatMap((row) => row.attachments.map((attachment) => attachment.path)),
+  );
+
   return {
     projectId: found.id,
     title: found.title,
-    messages: parsed.success ? parsed.data.map(toMessage) : [],
+    messages: parsed.data.map((row) => toMessage(row, signed)),
     live: true,
   };
 }
