@@ -21,6 +21,7 @@ import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
+const PENDING_PHOTOS_KEY = "bs:pending-photos";
 
 /** Optimistic ids are prefixed so a server id can never collide with one. */
 const OPTIMISTIC = "pending:";
@@ -172,7 +173,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   );
 
   const submit = useCallback(
-    (text: string) => {
+    (text: string, seeded?: readonly PendingPhoto[]) => {
       const trimmed = text.trim();
       // Checked here as well as on the button, which Enter bypasses.
       if (trimmed === "" || sending || rendering) return;
@@ -182,7 +183,11 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       setPrompt("");
 
       const optimisticId = `${OPTIMISTIC}${counter.current++}`;
-      const attached = photos.map((photo) => photo.url);
+      // A seeded turn carries its photos as an argument: they were uploaded on
+      // the previous screen, so they are not in this component's state yet and
+      // reading state here would send the message without them.
+      const attachments = seeded ?? photos;
+      const attached = attachments.map((photo) => photo.url);
       const voiceClip = voice;
       setPhotos([]);
       setVoice(null);
@@ -267,7 +272,22 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     const pending = queryPrompt ?? window.sessionStorage.getItem(PENDING_PROMPT_KEY);
     if (!pending) return;
     window.sessionStorage.removeItem(PENDING_PROMPT_KEY);
-    submit(pending);
+
+    const storedPhotos = window.sessionStorage.getItem(PENDING_PHOTOS_KEY);
+    window.sessionStorage.removeItem(PENDING_PHOTOS_KEY);
+    let seeded: readonly PendingPhoto[] | undefined;
+    if (storedPhotos) {
+      // Session storage is client-controlled, so a malformed or hand-edited
+      // value must not take the composer down with it.
+      try {
+        const parsed: unknown = JSON.parse(storedPhotos);
+        if (Array.isArray(parsed)) seeded = parsed as readonly PendingPhoto[];
+      } catch {
+        seeded = undefined;
+      }
+    }
+
+    submit(pending, seeded);
     // A one-shot seed, so it must not re-run when `submit` is recreated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [thread.projectId]);

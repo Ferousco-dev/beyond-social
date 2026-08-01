@@ -7,11 +7,13 @@ import { SUGGESTIONS } from "@/lib/dashboard/data";
 import { buildGreeting } from "@/lib/dashboard/greetings";
 import { cn } from "@/lib/utils";
 
+import { type PendingPhoto } from "./compose-menu";
 import { PromptComposer } from "./prompt-composer";
 
 export function DashboardHome({ name }: { name: string }) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
+  const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
   const [greeting, setGreeting] = useState("");
 
   // Resolved on the client: the greeting depends on the visitor's own clock,
@@ -25,6 +27,12 @@ export function DashboardHome({ name }: { name: string }) {
     const text = prompt.trim();
     if (!text) return;
     window.sessionStorage.setItem("bs:pending-prompt", text);
+    // Photos are already uploaded and signed by this point, so only the
+    // references travel. Without this the attachment was accepted here, shown
+    // here, and then silently dropped by the navigation.
+    if (photos.length > 0) {
+      window.sessionStorage.setItem("bs:pending-photos", JSON.stringify(photos));
+    }
     router.push("/dashboard/c/new");
   }
 
@@ -44,11 +52,11 @@ export function DashboardHome({ name }: { name: string }) {
         value={prompt}
         onChange={setPrompt}
         onSubmit={handleSubmit}
-        // The thread has no project until the first message lands, so photos
-        // are attached there rather than here.
+        // There is no project yet, so an upload here is filed against none and
+        // carried into the thread the first message creates.
         projectId="new"
-        photos={[]}
-        onPhotosChange={() => undefined}
+        photos={photos}
+        onPhotosChange={setPhotos}
         voice={null}
         onVoice={() => undefined}
         busy={false}
