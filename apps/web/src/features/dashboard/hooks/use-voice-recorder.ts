@@ -117,13 +117,30 @@ export function useVoiceRecorder(onError: (message: string) => void) {
     } catch (error) {
       teardown();
       setState("idle");
-      // Denial is the common case and is not a failure worth a stack trace.
-      const denied = error instanceof DOMException && error.name === "NotAllowedError";
-      onError(
-        denied
-          ? "Microphone access is blocked. Allow it in your browser to record."
-          : "Could not start recording on this device.",
-      );
+      /*
+       * A denial and a policy block raise the same NotAllowedError, and telling
+       * someone to allow a microphone the page forbids sends them to fiddle
+       * with browser settings that cannot help. When the page itself is the one
+       * refusing, the permissions api still reports the permission as grantable,
+       * so the two can be told apart and named correctly.
+       */
+      const notAllowed = error instanceof DOMException && error.name === "NotAllowedError";
+      let message = "Could not start recording on this device.";
+      if (notAllowed) {
+        message = "Microphone access is blocked. Allow it in your browser to record.";
+        try {
+          const status = await navigator.permissions.query({
+            name: "microphone" as PermissionName,
+          });
+          if (status.state !== "denied") {
+            message = "Recording is not available on this page.";
+          }
+        } catch {
+          // Firefox does not expose the microphone permission here, so the
+          // denial wording stands as the likelier of the two.
+        }
+      }
+      onError(message);
     }
   }, [state, teardown, onError]);
 

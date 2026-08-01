@@ -39,7 +39,12 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    // The microphone is allowed for this origin only, because recording a voice
+    // clip is a feature of the app. An empty list blocks every origin including
+    // ours, so the browser refuses before it can even ask, and the failure
+    // arrives as the same error a user denial would produce. Camera and
+    // location stay closed: nothing here uses them.
+    value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];
