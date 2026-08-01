@@ -54,6 +54,28 @@ reasons unrelated to the change under review.
 
 ## High
 
+**H0. The avatar model is active only on the local database.** Impact high,
+effort S, but it is a product decision rather than a code fix. Migration 0048
+inserts `infinitalk/from-audio` with `is_active = false` and no later migration
+turns it on, so a freshly migrated database has **one** active model, not two.
+Local has two because the flag was flipped by hand.
+
+Verified: the Database workflow reports `the catalogue has active rows (1 rows)`
+against a database built purely from migrations, while local reports two.
+
+This means that once the hosted database catches up, the avatar feature will not
+appear in the market at all, and `getModel` returns null for it because RLS
+hides inactive rows. Deliberately not fixed here: 0048 says the row is "inactive
+until the feature ships, so the gate refuses it rather than letting a half-built
+path spend a credit", and the avatar path has still never dispatched
+successfully. Activating it in a migration would contradict that and open a paid
+path that does not work. It needs a migration once the path is proven, not
+before.
+
+The general lesson is the one this whole finding is an instance of: the local
+database has drifted from what the migrations produce, so anything verified
+locally may be verifying state that no other environment has.
+
 **H1. `conversation-thread.tsx` is 435 lines against a ~200 line rule.**
 Impact medium, effort M. It now carries send, avatar, regenerate wiring,
 seeding and optimistic reconciliation. The seam is a `use-send-turn` hook, as
