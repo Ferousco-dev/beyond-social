@@ -128,6 +128,34 @@ only and is not a production concern.
 
 ---
 
+## Security: audited, no findings
+
+Worth recording as carefully as a defect, because it says where not to spend
+effort. All of this was checked against the running database, not read from
+migrations.
+
+- **Every table in `public` has row level security enabled.** No exceptions.
+- **Sixteen tables have RLS on and no policies at all**, which is deny by
+  default and correct for them: caches, rate limits, the prompt engine's
+  internals, mail, billing events, `managed_secrets`. They are reachable only
+  through the service role.
+- **All 81 `SECURITY DEFINER` functions pin `search_path`.** Not one is
+  unpinned, which is the classic escalation route: a definer function that
+  resolves an unqualified name through a caller-controlled `search_path` runs
+  attacker code as the definer.
+- **The `admin_*` functions are `EXECUTE`-able by `anon` and `authenticated`**,
+  which looks alarming and is not. Postgres grants execute to `PUBLIC` by
+  default and every one of them guards internally with `is_admin()`. Verified
+  empirically rather than by reading: calling `admin_secrets_list` and
+  `admin_search_users` over REST with the anon key returns
+  `{"code":"P0001","message":"Admin only"}`.
+- **API routes are all guarded.** The `v1` routes take a bearer API key, the
+  cron routes a shared secret, and the Stripe webhook verifies the signature
+  against the raw body rather than a parsed one.
+
+The remaining security exposure is dependency advisories (C1, C2), not the
+application's own authorisation model.
+
 ## Not audited, and why
 
 The UI, UX, accessibility, responsive and visual-consistency phases are **not
