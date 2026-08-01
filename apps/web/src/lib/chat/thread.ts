@@ -6,6 +6,8 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/session";
 
+import { signRenders } from "@/lib/generation/render-url";
+
 import { type Attachment, attachmentRowSchema, signAttachmentPaths } from "./attachments";
 
 export { type Attachment, type AttachmentKind } from "./attachments";
@@ -26,6 +28,9 @@ const rowSchema = z.object({
   generation_id: z.string().nullable(),
   generation_status: z.enum(["queued", "generating", "ready", "failed"]).nullable(),
   result_url: z.string().nullable(),
+  // The durable fact. `result_url` is a public link that stopped resolving
+  // when the bucket was closed, so playback is signed from this instead.
+  result_path: z.string().nullable().default(null),
   // `project_thread` coalesces to an empty array, so this is never null. The
   // default covers a stale build reading a thread before the migration lands.
   attachments: z.array(attachmentRowSchema).default([]),
@@ -76,6 +81,7 @@ function toDraftStatus(status: string | null): DraftStatus {
 function toMessage(
   row: z.infer<typeof rowSchema>,
   signed: ReadonlyMap<string, string>,
+  renders: ReadonlyMap<string, string>,
 ): ChatMessage {
   return {
     id: row.id,
@@ -89,7 +95,9 @@ function toMessage(
       ? {
           generationId: row.generation_id,
           status: toDraftStatus(row.generation_status),
-          resultUrl: row.result_url,
+          // Signed per read. A render with no path predates the private
+          // bucket and has nothing playable left, which reads as null.
+          resultUrl: row.result_path ? (renders.get(row.result_path) ?? null) : null,
           startedAt: row.created_at,
         }
       : undefined,
@@ -127,15 +135,21 @@ export async function getThread(id: string): Promise<Thread> {
 
   // One signing call for the whole thread, after parsing rather than during it,
   // so the number of round trips does not grow with the number of photos.
-  const signed = await signAttachmentPaths(
-    supabase,
-    parsed.data.flatMap((row) => row.attachments.map((attachment) => attachment.path)),
-  );
+  const [signed, renders] = await Promise.all([
+    signAttachmentPaths(
+      supabase,
+      parsed.data.flatMap((row) => row.attachments.map((attachment) => attachment.path)),
+    ),
+    signRenders(
+      supabase,
+      parsed.data.map((row) => row.result_path),
+    ),
+  ]);
 
   return {
     projectId: found.id,
     title: found.title,
-    messages: parsed.data.map((row) => toMessage(row, signed)),
+    messages: parsed.data.map((row) => toMessage(row, signed, renders)),
     live: true,
   };
 }

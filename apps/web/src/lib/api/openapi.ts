@@ -34,7 +34,11 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             id: { type: "string" },
             prompt: { type: "string" },
             status: { type: "string", enum: ["queued", "generating", "ready", "failed"] },
-            result_url: { type: ["string", "null"] },
+            result_url: {
+              type: ["string", "null"],
+              description:
+                "Signed download link, null until the run is ready. Expires roughly an hour after it is issued; fetch the file rather than storing the URL.",
+            },
             aspect_ratio: { type: "string" },
             created_at: { type: "string", format: "date-time" },
           },

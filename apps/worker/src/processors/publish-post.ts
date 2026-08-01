@@ -86,14 +86,34 @@ export function startPublishWorker(): Worker<PublishJobData> {
           return;
         }
 
+        /*
+         * The platforms fetch the video themselves: TikTok, Instagram and
+         * Facebook are all given a URL to pull from. The renders bucket is
+         * private, so a signed link is minted here rather than reading the
+         * stored one, which no longer resolves.
+         *
+         * Signed for a day. The pull is asynchronous and queued on their side,
+         * and a link that expires before they get to it fails the post after
+         * the render has already been paid for. A day is far longer than any
+         * platform takes and still bounded.
+         */
+        const PULL_URL_TTL_SECONDS = 24 * 60 * 60;
+
         let videoUrl: string | null = null;
         if (post.generation_id) {
           const { data } = await supabase
             .from("video_generations")
-            .select("result_url")
+            .select("result_path")
             .eq("id", post.generation_id)
             .single();
-          videoUrl = (data?.result_url as string | null) ?? null;
+
+          const path = (data?.result_path as string | null) ?? null;
+          if (path) {
+            const { data: signed } = await supabase.storage
+              .from("renders")
+              .createSignedUrl(path, PULL_URL_TTL_SECONDS);
+            videoUrl = signed?.signedUrl ?? null;
+          }
         }
 
         let externalId: string;

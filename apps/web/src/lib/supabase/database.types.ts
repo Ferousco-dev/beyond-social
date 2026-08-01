@@ -1666,6 +1666,7 @@ export type Database = {
           provider: string;
           provider_task_id: string | null;
           resolution: string;
+          result_path: string | null;
           result_url: string | null;
           status: Database["public"]["Enums"]["generation_status"];
           trace_id: string | null;
@@ -1685,6 +1686,7 @@ export type Database = {
           provider?: string;
           provider_task_id?: string | null;
           resolution?: string;
+          result_path?: string | null;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
           trace_id?: string | null;
@@ -1704,6 +1706,7 @@ export type Database = {
           provider?: string;
           provider_task_id?: string | null;
           resolution?: string;
+          result_path?: string | null;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
           trace_id?: string | null;
@@ -2432,6 +2435,7 @@ export type Database = {
           generation_id: string;
           generation_status: Database["public"]["Enums"]["generation_status"];
           id: string;
+          result_path: string;
           result_url: string;
           role: Database["public"]["Enums"]["message_role"];
         }[];

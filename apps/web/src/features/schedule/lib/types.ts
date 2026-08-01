@@ -48,7 +48,12 @@ export const postRowSchema = z.object({
   external_id: z.string().nullable(),
   publish_started_at: z.string().nullable(),
   error: z.string().nullable(),
-  video_generations: z.object({ result_url: z.string().nullable() }).nullable(),
+  video_generations: z
+    .object({
+      result_url: z.string().nullable(),
+      result_path: z.string().nullable().default(null),
+    })
+    .nullable(),
 });
 
 /**

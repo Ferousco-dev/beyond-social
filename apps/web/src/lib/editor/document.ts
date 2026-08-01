@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { signRenders } from "@/lib/generation/render-url";
 import { createClient } from "@/lib/supabase/server";
 
 import { emptyProject, projectFromGenerations, type GenerationClip } from "./from-generations";
@@ -32,7 +33,7 @@ export async function getEditorDocument(projectId: string): Promise<EditorDocume
     // Finished renders only: a queued or failed generation has no file to cut.
     supabase
       .from("video_generations")
-      .select("id, prompt, result_url, duration")
+      .select("id, prompt, result_url, result_path, duration")
       .eq("project_id", projectId)
       .eq("status", "ready")
       .order("created_at", { ascending: true }),
@@ -43,17 +44,25 @@ export async function getEditorDocument(projectId: string): Promise<EditorDocume
    * renders. It used to open on a hardcoded four-clip template, so every
    * project showed the same invented cuts whatever the user had actually made.
    */
+  // Signed here rather than stored: the renders bucket is private, so the
+  // column holds a path and the timeline needs something playable.
+  const signedRenders = await signRenders(
+    supabase,
+    ((renders ?? []) as { result_path: string | null }[]).map((row) => row.result_path),
+  );
+
   const clips: GenerationClip[] = (
     (renders ?? []) as {
       id: string;
       prompt: string;
       result_url: string | null;
+      result_path: string | null;
       duration: number | null;
     }[]
   ).map((row) => ({
     id: row.id,
     prompt: row.prompt,
-    resultUrl: row.result_url,
+    resultUrl: row.result_path ? (signedRenders.get(row.result_path) ?? null) : null,
     durationSeconds: row.duration,
   }));
 

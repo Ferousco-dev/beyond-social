@@ -110,8 +110,10 @@ export default function Page(): ReactNode {
             <code className="text-ink">status</code> is one of{" "}
             <code className="text-ink">queued</code>, <code className="text-ink">generating</code>,{" "}
             <code className="text-ink">ready</code>, or <code className="text-ink">failed</code>.{" "}
-            <code className="text-ink">result_url</code> is null until a run is ready. There is no
-            cursor, so this reads the recent tail rather than the full history.
+            <code className="text-ink">result_url</code> is null until a run is ready, and is a
+            signed link that expires about an hour after it is issued, so fetch the video rather
+            than storing the URL. There is no cursor, so this reads the recent tail rather than the
+            full history.
           </p>
         </Section>
 
