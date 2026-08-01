@@ -268,12 +268,40 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           return;
         }
 
-        const result = await sendMessage({
+        const payload = {
           projectId,
           prompt: trimmed,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
-        });
+        };
+        let result = await sendMessage(payload);
+
+        /*
+         * A photo of a person needs the likeness attestation, and the server
+         * refuses before creating anything, so the same turn can simply be sent
+         * again once it is recorded. Asked only when a person was actually
+         * detected in the upload: a product shot never reaches this.
+         */
+        if (result.status === "consent") {
+          const agreed = await confirm({
+            title: "Confirm this likeness",
+            description: CONSENT_STATEMENT,
+            confirmLabel: "I confirm",
+          });
+          if (agreed) {
+            const recorded = await recordLikenessConsent();
+            result =
+              recorded.status === "ok"
+                ? await sendMessage(payload)
+                : { status: "error", message: "Could not record that confirmation. Try again." };
+          } else {
+            result = {
+              status: "error",
+              message: "A photo of a person needs that confirmation before it can be used.",
+            };
+          }
+        }
+
         setSending(false);
 
         if (result.status !== "ok") {
@@ -284,7 +312,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           setNotice(
             result.status === "unconfigured"
               ? "The backend is not connected yet, so nothing can be generated."
-              : result.message,
+              : // Still asking after the attestation was recorded means the
+                // record did not take. Saying so beats a second identical
+                // dialog the user has already agreed to.
+                result.status === "consent"
+                ? "That confirmation did not save. Try sending again."
+                : result.message,
           );
           return;
         }
@@ -331,7 +364,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         }
       })();
     },
-    [projectId, photos, voice, router, sending, rendering, runAvatar],
+    [projectId, photos, voice, router, sending, rendering, runAvatar, confirm],
   );
 
   // Seeded from the dashboard composer or a trend card. The key is cleared

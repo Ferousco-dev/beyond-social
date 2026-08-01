@@ -6,6 +6,7 @@ import { z } from "zod";
 import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
+import { needsLikenessConsent } from "@/lib/generation/consent-gate";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
@@ -53,6 +54,12 @@ const sendSchema = z.object({
 });
 
 export type SendResult =
+  /**
+   * A photo of a person is attached and the caller has not accepted the current
+   * likeness wording. Nothing was created: no project, no message, no render.
+   * The client asks, records the acceptance, and sends the same turn again.
+   */
+  | { status: "consent" }
   | {
       status: "ok";
       projectId: string;
@@ -113,6 +120,20 @@ async function sendForUser(
   // better told than quietly ignored.
   if (attachments?.some((attachment) => !attachment.path.startsWith(`${user.id}/`))) {
     return { status: "error", message: "Those attachments could not be saved" };
+  }
+
+  /*
+   * Checked before anything is created, so a refusal leaves no half-made
+   * project and no message promising a video that was never started. The turn
+   * is sent again unchanged once the attestation is recorded.
+   *
+   * Only for photos of people: `needsLikenessConsent` asks the classification
+   * made at upload, so a product shot never reaches this.
+   */
+  const photoPaths =
+    attachments?.filter((item) => item.kind === "photo").map((item) => item.path) ?? [];
+  if (await needsLikenessConsent(supabase, user.id, photoPaths)) {
+    return { status: "consent" };
   }
 
   // The project is created on the first message, not on page load, so opening

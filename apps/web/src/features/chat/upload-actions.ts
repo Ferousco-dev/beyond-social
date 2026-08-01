@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { classifySubject } from "@/lib/generation/likeness";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -163,6 +164,24 @@ export async function attachUploadedPhotos(
         throw new Error(error?.message ?? "Uploaded photo has no reachable URL");
       }
 
+      /*
+       * Classified here, at upload, rather than at send.
+       *
+       * The answer decides whether the likeness attestation is asked for, and
+       * asking it over a photo of a product is how a consent dialog becomes
+       * something people click past. Doing it now costs a few seconds while
+       * the user is still typing, where doing it at send would sit in front of
+       * the generation they just asked for.
+       *
+       * Failure resolves to `person`, which is the safe direction: a needless
+       * dialog is an annoyance, a missed one means a real face was animated
+       * with nothing recorded.
+       */
+      const { data: object } = await supabase.storage.from("uploads").download(path);
+      const subject = object
+        ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type)
+        : "person";
+
       // Recorded so a thread can be rebuilt with the photos that fed it, and so
       // an orphaned object can be found later.
       await supabase.from("assets").insert({
@@ -170,6 +189,7 @@ export async function attachUploadedPhotos(
         project_id: projectId !== "new" ? projectId : null,
         kind: "photo",
         storage_path: path,
+        contains_person: subject === "person",
       });
 
       photos.push({ url: data.signedUrl, path });

@@ -223,6 +223,7 @@ export type Database = {
       };
       assets: {
         Row: {
+          contains_person: boolean | null;
           created_at: string;
           id: string;
           kind: Database["public"]["Enums"]["asset_kind"];
@@ -231,6 +232,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          contains_person?: boolean | null;
           created_at?: string;
           id?: string;
           kind?: Database["public"]["Enums"]["asset_kind"];
@@ -239,6 +241,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          contains_person?: boolean | null;
           created_at?: string;
           id?: string;
           kind?: Database["public"]["Enums"]["asset_kind"];
