@@ -21,19 +21,11 @@ import { concatChunks, downsample, encodeWav, TARGET_SAMPLE_RATE } from "@/lib/a
 const MAX_SECONDS = 60;
 
 /**
- * Runs on the audio thread. It cannot import anything, so it is written as a
- * string. `inputs[0][0]` is the mono channel, and the buffer it points at is
- * reused after this returns, hence the copy.
+ * Served as a static file rather than inlined as a blob url: the content
+ * security policy allows scripts from 'self' only, and widening script-src to
+ * include blob: for one small script would loosen what the whole app may run.
  */
-const PROCESSOR = `
-registerProcessor("capture", class extends AudioWorkletProcessor {
-  process(inputs) {
-    const channel = inputs[0] && inputs[0][0];
-    if (channel) this.port.postMessage(new Float32Array(channel));
-    return true;
-  }
-});
-`;
+const PROCESSOR_URL = "/audio/capture-worklet.js";
 
 export type RecorderState = "idle" | "recording" | "encoding";
 
@@ -45,13 +37,18 @@ interface Recording {
 export function useVoiceRecorder(onError: (message: string) => void) {
   const [state, setState] = useState<RecorderState>("idle");
   const [seconds, setSeconds] = useState(0);
+  /** Loudness of the latest samples, 0 to 1, for showing that input is arriving. */
+  const [level, setLevel] = useState(0);
 
   const chunks = useRef<Float32Array[]>([]);
   const context = useRef<AudioContext | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const worklet = useRef<AudioWorkletNode | null>(null);
-  const moduleUrl = useRef<string | null>(null);
   const ticker = useRef<number | null>(null);
+  // Sampled on the timer rather than set on every message: the worklet delivers
+  // roughly 375 buffers a second, and re-rendering at that rate to move a bar a
+  // few pixels would cost far more than it shows.
+  const peak = useRef(0);
 
   /** Releases the microphone and everything holding it. Safe to call twice. */
   const teardown = useCallback(() => {
@@ -67,10 +64,6 @@ export function useVoiceRecorder(onError: (message: string) => void) {
     stream.current = null;
     void context.current?.close();
     context.current = null;
-    if (moduleUrl.current) {
-      URL.revokeObjectURL(moduleUrl.current);
-      moduleUrl.current = null;
-    }
   }, []);
 
   // A component unmounting mid-recording must not leave the microphone open.
@@ -89,14 +82,13 @@ export function useVoiceRecorder(onError: (message: string) => void) {
       const audio = new AudioContext();
       context.current = audio;
 
-      const url = URL.createObjectURL(new Blob([PROCESSOR], { type: "text/javascript" }));
-      moduleUrl.current = url;
-      await audio.audioWorklet.addModule(url);
+      await audio.audioWorklet.addModule(PROCESSOR_URL);
 
       chunks.current = [];
       const node = new AudioWorkletNode(audio, "capture");
       node.port.onmessage = (event: MessageEvent<Float32Array>) => {
         chunks.current.push(event.data);
+        peak.current = Math.max(peak.current, ...event.data.map(Math.abs));
       };
       audio.createMediaStreamSource(media).connect(node);
       // Connected to the destination because some browsers will not run a
@@ -106,12 +98,17 @@ export function useVoiceRecorder(onError: (message: string) => void) {
       worklet.current = node;
 
       setSeconds(0);
+      setLevel(0);
       setState("recording");
 
       const startedAt = Date.now();
       ticker.current = window.setInterval(() => {
         const elapsed = Math.floor((Date.now() - startedAt) / 1000);
         setSeconds(elapsed);
+        // Scaled up because speech rarely approaches full scale, so a raw peak
+        // would leave the meter looking dead during normal talking.
+        setLevel(Math.min(1, peak.current * 3));
+        peak.current = 0;
         if (elapsed >= MAX_SECONDS) stopRef.current?.();
       }, 250);
     } catch (error) {
@@ -174,5 +171,5 @@ export function useVoiceRecorder(onError: (message: string) => void) {
   const stopRef = useRef<(() => void) | null>(null);
   stopRef.current = () => void stop();
 
-  return { state, seconds, start, stop, maxSeconds: MAX_SECONDS };
+  return { state, seconds, level, start, stop, maxSeconds: MAX_SECONDS };
 }

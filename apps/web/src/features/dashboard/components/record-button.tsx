@@ -28,7 +28,7 @@ export function RecordButton({
   onBusyChange: (busy: boolean) => void;
 }) {
   const { upload, uploading } = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
-  const { state, seconds, start, stop, maxSeconds } = useVoiceRecorder(onError);
+  const { state, seconds, level, start, stop, maxSeconds } = useVoiceRecorder(onError);
 
   const recording = state === "recording";
   const busy = state === "encoding" || uploading;
@@ -61,6 +61,19 @@ export function RecordButton({
       ) : recording ? (
         <>
           <Square className="size-3.5 fill-current" aria-hidden />
+          {/* Four bars driven by the live input level, so it is obvious the
+              microphone is hearing something rather than merely running. The
+              thresholds are staggered so quiet speech still moves the first
+              bar and only shouting fills all four. */}
+          <span aria-hidden className="flex items-end gap-0.5">
+            {[0.08, 0.25, 0.5, 0.75].map((threshold) => (
+              <span
+                key={threshold}
+                className="w-0.5 rounded-full bg-current transition-all duration-100"
+                style={{ height: level > threshold ? "0.875rem" : "0.25rem" }}
+              />
+            ))}
+          </span>
           {/* Counts up rather than down: there is no deadline to dread, and the
               cap exists to stop a forgotten recording, not to hurry anyone. */}
           <span className="text-xs tabular-nums">
