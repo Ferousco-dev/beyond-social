@@ -124,3 +124,46 @@ export async function writeClip(dir: string, index: number, bytes: Buffer): Prom
   await writeFile(file, bytes);
   return file;
 }
+
+/**
+ * Grabs the final frame of a clip, as JPEG bytes.
+ *
+ * This is what makes a sequence continuous rather than a set of unrelated
+ * cuts. Feeding it back as the reference image for the next shot means the
+ * next clip opens on exactly the frame the last one closed on, so the join
+ * reads as one take. It also re-anchors the subject every eight seconds, which
+ * is the only real defence against a face drifting over a long video.
+ *
+ * `-sseof` seeks from the end rather than the start, so the cost does not grow
+ * with the length of the clip. Half a second back rather than zero: seeking to
+ * the exact end lands past the last frame on some files and produces nothing.
+ */
+export async function lastFrame(file: string): Promise<Buffer> {
+  const workspace = await mkdtemp(join(tmpdir(), "bs-frame-"));
+  try {
+    const output = join(workspace, "frame.jpg");
+    await run(
+      binary(),
+      [
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-sseof",
+        "-0.5",
+        "-i",
+        file,
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
+        output,
+      ],
+      { maxBuffer: 1024 * 1024 },
+    );
+    const { readFile } = await import("node:fs/promises");
+    return await readFile(output);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+}
