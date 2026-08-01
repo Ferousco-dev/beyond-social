@@ -39,8 +39,12 @@ jobs:
             | tar -xz -C /usr/local/bin gitleaks
           gitleaks version
 
+      # --config is passed explicitly rather than relying on the file being
+      # picked up, so moving or renaming it fails loudly instead of silently
+      # falling back to the defaults and going red on the documented
+      # placeholders again.
       - name: Scan history for secrets
-        run: gitleaks detect --redact --no-banner --exit-code 1
+        run: gitleaks detect --redact --no-banner --config .gitleaks.toml --exit-code 1
 
       # Belt and braces. The env files are gitignored, but an ignore rule can be
       # edited and a `git add -f` bypasses it entirely, so the thing that must

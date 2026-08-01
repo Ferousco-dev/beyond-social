@@ -40,10 +40,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Pinned. On `latest`, a CLI release changes the schema this job asserts
+      # against without a commit touching the repository, so a green pipeline
+      # turns red overnight for reasons nobody changed.
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.75.0
 
       - name: Start Supabase
         run: supabase start
@@ -61,14 +64,28 @@ jobs:
       # that change between CLI versions.
       - name: Export stack credentials
         run: |
+          env_value() {
+            supabase status -o env | grep "^$1=" | cut -d= -f2- | tr -d '"'
+          }
+
+          # PUBLISHABLE_KEY and SECRET_KEY, not ANON_KEY and SERVICE_ROLE_KEY.
+          # This stack issues `sb_publishable_` and `sb_secret_` keys and
+          # rejects the legacy JWTs, which arrives as a 401 from PostgREST
+          # rather than as anything that mentions a key format.
+          url=$(env_value API_URL)
+          publishable=$(env_value PUBLISHABLE_KEY)
+          secret=$(env_value SECRET_KEY)
+
+          # Masked before it is exported. These are throwaway credentials for a
+          # stack that exists only inside this runner, but a job log is a job
+          # log and a key printed in one teaches the wrong habit.
+          echo "::add-mask::$publishable"
+          echo "::add-mask::$secret"
+
           {
-            echo "NEXT_PUBLIC_SUPABASE_URL=$(supabase status -o env | grep '^API_URL=' | cut -d= -f2- | tr -d '\"')"
-            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(supabase status -o env | grep '^ANON_KEY=' | cut -d= -f2- | tr -d '\"')"
-            # SECRET_KEY, not SERVICE_ROLE_KEY. The local stack issues an
-            # `sb_secret_` key; the JWT belongs to a hosted project and is
-            # rejected here, which surfaces as permission errors rather than as
-            # a config error.
-            echo "SUPABASE_SERVICE_ROLE_KEY=$(supabase status -o env | grep '^SECRET_KEY=' | cut -d= -f2- | tr -d '\"')"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$url"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$publishable"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$secret"
           } >> "$GITHUB_ENV"
 
       # These two need a database, which is why they are here and not in the
