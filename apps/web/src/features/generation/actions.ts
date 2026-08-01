@@ -7,7 +7,9 @@ import { checkVideoRun } from "@/lib/generation/gate";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { recordChunkOutcome } from "@/lib/prompt-engine/feedback";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
+import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { type GenerationStatus } from "@/lib/supabase/types";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
@@ -82,6 +84,35 @@ export async function pollGeneration(generationId: string): Promise<PollResult> 
   if (error) return { status: "error", resultUrl: null };
   const result = data as { status?: GenerationStatus; resultUrl?: string | null } | null;
   return { status: result?.status ?? "error", resultUrl: result?.resultUrl ?? null };
+}
+
+/**
+ * Stops waiting for a render.
+ *
+ * The provider has no cancel endpoint, so this cannot stop the work: the render
+ * finishes either way. It settles the row so the draft leaves the thread and
+ * the client stops polling, and the RPC writes the charge, because credits are
+ * debited on completion and a cancelled render would otherwise be free.
+ */
+export async function cancelGeneration(generationId: string): Promise<void> {
+  const parsed = pollInputSchema.safeParse({ generationId });
+  if (!parsed.success || !isSupabaseConfigured) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Settling this writes a credit debit, which refreshes the owner's credit
+  // cache, and the profile guard rejects that under the account holder's own
+  // identity. The session is resolved above, so the id passed here is verified
+  // rather than client-supplied.
+  const { error } = await createServiceClient().rpc("cancel_generation", {
+    p_generation_id: parsed.data.generationId,
+    p_user_id: user.id,
+  });
+  if (error) logger.warn("could not cancel generation", { error: error.message });
 }
 
 const outcomeSchema = z.object({

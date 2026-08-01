@@ -3,7 +3,9 @@
 import { ArrowUp, Loader2, X } from "lucide-react";
 import { useRef, useState, type KeyboardEvent } from "react";
 
+import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
+import { VoiceChip } from "./voice-chip";
 
 interface PromptComposerProps {
   value: string;
@@ -13,6 +15,11 @@ interface PromptComposerProps {
   photos: readonly PendingPhoto[];
   onPhotosChange: (photos: readonly PendingPhoto[]) => void;
   busy: boolean;
+  /** A voice clip chosen for an avatar render, if any. */
+  /** Sets or clears the attached clip. Null is how the chip removes it. */
+  onVoice: (voice: PendingVoice | null) => void;
+  /** The clip currently attached, if any, so it can be shown and removed. */
+  voice: PendingVoice | null;
 }
 
 export function PromptComposer({
@@ -23,6 +30,8 @@ export function PromptComposer({
   photos,
   onPhotosChange,
   busy,
+  onVoice,
+  voice,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -47,6 +56,7 @@ export function PromptComposer({
 
   return (
     <div className="rounded-[26px] bg-paper p-3 shadow-card">
+      {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
@@ -86,6 +96,7 @@ export function PromptComposer({
       <div className="flex items-center justify-between px-1 pt-1.5">
         <ComposeMenu
           projectId={projectId}
+          onVoice={onVoice}
           onPhotos={(next) => {
             setError(null);
             onPhotosChange([...photos, ...next]);

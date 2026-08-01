@@ -80,5 +80,7 @@ export function useGenerationPoll(onSettled: (id: string, outcome: PollOutcome) 
     };
   }, []);
 
-  return { watch };
+  // `stop` is exported so cancelling can end the polling immediately, rather
+  // than leaving an interval running against a draft the person dismissed.
+  return { watch, stop };
 }

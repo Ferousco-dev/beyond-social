@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendMessage } from "@/features/chat/actions";
+import { cancelGeneration } from "@/features/generation/actions";
+import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
+import { CONSENT_STATEMENT } from "@/features/generation/consent";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { type ChatMessage, type Thread } from "@/lib/chat/thread";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +17,7 @@ import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
@@ -25,8 +30,10 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const [messages, setMessages] = useState<readonly ChatMessage[]>(thread.messages);
   const [prompt, setPrompt] = useState("");
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
+  const [voice, setVoice] = useState<PendingVoice | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
 
@@ -56,7 +63,31 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     if (outcome.status === "failed") setNotice(outcome.reason);
   }, []);
 
-  const { watch } = useGenerationPoll(applyOutcome);
+  const { watch, stop } = useGenerationPoll(applyOutcome);
+
+  /**
+   * Stops waiting for a render. The provider cannot be told to stop, so the
+   * render finishes and is charged either way; this only settles the row and
+   * ends the polling. The notice says as much, because a control that reads
+   * like undo and is not would be worse than no control at all.
+   */
+  const cancelDraft = useCallback(
+    (generationId: string) => {
+      stop(generationId);
+      setMessages((current) =>
+        current.filter((message) => message.draft?.generationId !== generationId),
+      );
+      setNotice("Stopped waiting. That render still finishes and is charged.");
+      void cancelGeneration(generationId);
+    },
+    [stop],
+  );
+
+  // A render outlives the request that started it: `sending` goes false as soon
+  // as the reply arrives, while the video keeps rendering for about another
+  // minute. Sending again in that window starts a second render and spends a
+  // second credit, so the composer stays locked until the draft settles.
+  const rendering = messages.some((message) => message.draft?.status === "generating");
 
   // Resume watching anything still in flight, including after a reload. This is
   // the payoff from persisting the thread: a refresh mid-generation picks the
@@ -67,10 +98,84 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     }
   }, [messages, watch]);
 
+  /**
+   * Starts an avatar render, asking for consent the first time.
+   *
+   * The attestation is recorded rather than assumed, and checked again inside
+   * the edge function: animating a face with a voice is a deepfake when the
+   * face is not the uploader's, so a client-side checkbox is not the control.
+   *
+   * Returns true when a render started, false when it did not, so the caller
+   * can leave the composer in a sensible state either way.
+   */
+  const runAvatar = useCallback(
+    async (
+      text: string,
+      imageUrl: string,
+      audioUrl: string,
+      optimisticId: string,
+    ): Promise<boolean> => {
+      if (projectId === "new") {
+        setNotice("Send a message first, then attach a photo and a voice clip.");
+        return false;
+      }
+
+      const attempt = () => startAvatarGeneration({ projectId, prompt: text, imageUrl, audioUrl });
+      let result = await attempt();
+
+      if (result.status === "consent") {
+        const agreed = await confirm({
+          title: "Confirm this is you",
+          description: CONSENT_STATEMENT,
+          confirmLabel: "I confirm",
+        });
+        if (!agreed) {
+          setNotice("An avatar needs that confirmation before it can be made.");
+          return false;
+        }
+        const recorded = await recordLikenessConsent();
+        if (recorded.status !== "ok") {
+          setNotice("Could not record that confirmation. Try again.");
+          return false;
+        }
+        result = await attempt();
+      }
+
+      if (result.status !== "ok") {
+        setMessages((current) => current.filter((message) => message.id !== optimisticId));
+        setNotice(
+          result.status === "unconfigured"
+            ? "The backend is not connected yet."
+            : result.status === "consent"
+              ? "An avatar needs that confirmation before it can be made."
+              : result.message,
+        );
+        return false;
+      }
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: `${OPTIMISTIC}avatar-${counter.current++}`,
+          role: "assistant",
+          content: "Making a video of you saying that.",
+          draft: {
+            generationId: result.generationId,
+            status: "generating" as const,
+            resultUrl: null,
+          },
+        },
+      ]);
+      return true;
+    },
+    [projectId, confirm],
+  );
+
   const submit = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (trimmed === "" || sending) return;
+      // Checked here as well as on the button, which Enter bypasses.
+      if (trimmed === "" || sending || rendering) return;
 
       setSending(true);
       setNotice(null);
@@ -78,10 +183,22 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
       const optimisticId = `${OPTIMISTIC}${counter.current++}`;
       const attached = photos.map((photo) => photo.url);
+      const voiceClip = voice;
       setPhotos([]);
+      setVoice(null);
       setMessages((current) => [...current, { id: optimisticId, role: "user", content: trimmed }]);
 
       void (async () => {
+        // A photo plus a voice clip means an avatar render rather than an
+        // ordinary generation: the two inputs together are the whole signal, so
+        // there is no separate mode to switch into.
+        if (voiceClip && attached.length > 0 && attached[0]) {
+          const outcome = await runAvatar(trimmed, attached[0], voiceClip.url, optimisticId);
+          setSending(false);
+          if (outcome) return;
+          return;
+        }
+
         const result = await sendMessage({
           projectId,
           prompt: trimmed,
@@ -139,7 +256,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         ]);
       })();
     },
-    [projectId, photos, router, sending],
+    [projectId, photos, voice, router, sending, rendering, runAvatar],
   );
 
   // Seeded from the dashboard composer or a trend card. The key is cleared
@@ -161,6 +278,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
+      {dialog}
       <ConversationHeader title={thread.title} editorHref={editorHref} />
 
       {/* Centred while empty, top-aligned once there is a thread to read. A
@@ -183,7 +301,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         ) : null}
 
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} editorHref={editorHref} />
+          <MessageBubble
+            key={message.id}
+            message={message}
+            editorHref={editorHref}
+            onCancelDraft={cancelDraft}
+          />
         ))}
 
         {/* Sits where the reply will appear, so the answer replaces the
@@ -209,7 +332,9 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             projectId={projectId}
             photos={photos}
             onPhotosChange={setPhotos}
-            busy={sending}
+            voice={voice}
+            onVoice={setVoice}
+            busy={sending || rendering}
           />
         </div>
       </div>

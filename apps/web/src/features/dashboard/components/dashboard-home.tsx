@@ -49,6 +49,8 @@ export function DashboardHome({ name }: { name: string }) {
         projectId="new"
         photos={[]}
         onPhotosChange={() => undefined}
+        voice={null}
+        onVoice={() => undefined}
         busy={false}
       />
 

@@ -10,9 +10,11 @@ import { VideoDraftCard } from "./video-draft-card";
 export function MessageBubble({
   message,
   editorHref,
+  onCancelDraft,
 }: {
   message: ChatMessage;
   editorHref: Route;
+  onCancelDraft?: (generationId: string) => void;
 }): ReactNode {
   if (message.role === "user") {
     return (
@@ -35,7 +37,15 @@ export function MessageBubble({
           </div>
         </>
       ) : null}
-      {message.draft?.status === "generating" ? <GeneratingDraft /> : null}
+      {message.draft?.status === "generating" ? (
+        <GeneratingDraft
+          onCancel={
+            onCancelDraft && message.draft.generationId
+              ? () => onCancelDraft(message.draft?.generationId ?? "")
+              : undefined
+          }
+        />
+      ) : null}
       {message.draft?.status === "ready" ? (
         <VideoDraftCard draft={message.draft} editorHref={editorHref} />
       ) : null}
