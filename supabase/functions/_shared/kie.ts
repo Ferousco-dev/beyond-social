@@ -46,6 +46,82 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
   return taskId;
 }
 
+export interface KieAvatarInput {
+  imageUrl: string;
+  audioUrl: string;
+  prompt: string;
+  resolution?: string; // 480p | 720p
+  callBackUrl?: string;
+}
+
+/**
+ * Creates a talking-avatar task: a still of a person plus an audio track,
+ * rendered as that person speaking it.
+ *
+ * A different endpoint from `createVideoTask`, and a different request shape:
+ * the market models take their arguments nested under `input` and name the
+ * model in the body, where the veo endpoint takes them flat. The task id it
+ * returns is the same kind of handle, so polling and the callback are shared.
+ */
+export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
+  const response = await fetch(`${KIE_BASE}/jobs/createTask`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "infinitalk/from-audio",
+      callBackUrl: input.callBackUrl,
+      input: {
+        image_url: input.imageUrl,
+        audio_url: input.audioUrl,
+        prompt: input.prompt,
+        resolution: input.resolution ?? "720p",
+      },
+    }),
+  });
+
+  const body = await response.json().catch(() => null);
+  const taskId = body?.data?.taskId;
+  if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
+    throw new Error(`kie.ai avatar task failed: ${body?.msg ?? response.status}`);
+  }
+  return taskId;
+}
+
+/**
+ * Status for a task created through `jobs/createTask`.
+ *
+ * Separate from `getRecordInfo` because the market endpoint reports a textual
+ * state and returns its output as a JSON-encoded string, where the veo endpoint
+ * uses a numeric flag and a nested object. Normalised to the same shape so
+ * callers do not have to care which one produced a task.
+ */
+export async function getJobInfo(taskId: string): Promise<KieRecordInfo> {
+  const response = await fetch(
+    `${KIE_BASE}/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
+    { headers: { Authorization: `Bearer ${apiKey()}` } },
+  );
+  const body = await response.json().catch(() => null);
+  const data = body?.data ?? {};
+  const state = String(data.state ?? "");
+
+  // `resultJson` is a string holding `{"resultUrls":[...]}`, so it needs
+  // decoding before the urls can be read.
+  let urls: string[] = [];
+  if (typeof data.resultJson === "string" && data.resultJson.length > 0) {
+    try {
+      urls = parseUrls((JSON.parse(data.resultJson) as { resultUrls?: unknown }).resultUrls);
+    } catch {
+      urls = [];
+    }
+  }
+
+  const successFlag = state === "success" ? 1 : state === "fail" ? 2 : 0;
+  return { successFlag, resultUrls: urls };
+}
+
 export interface KieRecordInfo {
   successFlag: number; // 0 generating, 1 success, 2 | 3 failed
   resultUrls: string[];
@@ -57,9 +133,14 @@ export async function getRecordInfo(taskId: string): Promise<KieRecordInfo> {
   });
   const body = await response.json().catch(() => null);
   const data = body?.data ?? {};
+  // The flag sits at the top of `data`, but the urls are nested under
+  // `data.response`. Reading them from the top level meant a finished render
+  // parsed as success with no urls, which fails the length check below and
+  // reports "generating" on every poll until the client gives up.
+  const result = data.response ?? {};
   return {
     successFlag: Number(data.successFlag ?? 0),
-    resultUrls: parseUrls(data.resultUrls),
+    resultUrls: parseUrls(result.resultUrls ?? result.fullResultUrls ?? data.resultUrls),
   };
 }
 

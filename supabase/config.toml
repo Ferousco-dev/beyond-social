@@ -67,6 +67,12 @@ verify_jwt = false
 [functions.poll-generation]
 verify_jwt = false
 
+# Authenticated: renders a talking avatar from a photo and an audio track.
+# Checks likeness consent, the model's availability and the balance before
+# dispatching, because the provider charges on submission.
+[functions.generate-avatar]
+verify_jwt = false
+
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]
 verify_jwt = false
