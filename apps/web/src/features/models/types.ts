@@ -1,4 +1,11 @@
-import { AudioLines, ImageIcon, MessageSquare, Video, type LucideIcon } from "lucide-react";
+import {
+  AudioLines,
+  ImageIcon,
+  MessageSquare,
+  UserRound,
+  Video,
+  type LucideIcon,
+} from "lucide-react";
 
 import { type PlanId } from "@/lib/billing/plans";
 import { type CatalogModel, type ModelFamily } from "@/lib/models/types";
@@ -33,6 +40,7 @@ interface FamilyMeta {
 
 export const FAMILY_META: Readonly<Record<ModelFamily, FamilyMeta>> = {
   video: { label: "Video", icon: Video },
+  avatar: { label: "Avatar", icon: UserRound },
   image: { label: "Image", icon: ImageIcon },
   chat: { label: "Text", icon: MessageSquare },
   audio: { label: "Audio", icon: AudioLines },
