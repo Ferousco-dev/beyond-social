@@ -105,6 +105,56 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
   return taskId;
 }
 
+export interface KieMarketVideoInput {
+  model: string;
+  prompt: string;
+  /** A still to animate from, if the run has one. */
+  imageUrl?: string;
+  callBackUrl?: string;
+}
+
+/**
+ * Creates a video task on the market endpoint.
+ *
+ * The veo models are dispatched through `/veo/generate`, which takes its
+ * arguments flat. Everything else on this provider, Seedance included, is a
+ * market model on `/jobs/createTask`, which names the model in the body and
+ * nests its arguments under `input`. Sending a market model to the veo
+ * endpoint is rejected outright, which is why this exists rather than another
+ * branch inside `createVideoTask`.
+ *
+ * Duration and aspect ratio are deliberately not sent. The veo endpoint names
+ * them one way and the market models another, and getting that wrong on a paid
+ * call is expensive to discover: the request succeeds, a task starts, and the
+ * credit is spent before anything can be checked. They are left to the
+ * provider's defaults until each model's field names are known from its own
+ * documentation rather than guessed.
+ */
+export async function createMarketVideoTask(input: KieMarketVideoInput): Promise<string> {
+  const response = await fetch(`${KIE_BASE}/jobs/createTask`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: input.model,
+      callBackUrl: input.callBackUrl,
+      input: {
+        prompt: input.prompt,
+        ...(input.imageUrl ? { image_url: input.imageUrl } : {}),
+      },
+    }),
+  });
+
+  const body = await response.json().catch(() => null);
+  const taskId = body?.data?.taskId;
+  if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
+    throw new Error(`kie.ai market task failed: ${body?.msg ?? response.status}`);
+  }
+  return taskId;
+}
+
 export interface KieAvatarInput {
   /** Which avatar model. All of them take exactly these three inputs. */
   model: string;
