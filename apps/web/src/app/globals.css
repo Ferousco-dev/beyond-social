@@ -292,3 +292,29 @@
     outline-offset: 2px;
   }
 }
+
+/*
+ * The hero orbit.
+ *
+ * The ring turns and each mark turns back by the same amount over the same
+ * duration, so the logos travel the arc while staying upright. Both are needed;
+ * either one alone either tumbles the logos or holds them still.
+ */
+/*
+ * The hero orbit turns continuously.
+ *
+ * It only works because the whole circle is populated: barely twenty degrees of
+ * this sphere is ever on screen, so a handful of marks revolving through 360
+ * degrees would leave the visible crown empty for most of the cycle. With a
+ * mark every nine degrees, one enters the crown as another leaves and the
+ * stream never breaks. Slow, because the arc is enormous and anything quicker
+ * reads as spinning rather than orbiting.
+ */
+@keyframes orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

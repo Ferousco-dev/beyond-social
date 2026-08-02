@@ -7,7 +7,6 @@ import { LandingFaq } from "@/components/landing/landing-faq";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingPricing } from "@/components/landing/landing-pricing";
-import { PoweredBy } from "@/components/landing/powered-by";
 import { Showcase } from "@/components/landing/showcase";
 
 /**
@@ -23,7 +22,6 @@ export default function HomePage(): ReactNode {
       <LandingHeader />
       <main id="main">
         <LandingHero />
-        <PoweredBy />
         <FeatureBento />
         <HowItWorks />
         <Showcase />
