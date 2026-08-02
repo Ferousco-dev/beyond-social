@@ -40,7 +40,7 @@ const SPHERE = {
    */
   width: "600vw",
   /** Low enough that the crown clears the copy and the glow owns the space above it. */
-  top: "82%",
+  top: "88%",
 } as const;
 
 /** The real stack. Every mark is something the product actually runs on. */
@@ -75,7 +75,7 @@ export function HeroOrbit(): ReactNode {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       {/* The wash. Broad and weak, so the headline stays readable over it. */}
-      <div className="absolute inset-x-0 top-0 h-[54rem] bg-[radial-gradient(80%_60%_at_50%_88%,color-mix(in_srgb,var(--primary)_30%,transparent),transparent_72%)] blur-2xl" />
+      <div className="absolute inset-x-0 bottom-0 h-[62rem] bg-[radial-gradient(95%_78%_at_50%_100%,color-mix(in_srgb,var(--primary)_78%,transparent),color-mix(in_srgb,var(--primary)_34%,transparent)_38%,color-mix(in_srgb,var(--primary)_10%,transparent)_62%,transparent_80%)] blur-xl" />
 
       {/*
         The orbit sits behind the sphere in the stacking order on purpose: a
@@ -111,11 +111,21 @@ export function HeroOrbit(): ReactNode {
         </div>
       </div>
 
-      {/* The body of the sphere, drawn over the orbit. The rim is its top
-          border and the glow is the light escaping from behind it. */}
+      {/* The body, drawn over the orbit so a mark passing the crown slides
+          under the horizon. Its own top edge is barely there; the light comes
+          from the blurred arc above it. */}
       <div
         style={{ width: SPHERE.width, top: SPHERE.top }}
-        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t border-[color-mix(in_srgb,var(--primary)_85%,transparent)] bg-canvas shadow-[0_-30px_90px_-10px_color-mix(in_srgb,var(--primary)_60%,transparent)]"
+        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full bg-canvas"
+      />
+
+      {/* The rim. A thick blurred arc rather than a hairline, because a crisp
+          one-pixel line reads as a drawn circle where the reference reads as an
+          edge catching light. Sitting above the body means it spills both ways:
+          up into the wash and a little down onto the dark. */}
+      <div
+        style={{ width: SPHERE.width, top: SPHERE.top }}
+        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t-2 border-[color-mix(in_srgb,var(--primary)_90%,white_25%)] blur-[6px]"
       />
     </div>
   );
