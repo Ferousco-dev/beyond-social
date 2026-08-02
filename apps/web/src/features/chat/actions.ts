@@ -6,7 +6,7 @@ import { z } from "zod";
 import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
-import { needsLikenessConsent } from "@/lib/generation/consent-gate";
+import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/consent-gate";
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
@@ -20,6 +20,7 @@ import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
 import { getSummary, updateSummary } from "@/lib/memory/summarise";
 import { traceparent, withActionTrace } from "@/lib/observability/trace";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
+import { platformFromAspect, productTypeFromAttachments } from "@/lib/prompt-engine/hints";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { createClient } from "@/lib/supabase/server";
 
@@ -133,7 +134,11 @@ async function sendForUser(
    */
   const photoPaths =
     attachments?.filter((item) => item.kind === "photo").map((item) => item.path) ?? [];
-  if (await needsLikenessConsent(supabase, user.id, photoPaths)) {
+
+  // Asked once and used twice: it decides whether the attestation is required,
+  // and it tells the retriever what kind of video this is.
+  const showsPerson = await attachmentsShowAPerson(supabase, user.id, photoPaths);
+  if (showsPerson && !(await hasCurrentConsent(supabase, user.id))) {
     return { status: "consent" };
   }
 
@@ -180,7 +185,24 @@ async function sendForUser(
     const refined = await refinePrompt({ previousPrompt, change: prompt });
     finalPrompt = refined ?? previousPrompt;
   } else if (intent.intent === "create") {
-    const enhanced = await enhancePrompt({ prompt });
+    /*
+     * The retriever ranks knowledge partly on how well a chunk's declared
+     * applicability matches the request, and neither hint was ever supplied,
+     * so that dimension scored a flat 0.5 for every chunk and discriminated
+     * nothing. Both are derived from what the turn already knows rather than
+     * asked for.
+     */
+    const enhanced = await enhancePrompt({
+      prompt,
+      ...(platformFromAspect(intent.aspectRatio ?? aspectRatio)
+        ? { platform: platformFromAspect(intent.aspectRatio ?? aspectRatio)! }
+        : {}),
+      productType: productTypeFromAttachments({
+        hasPhoto: photoPaths.length > 0,
+        hasAudio: attachments?.some((item) => item.kind === "audio") ?? false,
+        showsPerson,
+      }),
+    });
     finalPrompt = enhanced?.text ?? prompt;
     chunkIds = enhanced?.chunkIds ?? [];
   }
