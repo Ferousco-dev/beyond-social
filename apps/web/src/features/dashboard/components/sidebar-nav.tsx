@@ -4,6 +4,7 @@ import {
   Boxes,
   CalendarClock,
   LayoutDashboard,
+  LibraryBig,
   PenSquare,
   TrendingUp,
   type LucideIcon,
@@ -48,6 +49,13 @@ const LINKS: readonly NavLink[] = [
     label: "Dashboard",
     icon: LayoutDashboard,
     motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/library" as Route,
+    label: "Library",
+    icon: LibraryBig,
+    // The spine of a book tilting off the shelf as you reach for it.
+    motion: "group-hover:-rotate-6",
   },
   {
     href: "/dashboard/schedule" as Route,
