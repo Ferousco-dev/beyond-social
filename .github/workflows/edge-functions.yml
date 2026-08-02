@@ -43,5 +43,11 @@ jobs:
       # Catches the class of thing a typechecker will not: an unused import left
       # behind by a refactor, which is exactly what was sitting next to the
       # broken call above.
+      #
+      # `no-import-prefix` is excluded. It objects to inline `https:` imports and
+      # wants an import map, but importing supabase-js straight from esm.sh is
+      # the pattern Supabase documents for edge functions and is what all four
+      # here use. Rewriting working code to satisfy a lint default would be the
+      # wrong way round; the rule is a style preference, not a defect.
       - name: Lint
-        run: deno lint supabase/functions/
+        run: deno lint --rules-exclude=no-import-prefix supabase/functions/
