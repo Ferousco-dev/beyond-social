@@ -7,6 +7,7 @@ import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
 import { needsLikenessConsent } from "@/lib/generation/consent-gate";
+import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
@@ -209,6 +210,8 @@ async function sendForUser(
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
 
+    const chosenModel = await preferredModel(supabase, user.id, "video");
+
     // Tier and balance, checked server-side before the provider is called. A
     // refusal here costs nothing and leaves no half-started generation row.
     const gate = await checkVideoRun();
@@ -229,6 +232,10 @@ async function sendForUser(
           prompt: finalPrompt,
           // What the message asked for wins over the caller's default; neither
           // is invented when the message is silent about it.
+          // The model the user picked on the models page, if they picked one.
+          // Absent, the edge function uses its own default, so a stale or
+          // missing preference never stops a video being made.
+          model: chosenModel ?? undefined,
           aspectRatio: intent.aspectRatio ?? aspectRatio,
           ...(usableDuration ? { duration: usableDuration } : {}),
           imageUrls,

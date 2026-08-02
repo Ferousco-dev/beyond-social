@@ -23,10 +23,25 @@ export function ModelCard({ model }: { model: MarketModel }) {
   return (
     <li
       className={cn(
-        "flex flex-col rounded-xl border bg-paper p-4 transition-colors",
+        "relative isolate flex flex-col overflow-hidden rounded-xl border bg-paper p-4 transition-colors",
         model.isPreferred ? "border-ink" : "border-hairline hover:border-ink-soft/40",
       )}
     >
+      {/*
+        The family mark, oversized and faint in the corner.
+        
+        Deliberately the family icon rather than the provider's own logo. There
+        are brand marks in this repository for the vendors it was built on, and
+        none for the video models themselves, and drawing one from memory would
+        put a wrong version of somebody's trademark on the page. Swap this for
+        a real mark per model the moment there are files to use.
+      */}
+      <family.icon
+        aria-hidden
+        className="pointer-events-none absolute -right-4 -top-4 -z-10 size-24 text-ink-soft/[0.07]"
+        strokeWidth={1.25}
+      />
+
       <div className="flex items-center gap-2">
         <family.icon className="size-4 shrink-0 text-ink-soft" aria-hidden />
         <span className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">
@@ -91,7 +106,7 @@ export function ModelCard({ model }: { model: MarketModel }) {
 
       {model.isPreferred ? (
         <p className="mt-2 text-[11px] text-ink-soft">
-          Saved as your default. The generator does not read defaults yet.
+          Saved. New videos in this family use this model.
         </p>
       ) : null}
     </li>
