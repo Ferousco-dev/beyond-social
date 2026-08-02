@@ -45,7 +45,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   },
   {
     href: "/dashboard/settings/connections",
-    label: "Connections",
+    label: "Connectors",
     description: "The social accounts you publish to.",
     icon: Share2,
   },

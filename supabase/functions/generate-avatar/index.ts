@@ -8,10 +8,32 @@ import { createAvatarTask } from "../_shared/kie.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
-/** Bumped with the wording of the consent statement; older acceptances lapse. */
-const CONSENT_VERSION = 1;
+/**
+ * Bumped with the wording of the consent statement; older acceptances lapse.
+ *
+ * Duplicated from `features/generation/consent.ts` because an edge function
+ * cannot import from the app. That drift is real and has already bitten: the
+ * statement moved to 2 there while this still read 1, which refuses every
+ * avatar render from someone who accepted the current wording. Change both.
+ */
+const CONSENT_VERSION = 2;
 
-const MODEL = "infinitalk/from-audio";
+/** The cheapest avatar model, used when the caller does not name one. */
+const DEFAULT_MODEL = "infinitalk/from-audio";
+
+/**
+ * What resolution to ask each model for.
+ *
+ * The provider bills per second and the rate depends on this, so it is not a
+ * quality preference but a price. InfiniteTalk is asked for its cheapest tier;
+ * the Kling models are priced in the catalogue at the tier named here, so
+ * asking for a different one would charge the user for something else.
+ */
+const RESOLUTION: Record<string, string> = {
+  "infinitalk/from-audio": "480p",
+  "kling/ai-avatar-standard": "720p",
+  "kling/ai-avatar-pro": "1080p",
+};
 
 interface AvatarBody {
   projectId?: string;
@@ -21,6 +43,8 @@ interface AvatarBody {
   /** Object paths in the uploads bucket. Preferred over the URLs above. */
   imagePath?: string;
   audioPath?: string;
+  /** Which avatar model to run. Validated against the catalogue below. */
+  model?: string;
 }
 
 Deno.serve(async (req) => {
@@ -71,14 +95,23 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (!consent) return json({ error: "Likeness consent is required", code: "consent" }, 403);
 
-  // The model has to be live and affordable before anything is dispatched: the
-  // provider charges on submission and cannot cancel.
+  /*
+   * The model has to be live and affordable before anything is dispatched: the
+   * provider charges on submission and cannot cancel.
+   *
+   * The requested id is looked up rather than trusted. Constraining the query
+   * to the avatar family is what stops a caller naming a video model here and
+   * being charged that model's rate for a request this endpoint would send to
+   * the wrong provider endpoint entirely.
+   */
+  const requested = body.model ?? DEFAULT_MODEL;
   const { data: model } = await supabase
     .from("model_catalog")
-    .select("credit_cost, is_active")
-    .eq("id", MODEL)
+    .select("id, credit_cost, is_active")
+    .eq("id", requested)
+    .eq("family", "avatar")
     .maybeSingle();
-  if (!model?.is_active) return json({ error: "Avatar rendering is not available yet" }, 503);
+  if (!model?.is_active) return json({ error: "That avatar model is not available" }, 503);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -119,6 +152,8 @@ Deno.serve(async (req) => {
   let taskId: string;
   try {
     taskId = await createAvatarTask({
+      model: model.id,
+      resolution: RESOLUTION[model.id],
       imageUrl,
       audioUrl,
       prompt,
@@ -141,7 +176,7 @@ Deno.serve(async (req) => {
       provider_task_id: taskId,
       // Recorded so completion prices this against the avatar rate rather than
       // the video one, and so polling knows which status endpoint to ask.
-      model: MODEL,
+      model: model.id,
       trace_id: traceId,
     })
     .select("id")

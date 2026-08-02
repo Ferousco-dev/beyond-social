@@ -36,6 +36,13 @@ const startSchema = z.object({
     .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
     .max(2)
     .optional(),
+  /**
+   * Which avatar model. Left to the edge function when absent, which picks the
+   * cheapest. Not validated here beyond being a string: the catalogue is the
+   * authority and the edge function checks it against the avatar family, so
+   * duplicating the list would just be a second thing to keep in step.
+   */
+  model: z.string().min(1).optional(),
 });
 
 export type AvatarResult =

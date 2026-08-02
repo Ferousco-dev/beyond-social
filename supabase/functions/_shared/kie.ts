@@ -106,6 +106,8 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
 }
 
 export interface KieAvatarInput {
+  /** Which avatar model. All of them take exactly these three inputs. */
+  model: string;
   imageUrl: string;
   audioUrl: string;
   prompt: string;
@@ -117,6 +119,10 @@ export interface KieAvatarInput {
 /**
  * Creates a talking-avatar task: a still of a person plus an audio track,
  * rendered as that person speaking it.
+ *
+ * The model is a parameter because InfiniteTalk and both Kling avatars take
+ * the same three inputs through the same endpoint, so supporting all of them
+ * is a row in the catalogue rather than a code path each.
  *
  * A different endpoint from `createVideoTask`, and a different request shape:
  * the market models take their arguments nested under `input` and name the
@@ -131,7 +137,7 @@ export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "infinitalk/from-audio",
+      model: input.model,
       callBackUrl: input.callBackUrl,
       input: {
         image_url: input.imageUrl,

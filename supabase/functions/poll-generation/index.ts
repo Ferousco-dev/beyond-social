@@ -52,11 +52,17 @@ Deno.serve(async (req) => {
    * `/jobs/createTask` and report through `/jobs/recordInfo`, with a different
    * response shape. Asking the wrong one about a task id returns nothing found,
    * which would read as a render that never finishes.
+   *
+   * The test is the `veo` prefix rather than "has a slash", which is what it
+   * used to be. Most market ids are vendor-prefixed and do contain one, but
+   * `omnihuman-1-5` does not, so it would have been polled against the veo
+   * endpoint and never seen to finish. Inactive today, which is the only
+   * reason that had not happened yet.
    */
-  const isAvatar = typeof generation.model === "string" && generation.model.includes("/");
-  const info = isAvatar
-    ? await getJobInfo(generation.provider_task_id)
-    : await getRecordInfo(generation.provider_task_id);
+  const isVeo = typeof generation.model === "string" && generation.model.startsWith("veo");
+  const info = isVeo
+    ? await getRecordInfo(generation.provider_task_id)
+    : await getJobInfo(generation.provider_task_id);
   const admin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
