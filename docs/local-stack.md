@@ -8,12 +8,12 @@ mail catcher. Nothing here touches the hosted project.
 
 Installed on this machine already:
 
-| Tool | Why |
-| --- | --- |
-| Colima | The Docker runtime. Chosen over Docker Desktop because it installs and runs without an admin password. |
-| Docker CLI | Talks to Colima. |
-| Supabase CLI | Runs the stack and owns the migrations. |
-| Redis | The worker's queue. |
+| Tool         | Why                                                                                                    |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| Colima       | The Docker runtime. Chosen over Docker Desktop because it installs and runs without an admin password. |
+| Docker CLI   | Talks to Colima.                                                                                       |
+| Supabase CLI | Runs the stack and owns the migrations.                                                                |
+| Redis        | The worker's queue.                                                                                    |
 
 Colima has to be running before Supabase:
 
@@ -30,12 +30,12 @@ supabase start
 First run pulls about a dozen images and takes a while. After that it is
 seconds. The CLI prints the URLs and keys; `supabase status` reprints them.
 
-| Service | URL |
-| --- | --- |
-| API | http://127.0.0.1:54321 |
-| Studio | http://127.0.0.1:54323 |
-| Mailpit (catches every email) | http://127.0.0.1:54324 |
-| Postgres | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
+| Service                       | URL                                                     |
+| ----------------------------- | ------------------------------------------------------- |
+| API                           | http://127.0.0.1:54321                                  |
+| Studio                        | http://127.0.0.1:54323                                  |
+| Mailpit (catches every email) | http://127.0.0.1:54324                                  |
+| Postgres                      | postgresql://postgres:postgres@127.0.0.1:54322/postgres |
 
 `analytics` is disabled in `supabase/config.toml`. That container mounts the
 host Docker socket, which a Colima-backed daemon cannot provide. It powers the

@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
-import { getRecordInfo } from "../_shared/kie.ts";
+import { getJobInfo, getRecordInfo } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
 
 Deno.serve(async (req) => {
@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
 
   const { data: generation } = await supabase
     .from("video_generations")
-    .select("id, status, provider_task_id, result_url")
+    .select("id, status, provider_task_id, result_url, model")
     .eq("id", generationId)
     .single();
   if (!generation) return json({ error: "Not found" }, 404);
@@ -44,7 +44,25 @@ Deno.serve(async (req) => {
     return json({ status: generation.status, resultUrl: generation.result_url });
   }
 
-  const info = await getRecordInfo(generation.provider_task_id);
+  /*
+   * Two providers' status endpoints behind one row.
+   *
+   * Veo tasks are created on `/veo/generate` and report through
+   * `/veo/record-info`; market models such as the avatar are created on
+   * `/jobs/createTask` and report through `/jobs/recordInfo`, with a different
+   * response shape. Asking the wrong one about a task id returns nothing found,
+   * which would read as a render that never finishes.
+   *
+   * The test is the `veo` prefix rather than "has a slash", which is what it
+   * used to be. Most market ids are vendor-prefixed and do contain one, but
+   * `omnihuman-1-5` does not, so it would have been polled against the veo
+   * endpoint and never seen to finish. Inactive today, which is the only
+   * reason that had not happened yet.
+   */
+  const isVeo = typeof generation.model === "string" && generation.model.startsWith("veo");
+  const info = isVeo
+    ? await getRecordInfo(generation.provider_task_id)
+    : await getJobInfo(generation.provider_task_id);
   const admin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",

@@ -67,4 +67,5 @@ export interface StuckWork extends Observed {
   items: StuckItem[];
 }
 
-export type RetryResult = { status: "ok"; mayHavePosted: boolean } | { status: "error"; message: string };
+export type RetryResult =
+  { status: "ok"; mayHavePosted: boolean } | { status: "error"; message: string };

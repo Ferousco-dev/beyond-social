@@ -3,15 +3,22 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
-import { createVideoTask } from "../_shared/kie.ts";
+import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
+import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
-import { log, traceIdFrom } from "../_shared/trace.ts";
+
+/** The model used when the caller does not name one. */
+const DEFAULT_MODEL = "veo3_fast";
 
 interface GenerateBody {
   projectId?: string;
   prompt?: string;
   aspectRatio?: string;
   imageUrls?: string[];
+  /** Object paths in the uploads bucket, preferred over imageUrls. */
+  imagePaths?: string[];
+  /** Which video model to run. Validated against the catalogue. */
+  model?: string;
   /** Seconds. Only present when the request actually asked for a length. */
   duration?: number;
 }
@@ -72,15 +79,84 @@ Deno.serve(async (req) => {
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
+  /*
+   * Reference images are handed to kie as bytes rather than as links to our
+   * own storage.
+   *
+   * The bytes are read here through the service client, which talks to storage
+   * over the platform's internal network, so this works regardless of whether
+   * our storage is reachable from the public internet. That is the whole point:
+   * passing a signed link meant kie had to fetch us, and in local development
+   * that link is a 127.0.0.1 address pointing at kie's own loopback.
+   *
+   * Paths, not URLs, for the same reason the thread stores paths: a signed URL
+   * is a fact that expires.
+   */
+  let referenceUrls: string[] | undefined;
+  try {
+    const paths = body.imagePaths?.slice(0, 2);
+    if (paths && paths.length > 0) {
+      referenceUrls = [];
+      for (const path of paths) {
+        referenceUrls.push(await handToProvider(supabase, "uploads", path, traceId));
+      }
+    } else {
+      // Nothing was uploaded through the composer, so whatever the caller sent
+      // is already a URL kie can reach.
+      referenceUrls = body.imageUrls?.slice(0, 2);
+    }
+  } catch (error) {
+    log("error", "could not hand the reference image to the provider", { traceId });
+    return json(
+      { error: error instanceof Error ? error.message : "Could not prepare the reference image" },
+      502,
+    );
+  }
+
+  /*
+   * Which model, and therefore which endpoint.
+   *
+   * The requested id is looked up rather than trusted, and constrained to the
+   * video family: naming an avatar model here would otherwise charge that
+   * model's rate for a request shaped for a different endpoint. An inactive
+   * row is refused, which is what keeps a half-built path from spending a
+   * credit.
+   */
+  const requested = body.model ?? DEFAULT_MODEL;
+  const { data: chosen } = await supabase
+    .from("model_catalog")
+    .select("id, is_active")
+    .eq("id", requested)
+    .eq("family", "video")
+    .maybeSingle();
+  if (!chosen?.is_active) return json({ error: "That model is not available" }, 503);
+
+  /*
+   * Veo models are created on `/veo/generate`; every other model on this
+   * provider is a market model on `/jobs/createTask`, with a different request
+   * shape. The same split the poller makes when asking for status, and by the
+   * same test, so a task can always be followed up on the endpoint that made
+   * it.
+   */
+  const isVeo = chosen.id.startsWith("veo");
+
   let taskId: string;
   try {
-    taskId = await createVideoTask({
-      prompt,
-      imageUrls: body.imageUrls?.slice(0, 2),
-      aspectRatio,
-      duration,
-      callBackUrl,
-    });
+    taskId = isVeo
+      ? await createVideoTask({
+          model: chosen.id,
+          prompt,
+          imageUrls: referenceUrls,
+          aspectRatio,
+          duration,
+          callBackUrl,
+        })
+      : await createMarketVideoTask({
+          model: chosen.id,
+          prompt,
+          imageUrl: referenceUrls?.[0],
+          callBackUrl,
+        });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Generation failed" }, 502);
   }
@@ -95,6 +171,9 @@ Deno.serve(async (req) => {
       duration,
       image_urls: body.imageUrls ?? [],
       status: "generating",
+      // Recorded so completion prices this against the model that actually ran,
+      // and so polling knows which status endpoint to ask.
+      model: chosen.id,
       provider_task_id: taskId,
       // Carried on the row because the callback arrives in a different process,
       // minutes later, where no header from the original request survives.

@@ -1,0 +1,18 @@
+title = "Beyond Social secret scanning"
+
+# The default rules, plus the exceptions below. Never a replacement for them:
+# writing a bespoke rule set is how a scanner ends up looking thorough while
+# quietly missing the provider that actually matters.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders, which are not credentials"
+# Deliberately the literal placeholder rather than the files that contain it.
+# Allowlisting `docs/page.tsx` would mean a real key pasted into an example
+# later, which is exactly how keys get published, would scan clean forever.
+#
+# The API documentation shows the shape of an authenticated request, so it
+# carries an `Authorization: Bearer` header with an obvious stand-in. The same
+# string appears in a deleted api-keys page still present in history.
+regexes = ['''bsk_your_key_here''']

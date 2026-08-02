@@ -234,10 +234,19 @@ check("anonymous requests make no deletion probe", rpcCalls === 0, `rpcs=${rpcCa
 
 await setDeleted(false);
 const live = await visit("/login", await sessionCookies());
-check("a live session on /login is still sent to /dashboard", live.location?.endsWith("/dashboard") === true);
+check(
+  "a live session on /login is still sent to /dashboard",
+  live.location?.endsWith("/dashboard") === true,
+);
 
 await admin.auth.admin.deleteUser(userId);
 
-console.log(results.join("\n"));
-console.log(failures === 0 ? `\nAll ${results.length} checks passed.` : `\n${failures} FAILED.`);
+// Written to the stream directly, as the other smoke scripts do. `console.log`
+// was the only thing in the workspace tripping the no-console rule, and two
+// standing warnings are how a real one gets missed.
+process.stdout.write(
+  `${results.join("\n")}\n${
+    failures === 0 ? `\nAll ${results.length} checks passed.` : `\n${failures} FAILED.`
+  }\n`,
+);
 process.exit(failures === 0 ? 0 : 1);

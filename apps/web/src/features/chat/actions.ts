@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { writeReply } from "@/lib/chat/reply";
 import { isSupabaseConfigured } from "@/lib/env";
+import { needsLikenessConsent } from "@/lib/generation/consent-gate";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
+import { runWithAiUser } from "@/lib/ai/request-user";
 import { extractMemories } from "@/lib/memory/extract";
 import { findRelatedConversations, indexMessage, renderRelated } from "@/lib/memory/conversations";
 import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
@@ -30,15 +33,33 @@ import { createClient } from "@/lib/supabase/server";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
 
+/** The composer's ceiling: four reference photos plus one voice clip. */
+const MAX_ATTACHMENTS = 5;
+
 const sendSchema = z.object({
   /** `new` means no project exists yet. */
   projectId: z.string().min(1),
   prompt: z.string().trim().min(1, "Describe the video first").max(2000),
   aspectRatio: z.enum(ASPECT_RATIOS).optional(),
   imageUrls: z.array(z.string().url()).max(4).optional(),
+  /**
+   * Object paths, not URLs. The signed URLs in `imageUrls` are what the
+   * provider fetches and they expire in two hours; the path is what the thread
+   * stores so it can re-sign and still render the attachment next week.
+   */
+  attachments: z
+    .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
+    .max(MAX_ATTACHMENTS)
+    .optional(),
 });
 
 export type SendResult =
+  /**
+   * A photo of a person is attached and the caller has not accepted the current
+   * likeness wording. Nothing was created: no project, no message, no render.
+   * The client asks, records the acceptance, and sends the same turn again.
+   */
+  | { status: "consent" }
   | {
       status: "ok";
       projectId: string;
@@ -73,16 +94,51 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
-  const { prompt, aspectRatio, imageUrls } = parsed.data;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to continue" };
 
+  // Everything below reaches the model gateway, and the gateway keys its rate
+  // limit on this. Without it every call landed in one shared `anonymous`
+  // bucket, so the whole platform throttled together.
+  return runWithAiUser(user.id, () => sendForUser(parsed.data, user.id, supabase));
+}
+
+async function sendForUser(
+  parsed: z.output<typeof sendSchema>,
+  userId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<SendResult> {
+  const { prompt, aspectRatio, imageUrls, attachments } = parsed;
+  const user = { id: userId };
+
+  // The paths come back from the client, so ownership is re-checked here rather
+  // than assumed, exactly as the upload actions do. `append_turn` filters these
+  // too, but it does so silently, and a caller that sent something wrong is
+  // better told than quietly ignored.
+  if (attachments?.some((attachment) => !attachment.path.startsWith(`${user.id}/`))) {
+    return { status: "error", message: "Those attachments could not be saved" };
+  }
+
+  /*
+   * Checked before anything is created, so a refusal leaves no half-made
+   * project and no message promising a video that was never started. The turn
+   * is sent again unchanged once the attestation is recorded.
+   *
+   * Only for photos of people: `needsLikenessConsent` asks the classification
+   * made at upload, so a product shot never reaches this.
+   */
+  const photoPaths =
+    attachments?.filter((item) => item.kind === "photo").map((item) => item.path) ?? [];
+  if (await needsLikenessConsent(supabase, user.id, photoPaths)) {
+    return { status: "consent" };
+  }
+
   // The project is created on the first message, not on page load, so opening
   // the composer and changing your mind leaves nothing behind.
-  let projectId = parsed.data.projectId;
+  let projectId = parsed.projectId;
   if (projectId === "new") {
     const { data, error } = await supabase
       .from("projects")
@@ -176,6 +232,14 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
           aspectRatio: intent.aspectRatio ?? aspectRatio,
           ...(usableDuration ? { duration: usableDuration } : {}),
           imageUrls,
+          // Preferred over imageUrls. The edge function reads these from
+          // storage and hands the bytes to the provider, so the provider never
+          // has to reach our storage: a signed link expires, and in local
+          // development it is a loopback address that resolves to the
+          // provider's own machine.
+          imagePaths: attachments
+            ?.filter((attachment) => attachment.kind === "photo")
+            .map((attachment) => attachment.path),
           sourceChunks: chunkIds,
         },
       });
@@ -215,6 +279,7 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
     p_assistant_content: reply,
     // The generated type spells an optional argument as undefined, not null.
     p_generation: generationId ?? undefined,
+    p_attachments: attachments ?? [],
   });
   if (turnError) {
     logger.error("could not persist turn", { error: turnError.message });
@@ -243,5 +308,10 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
 
   revalidatePath(`/dashboard/c/${projectId}`);
+  // The sidebar is rendered by the dashboard layout, which a page-level
+  // revalidate does not touch, so a new project did not appear in it until a
+  // full reload. Every turn bumps the project's updated_at and reorders that
+  // list too, so this is not only a first-message concern.
+  revalidatePath("/dashboard", "layout");
   return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };
 }

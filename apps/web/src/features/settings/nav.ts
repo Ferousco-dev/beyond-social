@@ -7,6 +7,7 @@ import {
   Share2,
   UserRound,
   Users,
+  Mic,
   Webhook,
   type LucideIcon,
 } from "lucide-react";
@@ -37,8 +38,14 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Palette,
   },
   {
+    href: "/dashboard/settings/voice",
+    label: "Voice",
+    description: "Record a voice for your avatar videos.",
+    icon: Mic,
+  },
+  {
     href: "/dashboard/settings/connections",
-    label: "Connections",
+    label: "Connectors",
     description: "The social accounts you publish to.",
     icon: Share2,
   },

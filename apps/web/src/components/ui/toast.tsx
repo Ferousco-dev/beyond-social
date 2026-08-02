@@ -76,7 +76,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const toast = useCallback((options: ToastOptions) => {
     const id = nextId.current++;
     // Oldest first out: a stack that grows without bound covers the app.
-    setToasts((current) => [...current.slice(-2), { ...options, variant: options.variant ?? "info", id }]);
+    setToasts((current) => [
+      ...current.slice(-2),
+      { ...options, variant: options.variant ?? "info", id },
+    ]);
   }, []);
 
   const api = useMemo<ToastApi>(() => ({ toast, dismiss }), [toast, dismiss]);
@@ -129,13 +132,7 @@ const ICON_TONE: Readonly<Record<ToastVariant, string>> = {
   info: "text-ink-soft",
 };
 
-function ToastItem({
-  toast,
-  onDismiss,
-}: {
-  toast: ToastRecord;
-  onDismiss: (id: number) => void;
-}) {
+function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: number) => void }) {
   const [paused, setPaused] = useState(false);
   const Icon = ICONS[toast.variant];
   const { id } = toast;

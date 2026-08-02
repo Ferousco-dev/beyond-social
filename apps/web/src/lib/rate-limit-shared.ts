@@ -49,11 +49,16 @@ export async function sharedRateLimit(
       ok: row.allowed,
       remaining: row.remaining,
       retryAfterMs: row.retry_after_seconds * 1000,
+      ...(row.allowed ? {} : { reason: "throttled" as const }),
     };
   } catch (error) {
+    // Logged as an error, not a warning: this is a broken dependency wearing a
+    // rate limit's clothes, and it will keep denying every request until someone
+    // notices. The most likely cause is a service-role key that does not match
+    // the database it is pointed at.
     logger.error("shared rate limiter unavailable, denying", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return { ok: false, remaining: 0, retryAfterMs: windowMs };
+    return { ok: false, remaining: 0, retryAfterMs: windowMs, reason: "unavailable" };
   }
 }

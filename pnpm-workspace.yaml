@@ -10,12 +10,14 @@ overrides:
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
   esbuild: true
+  ffmpeg-static: true
   msgpackr-extract: true
   sharp: true
   unrs-resolver: true
 
 onlyBuiltDependencies:
   - esbuild
+  - ffmpeg-static
   - msgpackr-extract
   - sharp
   - unrs-resolver

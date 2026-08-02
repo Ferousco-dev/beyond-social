@@ -22,7 +22,10 @@ export function Panel({ title, hint, observedAt, children }: PanelProps): ReactN
   const id = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="rounded-xl border border-hairline bg-paper">
+    <section
+      aria-labelledby={`${id}-heading`}
+      className="rounded-xl border border-hairline bg-paper"
+    >
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-hairline px-5 py-4">
         <div>
           <h2 id={`${id}-heading`} className="text-sm font-medium text-ink">

@@ -6,6 +6,12 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/session";
 
+import { signRenders } from "@/lib/generation/render-url";
+
+import { type Attachment, attachmentRowSchema, signAttachmentPaths } from "./attachments";
+
+export { type Attachment, type AttachmentKind } from "./attachments";
+
 /**
  * Reading a conversation.
  *
@@ -22,6 +28,12 @@ const rowSchema = z.object({
   generation_id: z.string().nullable(),
   generation_status: z.enum(["queued", "generating", "ready", "failed"]).nullable(),
   result_url: z.string().nullable(),
+  // The durable fact. `result_url` is a public link that stopped resolving
+  // when the bucket was closed, so playback is signed from this instead.
+  result_path: z.string().nullable().default(null),
+  // `project_thread` coalesces to an empty array, so this is never null. The
+  // default covers a stale build reading a thread before the migration lands.
+  attachments: z.array(attachmentRowSchema).default([]),
 });
 
 export type DraftStatus = "generating" | "ready" | "failed";
@@ -30,6 +42,16 @@ export interface MessageDraft {
   readonly generationId: string;
   readonly status: DraftStatus;
   readonly resultUrl: string | null;
+  /**
+   * When the turn was recorded, ISO 8601. Absent on a draft the client has
+   * just created optimistically, which has not been persisted yet.
+   *
+   * Carried so the "generating" elapsed time survives a navigation. Counted
+   * from mount, leaving the page and coming back restarted it at zero, which
+   * made a render that had been running two minutes look like it had just
+   * begun.
+   */
+  readonly startedAt?: string;
 }
 
 export interface ChatMessage {
@@ -37,6 +59,8 @@ export interface ChatMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly draft?: MessageDraft;
+  /** What was sent with the message. Empty for almost every assistant turn. */
+  readonly attachments: readonly Attachment[];
 }
 
 export interface Thread {
@@ -54,16 +78,27 @@ function toDraftStatus(status: string | null): DraftStatus {
   return "generating";
 }
 
-function toMessage(row: z.infer<typeof rowSchema>): ChatMessage {
+function toMessage(
+  row: z.infer<typeof rowSchema>,
+  signed: ReadonlyMap<string, string>,
+  renders: ReadonlyMap<string, string>,
+): ChatMessage {
   return {
     id: row.id,
     role: row.role,
     content: row.content,
+    attachments: row.attachments.map((attachment) => ({
+      ...attachment,
+      url: signed.get(attachment.path) ?? null,
+    })),
     draft: row.generation_id
       ? {
           generationId: row.generation_id,
           status: toDraftStatus(row.generation_status),
-          resultUrl: row.result_url,
+          // Signed per read. A render with no path predates the private
+          // bucket and has nothing playable left, which reads as null.
+          resultUrl: row.result_path ? (renders.get(row.result_path) ?? null) : null,
+          startedAt: row.created_at,
         }
       : undefined,
   };
@@ -96,10 +131,25 @@ export async function getThread(id: string): Promise<Thread> {
   if (!found) return { ...EMPTY, live: true };
 
   const parsed = z.array(rowSchema).safeParse(rows);
+  if (!parsed.success) return { ...EMPTY, projectId: found.id, title: found.title, live: true };
+
+  // One signing call for the whole thread, after parsing rather than during it,
+  // so the number of round trips does not grow with the number of photos.
+  const [signed, renders] = await Promise.all([
+    signAttachmentPaths(
+      supabase,
+      parsed.data.flatMap((row) => row.attachments.map((attachment) => attachment.path)),
+    ),
+    signRenders(
+      supabase,
+      parsed.data.map((row) => row.result_path),
+    ),
+  ]);
+
   return {
     projectId: found.id,
     title: found.title,
-    messages: parsed.success ? parsed.data.map(toMessage) : [],
+    messages: parsed.data.map((row) => toMessage(row, signed, renders)),
     live: true,
   };
 }

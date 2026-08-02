@@ -49,12 +49,7 @@ export function fetchActiveUsersDaily(
   client: AnalyticsClient,
   days: number = DEFAULT_WINDOW_DAYS,
 ): Promise<ActiveUsersDay[]> {
-  return selectRows(
-    client,
-    "admin_active_users_daily",
-    activeUsersDaySchema,
-    windowArgs(days),
-  );
+  return selectRows(client, "admin_active_users_daily", activeUsersDaySchema, windowArgs(days));
 }
 
 /** Lifetime user count and the number of live subscriptions right now. */
@@ -63,9 +58,7 @@ export function fetchUserTotals(client: AnalyticsClient): Promise<UserTotals> {
 }
 
 /** Live subscriptions grouped by plan, largest first. */
-export function fetchSubscriptionsByPlan(
-  client: AnalyticsClient,
-): Promise<PlanSubscriptions[]> {
+export function fetchSubscriptionsByPlan(client: AnalyticsClient): Promise<PlanSubscriptions[]> {
   return selectRows(client, "admin_subscriptions_by_plan", planSubscriptionsSchema);
 }
 
@@ -74,12 +67,7 @@ export function fetchGenerationsDaily(
   client: AnalyticsClient,
   days: number = DEFAULT_WINDOW_DAYS,
 ): Promise<GenerationsDay[]> {
-  return selectRows(
-    client,
-    "admin_generations_daily",
-    generationsDaySchema,
-    windowArgs(days),
-  );
+  return selectRows(client, "admin_generations_daily", generationsDaySchema, windowArgs(days));
 }
 
 /** AI spend and call volume per day. Cached calls are free. */
@@ -95,10 +83,5 @@ export function fetchAiSpendByModel(
   client: AnalyticsClient,
   days: number = DEFAULT_WINDOW_DAYS,
 ): Promise<AiSpendByModel[]> {
-  return selectRows(
-    client,
-    "admin_ai_spend_by_model",
-    aiSpendByModelSchema,
-    windowArgs(days),
-  );
+  return selectRows(client, "admin_ai_spend_by_model", aiSpendByModelSchema, windowArgs(days));
 }

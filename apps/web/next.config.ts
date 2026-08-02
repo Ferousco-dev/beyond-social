@@ -14,8 +14,16 @@ const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: https:",
+  /*
+   * The local stack serves storage over plain http on another port, so a signed
+   * url for an uploaded photo or a rendered video is neither 'self' nor https:
+   * and the browser drops it. It shows up as a broken thumbnail rather than as
+   * an error, which reads like a failed upload.
+   *
+   * Only in development. Production storage is https and already covered.
+   */
+  `img-src 'self' data: blob: https:${isDev ? " http://127.0.0.1:54321" : ""}`,
+  `media-src 'self' blob: https:${isDev ? " http://127.0.0.1:54321" : ""}`,
   "font-src 'self' data:",
   // The local Supabase stack is a development concern. Shipping it in the
   // production policy let any script on the page reach a service on the
@@ -39,7 +47,12 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+    // The microphone is allowed for this origin only, because recording a voice
+    // clip is a feature of the app. An empty list blocks every origin including
+    // ours, so the browser refuses before it can even ask, and the failure
+    // arrives as the same error a user denial would produce. Camera and
+    // location stay closed: nothing here uses them.
+    value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];

@@ -5,21 +5,34 @@ import { type ChatMessage } from "@/lib/chat/thread";
 
 import { CopyButton } from "./copy-button";
 import { GeneratingDraft } from "./generating-draft";
+import { MessageAttachments } from "./message-attachments";
 import { VideoDraftCard } from "./video-draft-card";
 
 export function MessageBubble({
   message,
   editorHref,
+  onCancelDraft,
+  onRegenerate,
+  regeneratingId,
 }: {
   message: ChatMessage;
   editorHref: Route;
+  onCancelDraft?: (generationId: string) => void;
+  onRegenerate?: (generationId: string) => void;
+  /** The draft currently being run again, if any. */
+  regeneratingId?: string | null;
 }): ReactNode {
   if (message.role === "user") {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-3xl bg-cloud px-4 py-2.5 text-ink">
-          {message.content}
-        </div>
+      // Attachments sit above the bubble, aligned with it, so the turn reads in
+      // the order it was composed: what was attached, then what was said.
+      <div className="flex flex-col items-end gap-2">
+        <MessageAttachments attachments={message.attachments} />
+        {message.content ? (
+          <div className="max-w-[80%] rounded-3xl bg-cloud px-4 py-2.5 text-ink">
+            {message.content}
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -35,9 +48,23 @@ export function MessageBubble({
           </div>
         </>
       ) : null}
-      {message.draft?.status === "generating" ? <GeneratingDraft /> : null}
+      {message.draft?.status === "generating" ? (
+        <GeneratingDraft
+          startedAt={message.draft.startedAt}
+          onCancel={
+            onCancelDraft && message.draft.generationId
+              ? () => onCancelDraft(message.draft?.generationId ?? "")
+              : undefined
+          }
+        />
+      ) : null}
       {message.draft?.status === "ready" ? (
-        <VideoDraftCard draft={message.draft} editorHref={editorHref} />
+        <VideoDraftCard
+          draft={message.draft}
+          editorHref={editorHref}
+          onRegenerate={onRegenerate}
+          regenerating={regeneratingId === message.draft.generationId}
+        />
       ) : null}
       {/* A failed draft says so. It used to be indistinguishable from a reply
           with no video, which read as though nothing had been attempted. */}

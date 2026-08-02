@@ -6,6 +6,7 @@ import { checkApiRateLimit } from "@/lib/api/rate-limit";
 import { isFlagEnabled } from "@/lib/flags";
 import { withTrace } from "@/lib/observability/http";
 import { currentTrace } from "@/lib/observability/trace";
+import { signRenders } from "@/lib/generation/render-url";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -56,7 +57,7 @@ export const GET = withTrace("GET /api/v1/generations", async (request) => {
   const service = createServiceClient();
   const { data, error } = await service
     .from("video_generations")
-    .select("id, prompt, status, result_url, aspect_ratio, created_at")
+    .select("id, prompt, status, result_url, result_path, aspect_ratio, created_at")
     .eq("user_id", caller.userId)
     .order("created_at", { ascending: false })
     .limit(parsed.data.limit);
@@ -70,5 +71,27 @@ export const GET = withTrace("GET /api/v1/generations", async (request) => {
     );
   }
 
-  return NextResponse.json({ object: "list", data: data ?? [] });
+  /*
+   * `result_url` is now minted per request rather than stored. The bucket that
+   * holds finished videos is private, so the permanent public link the API used
+   * to return no longer resolves. Callers see the same field with the same
+   * meaning; it simply expires, which is stated in the docs.
+   *
+   * `result_path` is internal and stripped: it is a storage location, and
+   * publishing it would invite callers to construct their own URLs against a
+   * bucket whose access rules are ours to change.
+   */
+  const rows = (data ?? []) as { result_path: string | null }[];
+  const signed = await signRenders(
+    service,
+    rows.map((row) => row.result_path),
+  );
+
+  return NextResponse.json({
+    object: "list",
+    data: rows.map(({ result_path, ...row }) => ({
+      ...row,
+      result_url: result_path ? (signed.get(result_path) ?? null) : null,
+    })),
+  });
 });

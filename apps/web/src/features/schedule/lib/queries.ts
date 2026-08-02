@@ -24,7 +24,7 @@ export interface ScheduleBoard {
 const EMPTY: ScheduleBoard = { upcoming: [], published: [], failed: [] };
 
 const SELECT =
-  "id, platform, caption, hashtags, scheduled_for, status, external_id, publish_started_at, error, video_generations(result_url)";
+  "id, platform, caption, hashtags, scheduled_for, status, external_id, publish_started_at, error, video_generations(result_url, result_path)";
 
 export async function getScheduleBoard(limit = 200): Promise<ScheduleBoard> {
   if (!isSupabaseConfigured) return EMPTY;

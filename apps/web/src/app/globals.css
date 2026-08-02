@@ -265,6 +265,28 @@
     background-color: var(--canvas);
   }
 
+  /*
+   * The same seam exists in light mode and was never fixed, because there it is
+   * two slightly different whites rather than white against black: the document
+   * is `--background` (#f8fafc) and the workspace is `--canvas` (#fcfcfc). The
+   * band only appears when the viewport is overscrolled past the shell, which is
+   * why it survived this long.
+   *
+   * Scoped to the workspace so the marketing pages keep their own surface.
+   */
+  html:has([data-surface="workspace"]) {
+    background-color: var(--canvas);
+  }
+
+  /*
+   * The workspace scrolls inside `main`, so the document has nowhere to go and
+   * a bounce only reveals what is behind it. Refusing the bounce removes the
+   * seam at its source rather than painting over it.
+   */
+  body:has([data-surface="workspace"]) {
+    overscroll-behavior-y: none;
+  }
+
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;

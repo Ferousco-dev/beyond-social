@@ -25,9 +25,7 @@ const GENERIC_ERROR = "We could not delete your account. Please try again.";
  * the grace period. The caller's next job is to end the session, because the
  * account is locked out of its own data from this moment on.
  */
-export async function requestAccountDeletion(
-  input: DeletionRequestInput,
-): Promise<DeletionResult> {
+export async function requestAccountDeletion(input: DeletionRequestInput): Promise<DeletionResult> {
   const parsed = deletionRequestSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
   if (!isSupabaseConfigured) return { status: "error", message: GENERIC_ERROR };

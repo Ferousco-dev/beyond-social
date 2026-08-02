@@ -124,7 +124,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
                 <Link href="/dashboard/settings/connections" className={ROW}>
-                  Connections
+                  Connectors
                   <Share2 className={ICON} aria-hidden />
                 </Link>
               </DropdownMenu.Item>

@@ -8,6 +8,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
 import { type SidebarProject } from "@/lib/dashboard/data";
+
+import { useProjectMutations } from "../hooks/use-project-mutations";
 import { cn } from "@/lib/utils";
 
 type Item = SidebarProject;
@@ -24,31 +26,22 @@ export function SidebarProjects({
   initialItems: readonly SidebarProject[];
   onNavigate?: () => void;
 }) {
-  const [items, setItems] = useState<Item[]>(() => [...initialItems]);
+  const { items, error, setError, rename, togglePinned, remove } =
+    useProjectMutations(initialItems);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { confirm, dialog } = useConfirm();
 
-  useEffect(() => {
-    if (!editingId) return;
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 20);
-    return () => window.clearTimeout(timer);
-  }, [editingId]);
-
   function commitRename() {
-    if (editingId) {
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === editingId ? { ...item, title: draft.trim() || item.title } : item,
-        ),
-      );
-    }
+    const id = editingId;
     setEditingId(null);
+    if (id) rename(id, draft.trim());
   }
 
   async function handleDelete(item: Item) {
+    setError(null);
     const confirmed = await confirm({
       title: `Delete "${item.title}"?`,
       description:
@@ -57,10 +50,15 @@ export function SidebarProjects({
       tone: "destructive",
     });
     if (!confirmed) return;
-
     setOpenMenuId(null);
-    setItems((prev) => prev.filter((entry) => entry.id !== item.id));
+    await remove(item);
   }
+
+  useEffect(() => {
+    if (!editingId) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 20);
+    return () => window.clearTimeout(timer);
+  }, [editingId]);
 
   function renderRow(item: Item) {
     if (editingId === item.id) {
@@ -109,13 +107,10 @@ export function SidebarProjects({
             >
               <DropdownMenu.Item
                 className={MENU_ITEM}
-                onSelect={() =>
-                  setItems((prev) =>
-                    prev.map((entry) =>
-                      entry.id === item.id ? { ...entry, pinned: !entry.pinned } : entry,
-                    ),
-                  )
-                }
+                onSelect={() => {
+                  setOpenMenuId(null);
+                  togglePinned(item);
+                }}
               >
                 <Pin className="size-4 text-ink-soft" />
                 {item.pinned ? "Unpin" : "Pin"}
@@ -154,6 +149,13 @@ export function SidebarProjects({
   return (
     <div>
       {dialog}
+      {/* A rollback on its own looks like the app ignoring the click, so the
+          reason is stated where the change appeared to happen. */}
+      {error ? (
+        <p role="status" className="px-3 pb-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
       {pinned.length > 0 ? (
         <div className="mb-5">
           <p className="px-3 pb-1 text-xs font-medium text-ink-soft">Pinned</p>

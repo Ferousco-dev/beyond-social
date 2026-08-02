@@ -9,7 +9,14 @@ import { PLANS, type PlanId } from "@/lib/billing/plans";
  * deploy to agree with it.
  */
 
-export const MODEL_FAMILIES = ["video", "image", "chat", "audio"] as const;
+/**
+ * Mirrors `model_catalog_family_check`. A family the database accepts but this
+ * list omits is not a display gap: it fails the row parse, and the catalogue
+ * comes back empty. Add here in the same change that widens the constraint.
+ *
+ * The order is the order the market renders its filter chips in.
+ */
+export const MODEL_FAMILIES = ["video", "avatar", "image", "chat", "audio"] as const;
 export type ModelFamily = (typeof MODEL_FAMILIES)[number];
 
 export const modelRowSchema = z.object({

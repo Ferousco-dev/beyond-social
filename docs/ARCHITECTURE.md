@@ -34,12 +34,12 @@ flowchart LR
 The seams sit where the **operational profile** differs, which is the only
 justification that survives production:
 
-| Unit | Why it is separate |
-| --- | --- |
-| `apps/web` | Request-scoped, scales per request, must stay fast |
-| `apps/worker` | Long-running and retryable, must survive a web deploy |
-| Edge functions | Called by third parties, needs its own auth boundary |
-| Supabase | Managed state with its own availability and scaling story |
+| Unit           | Why it is separate                                        |
+| -------------- | --------------------------------------------------------- |
+| `apps/web`     | Request-scoped, scales per request, must stay fast        |
+| `apps/worker`  | Long-running and retryable, must survive a web deploy     |
+| Edge functions | Called by third parties, needs its own auth boundary      |
+| Supabase       | Managed state with its own availability and scaling story |
 
 Splitting `apps/web` further would add network hops and deploy surface without
 separating anything that behaves differently under load.

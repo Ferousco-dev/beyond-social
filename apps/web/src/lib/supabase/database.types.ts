@@ -3,6 +3,48 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string;
+          actor_email: string;
+          actor_id: string | null;
+          after: Json | null;
+          before: Json | null;
+          created_at: string;
+          id: string;
+          ip: unknown;
+          summary: string;
+          target_id: string | null;
+          target_type: string;
+        };
+        Insert: {
+          action: string;
+          actor_email: string;
+          actor_id?: string | null;
+          after?: Json | null;
+          before?: Json | null;
+          created_at?: string;
+          id?: string;
+          ip?: unknown;
+          summary?: string;
+          target_id?: string | null;
+          target_type: string;
+        };
+        Update: {
+          action?: string;
+          actor_email?: string;
+          actor_id?: string | null;
+          after?: Json | null;
+          before?: Json | null;
+          created_at?: string;
+          id?: string;
+          ip?: unknown;
+          summary?: string;
+          target_id?: string | null;
+          target_type?: string;
+        };
+        Relationships: [];
+      };
       ai_usage: {
         Row: {
           attempts: number;
@@ -60,6 +102,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      ai_usage_daily: {
+        Row: {
+          cached_calls: number;
+          calls: number;
+          cost_usd: number;
+          day: string;
+          failed_calls: number;
+          input_tokens: number;
+          model: string;
+          output_tokens: number;
+          provider: string;
+          user_id: string;
+        };
+        Insert: {
+          cached_calls?: number;
+          calls?: number;
+          cost_usd?: number;
+          day: string;
+          failed_calls?: number;
+          input_tokens?: number;
+          model: string;
+          output_tokens?: number;
+          provider: string;
+          user_id: string;
+        };
+        Update: {
+          cached_calls?: number;
+          calls?: number;
+          cost_usd?: number;
+          day?: string;
+          failed_calls?: number;
+          input_tokens?: number;
+          model?: string;
+          output_tokens?: number;
+          provider?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       api_keys: {
         Row: {
           created_at: string;
@@ -104,8 +185,45 @@ export type Database = {
           },
         ];
       };
+      app_config: {
+        Row: {
+          area: string;
+          description: string;
+          key: string;
+          takes_effect: string;
+          updated_at: string;
+          updated_by: string | null;
+          updated_by_email: string | null;
+          value: Json;
+          value_type: string;
+        };
+        Insert: {
+          area: string;
+          description: string;
+          key: string;
+          takes_effect?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          updated_by_email?: string | null;
+          value: Json;
+          value_type: string;
+        };
+        Update: {
+          area?: string;
+          description?: string;
+          key?: string;
+          takes_effect?: string;
+          updated_at?: string;
+          updated_by?: string | null;
+          updated_by_email?: string | null;
+          value?: Json;
+          value_type?: string;
+        };
+        Relationships: [];
+      };
       assets: {
         Row: {
+          contains_person: boolean | null;
           created_at: string;
           id: string;
           kind: Database["public"]["Enums"]["asset_kind"];
@@ -114,6 +232,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          contains_person?: boolean | null;
           created_at?: string;
           id?: string;
           kind?: Database["public"]["Enums"]["asset_kind"];
@@ -122,6 +241,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          contains_person?: boolean | null;
           created_at?: string;
           id?: string;
           kind?: Database["public"]["Enums"]["asset_kind"];
@@ -136,6 +256,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "projects";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "assets_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
           },
           {
             foreignKeyName: "assets_user_id_fkey";
@@ -260,6 +387,13 @@ export type Database = {
             foreignKeyName: "credit_ledger_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "credit_ledger_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -294,6 +428,13 @@ export type Database = {
             isOneToOne: true;
             referencedRelation: "projects";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "editor_documents_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
           },
           {
             foreignKeyName: "editor_documents_user_id_fkey";
@@ -351,6 +492,178 @@ export type Database = {
           updated_by?: string | null;
         };
         Relationships: [];
+      };
+      likeness_consents: {
+        Row: {
+          accepted_at: string;
+          id: string;
+          statement_version: number;
+          user_id: string;
+        };
+        Insert: {
+          accepted_at?: string;
+          id?: string;
+          statement_version: number;
+          user_id: string;
+        };
+        Update: {
+          accepted_at?: string;
+          id?: string;
+          statement_version?: number;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      mail_deliveries: {
+        Row: {
+          attempts: number;
+          created_at: string;
+          error: string | null;
+          id: string;
+          payload: Json;
+          provider_message_id: string | null;
+          send_started_at: string | null;
+          sent_at: string | null;
+          status: string;
+          template_key: string;
+          to_email: string;
+        };
+        Insert: {
+          attempts?: number;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          payload?: Json;
+          provider_message_id?: string | null;
+          send_started_at?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          template_key: string;
+          to_email: string;
+        };
+        Update: {
+          attempts?: number;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          payload?: Json;
+          provider_message_id?: string | null;
+          send_started_at?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          template_key?: string;
+          to_email?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "mail_deliveries_template_key_fkey";
+            columns: ["template_key"];
+            isOneToOne: false;
+            referencedRelation: "mail_templates";
+            referencedColumns: ["key"];
+          },
+        ];
+      };
+      mail_templates: {
+        Row: {
+          body: string;
+          key: string;
+          subject: string;
+          updated_at: string;
+        };
+        Insert: {
+          body: string;
+          key: string;
+          subject: string;
+          updated_at?: string;
+        };
+        Update: {
+          body?: string;
+          key?: string;
+          subject?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      managed_secrets: {
+        Row: {
+          created_at: string;
+          description: string;
+          expected_by: string;
+          is_set: boolean;
+          key: string;
+          last_four: string | null;
+          location: string;
+          rotated_at: string | null;
+          rotated_by: string | null;
+          rotated_by_email: string | null;
+          updated_at: string;
+          vault_secret_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string;
+          expected_by: string;
+          is_set?: boolean;
+          key: string;
+          last_four?: string | null;
+          location: string;
+          rotated_at?: string | null;
+          rotated_by?: string | null;
+          rotated_by_email?: string | null;
+          updated_at?: string;
+          vault_secret_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          description?: string;
+          expected_by?: string;
+          is_set?: boolean;
+          key?: string;
+          last_four?: string | null;
+          location?: string;
+          rotated_at?: string | null;
+          rotated_by?: string | null;
+          rotated_by_email?: string | null;
+          updated_at?: string;
+          vault_secret_id?: string | null;
+        };
+        Relationships: [];
+      };
+      message_attachments: {
+        Row: {
+          created_at: string;
+          id: string;
+          kind: Database["public"]["Enums"]["asset_kind"];
+          message_id: string;
+          sort_order: number;
+          storage_path: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          kind: Database["public"]["Enums"]["asset_kind"];
+          message_id: string;
+          sort_order?: number;
+          storage_path: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          kind?: Database["public"]["Enums"]["asset_kind"];
+          message_id?: string;
+          sort_order?: number;
+          storage_path?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: false;
+            referencedRelation: "messages";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       message_embeddings: {
         Row: {
@@ -441,36 +754,14 @@ export type Database = {
             foreignKeyName: "messages_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
           },
-        ];
-      };
-      organization_members: {
-        Row: {
-          joined_at: string;
-          org_id: string;
-          role: Database["public"]["Enums"]["org_role"];
-          user_id: string;
-        };
-        Insert: {
-          joined_at?: string;
-          org_id: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          user_id: string;
-        };
-        Update: {
-          joined_at?: string;
-          org_id?: string;
-          role?: Database["public"]["Enums"]["org_role"];
-          user_id?: string;
-        };
-        Relationships: [
           {
-            foreignKeyName: "organization_members_org_id_fkey";
-            columns: ["org_id"];
+            foreignKeyName: "messages_user_id_fkey";
+            columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "organizations";
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -520,6 +811,35 @@ export type Database = {
         };
         Relationships: [];
       };
+      organization_members: {
+        Row: {
+          joined_at: string;
+          org_id: string;
+          role: Database["public"]["Enums"]["org_role"];
+          user_id: string;
+        };
+        Insert: {
+          joined_at?: string;
+          org_id: string;
+          role?: Database["public"]["Enums"]["org_role"];
+          user_id: string;
+        };
+        Update: {
+          joined_at?: string;
+          org_id?: string;
+          role?: Database["public"]["Enums"]["org_role"];
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       organizations: {
         Row: {
           created_at: string;
@@ -551,11 +871,17 @@ export type Database = {
           credits_period_start: string;
           credits_total: number;
           credits_used: number;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          deletion_reason: string | null;
           email: string;
           full_name: string | null;
           id: string;
           plan: string;
           role: Database["public"]["Enums"]["user_role"];
+          suspended_at: string | null;
+          suspended_by: string | null;
+          suspended_reason: string | null;
           timezone: string;
           updated_at: string;
         };
@@ -565,11 +891,17 @@ export type Database = {
           credits_period_start?: string;
           credits_total?: number;
           credits_used?: number;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
           email: string;
           full_name?: string | null;
           id: string;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspended_reason?: string | null;
           timezone?: string;
           updated_at?: string;
         };
@@ -579,15 +911,82 @@ export type Database = {
           credits_period_start?: string;
           credits_total?: number;
           credits_used?: number;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
           email?: string;
           full_name?: string | null;
           id?: string;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
+          suspended_at?: string | null;
+          suspended_by?: string | null;
+          suspended_reason?: string | null;
           timezone?: string;
           updated_at?: string;
         };
         Relationships: [];
+      };
+      project_renders: {
+        Row: {
+          clip_paths: string[];
+          created_at: string;
+          duration_seconds: number | null;
+          error: string | null;
+          id: string;
+          project_id: string;
+          result_path: string | null;
+          status: Database["public"]["Enums"]["generation_status"];
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          clip_paths: string[];
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          id?: string;
+          project_id: string;
+          result_path?: string | null;
+          status?: Database["public"]["Enums"]["generation_status"];
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          clip_paths?: string[];
+          created_at?: string;
+          duration_seconds?: number | null;
+          error?: string | null;
+          id?: string;
+          project_id?: string;
+          result_path?: string | null;
+          status?: Database["public"]["Enums"]["generation_status"];
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "project_renders_project_id_fkey";
+            columns: ["project_id"];
+            isOneToOne: false;
+            referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "project_renders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "project_renders_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       projects: {
         Row: {
@@ -624,6 +1023,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "organizations";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "projects_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
           },
           {
             foreignKeyName: "projects_user_id_fkey";
@@ -925,6 +1331,13 @@ export type Database = {
             foreignKeyName: "scheduled_posts_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "scheduled_posts_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -974,6 +1387,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "social_connections_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
           {
             foreignKeyName: "social_connections_user_id_fkey";
             columns: ["user_id"];
@@ -1159,11 +1579,18 @@ export type Database = {
         };
         Relationships: [
           {
-            foreignKeyName: "user_model_preferences_model_id_fkey";
-            columns: ["model_id"];
+            foreignKeyName: "user_model_preferences_model_family_fkey";
+            columns: ["model_id", "family"];
             isOneToOne: false;
             referencedRelation: "model_catalog";
-            referencedColumns: ["id"];
+            referencedColumns: ["id", "family"];
+          },
+          {
+            foreignKeyName: "user_model_preferences_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
           },
           {
             foreignKeyName: "user_model_preferences_user_id_fkey";
@@ -1216,6 +1643,13 @@ export type Database = {
             foreignKeyName: "user_webhooks_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "user_webhooks_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
@@ -1235,6 +1669,7 @@ export type Database = {
           provider: string;
           provider_task_id: string | null;
           resolution: string;
+          result_path: string | null;
           result_url: string | null;
           status: Database["public"]["Enums"]["generation_status"];
           trace_id: string | null;
@@ -1254,6 +1689,7 @@ export type Database = {
           provider?: string;
           provider_task_id?: string | null;
           resolution?: string;
+          result_path?: string | null;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
           trace_id?: string | null;
@@ -1273,6 +1709,7 @@ export type Database = {
           provider?: string;
           provider_task_id?: string | null;
           resolution?: string;
+          result_path?: string | null;
           result_url?: string | null;
           status?: Database["public"]["Enums"]["generation_status"];
           trace_id?: string | null;
@@ -1291,13 +1728,89 @@ export type Database = {
             foreignKeyName: "video_generations_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
+            referencedRelation: "deleted_accounts_grace";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "video_generations_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
       };
+      voice_profiles: {
+        Row: {
+          consent_version: number;
+          created_at: string;
+          id: string;
+          phrase: string;
+          provider_voice_id: string | null;
+          storage_path: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          consent_version: number;
+          created_at?: string;
+          id?: string;
+          phrase: string;
+          provider_voice_id?: string | null;
+          storage_path: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          consent_version?: number;
+          created_at?: string;
+          id?: string;
+          phrase?: string;
+          provider_voice_id?: string | null;
+          storage_path?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
+      deleted_accounts_grace: {
+        Row: {
+          days_remaining: number | null;
+          deleted_at: string | null;
+          deleted_by: string | null;
+          deletion_reason: string | null;
+          email: string | null;
+          erasable_at: string | null;
+          full_name: string | null;
+          past_grace_period: boolean | null;
+          user_id: string | null;
+        };
+        Insert: {
+          days_remaining?: never;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
+          email?: string | null;
+          erasable_at?: never;
+          full_name?: string | null;
+          past_grace_period?: never;
+          user_id?: string | null;
+        };
+        Update: {
+          days_remaining?: never;
+          deleted_at?: string | null;
+          deleted_by?: string | null;
+          deletion_reason?: string | null;
+          email?: string | null;
+          erasable_at?: never;
+          full_name?: string | null;
+          past_grace_period?: never;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       social_connections_public: {
         Row: {
           account_name: string | null;
@@ -1333,6 +1846,129 @@ export type Database = {
       };
     };
     Functions: {
+      account_deletion_grace: { Args: never; Returns: string };
+      admin_active_users_daily: {
+        Args: { p_days?: number };
+        Returns: {
+          dau: number;
+          day: string;
+          mau: number;
+        }[];
+      };
+      admin_ai_failures: {
+        Args: { p_limit?: number; p_since: string };
+        Returns: {
+          calls: number;
+          failures: number;
+          observed_at: string;
+          providers: Json;
+        }[];
+      };
+      admin_ai_spend_by_model: {
+        Args: { p_days?: number };
+        Returns: {
+          calls: number;
+          cost_usd: number;
+          failed_calls: number;
+          input_tokens: number;
+          model: string;
+          output_tokens: number;
+          provider: string;
+        }[];
+      };
+      admin_ai_spend_daily: {
+        Args: { p_days?: number };
+        Returns: {
+          cached_calls: number;
+          calls: number;
+          cost_usd: number;
+          day: string;
+          failed_calls: number;
+        }[];
+      };
+      admin_app_config_all: {
+        Args: never;
+        Returns: {
+          area: string;
+          description: string;
+          key: string;
+          takes_effect: string;
+          updated_at: string;
+          updated_by_email: string;
+          value: Json;
+          value_type: string;
+        }[];
+      };
+      admin_cache_health: {
+        Args: { p_since: string };
+        Returns: {
+          ai_calls: number;
+          cached_calls: number;
+          embedding_entries: number;
+          expired_entries: number;
+          live_entries: number;
+          newest_entry_at: string;
+          observed_at: string;
+        }[];
+      };
+      admin_deleted_accounts: {
+        Args: never;
+        Returns: {
+          days_remaining: number;
+          deleted_at: string;
+          deleted_by_email: string;
+          deletion_reason: string;
+          email: string;
+          erasable_at: string;
+          full_name: string;
+          past_grace_period: boolean;
+          user_id: string;
+        }[];
+      };
+      admin_failure_details: {
+        Args: {
+          p_kind?: string;
+          p_limit?: number;
+          p_since: string;
+          p_until: string;
+        };
+        Returns: {
+          items: Json;
+          matched: number;
+          observed_at: string;
+        }[];
+      };
+      admin_failure_feed: {
+        Args: { p_limit?: number; p_since: string };
+        Returns: {
+          failed_generations: number;
+          failed_posts: number;
+          items: Json;
+          observed_at: string;
+        }[];
+      };
+      admin_generations_daily: {
+        Args: { p_days?: number };
+        Returns: {
+          day: string;
+          failed: number;
+          pending: number;
+          succeeded: number;
+          total: number;
+        }[];
+      };
+      admin_log_action: {
+        Args: {
+          p_action: string;
+          p_after?: Json;
+          p_before?: Json;
+          p_ip?: unknown;
+          p_summary?: string;
+          p_target_id?: string;
+          p_target_type: string;
+        };
+        Returns: string;
+      };
       admin_pending_candidates: {
         Args: { p_limit?: number };
         Returns: {
@@ -1354,6 +1990,206 @@ export type Database = {
           users: number;
         }[];
       };
+      admin_rate_limit_pressure: {
+        Args: { p_limit?: number };
+        Returns: {
+          active_keys: number;
+          observed_at: string;
+          scopes: Json;
+        }[];
+      };
+      admin_restore_account: {
+        Args: { p_user: string };
+        Returns: {
+          deleted_at: string;
+          email: string;
+          id: string;
+        }[];
+      };
+      admin_retry_post: {
+        Args: { p_ip?: unknown; p_post: string; p_reason?: string };
+        Returns: {
+          id: string;
+          may_have_posted: boolean;
+          requeued_at: string;
+        }[];
+      };
+      admin_search_users: {
+        Args: {
+          p_cursor_created_at?: string;
+          p_cursor_id?: string;
+          p_limit?: number;
+          p_query?: string;
+        };
+        Returns: {
+          created_at: string;
+          credits_total: number;
+          credits_used: number;
+          email: string;
+          full_name: string;
+          id: string;
+          plan: string;
+          role: string;
+          suspended_at: string;
+        }[];
+      };
+      admin_secret_clear: {
+        Args: { p_ip?: unknown; p_key: string };
+        Returns: undefined;
+      };
+      admin_secret_rotate: {
+        Args: {
+          p_ip?: unknown;
+          p_key: string;
+          p_store_value?: boolean;
+          p_value: string;
+        };
+        Returns: undefined;
+      };
+      admin_secrets_list: {
+        Args: never;
+        Returns: {
+          description: string;
+          expected_by: string;
+          has_stored_value: boolean;
+          is_set: boolean;
+          key: string;
+          last_four: string;
+          location: string;
+          rotated_at: string;
+          rotated_by_email: string;
+        }[];
+      };
+      admin_set_app_config: {
+        Args: { p_ip?: unknown; p_key: string; p_value: Json };
+        Returns: {
+          area: string;
+          description: string;
+          key: string;
+          takes_effect: string;
+          updated_at: string;
+          updated_by_email: string;
+          value: Json;
+          value_type: string;
+        }[];
+      };
+      admin_set_user_credits: {
+        Args: {
+          p_ip?: unknown;
+          p_reason: string;
+          p_total: number;
+          p_used: number;
+          p_user: string;
+        };
+        Returns: undefined;
+      };
+      admin_set_user_plan: {
+        Args: {
+          p_ip?: unknown;
+          p_plan: string;
+          p_reason: string;
+          p_total: number;
+          p_user: string;
+        };
+        Returns: undefined;
+      };
+      admin_set_user_suspension: {
+        Args: {
+          p_ip?: unknown;
+          p_reason: string;
+          p_suspended: boolean;
+          p_user: string;
+        };
+        Returns: undefined;
+      };
+      admin_signups_daily: {
+        Args: { p_days?: number };
+        Returns: {
+          day: string;
+          signups: number;
+        }[];
+      };
+      admin_stuck_pipeline: {
+        Args: {
+          p_generating_stale?: string;
+          p_limit?: number;
+          p_publishing_stale?: string;
+        };
+        Returns: {
+          generating_stuck: number;
+          items: Json;
+          observed_at: string;
+          publishing_stuck: number;
+        }[];
+      };
+      admin_stuck_work: {
+        Args: {
+          p_generating_stale?: string;
+          p_limit?: number;
+          p_publishing_stale?: string;
+        };
+        Returns: {
+          generating_stuck: number;
+          items: Json;
+          observed_at: string;
+          publish_incomplete: number;
+        }[];
+      };
+      admin_subscriptions_by_plan: {
+        Args: never;
+        Returns: {
+          plan: string;
+          subscriptions: number;
+          trialing: number;
+        }[];
+      };
+      admin_trace_timeline: {
+        Args: { p_trace_id: string };
+        Returns: {
+          items: Json;
+          observed_at: string;
+          records: number;
+        }[];
+      };
+      admin_user_detail: {
+        Args: { p_user: string };
+        Returns: {
+          created_at: string;
+          credits_period_start: string;
+          credits_total: number;
+          credits_used: number;
+          email: string;
+          full_name: string;
+          generation_count: number;
+          id: string;
+          last_active_at: string;
+          message_count: number;
+          plan: string;
+          project_count: number;
+          role: string;
+          subscription_cancel_at_period_end: boolean;
+          subscription_period_end: string;
+          subscription_plan: string;
+          subscription_status: string;
+          suspended_at: string;
+          suspended_by_email: string;
+          suspended_reason: string;
+        }[];
+      };
+      admin_user_snapshot: { Args: { p_user: string }; Returns: Json };
+      admin_user_totals: {
+        Args: never;
+        Returns: {
+          active_subscriptions: number;
+          total_users: number;
+        }[];
+      };
+      admin_window_days: {
+        Args: { p_days: number };
+        Returns: {
+          day: string;
+        }[];
+      };
       ai_usage_record: { Args: { p_usage: Json }; Returns: undefined };
       ai_usage_summary: {
         Args: { p_since: string; p_user: string };
@@ -1368,9 +2204,14 @@ export type Database = {
         }[];
       };
       api_key_owner: { Args: { p_hash: string }; Returns: string };
+      app_config_value_matches: {
+        Args: { p_type: string; p_value: Json };
+        Returns: boolean;
+      };
       append_turn: {
         Args: {
           p_assistant_content: string;
+          p_attachments?: Json;
           p_generation?: string;
           p_project: string;
           p_user_content: string;
@@ -1410,11 +2251,38 @@ export type Database = {
         Args: { p_customer: string; p_user: string };
         Returns: undefined;
       };
+      block_delivery: {
+        Args: { p_delivery: string; p_error: string };
+        Returns: undefined;
+      };
       cache_prune: {
         Args: { p_max_embeddings?: number };
         Returns: {
           embeddings_removed: number;
           responses_removed: number;
+        }[];
+      };
+      can_run_model: {
+        Args: { p_model: string };
+        Returns: {
+          allowed: boolean;
+          balance: number;
+          credit_cost: number;
+          reason: string;
+        }[];
+      };
+      cancel_generation: {
+        Args: { p_generation_id: string; p_user_id: string };
+        Returns: undefined;
+      };
+      claim_delivery_for_send: {
+        Args: { p_delivery: string };
+        Returns: {
+          attempts: number;
+          id: string;
+          payload: Json;
+          template_key: string;
+          to_email: string;
         }[];
       };
       claim_due_posts: {
@@ -1455,24 +2323,23 @@ export type Database = {
           user_id: string;
         }[];
       };
-      can_run_model: {
-        Args: { p_model: string };
+      claim_queued_renders: {
+        Args: { p_limit?: number };
         Returns: {
-          allowed: boolean;
-          balance: number;
-          credit_cost: number;
-          reason: string;
+          clip_paths: string[];
+          id: string;
+          user_id: string;
         }[];
       };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
         Returns: undefined;
       };
-      credit_balance: { Args: never; Returns: number };
       create_organization: {
         Args: { p_name: string; p_slug: string };
         Returns: string;
       };
+      credit_balance: { Args: never; Returns: number };
       editor_document_save: {
         Args: {
           p_document: Json;
@@ -1490,6 +2357,16 @@ export type Database = {
         Args: { p_error: string; p_provider_task_id: string };
         Returns: undefined;
       };
+      grant_credits: {
+        Args: {
+          p_amount: number;
+          p_external_ref?: string;
+          p_reason: string;
+          p_user: string;
+        };
+        Returns: number;
+      };
+      is_account_deleted: { Args: never; Returns: boolean };
       is_admin: { Args: never; Returns: boolean };
       is_org_member: {
         Args: {
@@ -1498,6 +2375,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_suspended: { Args: never; Returns: boolean };
       match_conversations: {
         Args: {
           p_embedding: string;
@@ -1527,6 +2405,7 @@ export type Database = {
           similarity: number;
         }[];
       };
+      plan_rank: { Args: { p_plan: string }; Returns: number };
       product_activity_daily: {
         Args: { p_days?: number; p_user: string };
         Returns: {
@@ -1553,11 +2432,13 @@ export type Database = {
       project_thread: {
         Args: { p_project: string };
         Returns: {
+          attachments: Json;
           content: string;
           created_at: string;
           generation_id: string;
           generation_status: Database["public"]["Enums"]["generation_status"];
           id: string;
+          result_path: string;
           result_url: string;
           role: Database["public"]["Enums"]["message_role"];
         }[];
@@ -1617,16 +2498,6 @@ export type Database = {
         Args: { p_chunk: Json; p_embedding: Json };
         Returns: undefined;
       };
-      grant_credits: {
-        Args: {
-          p_amount: number;
-          p_external_ref?: string;
-          p_reason: string;
-          p_user: string;
-        };
-        Returns: number;
-      };
-      plan_rank: { Args: { p_plan: string }; Returns: number };
       rate_limit_hit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: {
@@ -1636,6 +2507,16 @@ export type Database = {
         }[];
       };
       rate_limit_prune: { Args: never; Returns: number };
+      refresh_credit_cache: { Args: { p_user: string }; Returns: undefined };
+      request_account_deletion: {
+        Args: { p_reason?: string };
+        Returns: {
+          deleted_at: string;
+          deletion_reason: string;
+          email: string;
+          id: string;
+        }[];
+      };
       response_cache_get: { Args: { p_key: string }; Returns: string };
       response_cache_put: {
         Args: {
@@ -1648,6 +2529,34 @@ export type Database = {
         };
         Returns: undefined;
       };
+      retention_prune_embeddings: {
+        Args: { p_dry_run?: boolean; p_older_than?: string };
+        Returns: {
+          affected: number;
+          dry_run: boolean;
+          oldest: string;
+        }[];
+      };
+      retention_prune_mail: {
+        Args: {
+          p_delete_after?: string;
+          p_dry_run?: boolean;
+          p_strip_payload_after?: string;
+        };
+        Returns: {
+          dry_run: boolean;
+          payloads_cleared: number;
+          rows_deleted: number;
+        }[];
+      };
+      retention_rollup_ai_usage: {
+        Args: { p_dry_run?: boolean; p_older_than?: string };
+        Returns: {
+          affected: number;
+          dry_run: boolean;
+          oldest: string;
+        }[];
+      };
       set_member_role: {
         Args: {
           p_org: string;
@@ -1656,6 +2565,8 @@ export type Database = {
         };
         Returns: undefined;
       };
+      show_limit: { Args: never; Returns: number };
+      show_trgm: { Args: { "": string }; Returns: string[] };
       social_connection_revoke: {
         Args: { p_platform: Database["public"]["Enums"]["social_platform"] };
         Returns: undefined;
@@ -1698,8 +2609,8 @@ export type Database = {
       usage_model_calls: {
         Args: { p_days: number };
         Returns: {
-          calls: number;
           cached: number;
+          calls: number;
           failed: number;
           input_tokens: number;
           model: string;
@@ -1712,7 +2623,7 @@ export type Database = {
     };
     Enums: {
       asset_kind: "photo" | "video" | "audio";
-      generation_status: "queued" | "generating" | "ready" | "failed";
+      generation_status: "queued" | "generating" | "ready" | "failed" | "cancelled";
       message_role: "user" | "assistant";
       org_role: "owner" | "admin" | "member";
       post_status: "scheduled" | "publishing" | "published" | "failed";
@@ -1840,7 +2751,7 @@ export const Constants = {
   public: {
     Enums: {
       asset_kind: ["photo", "video", "audio"],
-      generation_status: ["queued", "generating", "ready", "failed"],
+      generation_status: ["queued", "generating", "ready", "failed", "cancelled"],
       message_role: ["user", "assistant"],
       org_role: ["owner", "admin", "member"],
       post_status: ["scheduled", "publishing", "published", "failed"],

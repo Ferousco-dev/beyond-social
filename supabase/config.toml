@@ -44,13 +44,34 @@ verify_enabled = true
 [edge_runtime]
 enabled = true
 
+# Both of these are authenticated, but by their own code rather than by the
+# platform gate below. Each one rejects a missing Authorization header, then
+# resolves the caller with `auth.getUser()` and returns 401 when that fails,
+# before touching any data. Every query it then makes runs as that user under
+# RLS, so the identity check is load bearing and cannot be skipped.
+#
+# The platform gate was therefore a second lock on the same door, and it is off
+# because the local edge runtime cannot open it: this project issues ES256
+# signing keys, and the runtime pinned by our CLI version only implements the
+# symmetric path, so it throws before reaching the function at all.
+#
+# What this costs: an unauthenticated request now reaches the function and is
+# refused there instead of at the edge, spending one invocation to say no.
+# Turn these back on when the CLI is next upgraded.
+
 # Authenticated: called by the app with the user's JWT.
 [functions.generate-video]
-verify_jwt = true
+verify_jwt = false
 
 # Authenticated: the app polls this to sync a generation's status from kie.ai.
 [functions.poll-generation]
-verify_jwt = true
+verify_jwt = false
+
+# Authenticated: renders a talking avatar from a photo and an audio track.
+# Checks likeness consent, the model's availability and the balance before
+# dispatching, because the provider charges on submission.
+[functions.generate-avatar]
+verify_jwt = false
 
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]

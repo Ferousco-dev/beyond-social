@@ -47,8 +47,7 @@ const scheduleSchema = z.object({
 });
 
 export type ScheduleResult =
-  | { status: "ok"; scheduled: number }
-  | { status: "error"; message: string };
+  { status: "ok"; scheduled: number } | { status: "error"; message: string };
 
 /**
  * Converts a local wall clock in a named zone to the instant it refers to.
@@ -89,7 +88,9 @@ function toInstant(local: string, timeZone: string): Date | null {
   return new Date(asUtc.getTime() - offsetAt(firstGuess));
 }
 
-export async function schedulePosts(input: z.input<typeof scheduleSchema>): Promise<ScheduleResult> {
+export async function schedulePosts(
+  input: z.input<typeof scheduleSchema>,
+): Promise<ScheduleResult> {
   return withActionTrace("schedulePosts", () => schedule(input));
 }
 

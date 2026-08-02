@@ -57,7 +57,9 @@ export function FailedJobsPanel({ snapshot }: { snapshot: QueueSnapshot }): Reac
                     {job.attemptsMade}
                     {job.maxAttempts === null ? "" : ` of ${job.maxAttempts}`}
                   </Td>
-                  <Td numeric>{job.failedAt ? `${formatAge(job.failedAt, observedAt)} ago` : "unknown"}</Td>
+                  <Td numeric>
+                    {job.failedAt ? `${formatAge(job.failedAt, observedAt)} ago` : "unknown"}
+                  </Td>
                   <Td muted>
                     <span className="block max-w-md break-words">
                       {job.error === "" ? "no error recorded" : job.error}

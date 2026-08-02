@@ -1,9 +1,12 @@
 "use client";
 
 import { ArrowUp, Loader2, X } from "lucide-react";
-import { useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
+import { RecordButton } from "./record-button";
+import { VoiceChip } from "./voice-chip";
 
 interface PromptComposerProps {
   value: string;
@@ -13,6 +16,11 @@ interface PromptComposerProps {
   photos: readonly PendingPhoto[];
   onPhotosChange: (photos: readonly PendingPhoto[]) => void;
   busy: boolean;
+  /** A voice clip chosen for an avatar render, if any. */
+  /** Sets or clears the attached clip. Null is how the chip removes it. */
+  onVoice: (voice: PendingVoice | null) => void;
+  /** The clip currently attached, if any, so it can be shown and removed. */
+  voice: PendingVoice | null;
 }
 
 export function PromptComposer({
@@ -23,20 +31,29 @@ export function PromptComposer({
   photos,
   onPhotosChange,
   busy,
+  onVoice,
+  voice,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSubmit = value.trim().length > 0 && !busy && !uploading;
 
-  function handleChange(next: string) {
-    onChange(next);
+  /*
+   * Keyed on the value rather than done in the change handler, so it responds
+   * to every way the text can change and not only to typing.
+   *
+   * Sending clears the prompt from the parent, which never called the change
+   * handler, so the inline height set while typing was left behind: the
+   * composer stayed as tall as the message that had just been sent, empty,
+   * with the placeholder floating at the top of it.
+   */
+  useEffect(() => {
     const element = textareaRef.current;
-    if (element) {
-      element.style.height = "auto";
-      element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
-    }
-  }
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 160)}px`;
+  }, [value]);
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
@@ -47,6 +64,7 @@ export function PromptComposer({
 
   return (
     <div className="rounded-[26px] bg-paper p-3 shadow-card">
+      {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
@@ -75,7 +93,7 @@ export function PromptComposer({
       <textarea
         ref={textareaRef}
         value={value}
-        onChange={(event) => handleChange(event.target.value)}
+        onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
         rows={1}
         placeholder="Describe a video to create"
@@ -86,6 +104,7 @@ export function PromptComposer({
       <div className="flex items-center justify-between px-1 pt-1.5">
         <ComposeMenu
           projectId={projectId}
+          onVoice={onVoice}
           onPhotos={(next) => {
             setError(null);
             onPhotosChange([...photos, ...next]);
@@ -93,19 +112,27 @@ export function PromptComposer({
           onError={setError}
           onBusyChange={setUploading}
         />
-        <button
-          type="button"
-          onClick={() => canSubmit && onSubmit()}
-          disabled={!canSubmit}
-          aria-label="Send"
-          className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          {busy || uploading ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <ArrowUp className="size-4" />
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <RecordButton
+            projectId={projectId}
+            onVoice={onVoice}
+            onError={setError}
+            onBusyChange={setUploading}
+          />
+          <button
+            type="button"
+            onClick={() => canSubmit && onSubmit()}
+            disabled={!canSubmit}
+            aria-label="Send"
+            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            {busy || uploading ? (
+              <Loader2 className="size-4 animate-spin" aria-hidden />
+            ) : (
+              <ArrowUp className="size-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       {error ? (

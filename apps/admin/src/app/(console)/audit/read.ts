@@ -19,9 +19,12 @@ export async function fetchAuditPage(query: AuditQuery): Promise<AuditPage | nul
 
   let request = supabase
     .from("admin_audit_log")
-    .select("id, created_at, actor_email, action, target_type, target_id, summary, before, after, ip", {
-      count: "exact",
-    })
+    .select(
+      "id, created_at, actor_email, action, target_type, target_id, summary, before, after, ip",
+      {
+        count: "exact",
+      },
+    )
     .order("created_at", { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
 

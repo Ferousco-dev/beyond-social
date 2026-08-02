@@ -11,9 +11,7 @@ import { fetchConfigRows, setConfigRow } from "./rpc";
 import { parseConfigInput } from "./value";
 
 export type ConfigFormState =
-  | { status: "idle" }
-  | { status: "saved"; savedAt: string }
-  | { status: "error"; message: string };
+  { status: "idle" } | { status: "saved"; savedAt: string } | { status: "error"; message: string };
 
 const submissionSchema = z.object({
   key: z.string().min(1),

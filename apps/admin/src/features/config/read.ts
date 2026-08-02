@@ -42,10 +42,7 @@ async function readValue(key: ConfigKey): Promise<ConfigJson> {
   return row.value;
 }
 
-async function readTyped<T extends ConfigJson>(
-  key: ConfigKey,
-  schema: z.ZodType<T>,
-): Promise<T> {
+async function readTyped<T extends ConfigJson>(key: ConfigKey, schema: z.ZodType<T>): Promise<T> {
   const parsed = schema.safeParse(await readValue(key));
   if (parsed.success) return parsed.data;
 

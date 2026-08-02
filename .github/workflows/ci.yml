@@ -35,6 +35,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Before lint and typecheck, because formatting is the cheapest failure to
+      # produce and the least interesting to read a stack trace for.
+      - name: Format check
+        run: pnpm run format:check
+
       - name: Lint
         run: pnpm run lint
 

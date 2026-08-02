@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/prune-caches",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/retention",
+      "schedule": "0 7 * * *"
     }
   ],
   "git": {

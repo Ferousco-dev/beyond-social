@@ -45,7 +45,8 @@ export function toAppError(value: unknown): AppError {
   if (value instanceof Error) {
     // A failed `fetch` rejects with a TypeError and no status, which is the only
     // signal available that the request never left the machine.
-    const code: ErrorCode = value.name === "AbortError" ? "timeout" : offline() ? "network" : "unknown";
+    const code: ErrorCode =
+      value.name === "AbortError" ? "timeout" : offline() ? "network" : "unknown";
     return new AppError(code, value.message, { cause: value });
   }
 

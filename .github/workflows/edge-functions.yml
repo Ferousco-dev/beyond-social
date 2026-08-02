@@ -1,0 +1,53 @@
+name: Edge functions
+
+# The edge functions were the one part of the codebase nothing checked.
+#
+# `turbo run typecheck` covers the workspaces, and Deno files are not in any
+# workspace, so a function could call a helper that had been renamed and no
+# check anywhere would notice. That is not hypothetical: `generate-video` was
+# committed calling `uploadImage` after it had become `uploadFile`, which would
+# have thrown at runtime on every image-to-video request, and the pull request
+# went green.
+on:
+  pull_request:
+    branches: [main]
+    paths: ["supabase/functions/**"]
+  push:
+    branches: [main]
+    paths: ["supabase/functions/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # Every entry point, so an unreachable helper is still checked through
+      # whichever function imports it. Remote imports are fetched and cached by
+      # `deno check` itself, so no separate install step is needed.
+      - name: Typecheck
+        run: deno check supabase/functions/*/index.ts
+
+      # Catches the class of thing a typechecker will not: an unused import left
+      # behind by a refactor, which is exactly what was sitting next to the
+      # broken call above.
+      #
+      # `no-import-prefix` is excluded. It objects to inline `https:` imports and
+      # wants an import map, but importing supabase-js straight from esm.sh is
+      # the pattern Supabase documents for edge functions and is what all four
+      # here use. Rewriting working code to satisfy a lint default would be the
+      # wrong way round; the rule is a style preference, not a defect.
+      - name: Lint
+        run: deno lint --rules-exclude=no-import-prefix supabase/functions/

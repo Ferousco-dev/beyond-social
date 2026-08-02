@@ -41,7 +41,28 @@ export async function updateProfile(input: z.input<typeof profileSchema>): Promi
     return { status: "error", message: "Could not save that just now" };
   }
 
-  revalidatePath("/dashboard/settings/account");
+  /*
+   * The name lives in two places and both have to move.
+   *
+   * This wrote only `profiles`, while everything that displays the name reads
+   * `user_metadata.full_name` off the session, which nothing updated. The save
+   * genuinely worked and the sidebar never changed, so it read as broken.
+   *
+   * Metadata is kept as the read path deliberately: it rides on the session, so
+   * the sidebar costs no query. `profiles` stays the queryable copy for the
+   * settings page, joins and admin.
+   */
+  const { error: metadataError } = await supabase.auth.updateUser({
+    data: { full_name: parsed.data.fullName },
+  });
+  if (metadataError) {
+    logger.error("profile metadata update failed", { error: metadataError.message });
+    return { status: "error", message: "Saved, but the name may not show until you sign in again" };
+  }
+
+  // Layout scope, because the name is rendered by the dashboard shell rather
+  // than by the settings page that changed it.
+  revalidatePath("/dashboard", "layout");
   return { status: "ok", message: "Name updated." };
 }
 

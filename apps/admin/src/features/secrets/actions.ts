@@ -40,7 +40,10 @@ export async function rotateSecretAction(
   });
 
   if (!parsed.success) {
-    return { status: "error", message: parsed.error.issues[0]?.message ?? "That value was not accepted." };
+    return {
+      status: "error",
+      message: parsed.error.issues[0]?.message ?? "That value was not accepted.",
+    };
   }
 
   const { key, value, storeValue } = parsed.data;
