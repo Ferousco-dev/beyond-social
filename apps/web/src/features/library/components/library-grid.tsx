@@ -1,11 +1,11 @@
 "use client";
 
-import { AudioLines, ImageIcon } from "lucide-react";
+import { AudioLines, Film, ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { FilterChips, type ChipOption } from "@/features/models/components/filter-chips";
 
-import { type LibraryItem } from "../types";
+import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";
 
 const ALL = "all";
@@ -22,12 +22,12 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
   const [kind, setKind] = useState<string>(ALL);
 
   const options = useMemo<readonly ChipOption[]>(() => {
-    const photos = items.filter((item) => item.kind === "photo").length;
-    const voice = items.length - photos;
+    const count = (kind: LibraryKind) => items.filter((item) => item.kind === kind).length;
     return [
       { value: ALL, label: "All", count: items.length },
-      { value: "photo", label: "Photos", icon: ImageIcon, count: photos },
-      { value: "audio", label: "Voice", icon: AudioLines, count: voice },
+      { value: "video", label: "Videos", icon: Film, count: count("video") },
+      { value: "photo", label: "Photos", icon: ImageIcon, count: count("photo") },
+      { value: "audio", label: "Voice", icon: AudioLines, count: count("audio") },
     ];
   }, [items]);
 
@@ -41,8 +41,8 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
       <div className="mt-10 rounded-2xl border border-dashed border-hairline px-6 py-14 text-center">
         <p className="text-sm font-medium text-ink">Nothing here yet</p>
         <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-soft">
-          Photos and voice clips you attach to a message collect here, so you can find your way
-          back to the conversation they belong to.
+          Videos you generate, and the photos and voice clips you attach to a message, collect
+          here so you can find your way back to the conversation they belong to.
         </p>
       </div>
     );

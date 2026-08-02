@@ -1,11 +1,18 @@
 "use client";
 
-import { AudioLines, ImageOff } from "lucide-react";
+import { AudioLines, Film, ImageOff, type LucideIcon } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { type LibraryItem } from "../types";
+import { type LibraryItem, type LibraryKind } from "../types";
+
+/** What each kind is called on the tile and to a screen reader. */
+const NOUN: Record<LibraryKind, string> = {
+  photo: "Photo",
+  audio: "Voice clip",
+  video: "Generated video",
+};
 
 /**
  * One tile in the library.
@@ -27,7 +34,36 @@ function formatSent(iso: string): string {
   return at.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Shown when an object could not be signed, rather than a broken frame. */
+function Unavailable({ icon: Icon, label }: { icon: LucideIcon; label: string }): ReactNode {
+  return (
+    <div className="flex size-full flex-col items-center justify-center gap-1.5 bg-muted px-2 text-center">
+      <Icon className="size-6 text-ink-soft" aria-hidden />
+      <span className="text-[11px] leading-tight text-ink-soft">{label}</span>
+    </div>
+  );
+}
+
 function Preview({ item }: { item: LibraryItem }): ReactNode {
+  if (item.kind === "video") {
+    if (item.url === null) return <Unavailable icon={Film} label="Video unavailable" />;
+    return (
+      // A `video` with `preload="metadata"` rather than a poster image, because
+      // there is no thumbnail column anywhere in the schema: the only real
+      // frame available is the one the browser draws from the file itself.
+      // Muted and not controllable, so the tile stays a single link.
+      <video
+        src={item.url}
+        preload="metadata"
+        muted
+        playsInline
+        aria-hidden
+        tabIndex={-1}
+        className="size-full bg-muted object-cover"
+      />
+    );
+  }
+
   if (item.kind === "audio") {
     return (
       <div className="flex size-full items-center justify-center bg-muted">
@@ -36,14 +72,7 @@ function Preview({ item }: { item: LibraryItem }): ReactNode {
     );
   }
 
-  if (item.url === null) {
-    return (
-      <div className="flex size-full flex-col items-center justify-center gap-1.5 bg-muted px-2 text-center">
-        <ImageOff className="size-6 text-ink-soft" aria-hidden />
-        <span className="text-[11px] leading-tight text-ink-soft">Preview unavailable</span>
-      </div>
-    );
-  }
+  if (item.url === null) return <Unavailable icon={ImageOff} label="Preview unavailable" />;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -61,13 +90,13 @@ function Preview({ item }: { item: LibraryItem }): ReactNode {
 
 export function LibraryCard({ item }: { item: LibraryItem }): ReactNode {
   const sent = formatSent(item.createdAt);
-  const noun = item.kind === "audio" ? "Voice clip" : "Photo";
+  const noun = NOUN[item.kind];
 
   return (
     <li>
       <Link
         href={`/dashboard/c/${item.projectId}` as Route}
-        aria-label={`${noun} sent in ${item.projectTitle}${sent === "" ? "" : ` on ${sent}`}. Open the chat.`}
+        aria-label={`${noun} in ${item.projectTitle}${sent === "" ? "" : `, ${sent}`}. Open the chat.`}
         className="group block overflow-hidden rounded-2xl border border-hairline bg-paper transition-colors hover:border-ink-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <div className="relative aspect-square overflow-hidden">
