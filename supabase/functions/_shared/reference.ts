@@ -24,7 +24,8 @@ export async function handToProvider(
   supabase: any,
   bucket: string,
   path: string,
-  traceId?: string,
+  /** Nullable, not optional: `traceIdFrom` returns null when there is no header. */
+  traceId?: string | null,
 ): Promise<string> {
   const { data: file, error } = await supabase.storage.from(bucket).download(path);
   if (error || !file) {
