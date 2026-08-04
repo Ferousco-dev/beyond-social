@@ -59,9 +59,7 @@ function servedCategories(): ReadonlySet<string> {
 }
 
 async function chunkCategories(): Promise<ReadonlyMap<string, string>> {
-  const { data, error } = await createServiceClient()
-    .from("prompt_chunks")
-    .select("id, category");
+  const { data, error } = await createServiceClient().from("prompt_chunks").select("id, category");
   if (error) throw new Error(`could not read prompt_chunks: ${error.message}`);
   return new Map((data ?? []).map((row) => [row.id, row.category]));
 }
@@ -73,7 +71,9 @@ async function retrieve(item: GoldenCase): Promise<string[]> {
     ...(item.productType ? { productType: item.productType } : {}),
   });
   const retrieval = await getRetriever().retrieve(request, DEFAULT_RECIPE);
-  return composePrompt(request, DEFAULT_RECIPE, retrieval, SYSTEM_LAYERS).chunkRefs.map((r) => r.id);
+  return composePrompt(request, DEFAULT_RECIPE, retrieval, SYSTEM_LAYERS).chunkRefs.map(
+    (r) => r.id,
+  );
 }
 
 async function main(): Promise<void> {
