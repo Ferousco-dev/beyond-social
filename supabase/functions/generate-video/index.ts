@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
+import { UnsupportedModelError } from "../_shared/kie-models.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -154,10 +155,25 @@ Deno.serve(async (req) => {
       : await createMarketVideoTask({
           model: chosen.id,
           prompt,
-          imageUrl: referenceUrls?.[0],
+          imageUrls: referenceUrls ?? [],
+          aspectRatio,
+          duration,
           callBackUrl,
         });
   } catch (error) {
+    /*
+     * A model we cannot address correctly is refused before anything is
+     * dispatched, so it is the caller's request that is wrong, not the
+     * provider that is down. Reporting it as 502 would blame kie for a shape
+     * this code chose.
+     */
+    if (error instanceof UnsupportedModelError) {
+      log("error", "refused to dispatch a model with an unknown request shape", {
+        traceId,
+        model: chosen.id,
+      });
+      return json({ error: error.message }, 400);
+    }
     return json({ error: error instanceof Error ? error.message : "Generation failed" }, 502);
   }
 
