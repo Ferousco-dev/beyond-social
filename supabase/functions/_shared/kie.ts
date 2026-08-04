@@ -1,5 +1,7 @@
 // Typed client for the kie.ai Veo video-generation API.
 // Docs: https://docs.kie.ai/veo3-api/generate-veo-3-video
+import { buildMarketInput } from "./kie-models.ts";
+
 const KIE_BASE = "https://api.kie.ai/api/v1";
 
 function apiKey(): string {
@@ -108,8 +110,11 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
 export interface KieMarketVideoInput {
   model: string;
   prompt: string;
-  /** A still to animate from, if the run has one. */
-  imageUrl?: string;
+  /** Stills to animate from, in the order the caller supplied them. */
+  imageUrls: readonly string[];
+  /** "9:16" | "16:9" | "Auto". */
+  aspectRatio: string;
+  duration: number;
   callBackUrl?: string;
 }
 
@@ -123,14 +128,23 @@ export interface KieMarketVideoInput {
  * endpoint is rejected outright, which is why this exists rather than another
  * branch inside `createVideoTask`.
  *
- * Duration and aspect ratio are deliberately not sent. The veo endpoint names
- * them one way and the market models another, and getting that wrong on a paid
- * call is expensive to discover: the request succeeds, a task starts, and the
- * credit is spent before anything can be checked. They are left to the
- * provider's defaults until each model's field names are known from its own
- * documentation rather than guessed.
+ * The arguments themselves are named per model by `buildMarketInput`, because
+ * no two market models name them the same way. This function used to send a
+ * single `image_url` to all of them, which none of them document: Kling takes
+ * `image_urls`, Seedance takes `first_frame_url` and `reference_image_urls`.
+ * A provider that ignores an unknown field turns that into a video generated
+ * without the reference photo the user attached, at full price.
  */
 export async function createMarketVideoTask(input: KieMarketVideoInput): Promise<string> {
+  // Throws before the request is made, so a model that cannot be addressed
+  // correctly costs nothing rather than failing after the task is created.
+  const modelInput = buildMarketInput(input.model, {
+    prompt: input.prompt,
+    imageUrls: input.imageUrls,
+    aspectRatio: input.aspectRatio,
+    duration: input.duration,
+  });
+
   const response = await fetch(`${KIE_BASE}/jobs/createTask`, {
     method: "POST",
     headers: {
@@ -140,10 +154,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
     body: JSON.stringify({
       model: input.model,
       callBackUrl: input.callBackUrl,
-      input: {
-        prompt: input.prompt,
-        ...(input.imageUrl ? { image_url: input.imageUrl } : {}),
-      },
+      input: modelInput,
     }),
   });
 

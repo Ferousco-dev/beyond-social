@@ -1,0 +1,104 @@
+/**
+ * What each market model calls its inputs.
+ *
+ * There is no shared request shape on `/jobs/createTask`. Every model names its
+ * own fields, and the names are not close to one another:
+ *
+ *   kling-3.0/video           image_urls (array)
+ *   kling-3.0/motion-control  input_urls (array) + video_urls (required)
+ *   bytedance/seedance-*      first_frame_url, last_frame_url, reference_image_urls
+ *
+ * This module existed as a single `image_url` for every model, which is a name
+ * none of them document. A provider that ignores an unknown field turns that
+ * into the worst failure this codebase can have: the request succeeds, a task
+ * starts, the credit is spent, and the reference photo the user attached is
+ * silently absent from the video they paid for.
+ *
+ * So the mapping is explicit per model and there is no generic fallback that
+ * guesses. A model with no entry here is one whose contract has not been read,
+ * and `buildMarketInput` refuses it rather than posting a shape that might be
+ * wrong.
+ */
+
+/** What the dispatcher knows, before any model's naming is applied. */
+export interface MarketRequest {
+  readonly prompt: string;
+  /** Provider-reachable URLs. Empty when the run has no reference still. */
+  readonly imageUrls: readonly string[];
+  /** "9:16" | "16:9" | "Auto". `Auto` means the caller did not choose. */
+  readonly aspectRatio: string;
+  readonly duration: number;
+}
+
+export type MarketInput = Record<string, string | number | boolean | readonly string[]>;
+
+type Builder = (request: MarketRequest) => MarketInput;
+
+/**
+ * Thrown before dispatch, so nothing is charged.
+ *
+ * Refusing is the point: a model we cannot address correctly must not be sent a
+ * request we invented, because the user pays for the result either way.
+ */
+export class UnsupportedModelError extends Error {
+  constructor(model: string, reason: string) {
+    super(`${model} cannot be dispatched: ${reason}`);
+    this.name = "UnsupportedModelError";
+  }
+}
+
+/**
+ * Kling 3.0.
+ *
+ * `duration` is a string of seconds ('3' to '15'), not a number, and
+ * `aspect_ratio` has no `Auto`. Kling adapts the ratio to the images when they
+ * are supplied, so the field is omitted in that case rather than fighting them.
+ */
+const klingVideo: Builder = (request) => ({
+  prompt: request.prompt,
+  duration: String(request.duration),
+  ...(request.imageUrls.length > 0
+    ? { image_urls: request.imageUrls }
+    : request.aspectRatio === "Auto"
+      ? {}
+      : { aspect_ratio: request.aspectRatio }),
+});
+
+const BUILDERS: Readonly<Record<string, Builder>> = {
+  "kling-3.0/video": klingVideo,
+};
+
+/**
+ * Models this dispatcher cannot drive, and why.
+ *
+ * Separate from "not in the catalogue" so the error says something true. Motion
+ * control is the live case: it is active and priced, but it needs a reference
+ * video (`video_urls`) to copy motion from, and nothing in the request shape
+ * carries one. Offering it would take the credit and fail at the provider.
+ */
+const UNSUPPORTED: Readonly<Record<string, string>> = {
+  "kling-3.0/motion-control":
+    "it requires a reference video to copy motion from, which this endpoint cannot yet accept",
+};
+
+/**
+ * Builds the `input` object for a market model, or throws.
+ *
+ * Throwing is deliberate on both branches. An unknown model means nobody has
+ * read its documentation, and a model that cannot take the reference image the
+ * user attached would produce a video that ignores it, at full price.
+ */
+export function buildMarketInput(model: string, request: MarketRequest): MarketInput {
+  const unsupported = UNSUPPORTED[model];
+  if (unsupported !== undefined) throw new UnsupportedModelError(model, unsupported);
+
+  const build = BUILDERS[model];
+  if (build === undefined) {
+    throw new UnsupportedModelError(
+      model,
+      "its request shape is not known, and guessing a field name would drop the input silently",
+    );
+  }
+
+  return build(request);
+}
