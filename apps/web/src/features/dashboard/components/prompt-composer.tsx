@@ -8,6 +8,7 @@ import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
 import { FootageChip } from "./footage-chip";
 import { RecordButton } from "./record-button";
+import { ShotListEditor, type PendingShot } from "./shot-list-editor";
 import { VoiceChip } from "./voice-chip";
 
 interface PromptComposerProps {
@@ -18,7 +19,6 @@ interface PromptComposerProps {
   photos: readonly PendingPhoto[];
   onPhotosChange: (photos: readonly PendingPhoto[]) => void;
   busy: boolean;
-  /** A voice clip chosen for an avatar render, if any. */
   /** Sets or clears the attached clip. Null is how the chip removes it. */
   onVoice: (voice: PendingVoice | null) => void;
   /** The clip currently attached, if any, so it can be shown and removed. */
@@ -27,6 +27,9 @@ interface PromptComposerProps {
   onFootage: (footage: PendingFootage | null) => void;
   /** The footage currently attached, if any. */
   footage: PendingFootage | null;
+  /** The shot list for multi-shot generation. Null when not using shots. */
+  shots: readonly PendingShot[] | null;
+  onShotsChange: (shots: readonly PendingShot[] | null) => void;
 }
 
 export function PromptComposer({
@@ -41,6 +44,8 @@ export function PromptComposer({
   voice,
   onFootage,
   footage,
+  shots,
+  onShotsChange,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -74,6 +79,13 @@ export function PromptComposer({
     <div className="rounded-[26px] bg-paper p-3 shadow-card">
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {footage ? <FootageChip footage={footage} onRemove={() => onFootage(null)} /> : null}
+      {shots !== null && shots.length > 0 ? (
+        <ShotListEditor
+          shots={shots}
+          onChange={(next) => onShotsChange(next)}
+          onRemoveAll={() => onShotsChange(null)}
+        />
+      ) : null}
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
@@ -115,6 +127,14 @@ export function PromptComposer({
           projectId={projectId}
           onVoice={onVoice}
           onFootage={onFootage}
+          onShots={() => {
+            if (shots === null || shots.length === 0) {
+              onShotsChange([
+                { prompt: "", duration: 5 },
+                { prompt: "", duration: 5 },
+              ]);
+            }
+          }}
           onPhotos={(next) => {
             setError(null);
             onPhotosChange([...photos, ...next]);

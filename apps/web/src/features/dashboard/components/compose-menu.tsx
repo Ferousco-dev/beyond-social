@@ -7,8 +7,10 @@ import {
   Mic,
   Music,
   Plus,
+  Scissors,
   Sparkles,
   TrendingUp,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { type Route } from "next";
@@ -16,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { attachUploadedPhotos, createUploadTickets } from "@/features/chat/upload-actions";
+import { useSavedVoice } from "@/features/voice/use-saved-voice";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 
 import { useFootageUpload, VIDEO_ACCEPT, type PendingFootage } from "../hooks/use-footage-upload";
@@ -33,11 +36,13 @@ interface MenuItem {
   hint: string;
   upload?: boolean;
   voice?: boolean;
+  savedVoice?: boolean;
   footage?: boolean;
+  shots?: boolean;
   navigate?: string;
 }
 
-const ITEMS: readonly MenuItem[] = [
+const BASE_ITEMS: readonly MenuItem[] = [
   { icon: ImagePlus, label: "Add photos", hint: "They become the footage", upload: true },
   {
     icon: TrendingUp,
@@ -52,9 +57,22 @@ const ITEMS: readonly MenuItem[] = [
     hint: "Copy its motion onto a photo",
     footage: true,
   },
+  {
+    icon: Scissors,
+    label: "Add shots",
+    hint: "Cut between scenes in one call",
+    shots: true,
+  },
   { icon: Music, label: "Music library", hint: "Add a track in the editor" },
   { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
+
+const SAVED_VOICE_ITEM: MenuItem = {
+  icon: UserRound,
+  label: "Use saved voice",
+  hint: "Type what you want said in your voice",
+  savedVoice: true,
+};
 
 /**
  * The composer's attachment menu.
@@ -67,6 +85,7 @@ export function ComposeMenu({
   onPhotos,
   onVoice,
   onFootage,
+  onShots,
   onError,
   onBusyChange,
 }: {
@@ -74,6 +93,7 @@ export function ComposeMenu({
   onPhotos: (photos: readonly PendingPhoto[]) => void;
   onVoice: (voice: PendingVoice) => void;
   onFootage: (footage: PendingFootage) => void;
+  onShots: () => void;
   onError: (message: string) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -82,6 +102,11 @@ export function ComposeMenu({
   const [uploading, setUploading] = useState(false);
   const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
   const footage = useFootageUpload({ onFootage, onError, onBusyChange });
+  const savedVoice = useSavedVoice();
+
+  const items = savedVoice.profile
+    ? [BASE_ITEMS[0]!, BASE_ITEMS[1]!, SAVED_VOICE_ITEM, BASE_ITEMS[2]!, ...BASE_ITEMS.slice(3)]
+    : BASE_ITEMS;
 
   return (
     <>
@@ -185,16 +210,21 @@ export function ComposeMenu({
             sideOffset={8}
             className="z-50 w-72 rounded-2xl border border-hairline bg-paper p-1.5 text-ink shadow-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           >
-            {ITEMS.map((item) => (
+            {items.map((item) => (
               <DropdownMenu.Item
                 key={item.label}
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
+                  } else if (item.savedVoice) {
+                    const pending = savedVoice.toPendingVoice();
+                    if (pending) onVoice(pending);
                   } else if (item.voice) {
                     voice.open();
                   } else if (item.footage) {
                     footage.open();
+                  } else if (item.shots) {
+                    onShots();
                   } else if (item.navigate) {
                     router.push(item.navigate as Route);
                   }

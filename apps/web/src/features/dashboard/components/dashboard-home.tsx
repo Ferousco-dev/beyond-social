@@ -61,6 +61,8 @@ export function DashboardHome({ name }: { name: string }) {
         footage={null}
         onFootage={() => {}}
         onVoice={() => undefined}
+        shots={null}
+        onShotsChange={() => {}}
         busy={false}
       />
 
