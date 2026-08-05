@@ -160,6 +160,8 @@ export interface KieMarketVideoInput {
   prompt: string;
   /** Stills to animate from, in the order the caller supplied them. */
   imageUrls: readonly string[];
+  /** Footage to edit or copy motion from. Empty for a generated-from-nothing run. */
+  videoUrls: readonly string[];
   /** "9:16" | "16:9" | "Auto". */
   aspectRatio: string;
   duration: number;
@@ -191,6 +193,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
   const modelInput = buildMarketInput(input.model, {
     prompt: input.prompt,
     imageUrls: input.imageUrls,
+    videoUrls: input.videoUrls,
     aspectRatio: input.aspectRatio,
     duration: input.duration,
     shots: input.shots,

@@ -46,6 +46,11 @@ const sendSchema = z.object({
   aspectRatio: z.enum(ASPECT_RATIOS).optional(),
   imageUrls: z.array(z.string().url()).max(4).optional(),
   /**
+   * Footage to edit or copy motion from, as object paths in the video bucket.
+   * One at a time: every model that reads video takes exactly one.
+   */
+  videoPaths: z.array(z.string().min(1)).max(1).optional(),
+  /**
    * Object paths, not URLs. The signed URLs in `imageUrls` are what the
    * provider fetches and they expire in two hours; the path is what the thread
    * stores so it can re-sign and still render the attachment next week.
@@ -114,7 +119,7 @@ async function sendForUser(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SendResult> {
-  const { prompt, aspectRatio, imageUrls, attachments } = parsed;
+  const { prompt, aspectRatio, imageUrls, videoPaths, attachments } = parsed;
   const user = { id: userId };
 
   // The paths come back from the client, so ownership is re-checked here rather
@@ -123,6 +128,12 @@ async function sendForUser(
   // better told than quietly ignored.
   if (attachments?.some((attachment) => !attachment.path.startsWith(`${user.id}/`))) {
     return { status: "error", message: "Those attachments could not be saved" };
+  }
+
+  // The same ownership check for footage, which lives in its own bucket under
+  // the same per-user prefix.
+  if (videoPaths?.some((path) => !path.startsWith(`${user.id}/`))) {
+    return { status: "error", message: "That video could not be used" };
   }
 
   /*
@@ -268,6 +279,7 @@ async function sendForUser(
           // missing preference never stops a video being made.
           model: chosenModel ?? undefined,
           aspectRatio: intent.aspectRatio ?? aspectRatio,
+          ...(videoPaths && videoPaths.length > 0 ? { videoPaths } : {}),
           ...(usableDuration ? { duration: usableDuration } : {}),
           imageUrls,
           // Preferred over imageUrls. The edge function reads these from
