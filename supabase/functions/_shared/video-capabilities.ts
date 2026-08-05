@@ -107,3 +107,73 @@ export function maxDurationOf(model: string): number {
   const rule = capabilityOf(model).duration;
   return rule.allowed !== undefined ? Math.max(...rule.allowed) : (rule.max ?? rule.fallback);
 }
+
+/*
+ * Kling's multi-shot limits, from its own documentation. Kept here rather than
+ * in the builder because they are facts about the model, and the dispatcher has
+ * to check them before it spends anything.
+ */
+const MAX_SHOTS = 5;
+const SHOT_MIN_SECONDS = 1;
+const SHOT_MAX_SECONDS = 12;
+const SHOT_PROMPT_LIMIT = 500;
+
+export interface ShotInput {
+  readonly prompt: string;
+  readonly duration: number;
+}
+
+/** Raised before dispatch, so a rejected shot list costs nothing. */
+export class ShotsNotSupportedError extends Error {
+  constructor(model: string) {
+    super(`${model} cannot take a shot list: it generates one shot per request`);
+    this.name = "ShotsNotSupportedError";
+  }
+}
+
+/**
+ * Validates and normalises a requested shot list.
+ *
+ * Refusing rather than dropping is the same rule the input builders follow. A
+ * shot list quietly ignored by a model that cannot cut would bill the user for
+ * a single continuous take when they asked for five beats, and nothing in the
+ * response would say so.
+ *
+ * Within a model that does support it the values are clamped, not rejected,
+ * because the caller's intent is clear and a shortened beat is a better answer
+ * than a failed generation. The total is bounded by the model's own duration
+ * rule, so the shots cannot add up to something the provider will refuse.
+ */
+export function resolveShots(
+  model: string,
+  requested: readonly ShotInput[] | undefined,
+): readonly ShotInput[] {
+  if (requested === undefined || requested.length === 0) return [];
+  if (capabilityOf(model).continuation !== "native-multi-shot") {
+    throw new ShotsNotSupportedError(model);
+  }
+
+  const usable = requested
+    .filter((shot) => typeof shot?.prompt === "string" && shot.prompt.trim() !== "")
+    .slice(0, MAX_SHOTS)
+    .map((shot) => ({
+      prompt: shot.prompt.trim().slice(0, SHOT_PROMPT_LIMIT),
+      duration: Math.min(Math.max(Math.round(shot.duration), SHOT_MIN_SECONDS), SHOT_MAX_SECONDS),
+    }));
+  if (usable.length === 0) return [];
+
+  // The beats must also fit the model's total, so a five-shot list of twelve
+  // seconds each is trimmed to what the provider will actually accept rather
+  // than sent and refused.
+  const total = maxDurationOf(model);
+  const kept: ShotInput[] = [];
+  let spent = 0;
+  for (const shot of usable) {
+    if (spent >= total) break;
+    const duration = Math.min(shot.duration, total - spent);
+    if (duration < SHOT_MIN_SECONDS) break;
+    kept.push({ prompt: shot.prompt, duration });
+    spent += duration;
+  }
+  return kept;
+}

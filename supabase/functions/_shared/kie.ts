@@ -1,6 +1,6 @@
 // Typed client for the kie.ai Veo video-generation API.
 // Docs: https://docs.kie.ai/veo3-api/generate-veo-3-video
-import { buildMarketInput } from "./kie-models.ts";
+import { buildMarketInput, type Shot } from "./kie-models.ts";
 
 const KIE_BASE = "https://api.kie.ai/api/v1";
 
@@ -115,6 +115,8 @@ export interface KieMarketVideoInput {
   /** "9:16" | "16:9" | "Auto". */
   aspectRatio: string;
   duration: number;
+  /** Beats to cut between; empty for a single continuous take. */
+  shots: readonly Shot[];
   callBackUrl?: string;
 }
 
@@ -143,6 +145,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
     imageUrls: input.imageUrls,
     aspectRatio: input.aspectRatio,
     duration: input.duration,
+    shots: input.shots,
   });
 
   const response = await fetch(`${KIE_BASE}/jobs/createTask`, {
