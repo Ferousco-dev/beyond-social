@@ -5,7 +5,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { UnsupportedModelError } from "../_shared/kie-models.ts";
-import { resolveDuration } from "../_shared/video-capabilities.ts";
+import {
+  ShotsNotSupportedError,
+  resolveDuration,
+  resolveShots,
+} from "../_shared/video-capabilities.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -23,6 +27,12 @@ interface GenerateBody {
   model?: string;
   /** Seconds. Only present when the request actually asked for a length. */
   duration?: number;
+  /**
+   * Beats to cut between, for models that generate several shots in one call.
+   * Absent means one continuous take, which is a different request rather than
+   * a shorter version of this one.
+   */
+  shots?: { prompt?: string; duration?: number }[];
 }
 
 Deno.serve(async (req) => {
@@ -135,6 +145,27 @@ Deno.serve(async (req) => {
   const duration = resolveDuration(chosen.id, body.duration);
 
   /*
+   * A shot list is refused rather than dropped when the model cannot cut, for
+   * the same reason an unknown input field is refused: silently generating one
+   * continuous take for someone who asked for five beats bills them in full for
+   * something they did not ask for.
+   */
+  let shots: readonly { prompt: string; duration: number }[];
+  try {
+    shots = resolveShots(
+      chosen.id,
+      body.shots?.flatMap((shot) =>
+        typeof shot?.prompt === "string" && typeof shot?.duration === "number"
+          ? [{ prompt: shot.prompt, duration: shot.duration }]
+          : [],
+      ),
+    );
+  } catch (error) {
+    if (error instanceof ShotsNotSupportedError) return json({ error: error.message }, 400);
+    throw error;
+  }
+
+  /*
    * Veo models are created on `/veo/generate`; every other model on this
    * provider is a market model on `/jobs/createTask`, with a different request
    * shape. The same split the poller makes when asking for status, and by the
@@ -160,6 +191,7 @@ Deno.serve(async (req) => {
           imageUrls: referenceUrls ?? [],
           aspectRatio,
           duration,
+          shots,
           callBackUrl,
         });
   } catch (error) {
