@@ -41,8 +41,8 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
       <div className="mt-10 rounded-2xl border border-dashed border-hairline px-6 py-14 text-center">
         <p className="text-sm font-medium text-ink">Nothing here yet</p>
         <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-soft">
-          Videos you generate, and the photos and voice clips you attach to a message, collect
-          here so you can find your way back to the conversation they belong to.
+          Videos you generate, and the photos and voice clips you attach to a message, collect here
+          so you can find your way back to the conversation they belong to.
         </p>
       </div>
     );

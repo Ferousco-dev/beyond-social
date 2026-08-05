@@ -1,14 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import {
-  Boxes,
-  LibraryBig,
-  MessageSquare,
-  PanelLeft,
-  PenSquare,
-  TrendingUp,
-} from "lucide-react";
+import { Boxes, LibraryBig, MessageSquare, PanelLeft, PenSquare, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
