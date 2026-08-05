@@ -96,4 +96,3 @@ export async function openBillingPortal(): Promise<CheckoutResult> {
     return { status: "error", message: "Could not open billing portal" };
   }
 }
-
