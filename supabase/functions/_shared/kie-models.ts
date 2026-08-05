@@ -78,7 +78,10 @@ export class UnsupportedModelError extends Error {
  * defaults on, so it is stated rather than left implicit.
  */
 const klingVideo: Builder = (request) => {
-  const framing =
+  // Annotated rather than inferred: without it each ternary branch contributes
+  // its own optional keys, and a `key?: undefined` in the union does not
+  // satisfy the index signature.
+  const framing: MarketInput =
     request.imageUrls.length > 0
       ? // Multi-shot honours only the opening frame, so sending the pair we
         // would send for a single shot would quietly drop the second.
