@@ -34,9 +34,7 @@ export type ProfileResult =
   | { status: "error"; message: string };
 
 export type DeleteResult =
-  | { status: "ok" }
-  | { status: "unconfigured" }
-  | { status: "error"; message: string };
+  { status: "ok" } | { status: "unconfigured" } | { status: "error"; message: string };
 
 const SIGNED_URL_TTL = 2 * 60 * 60;
 
@@ -44,15 +42,11 @@ async function signVoicePath(
   supabase: Awaited<ReturnType<typeof createClient>>,
   path: string,
 ): Promise<string | null> {
-  const { data } = await supabase.storage
-    .from("uploads")
-    .createSignedUrl(path, SIGNED_URL_TTL);
+  const { data } = await supabase.storage.from("uploads").createSignedUrl(path, SIGNED_URL_TTL);
   return data?.signedUrl ?? null;
 }
 
-export async function enrollVoice(
-  input: z.input<typeof enrollSchema>,
-): Promise<EnrollResult> {
+export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<EnrollResult> {
   const parsed = enrollSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -147,7 +141,12 @@ export async function getVoiceProfile(): Promise<ProfileResult> {
     return { status: "error", message: "Could not load your voice" };
   }
 
-  const row = data as { id: string; storage_path: string; phrase: string; created_at: string } | null;
+  const row = data as {
+    id: string;
+    storage_path: string;
+    phrase: string;
+    created_at: string;
+  } | null;
   if (!row) return { status: "none" };
 
   const url = await signVoicePath(supabase, row.storage_path);

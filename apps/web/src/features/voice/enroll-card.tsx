@@ -126,7 +126,11 @@ export function EnrollCard({ initial }: Props) {
                 disabled={busy}
                 className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
-                {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
+                {deleting ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="size-3.5" />
+                )}
                 Delete
               </button>
             </div>
@@ -149,8 +153,8 @@ export function EnrollCard({ initial }: Props) {
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-medium text-ink">Save your voice</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            Record a short clip of yourself speaking. Once saved, type what you want said
-            instead of recording each time.
+            Record a short clip of yourself speaking. Once saved, type what you want said instead of
+            recording each time.
           </p>
           <div className="mt-3">
             <button

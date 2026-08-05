@@ -60,7 +60,12 @@ const sendSchema = z.object({
     .max(MAX_ATTACHMENTS)
     .optional(),
   shots: z
-    .array(z.object({ prompt: z.string().trim().min(1).max(500), duration: z.number().int().min(1).max(12) }))
+    .array(
+      z.object({
+        prompt: z.string().trim().min(1).max(500),
+        duration: z.number().int().min(1).max(12),
+      }),
+    )
     .max(5)
     .optional(),
 });

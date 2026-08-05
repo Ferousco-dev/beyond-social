@@ -129,7 +129,10 @@ export function PromptComposer({
           onFootage={onFootage}
           onShots={() => {
             if (shots === null || shots.length === 0) {
-              onShotsChange([{ prompt: "", duration: 5 }, { prompt: "", duration: 5 }]);
+              onShotsChange([
+                { prompt: "", duration: 5 },
+                { prompt: "", duration: 5 },
+              ]);
             }
           }}
           onPhotos={(next) => {

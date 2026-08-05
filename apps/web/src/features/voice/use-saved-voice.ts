@@ -17,7 +17,9 @@ export function useSavedVoice() {
       setProfile(result.status === "ok" ? result.profile : null);
       setLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const toPendingVoice = useCallback((): PendingVoice | null => {

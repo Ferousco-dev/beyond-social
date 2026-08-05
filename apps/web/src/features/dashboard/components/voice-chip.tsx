@@ -34,7 +34,13 @@ export function VoiceChip({ voice, onRemove }: { voice: PendingVoice; onRemove: 
         aria-label={playing ? "Pause preview" : "Play preview"}
         className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary/10 text-primary transition-colors hover:bg-primary/20 disabled:cursor-default disabled:opacity-50"
       >
-        {playing ? <Pause className="size-4" /> : voice.url ? <Play className="size-4" /> : <AudioLines className="size-5" />}
+        {playing ? (
+          <Pause className="size-4" />
+        ) : voice.url ? (
+          <Play className="size-4" />
+        ) : (
+          <AudioLines className="size-5" />
+        )}
       </button>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-ink">{voice.name}</span>

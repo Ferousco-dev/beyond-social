@@ -17,9 +17,7 @@ export type TtsResult =
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
-export async function textToSpeech(
-  input: z.input<typeof ttsSchema>,
-): Promise<TtsResult> {
+export async function textToSpeech(input: z.input<typeof ttsSchema>): Promise<TtsResult> {
   const parsed = ttsSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -80,9 +78,7 @@ export type TranscribeResult =
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
-export async function transcribeAudio(input: {
-  path: string;
-}): Promise<TranscribeResult> {
+export async function transcribeAudio(input: { path: string }): Promise<TranscribeResult> {
   if (!input.path || typeof input.path !== "string") {
     return { status: "error", message: "No audio file provided" };
   }
