@@ -64,10 +64,13 @@ export function describeDurations(model: string | null | undefined): string {
 /**
  * Whether this model can continue a clip it already made.
  *
- * Only veo exposes an endpoint for it, and only for its own output, so the
- * option is offered nowhere else. Kling reaches length by generating several
- * shots in one call instead, which is a better result than continuing anyway.
+ * Veo uses a dedicated extend endpoint. Every other video model gets a fresh
+ * generation linked via `extended_from`, so the user can chain as many
+ * continuations as they want (each costs a credit). Motion control is
+ * excluded: it copies motion from footage, not from a prompt.
  */
 export function canContinue(model: string | null | undefined): boolean {
-  return model !== null && model !== undefined && model.startsWith("veo");
+  if (model === null || model === undefined) return false;
+  if (model === "kling-3.0/motion-control") return false;
+  return true;
 }

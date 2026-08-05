@@ -1,27 +1,29 @@
-// Authenticated endpoint: continues a clip the provider already made, and
+// Authenticated endpoint: continues a clip the caller already made, and
 // records the continuation as a generation of its own.
+//
+// Two paths depending on the model:
+//
+//  - Veo: the provider has a dedicated `/veo/extend` endpoint that continues
+//    a task by id. Audio carries over, but vocals only if they fall in the
+//    clip's final second.
+//
+//  - Everything else: a fresh generation on the same model, linked to the
+//    source via `extended_from`. The prompt carries the creative direction
+//    for what happens next. Each call costs one credit, and the user can
+//    chain as many as they want.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
-import { extendVideoTask } from "../_shared/kie.ts";
-import { capabilityOf } from "../_shared/video-capabilities.ts";
+import { createMarketVideoTask, extendVideoTask } from "../_shared/kie.ts";
+import { capabilityOf, resolveDuration } from "../_shared/video-capabilities.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 interface ExtendBody {
-  /** The finished generation to continue. */
   generationId?: string;
-  /** How the continuation should go. */
   prompt?: string;
+  duration?: number;
 }
 
-/**
- * Only veo output can be continued, and only through the task that made it.
- *
- * The provider identifies the source by task id rather than by file, so a clip
- * we did not generate cannot be extended at all, and neither can one whose task
- * id we never recorded. Both are checked here rather than discovered as a
- * provider error after the credit is gone.
- */
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -54,8 +56,6 @@ Deno.serve(async (req) => {
     return json({ error: "generationId and prompt are required" }, 400);
   }
 
-  // Enforce the credit quota before spending money, exactly as a fresh
-  // generation does: an extension is a paid render, not a free continuation.
   const { data: profile } = await supabase
     .from("profiles")
     .select("credits_total, credits_used")
@@ -65,13 +65,9 @@ Deno.serve(async (req) => {
     return json({ error: "No video credits remaining" }, 402);
   }
 
-  /*
-   * Read through the owner's own client, so row-level security decides whether
-   * this generation is theirs to continue rather than a check written here.
-   */
   const { data: source } = await supabase
     .from("video_generations")
-    .select("id, project_id, model, status, provider_task_id, resolution, aspect_ratio")
+    .select("id, project_id, model, status, provider_task_id, resolution, aspect_ratio, duration")
     .eq("id", body.generationId)
     .maybeSingle();
 
@@ -79,38 +75,54 @@ Deno.serve(async (req) => {
   if (source.status !== "ready") {
     return json({ error: "Only a finished video can be continued" }, 409);
   }
-  if (!source.provider_task_id) {
-    return json({ error: "That video has no provider task to continue from" }, 409);
-  }
-  if (capabilityOf(source.model).continuation !== "native-extend") {
-    return json(
-      { error: `${source.model} cannot continue an existing clip; regenerate it longer instead` },
-      400,
-    );
-  }
-  /*
-   * The provider refuses to extend anything it rendered at 1080p. Saying so
-   * here is the difference between an explanation and a failed paid call, and
-   * it is the reason 720p is the default everywhere.
-   */
-  if (source.resolution === "1080p" || source.resolution === "4k") {
-    return json({ error: "Videos rendered above 720p cannot be continued" }, 409);
+
+  // Motion control copies motion from footage; continuing it makes no sense
+  // because there is no footage to continue from.
+  if (source.model === "kling-3.0/motion-control") {
+    return json({ error: "A motion-control clip cannot be continued" }, 400);
   }
 
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = callbackSecret
-    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?secret=${callbackSecret}`
+    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`
     : undefined;
 
+  const continuation = capabilityOf(source.model).continuation;
   let taskId: string;
-  try {
-    taskId = await extendVideoTask({
-      taskId: source.provider_task_id,
-      prompt,
-      callBackUrl,
-    });
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Could not continue" }, 502);
+  let duration: number = source.duration ?? 8;
+
+  if (continuation === "native-extend") {
+    if (!source.provider_task_id) {
+      return json({ error: "That video has no provider task to continue from" }, 409);
+    }
+    if (source.resolution === "1080p" || source.resolution === "4k") {
+      return json({ error: "Videos rendered above 720p cannot be continued" }, 409);
+    }
+    try {
+      taskId = await extendVideoTask({
+        taskId: source.provider_task_id,
+        prompt,
+        callBackUrl,
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Could not continue" }, 502);
+    }
+  } else {
+    duration = resolveDuration(source.model, body.duration ?? source.duration);
+    try {
+      taskId = await createMarketVideoTask({
+        model: source.model,
+        prompt,
+        imageUrls: [],
+        videoUrls: [],
+        aspectRatio: source.aspect_ratio ?? "9:16",
+        duration,
+        shots: [],
+        callBackUrl,
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Could not continue" }, 502);
+    }
   }
 
   const { data: generation, error: insertError } = await supabase
@@ -119,10 +131,9 @@ Deno.serve(async (req) => {
       project_id: source.project_id,
       user_id: user.id,
       prompt,
+      duration,
       aspect_ratio: source.aspect_ratio,
       status: "generating",
-      // The continuation runs on the same model, so it prices and polls the
-      // same way the source did.
       model: source.model,
       provider_task_id: taskId,
       extended_from: source.id,
