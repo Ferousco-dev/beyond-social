@@ -31,8 +31,8 @@ enable_signup = true
 
 [auth.email]
 enable_signup = true
-enable_confirmations = true
-double_confirm_changes = true
+enable_confirmations = false
+double_confirm_changes = false
 
 [auth.mfa]
 max_enrolled_factors = 10
