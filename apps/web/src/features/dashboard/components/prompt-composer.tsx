@@ -3,8 +3,10 @@
 import { ArrowUp, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
+import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
+import { FootageChip } from "./footage-chip";
 import { RecordButton } from "./record-button";
 import { VoiceChip } from "./voice-chip";
 
@@ -21,6 +23,10 @@ interface PromptComposerProps {
   onVoice: (voice: PendingVoice | null) => void;
   /** The clip currently attached, if any, so it can be shown and removed. */
   voice: PendingVoice | null;
+  /** Sets or clears the attached footage. Null is how the chip removes it. */
+  onFootage: (footage: PendingFootage | null) => void;
+  /** The footage currently attached, if any. */
+  footage: PendingFootage | null;
 }
 
 export function PromptComposer({
@@ -33,6 +39,8 @@ export function PromptComposer({
   busy,
   onVoice,
   voice,
+  onFootage,
+  footage,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -65,6 +73,7 @@ export function PromptComposer({
   return (
     <div className="rounded-[26px] bg-paper p-3 shadow-card">
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
+      {footage ? <FootageChip footage={footage} onRemove={() => onFootage(null)} /> : null}
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
@@ -105,6 +114,7 @@ export function PromptComposer({
         <ComposeMenu
           projectId={projectId}
           onVoice={onVoice}
+          onFootage={onFootage}
           onPhotos={(next) => {
             setError(null);
             onPhotosChange([...photos, ...next]);

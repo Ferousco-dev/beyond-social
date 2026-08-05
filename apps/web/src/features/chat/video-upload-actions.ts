@@ -49,7 +49,13 @@ export type VideoTicketResult =
  * bucket policy scopes writes to that prefix, which is the check that counts.
  */
 export async function createVideoUploadTicket(
-  input: z.input<typeof ticketSchema>,
+  /*
+   * Loosely typed on purpose. What the browser reports as a file's type is a
+   * plain string, and narrowing it here would only move the check to the call
+   * site, where it would be a cast rather than a validation. The schema below
+   * is what actually decides, and it answers with a message worth showing.
+   */
+  input: { type: string; size: number },
 ): Promise<VideoTicketResult> {
   const parsed = ticketSchema.safeParse(input);
   if (!parsed.success) {
