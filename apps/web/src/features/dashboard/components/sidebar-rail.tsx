@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Boxes, MessageSquare, PanelLeft, PenSquare, TrendingUp } from "lucide-react";
+import { Boxes, LibraryBig, MessageSquare, PanelLeft, PenSquare, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -26,6 +26,7 @@ const RAIL_ITEM =
 
 const LINKS = [
   { href: "/dashboard", label: "New project", icon: PenSquare },
+  { href: "/dashboard/library", label: "Library", icon: LibraryBig },
   { href: "/dashboard/trends", label: "Trends", icon: TrendingUp },
   { href: "/dashboard/models", label: "Models", icon: Boxes },
 ] as const;
