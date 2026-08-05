@@ -60,3 +60,14 @@ export function describeDurations(model: string | null | undefined): string {
   if (limits.allowed !== undefined) return `${limits.allowed.join(", ")} seconds`;
   return `${limits.min ?? 0} to ${limits.max ?? 0} seconds`;
 }
+
+/**
+ * Whether this model can continue a clip it already made.
+ *
+ * Only veo exposes an endpoint for it, and only for its own output, so the
+ * option is offered nowhere else. Kling reaches length by generating several
+ * shots in one call instead, which is a better result than continuing anyway.
+ */
+export function canContinue(model: string | null | undefined): boolean {
+  return model !== null && model !== undefined && model.startsWith("veo");
+}

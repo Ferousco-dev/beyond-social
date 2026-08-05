@@ -31,6 +31,9 @@ const rowSchema = z.object({
   // The durable fact. `result_url` is a public link that stopped resolving
   // when the bucket was closed, so playback is signed from this instead.
   result_path: z.string().nullable().default(null),
+  // Defaulted, so a build running against a database that has not taken the
+  // migration yet reads the thread rather than failing the whole parse.
+  generation_model: z.string().nullable().default(null),
   // `project_thread` coalesces to an empty array, so this is never null. The
   // default covers a stale build reading a thread before the migration lands.
   attachments: z.array(attachmentRowSchema).default([]),
@@ -42,6 +45,11 @@ export interface MessageDraft {
   readonly generationId: string;
   readonly status: DraftStatus;
   readonly resultUrl: string | null;
+  /**
+   * Which model produced it. Only some can continue their own output, so the
+   * interface needs this to decide whether continuing is even on offer.
+   */
+  readonly model?: string | null;
   /**
    * When the turn was recorded, ISO 8601. Absent on a draft the client has
    * just created optimistically, which has not been persisted yet.
@@ -98,6 +106,7 @@ function toMessage(
           // Signed per read. A render with no path predates the private
           // bucket and has nothing playable left, which reads as null.
           resultUrl: row.result_path ? (renders.get(row.result_path) ?? null) : null,
+          model: row.generation_model ?? null,
           startedAt: row.created_at,
         }
       : undefined,

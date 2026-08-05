@@ -14,6 +14,7 @@ import { type AttachmentKind, type ChatMessage, type Thread } from "@/lib/chat/t
 import { cn } from "@/lib/utils";
 
 import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-poll";
+import { useExtendDraft } from "../hooks/use-extend-draft";
 import { useRegenerateDraft } from "../hooks/use-regenerate-draft";
 import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
@@ -92,6 +93,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const { watch, stop } = useGenerationPoll(applyOutcome);
 
   const { regenerate, busyId: regeneratingId } = useRegenerateDraft({
+    confirm,
+    onMessage: (message) => setMessages((current) => [...current, message]),
+    onNotice: setNotice,
+    onStarted: watch,
+  });
+
+  const { extend } = useExtendDraft({
     confirm,
     onMessage: (message) => setMessages((current) => [...current, message]),
     onNotice: setNotice,
@@ -430,6 +438,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             editorHref={editorHref}
             onCancelDraft={cancelDraft}
             onRegenerate={(id) => void regenerate(id)}
+            onExtend={(id) => void extend(id)}
             regeneratingId={regeneratingId}
           />
         ))}
