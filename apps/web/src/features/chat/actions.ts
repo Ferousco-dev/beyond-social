@@ -10,7 +10,8 @@ import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/cons
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
-import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
+import { classify } from "@/lib/generation/intent";
+import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { runWithAiUser } from "@/lib/ai/request-user";
@@ -217,22 +218,30 @@ async function sendForUser(
   let generationId: string | null = null;
   let notice: string | undefined;
 
+  /*
+   * Which model runs decides how long a clip can be, so it has to be known
+   * before the length is judged. This check used to run against one hardcoded
+   * set, which was veo's, and told a Kling user that clips can be four, six or
+   * eight seconds when Kling does fifteen: the app refusing something it can do.
+   */
+  const chosenModel = await preferredModel(supabase, user.id, "video");
+
   // Asking for a length we cannot render is worth saying out loud. Silently
   // producing eight seconds when someone asked for thirty is the kind of thing
   // that makes a tool feel like it is not listening.
   const requestedDuration = intent.durationSeconds;
   const usableDuration =
-    requestedDuration !== null && isSupportedDuration(requestedDuration) ? requestedDuration : null;
+    requestedDuration !== null && supportsDuration(chosenModel, requestedDuration)
+      ? requestedDuration
+      : null;
   if (requestedDuration !== null && usableDuration === null) {
-    notice = `Clips can be ${SUPPORTED_DURATIONS.join(", ")} seconds long, so this one is ${SUPPORTED_DURATIONS[SUPPORTED_DURATIONS.length - 1]} seconds rather than ${requestedDuration}.`;
+    notice = `This model makes clips of ${describeDurations(chosenModel)}, so this one is ${maxSecondsFor(chosenModel)} seconds rather than ${requestedDuration}.`;
   }
 
   // A question costs nothing. This is the whole point of classifying: not
   // spending a credit on a video the person did not ask for.
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
-
-    const chosenModel = await preferredModel(supabase, user.id, "video");
 
     // Tier and balance, checked server-side before the provider is called. A
     // refusal here costs nothing and leaves no half-started generation row.
