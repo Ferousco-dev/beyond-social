@@ -31,11 +31,15 @@ export function SignupForm() {
   function onSubmit(values: SignupInput) {
     setResult(null);
     startTransition(async () => {
-      const response = await signUpAction(values);
-      setResult(response);
-      if (response.status === "success" && response.redirectTo) {
-        window.sessionStorage.setItem("bs:pending-email", values.email);
-        router.push(response.redirectTo as Route);
+      try {
+        const response = await signUpAction(values);
+        setResult(response);
+        if (response.status === "success" && response.redirectTo) {
+          window.sessionStorage.setItem("bs:pending-email", values.email);
+          router.push(response.redirectTo as Route);
+        }
+      } catch {
+        setResult({ status: "error", message: "Something went wrong. Please try again." });
       }
     });
   }

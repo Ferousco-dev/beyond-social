@@ -40,21 +40,22 @@ export function LoginForm() {
   function onSubmit(values: LoginInput) {
     setResult(null);
     startTransition(async () => {
-      const response = await signInAction(values);
-      setResult(response);
-      if (response.status === "success" && response.redirectTo) {
-        if (values.rememberMe) window.localStorage.setItem(LAST_EMAIL_KEY, values.email);
-        else window.localStorage.removeItem(LAST_EMAIL_KEY);
+      try {
+        const response = await signInAction(values);
+        setResult(response);
+        if (response.status === "success" && response.redirectTo) {
+          if (values.rememberMe) window.localStorage.setItem(LAST_EMAIL_KEY, values.email);
+          else window.localStorage.removeItem(LAST_EMAIL_KEY);
 
-        // Middleware sends an unauthenticated deep link here with ?redirect=,
-        // and ignoring it dropped everyone on the dashboard regardless of where
-        // they were actually going.
-        const requested = new URLSearchParams(window.location.search).get("redirect");
-        const destination =
-          requested && requested.startsWith("/") && !requested.startsWith("//")
-            ? requested
-            : response.redirectTo;
-        router.push(destination as Route);
+          const requested = new URLSearchParams(window.location.search).get("redirect");
+          const destination =
+            requested && requested.startsWith("/") && !requested.startsWith("//")
+              ? requested
+              : response.redirectTo;
+          router.push(destination as Route);
+        }
+      } catch {
+        setResult({ status: "error", message: "Something went wrong. Please try again." });
       }
     });
   }
