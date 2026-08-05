@@ -31,6 +31,11 @@ export interface MarketRequest {
   readonly prompt: string;
   /** Provider-reachable URLs. Empty when the run has no reference still. */
   readonly imageUrls: readonly string[];
+  /**
+   * Footage to work from, for models that edit or copy motion from video
+   * rather than generating it from nothing. Empty for every other request.
+   */
+  readonly videoUrls: readonly string[];
   /** "9:16" | "16:9" | "Auto". `Auto` means the caller did not choose. */
   readonly aspectRatio: string;
   readonly duration: number;
@@ -119,7 +124,40 @@ const seedance: Builder = (request) => ({
   ...(request.imageUrls.length > 0 ? { input_urls: request.imageUrls.slice(0, 2) } : {}),
 });
 
+/**
+ * Kling Motion Control.
+ *
+ * The first model here that reads video: it copies the motion of the person in
+ * `video_urls` onto the person in `input_urls`. Both are arrays of exactly one,
+ * and both are required, which is why this was refused outright until the
+ * request shape could carry footage.
+ *
+ * `character_orientation` and `background_source` are left at the provider's
+ * defaults. Both are creative choices with sensible defaults, and inventing a
+ * value here would quietly override a decision the caller never made.
+ */
+const klingMotionControl: Builder = (request) => {
+  if (request.videoUrls.length === 0) {
+    throw new UnsupportedModelError(
+      "kling-3.0/motion-control",
+      "it copies motion from a reference video, and none was supplied",
+    );
+  }
+  if (request.imageUrls.length === 0) {
+    throw new UnsupportedModelError(
+      "kling-3.0/motion-control",
+      "it needs a photo of the person the motion is copied onto",
+    );
+  }
+  return {
+    ...(request.prompt === "" ? {} : { prompt: request.prompt }),
+    input_urls: request.imageUrls.slice(0, 1),
+    video_urls: request.videoUrls.slice(0, 1),
+  };
+};
+
 const BUILDERS: Readonly<Record<string, Builder>> = {
+  "kling-3.0/motion-control": klingMotionControl,
   "kling-3.0/video": klingVideo,
   "bytedance/seedance-1.5-pro": seedance,
 };
@@ -132,10 +170,7 @@ const BUILDERS: Readonly<Record<string, Builder>> = {
  * video (`video_urls`) to copy motion from, and nothing in the request shape
  * carries one. Offering it would take the credit and fail at the provider.
  */
-const UNSUPPORTED: Readonly<Record<string, string>> = {
-  "kling-3.0/motion-control":
-    "it requires a reference video to copy motion from, which this endpoint cannot yet accept",
-};
+const UNSUPPORTED: Readonly<Record<string, string>> = {};
 
 /**
  * Builds the `input` object for a market model, or throws.

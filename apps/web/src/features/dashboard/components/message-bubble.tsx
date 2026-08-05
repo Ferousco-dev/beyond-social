@@ -13,12 +13,14 @@ export function MessageBubble({
   editorHref,
   onCancelDraft,
   onRegenerate,
+  onExtend,
   regeneratingId,
 }: {
   message: ChatMessage;
   editorHref: Route;
   onCancelDraft?: (generationId: string) => void;
   onRegenerate?: (generationId: string) => void;
+  onExtend?: (generationId: string) => void;
   /** The draft currently being run again, if any. */
   regeneratingId?: string | null;
 }): ReactNode {
@@ -63,6 +65,7 @@ export function MessageBubble({
           draft={message.draft}
           editorHref={editorHref}
           onRegenerate={onRegenerate}
+          onExtend={onExtend}
           regenerating={regeneratingId === message.draft.generationId}
         />
       ) : null}

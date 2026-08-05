@@ -1,7 +1,16 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ImagePlus, Mic, Music, Plus, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import {
+  Clapperboard,
+  ImagePlus,
+  Mic,
+  Music,
+  Plus,
+  Sparkles,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -9,6 +18,7 @@ import { useRef, useState } from "react";
 import { attachUploadedPhotos, createUploadTickets } from "@/features/chat/upload-actions";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 
+import { useFootageUpload, VIDEO_ACCEPT, type PendingFootage } from "../hooks/use-footage-upload";
 import { useVoiceUpload, VOICE_ACCEPT, type PendingVoice } from "../hooks/use-voice-upload";
 
 /** A photo already uploaded and waiting to be attached to the next message. */
@@ -23,6 +33,7 @@ interface MenuItem {
   hint: string;
   upload?: boolean;
   voice?: boolean;
+  footage?: boolean;
   navigate?: string;
 }
 
@@ -35,6 +46,12 @@ const ITEMS: readonly MenuItem[] = [
     navigate: "/dashboard/trends",
   },
   { icon: Mic, label: "Add your voice", hint: "Speak, and the photo speaks it", voice: true },
+  {
+    icon: Clapperboard,
+    label: "Add a video",
+    hint: "Copy its motion onto a photo",
+    footage: true,
+  },
   { icon: Music, label: "Music library", hint: "Add a track in the editor" },
   { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
@@ -49,12 +66,14 @@ export function ComposeMenu({
   projectId,
   onPhotos,
   onVoice,
+  onFootage,
   onError,
   onBusyChange,
 }: {
   projectId: string;
   onPhotos: (photos: readonly PendingPhoto[]) => void;
   onVoice: (voice: PendingVoice) => void;
+  onFootage: (footage: PendingFootage) => void;
   onError: (message: string) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -62,6 +81,7 @@ export function ComposeMenu({
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
+  const footage = useFootageUpload({ onFootage, onError, onBusyChange });
 
   return (
     <>
@@ -141,12 +161,19 @@ export function ComposeMenu({
         className="hidden"
         onChange={voice.handleChange}
       />
+      <input
+        ref={footage.inputRef}
+        type="file"
+        accept={VIDEO_ACCEPT}
+        className="hidden"
+        onChange={footage.handleChange}
+      />
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
             aria-label="Add photos and more"
-            disabled={uploading || voice.uploading}
+            disabled={uploading || voice.uploading || footage.uploading}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus className="size-4" />
@@ -166,6 +193,8 @@ export function ComposeMenu({
                     fileRef.current?.click();
                   } else if (item.voice) {
                     voice.open();
+                  } else if (item.footage) {
+                    footage.open();
                   } else if (item.navigate) {
                     router.push(item.navigate as Route);
                   }

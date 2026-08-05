@@ -14,11 +14,13 @@ import { type AttachmentKind, type ChatMessage, type Thread } from "@/lib/chat/t
 import { cn } from "@/lib/utils";
 
 import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-poll";
+import { useExtendDraft } from "../hooks/use-extend-draft";
 import { useRegenerateDraft } from "../hooks/use-regenerate-draft";
 import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
 
@@ -41,6 +43,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const [prompt, setPrompt] = useState("");
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
   const [voice, setVoice] = useState<PendingVoice | null>(null);
+  /*
+   * Footage is held apart from the attachments. It is an input to the render
+   * rather than something the thread shows back, so it never becomes a message
+   * attachment and is cleared on send like the rest of the composer.
+   */
+  const [footage, setFootage] = useState<PendingFootage | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const { confirm, dialog } = useConfirm();
@@ -92,6 +100,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const { watch, stop } = useGenerationPoll(applyOutcome);
 
   const { regenerate, busyId: regeneratingId } = useRegenerateDraft({
+    confirm,
+    onMessage: (message) => setMessages((current) => [...current, message]),
+    onNotice: setNotice,
+    onStarted: watch,
+  });
+
+  const { extend } = useExtendDraft({
     confirm,
     onMessage: (message) => setMessages((current) => [...current, message]),
     onNotice: setNotice,
@@ -244,8 +259,10 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           : []),
       ];
 
+      const clip = footage;
       setPhotos([]);
       setVoice(null);
+      setFootage(null);
       setMessages((current) => [
         ...current,
         { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
@@ -273,6 +290,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           prompt: trimmed,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
+          videoPaths: clip ? [clip.path] : undefined,
         };
         let result = await sendMessage(payload);
 
@@ -364,7 +382,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         }
       })();
     },
-    [projectId, photos, voice, router, sending, rendering, runAvatar, confirm],
+    [projectId, photos, voice, footage, router, sending, rendering, runAvatar, confirm],
   );
 
   // Seeded from the dashboard composer or a trend card. The key is cleared
@@ -430,6 +448,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             editorHref={editorHref}
             onCancelDraft={cancelDraft}
             onRegenerate={(id) => void regenerate(id)}
+            onExtend={(id) => void extend(id)}
             regeneratingId={regeneratingId}
           />
         ))}
@@ -459,6 +478,8 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             onPhotosChange={setPhotos}
             voice={voice}
             onVoice={setVoice}
+            footage={footage}
+            onFootage={setFootage}
             busy={sending || rendering}
           />
         </div>

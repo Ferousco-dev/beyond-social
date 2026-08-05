@@ -23,6 +23,12 @@ interface GenerateBody {
   imageUrls?: string[];
   /** Object paths in the uploads bucket, preferred over imageUrls. */
   imagePaths?: string[];
+  /**
+   * Object paths in the video-uploads bucket, for models that edit footage or
+   * copy motion from it. A separate bucket from the stills because the size
+   * ceiling and the allowed types are different.
+   */
+  videoPaths?: string[];
   /** Which video model to run. Validated against the catalogue. */
   model?: string;
   /** Seconds. Only present when the request actually asked for a length. */
@@ -118,6 +124,26 @@ Deno.serve(async (req) => {
   }
 
   /*
+   * Footage the run edits or copies motion from, handed over the same way the
+   * stills are: uploaded as bytes rather than linked, so the provider never has
+   * to reach our storage and a signed link cannot expire in a queue. A separate
+   * bucket from the photos, because video has a different size ceiling and a
+   * different set of allowed types.
+   */
+  const footageUrls: string[] = [];
+  try {
+    for (const path of body.videoPaths?.slice(0, 1) ?? []) {
+      footageUrls.push(await handToProvider(supabase, "video-uploads", path, traceId));
+    }
+  } catch (error) {
+    log("error", "could not hand the reference video to the provider", { traceId });
+    return json(
+      { error: error instanceof Error ? error.message : "Could not prepare the reference video" },
+      502,
+    );
+  }
+
+  /*
    * Which model, and therefore which endpoint.
    *
    * The requested id is looked up rather than trusted, and constrained to the
@@ -189,6 +215,7 @@ Deno.serve(async (req) => {
           model: chosen.id,
           prompt,
           imageUrls: referenceUrls ?? [],
+          videoUrls: footageUrls,
           aspectRatio,
           duration,
           shots,

@@ -39,9 +39,20 @@ export function useAutosave({
   // back what we read and burn a revision for nothing.
   const baseline = useRef(project);
   const inFlight = useRef(false);
+  /*
+   * An edit that arrives while a save is in flight used to be dropped: the
+   * debounce fired, `save` returned early, and nothing rescheduled it. The
+   * indicator then read "Saved" over work that had never been sent, which is
+   * the worst version of this bug because it looks like success.
+   */
+  const dirtyWhileSaving = useRef(false);
 
   const save = useCallback(async () => {
-    if (!enabled || inFlight.current) return;
+    if (!enabled) return;
+    if (inFlight.current) {
+      dirtyWhileSaving.current = true;
+      return;
+    }
     inFlight.current = true;
     setState("saving");
 
@@ -57,8 +68,14 @@ export function useAutosave({
       revision.current = result.revision;
       baseline.current = snapshot;
       setState("saved");
+      // Anything edited while that request was open has not been written yet.
+      if (dirtyWhileSaving.current) {
+        dirtyWhileSaving.current = false;
+        void save();
+      }
       return;
     }
+    dirtyWhileSaving.current = false;
     // A conflict is reported, not resolved silently. Overwriting another tab's
     // newer work without saying so is the one outcome a user cannot recover
     // from.
@@ -84,17 +101,32 @@ export function useAutosave({
     };
   }, [project, enabled, save]);
 
-  // A pending edit must not be lost to a closed tab. This cannot await, so it is
-  // a best-effort flush rather than a guarantee, which is why the debounce is
-  // short enough to rarely matter.
+  /*
+   * A pending edit must not be lost to a closed tab, and `pagehide` covers only
+   * that. Leaving the editor for another screen is a client-side navigation:
+   * the page never unloads, the event never fires, and the component unmounts
+   * with its debounce timer cleared. Anything edited in the last second and a
+   * bit went with it, silently.
+   *
+   * The unmount flush is kept in its own effect with no dependencies so it runs
+   * on unmount alone. Putting it in the debounce effect's cleanup would fire it
+   * on every edit and defeat the debounce entirely. Neither can await, so both
+   * are best-effort, which is why the debounce is short.
+   */
+  const flushRef = useRef(save);
+  flushRef.current = save;
+
   useEffect(() => {
     if (!enabled) return;
     const flush = (): void => {
-      if (latest.current !== baseline.current && !inFlight.current) void save();
+      if (latest.current !== baseline.current && !inFlight.current) void flushRef.current();
     };
     window.addEventListener("pagehide", flush);
-    return () => window.removeEventListener("pagehide", flush);
-  }, [enabled, save]);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [enabled]);
 
   return { state, saveNow };
 }

@@ -107,11 +107,61 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
   return taskId;
 }
 
+export interface KieExtendInput {
+  /** The task that produced the clip being continued. */
+  taskId: string;
+  /** How the continuation should go. Required by the provider. */
+  prompt: string;
+  /** `fast` | `quality` | `lite`; defaults to fast at the provider. */
+  model?: string;
+  callBackUrl?: string;
+}
+
+/**
+ * Continues a clip the provider already made.
+ *
+ * Only veo can do this, and only for its own output: the request names a task
+ * id rather than a video, so there is no way to hand it a file. Two constraints
+ * come with that and both are load-bearing.
+ *
+ * The first is that a clip generated at 1080p cannot be extended at all, which
+ * is why 720p is the default resolution everywhere and why raising it would
+ * quietly remove this feature from every video made afterwards.
+ *
+ * The second is that audio continues but vocals do not, unless the source clip
+ * has vocal audio in its final second. Background sound and music carry over;
+ * a narration that ends on a pause extends into silence.
+ */
+export async function extendVideoTask(input: KieExtendInput): Promise<string> {
+  const response = await fetch(`${KIE_BASE}/veo/extend`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      taskId: input.taskId,
+      prompt: input.prompt,
+      model: input.model ?? "fast",
+      callBackUrl: input.callBackUrl,
+    }),
+  });
+
+  const body = await response.json().catch(() => null);
+  const taskId = body?.data?.taskId;
+  if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
+    throw new Error(`kie.ai extend failed: ${body?.msg ?? response.status}`);
+  }
+  return taskId;
+}
+
 export interface KieMarketVideoInput {
   model: string;
   prompt: string;
   /** Stills to animate from, in the order the caller supplied them. */
   imageUrls: readonly string[];
+  /** Footage to edit or copy motion from. Empty for a generated-from-nothing run. */
+  videoUrls: readonly string[];
   /** "9:16" | "16:9" | "Auto". */
   aspectRatio: string;
   duration: number;
@@ -143,6 +193,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
   const modelInput = buildMarketInput(input.model, {
     prompt: input.prompt,
     imageUrls: input.imageUrls,
+    videoUrls: input.videoUrls,
     aspectRatio: input.aspectRatio,
     duration: input.duration,
     shots: input.shots,
