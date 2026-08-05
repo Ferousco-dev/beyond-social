@@ -59,6 +59,10 @@ const sendSchema = z.object({
     .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
     .max(MAX_ATTACHMENTS)
     .optional(),
+  shots: z
+    .array(z.object({ prompt: z.string().trim().min(1).max(500), duration: z.number().int().min(1).max(12) }))
+    .max(5)
+    .optional(),
 });
 
 export type SendResult =
@@ -119,7 +123,7 @@ async function sendForUser(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SendResult> {
-  const { prompt, aspectRatio, imageUrls, videoPaths, attachments } = parsed;
+  const { prompt, aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
   const user = { id: userId };
 
   // The paths come back from the client, so ownership is re-checked here rather
@@ -290,6 +294,7 @@ async function sendForUser(
           imagePaths: attachments
             ?.filter((attachment) => attachment.kind === "photo")
             .map((attachment) => attachment.path),
+          ...(shots && shots.length > 0 ? { shots } : {}),
           sourceChunks: chunkIds,
         },
       });

@@ -7,6 +7,7 @@ import {
   Mic,
   Music,
   Plus,
+  Scissors,
   Sparkles,
   TrendingUp,
   type LucideIcon,
@@ -34,6 +35,7 @@ interface MenuItem {
   upload?: boolean;
   voice?: boolean;
   footage?: boolean;
+  shots?: boolean;
   navigate?: string;
 }
 
@@ -52,6 +54,12 @@ const ITEMS: readonly MenuItem[] = [
     hint: "Copy its motion onto a photo",
     footage: true,
   },
+  {
+    icon: Scissors,
+    label: "Add shots",
+    hint: "Cut between scenes in one call",
+    shots: true,
+  },
   { icon: Music, label: "Music library", hint: "Add a track in the editor" },
   { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
@@ -67,6 +75,7 @@ export function ComposeMenu({
   onPhotos,
   onVoice,
   onFootage,
+  onShots,
   onError,
   onBusyChange,
 }: {
@@ -74,6 +83,7 @@ export function ComposeMenu({
   onPhotos: (photos: readonly PendingPhoto[]) => void;
   onVoice: (voice: PendingVoice) => void;
   onFootage: (footage: PendingFootage) => void;
+  onShots: () => void;
   onError: (message: string) => void;
   onBusyChange: (busy: boolean) => void;
 }) {
@@ -195,6 +205,8 @@ export function ComposeMenu({
                     voice.open();
                   } else if (item.footage) {
                     footage.open();
+                  } else if (item.shots) {
+                    onShots();
                   } else if (item.navigate) {
                     router.push(item.navigate as Route);
                   }

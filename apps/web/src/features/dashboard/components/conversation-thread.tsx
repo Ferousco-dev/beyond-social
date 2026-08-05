@@ -23,6 +23,7 @@ import { ThinkingIndicator } from "./thinking-indicator";
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
+import { type PendingShot } from "./shot-list-editor";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
 const PENDING_PHOTOS_KEY = "bs:pending-photos";
@@ -49,6 +50,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
    * attachment and is cleared on send like the rest of the composer.
    */
   const [footage, setFootage] = useState<PendingFootage | null>(null);
+  const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const { confirm, dialog } = useConfirm();
@@ -260,9 +262,11 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       ];
 
       const clip = footage;
+      const shotList = shots;
       setPhotos([]);
       setVoice(null);
       setFootage(null);
+      setShots(null);
       setMessages((current) => [
         ...current,
         { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
@@ -285,12 +289,17 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           return;
         }
 
+        const validShots = shotList
+          ?.filter((shot) => shot.prompt.trim().length > 0)
+          .map((shot) => ({ prompt: shot.prompt.trim(), duration: shot.duration }));
+
         const payload = {
           projectId,
           prompt: trimmed,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
           videoPaths: clip ? [clip.path] : undefined,
+          shots: validShots && validShots.length > 0 ? validShots : undefined,
         };
         let result = await sendMessage(payload);
 
@@ -382,7 +391,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         }
       })();
     },
-    [projectId, photos, voice, footage, router, sending, rendering, runAvatar, confirm],
+    [projectId, photos, voice, footage, shots, router, sending, rendering, runAvatar, confirm],
   );
 
   // Seeded from the dashboard composer or a trend card. The key is cleared
@@ -480,6 +489,8 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             onVoice={setVoice}
             footage={footage}
             onFootage={setFootage}
+            shots={shots}
+            onShotsChange={setShots}
             busy={sending || rendering}
           />
         </div>
