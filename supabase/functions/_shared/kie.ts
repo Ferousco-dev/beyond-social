@@ -1,5 +1,7 @@
 // Typed client for the kie.ai Veo video-generation API.
 // Docs: https://docs.kie.ai/veo3-api/generate-veo-3-video
+import { buildMarketInput, type Shot } from "./kie-models.ts";
+
 const KIE_BASE = "https://api.kie.ai/api/v1";
 
 function apiKey(): string {
@@ -105,11 +107,66 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
   return taskId;
 }
 
+export interface KieExtendInput {
+  /** The task that produced the clip being continued. */
+  taskId: string;
+  /** How the continuation should go. Required by the provider. */
+  prompt: string;
+  /** `fast` | `quality` | `lite`; defaults to fast at the provider. */
+  model?: string;
+  callBackUrl?: string;
+}
+
+/**
+ * Continues a clip the provider already made.
+ *
+ * Only veo can do this, and only for its own output: the request names a task
+ * id rather than a video, so there is no way to hand it a file. Two constraints
+ * come with that and both are load-bearing.
+ *
+ * The first is that a clip generated at 1080p cannot be extended at all, which
+ * is why 720p is the default resolution everywhere and why raising it would
+ * quietly remove this feature from every video made afterwards.
+ *
+ * The second is that audio continues but vocals do not, unless the source clip
+ * has vocal audio in its final second. Background sound and music carry over;
+ * a narration that ends on a pause extends into silence.
+ */
+export async function extendVideoTask(input: KieExtendInput): Promise<string> {
+  const response = await fetch(`${KIE_BASE}/veo/extend`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      taskId: input.taskId,
+      prompt: input.prompt,
+      model: input.model ?? "fast",
+      callBackUrl: input.callBackUrl,
+    }),
+  });
+
+  const body = await response.json().catch(() => null);
+  const taskId = body?.data?.taskId;
+  if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
+    throw new Error(`kie.ai extend failed: ${body?.msg ?? response.status}`);
+  }
+  return taskId;
+}
+
 export interface KieMarketVideoInput {
   model: string;
   prompt: string;
-  /** A still to animate from, if the run has one. */
-  imageUrl?: string;
+  /** Stills to animate from, in the order the caller supplied them. */
+  imageUrls: readonly string[];
+  /** Footage to edit or copy motion from. Empty for a generated-from-nothing run. */
+  videoUrls: readonly string[];
+  /** "9:16" | "16:9" | "Auto". */
+  aspectRatio: string;
+  duration: number;
+  /** Beats to cut between; empty for a single continuous take. */
+  shots: readonly Shot[];
   callBackUrl?: string;
 }
 
@@ -123,14 +180,25 @@ export interface KieMarketVideoInput {
  * endpoint is rejected outright, which is why this exists rather than another
  * branch inside `createVideoTask`.
  *
- * Duration and aspect ratio are deliberately not sent. The veo endpoint names
- * them one way and the market models another, and getting that wrong on a paid
- * call is expensive to discover: the request succeeds, a task starts, and the
- * credit is spent before anything can be checked. They are left to the
- * provider's defaults until each model's field names are known from its own
- * documentation rather than guessed.
+ * The arguments themselves are named per model by `buildMarketInput`, because
+ * no two market models name them the same way. This function used to send a
+ * single `image_url` to all of them, which none of them document: Kling takes
+ * `image_urls`, Seedance takes `first_frame_url` and `reference_image_urls`.
+ * A provider that ignores an unknown field turns that into a video generated
+ * without the reference photo the user attached, at full price.
  */
 export async function createMarketVideoTask(input: KieMarketVideoInput): Promise<string> {
+  // Throws before the request is made, so a model that cannot be addressed
+  // correctly costs nothing rather than failing after the task is created.
+  const modelInput = buildMarketInput(input.model, {
+    prompt: input.prompt,
+    imageUrls: input.imageUrls,
+    videoUrls: input.videoUrls,
+    aspectRatio: input.aspectRatio,
+    duration: input.duration,
+    shots: input.shots,
+  });
+
   const response = await fetch(`${KIE_BASE}/jobs/createTask`, {
     method: "POST",
     headers: {
@@ -140,10 +208,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
     body: JSON.stringify({
       model: input.model,
       callBackUrl: input.callBackUrl,
-      input: {
-        prompt: input.prompt,
-        ...(input.imageUrl ? { image_url: input.imageUrl } : {}),
-      },
+      input: modelInput,
     }),
   });
 

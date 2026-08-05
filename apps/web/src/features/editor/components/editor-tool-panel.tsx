@@ -19,6 +19,8 @@ import { type EditorState } from "../hooks/use-editor-state";
 import { type Playback } from "../hooks/use-playback";
 import { AudioPanel } from "./tools/audio-panel";
 import { FiltersPanel } from "./tools/filters-panel";
+import { STOCK_LIBRARIES_ARE_REAL } from "@/lib/editor/project";
+
 import { MediaPanel } from "./tools/media-panel";
 import { MusicPanel } from "./tools/music-panel";
 import { SpeedPanel } from "./tools/speed-panel";
@@ -27,15 +29,23 @@ import { TransformPanel } from "./tools/transform-panel";
 
 type TabId = "media" | "transform" | "speed" | "filters" | "text" | "audio" | "music";
 
-const TABS: ReadonlyArray<{ id: TabId; label: string; icon: LucideIcon }> = [
-  { id: "media", label: "Media", icon: Library },
+/*
+ * Media and Music are held back until their libraries point at real files.
+ * Both are listed here rather than deleted, so turning them on is one flag
+ * rather than an archaeology exercise, and filtered rather than commented out,
+ * so they keep being typechecked, linted and refactored with everything else.
+ */
+const ALL_TABS: ReadonlyArray<{ id: TabId; label: string; icon: LucideIcon; stock?: true }> = [
+  { id: "media", label: "Media", icon: Library, stock: true },
   { id: "transform", label: "Adjust", icon: Scissors },
   { id: "speed", label: "Speed", icon: Gauge },
   { id: "filters", label: "Filters", icon: Palette },
   { id: "text", label: "Text", icon: Type },
   { id: "audio", label: "Audio", icon: Sparkles },
-  { id: "music", label: "Music", icon: Music },
+  { id: "music", label: "Music", icon: Music, stock: true },
 ];
+
+const TABS = ALL_TABS.filter((tab) => STOCK_LIBRARIES_ARE_REAL || tab.stock !== true);
 
 export function EditorToolPanel({
   className,
@@ -46,7 +56,10 @@ export function EditorToolPanel({
   editor: EditorState;
   playback: Playback;
 }) {
-  const [tab, setTab] = useState<TabId>("media");
+  // The first tab that is actually shown. Defaulting to "media" outlived the
+  // tab itself once the stock libraries were held back, which opened the panel
+  // on a tab that was not in the list and rendered nothing.
+  const [tab, setTab] = useState<TabId>(TABS[0]?.id ?? "transform");
   const selected = editor.selected;
 
   // Selecting an item is a request to inspect it, so jump to the panel that can
@@ -85,7 +98,9 @@ export function EditorToolPanel({
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {tab === "media" ? <MediaPanel editor={editor} playback={playback} /> : null}
+        {tab === "media" && STOCK_LIBRARIES_ARE_REAL ? (
+          <MediaPanel editor={editor} playback={playback} />
+        ) : null}
         {tab === "transform" ? <TransformPanel item={video} editor={editor} /> : null}
         {tab === "speed" ? <SpeedPanel item={video} editor={editor} /> : null}
         {tab === "filters" ? <FiltersPanel item={video} editor={editor} /> : null}
@@ -93,7 +108,7 @@ export function EditorToolPanel({
         {tab === "audio" ? (
           <AudioPanel item={selected && isAudio(selected) ? selected : null} editor={editor} />
         ) : null}
-        {tab === "music" ? <MusicPanel editor={editor} /> : null}
+        {tab === "music" && STOCK_LIBRARIES_ARE_REAL ? <MusicPanel editor={editor} /> : null}
       </div>
     </div>
   );

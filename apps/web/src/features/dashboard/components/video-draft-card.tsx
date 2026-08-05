@@ -6,6 +6,8 @@ import { useCallback, useRef, useState, type ReactNode } from "react";
 
 import { type MessageDraft } from "@/lib/chat/thread";
 
+import { canContinue } from "@/lib/generation/model-limits";
+
 import { DraftMenu } from "./draft-menu";
 
 /**
@@ -20,11 +22,13 @@ export function VideoDraftCard({
   draft,
   editorHref,
   onRegenerate,
+  onExtend,
   regenerating,
 }: {
   draft: MessageDraft;
   editorHref: Route;
   onRegenerate?: (generationId: string) => void;
+  onExtend?: (generationId: string) => void;
   regenerating?: boolean;
 }): ReactNode {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -96,6 +100,14 @@ export function VideoDraftCard({
             editorHref={editorHref}
             busy={regenerating}
             downloadUrl={draft.resultUrl}
+            onExtend={
+              // Only where the model can continue its own output. Offering it
+              // elsewhere would put a menu item in front of people that always
+              // answers with a refusal.
+              onExtend && draft.generationId && canContinue(draft.model)
+                ? () => onExtend(draft.generationId)
+                : undefined
+            }
             onRegenerate={
               onRegenerate && draft.generationId
                 ? () => onRegenerate(draft.generationId)

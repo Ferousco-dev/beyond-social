@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Download, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
+import { Download, FastForward, MoreHorizontal, Pencil, RefreshCw } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -19,11 +19,18 @@ const MENU_ITEM =
 export function DraftMenu({
   editorHref,
   onRegenerate,
+  onExtend,
   busy,
   downloadUrl,
 }: {
   editorHref: Route;
   onRegenerate?: () => void;
+  /**
+   * Continues the clip where it ends. Absent when the model that made it
+   * cannot continue its own output, so the option is never offered for
+   * something that would be refused.
+   */
+  onExtend?: () => void;
   busy?: boolean;
   /** The signed link for this render, if it has finished. */
   downloadUrl?: string | null;
@@ -69,6 +76,13 @@ export function DraftMenu({
               Open in editor
             </Link>
           </DropdownMenu.Item>
+
+          {onExtend ? (
+            <DropdownMenu.Item className={MENU_ITEM} onSelect={onExtend} disabled={busy}>
+              <FastForward className="size-4 text-ink-soft" aria-hidden />
+              Continue this clip
+            </DropdownMenu.Item>
+          ) : null}
 
           {onRegenerate ? (
             <DropdownMenu.Item className={MENU_ITEM} onSelect={onRegenerate} disabled={busy}>

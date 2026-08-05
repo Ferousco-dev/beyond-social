@@ -58,6 +58,8 @@ export function DashboardHome({ name }: { name: string }) {
         photos={photos}
         onPhotosChange={setPhotos}
         voice={null}
+        footage={null}
+        onFootage={() => {}}
         onVoice={() => undefined}
         busy={false}
       />

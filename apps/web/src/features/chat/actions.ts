@@ -10,7 +10,8 @@ import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/cons
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
-import { classify, isSupportedDuration, SUPPORTED_DURATIONS } from "@/lib/generation/intent";
+import { classify } from "@/lib/generation/intent";
+import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { runWithAiUser } from "@/lib/ai/request-user";
@@ -44,6 +45,11 @@ const sendSchema = z.object({
   prompt: z.string().trim().min(1, "Describe the video first").max(2000),
   aspectRatio: z.enum(ASPECT_RATIOS).optional(),
   imageUrls: z.array(z.string().url()).max(4).optional(),
+  /**
+   * Footage to edit or copy motion from, as object paths in the video bucket.
+   * One at a time: every model that reads video takes exactly one.
+   */
+  videoPaths: z.array(z.string().min(1)).max(1).optional(),
   /**
    * Object paths, not URLs. The signed URLs in `imageUrls` are what the
    * provider fetches and they expire in two hours; the path is what the thread
@@ -113,7 +119,7 @@ async function sendForUser(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SendResult> {
-  const { prompt, aspectRatio, imageUrls, attachments } = parsed;
+  const { prompt, aspectRatio, imageUrls, videoPaths, attachments } = parsed;
   const user = { id: userId };
 
   // The paths come back from the client, so ownership is re-checked here rather
@@ -122,6 +128,12 @@ async function sendForUser(
   // better told than quietly ignored.
   if (attachments?.some((attachment) => !attachment.path.startsWith(`${user.id}/`))) {
     return { status: "error", message: "Those attachments could not be saved" };
+  }
+
+  // The same ownership check for footage, which lives in its own bucket under
+  // the same per-user prefix.
+  if (videoPaths?.some((path) => !path.startsWith(`${user.id}/`))) {
+    return { status: "error", message: "That video could not be used" };
   }
 
   /*
@@ -217,22 +229,30 @@ async function sendForUser(
   let generationId: string | null = null;
   let notice: string | undefined;
 
+  /*
+   * Which model runs decides how long a clip can be, so it has to be known
+   * before the length is judged. This check used to run against one hardcoded
+   * set, which was veo's, and told a Kling user that clips can be four, six or
+   * eight seconds when Kling does fifteen: the app refusing something it can do.
+   */
+  const chosenModel = await preferredModel(supabase, user.id, "video");
+
   // Asking for a length we cannot render is worth saying out loud. Silently
   // producing eight seconds when someone asked for thirty is the kind of thing
   // that makes a tool feel like it is not listening.
   const requestedDuration = intent.durationSeconds;
   const usableDuration =
-    requestedDuration !== null && isSupportedDuration(requestedDuration) ? requestedDuration : null;
+    requestedDuration !== null && supportsDuration(chosenModel, requestedDuration)
+      ? requestedDuration
+      : null;
   if (requestedDuration !== null && usableDuration === null) {
-    notice = `Clips can be ${SUPPORTED_DURATIONS.join(", ")} seconds long, so this one is ${SUPPORTED_DURATIONS[SUPPORTED_DURATIONS.length - 1]} seconds rather than ${requestedDuration}.`;
+    notice = `This model makes clips of ${describeDurations(chosenModel)}, so this one is ${maxSecondsFor(chosenModel)} seconds rather than ${requestedDuration}.`;
   }
 
   // A question costs nothing. This is the whole point of classifying: not
   // spending a credit on a video the person did not ask for.
   const startGeneration = async (): Promise<void> => {
     if (intent.intent === "ask") return;
-
-    const chosenModel = await preferredModel(supabase, user.id, "video");
 
     // Tier and balance, checked server-side before the provider is called. A
     // refusal here costs nothing and leaves no half-started generation row.
@@ -259,6 +279,7 @@ async function sendForUser(
           // missing preference never stops a video being made.
           model: chosenModel ?? undefined,
           aspectRatio: intent.aspectRatio ?? aspectRatio,
+          ...(videoPaths && videoPaths.length > 0 ? { videoPaths } : {}),
           ...(usableDuration ? { duration: usableDuration } : {}),
           imageUrls,
           // Preferred over imageUrls. The edge function reads these from

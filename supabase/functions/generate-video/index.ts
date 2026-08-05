@@ -4,6 +4,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
+import { UnsupportedModelError } from "../_shared/kie-models.ts";
+import {
+  ShotsNotSupportedError,
+  resolveDuration,
+  resolveShots,
+} from "../_shared/video-capabilities.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -17,10 +23,22 @@ interface GenerateBody {
   imageUrls?: string[];
   /** Object paths in the uploads bucket, preferred over imageUrls. */
   imagePaths?: string[];
+  /**
+   * Object paths in the video-uploads bucket, for models that edit footage or
+   * copy motion from it. A separate bucket from the stills because the size
+   * ceiling and the allowed types are different.
+   */
+  videoPaths?: string[];
   /** Which video model to run. Validated against the catalogue. */
   model?: string;
   /** Seconds. Only present when the request actually asked for a length. */
   duration?: number;
+  /**
+   * Beats to cut between, for models that generate several shots in one call.
+   * Absent means one continuous take, which is a different request rather than
+   * a shorter version of this one.
+   */
+  shots?: { prompt?: string; duration?: number }[];
 }
 
 Deno.serve(async (req) => {
@@ -68,14 +86,6 @@ Deno.serve(async (req) => {
   const aspectRatio =
     body.aspectRatio === "16:9" || body.aspectRatio === "Auto" ? body.aspectRatio : "9:16";
 
-  // The provider accepts a fixed set of lengths; anything else is rejected
-  // outright rather than rounded, so an out-of-range request falls back to the
-  // default instead of failing the whole generation.
-  const ALLOWED_DURATIONS = [4, 6, 8];
-  const duration =
-    typeof body.duration === "number" && ALLOWED_DURATIONS.includes(body.duration)
-      ? body.duration
-      : 8;
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
@@ -114,6 +124,26 @@ Deno.serve(async (req) => {
   }
 
   /*
+   * Footage the run edits or copies motion from, handed over the same way the
+   * stills are: uploaded as bytes rather than linked, so the provider never has
+   * to reach our storage and a signed link cannot expire in a queue. A separate
+   * bucket from the photos, because video has a different size ceiling and a
+   * different set of allowed types.
+   */
+  const footageUrls: string[] = [];
+  try {
+    for (const path of body.videoPaths?.slice(0, 1) ?? []) {
+      footageUrls.push(await handToProvider(supabase, "video-uploads", path, traceId));
+    }
+  } catch (error) {
+    log("error", "could not hand the reference video to the provider", { traceId });
+    return json(
+      { error: error instanceof Error ? error.message : "Could not prepare the reference video" },
+      502,
+    );
+  }
+
+  /*
    * Which model, and therefore which endpoint.
    *
    * The requested id is looked up rather than trusted, and constrained to the
@@ -130,6 +160,36 @@ Deno.serve(async (req) => {
     .eq("family", "video")
     .maybeSingle();
   if (!chosen?.is_active) return json({ error: "That model is not available" }, 503);
+
+  /*
+   * Length is a property of the model, so it can only be settled once the model
+   * is known. This was previously fixed at Veo's `[4, 6, 8]` for the whole
+   * catalogue, which capped every model at the cheapest one's ceiling: a Kling
+   * run that could have been fifteen seconds came back as eight, and a request
+   * for twelve fell back to eight rather than being honoured.
+   */
+  const duration = resolveDuration(chosen.id, body.duration);
+
+  /*
+   * A shot list is refused rather than dropped when the model cannot cut, for
+   * the same reason an unknown input field is refused: silently generating one
+   * continuous take for someone who asked for five beats bills them in full for
+   * something they did not ask for.
+   */
+  let shots: readonly { prompt: string; duration: number }[];
+  try {
+    shots = resolveShots(
+      chosen.id,
+      body.shots?.flatMap((shot) =>
+        typeof shot?.prompt === "string" && typeof shot?.duration === "number"
+          ? [{ prompt: shot.prompt, duration: shot.duration }]
+          : [],
+      ),
+    );
+  } catch (error) {
+    if (error instanceof ShotsNotSupportedError) return json({ error: error.message }, 400);
+    throw error;
+  }
 
   /*
    * Veo models are created on `/veo/generate`; every other model on this
@@ -154,10 +214,27 @@ Deno.serve(async (req) => {
       : await createMarketVideoTask({
           model: chosen.id,
           prompt,
-          imageUrl: referenceUrls?.[0],
+          imageUrls: referenceUrls ?? [],
+          videoUrls: footageUrls,
+          aspectRatio,
+          duration,
+          shots,
           callBackUrl,
         });
   } catch (error) {
+    /*
+     * A model we cannot address correctly is refused before anything is
+     * dispatched, so it is the caller's request that is wrong, not the
+     * provider that is down. Reporting it as 502 would blame kie for a shape
+     * this code chose.
+     */
+    if (error instanceof UnsupportedModelError) {
+      log("error", "refused to dispatch a model with an unknown request shape", {
+        traceId,
+        model: chosen.id,
+      });
+      return json({ error: error.message }, 400);
+    }
     return json({ error: error instanceof Error ? error.message : "Generation failed" }, 502);
   }
 
