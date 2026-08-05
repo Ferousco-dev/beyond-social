@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { UnsupportedModelError } from "../_shared/kie-models.ts";
+import { resolveDuration } from "../_shared/video-capabilities.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -69,14 +70,6 @@ Deno.serve(async (req) => {
   const aspectRatio =
     body.aspectRatio === "16:9" || body.aspectRatio === "Auto" ? body.aspectRatio : "9:16";
 
-  // The provider accepts a fixed set of lengths; anything else is rejected
-  // outright rather than rounded, so an out-of-range request falls back to the
-  // default instead of failing the whole generation.
-  const ALLOWED_DURATIONS = [4, 6, 8];
-  const duration =
-    typeof body.duration === "number" && ALLOWED_DURATIONS.includes(body.duration)
-      ? body.duration
-      : 8;
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
@@ -131,6 +124,15 @@ Deno.serve(async (req) => {
     .eq("family", "video")
     .maybeSingle();
   if (!chosen?.is_active) return json({ error: "That model is not available" }, 503);
+
+  /*
+   * Length is a property of the model, so it can only be settled once the model
+   * is known. This was previously fixed at Veo's `[4, 6, 8]` for the whole
+   * catalogue, which capped every model at the cheapest one's ceiling: a Kling
+   * run that could have been fifteen seconds came back as eight, and a request
+   * for twelve fell back to eight rather than being honoured.
+   */
+  const duration = resolveDuration(chosen.id, body.duration);
 
   /*
    * Veo models are created on `/veo/generate`; every other model on this
