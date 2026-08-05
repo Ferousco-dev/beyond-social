@@ -41,7 +41,7 @@ export function useExtendDraft({
       const agreed = await confirm({
         title: "Continue this clip?",
         description:
-          "This renders a new section that carries on from the end of this one, and spends credits. Background sound continues, but speech only carries over if the clip ends mid-sentence.",
+          "This generates a new clip that continues the story, and costs one credit. You can chain as many continuations as you like.",
         confirmLabel: "Continue",
       });
       if (!agreed) return;
