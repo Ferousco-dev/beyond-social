@@ -28,9 +28,6 @@ const EXTENSIONS: Record<(typeof ACCEPTED)[number], string> = {
   "video/quicktime": "mov",
 };
 
-/** What the file input should offer, kept in step with `ACCEPTED`. */
-export const VIDEO_ACCEPT = ACCEPTED.join(",");
-
 const ticketSchema = z.object({
   type: z.enum(ACCEPTED, { message: "Video must be MP4 or MOV" }),
   size: z.number().int().positive().max(MAX_BYTES, "The video must be under 100 MB"),

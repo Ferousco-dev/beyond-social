@@ -3,7 +3,6 @@
 import Stripe from "stripe";
 import { z } from "zod";
 
-import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { STRIPE_PRICES, isBillingConfigured, serverEnv } from "@/lib/server-env";
@@ -97,5 +96,3 @@ export async function openBillingPortal(): Promise<CheckoutResult> {
     return { status: "error", message: "Could not open billing portal" };
   }
 }
-
-export { PLAN_CATALOGUE };
