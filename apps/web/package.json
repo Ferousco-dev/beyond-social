@@ -16,6 +16,7 @@
     "test:trends": "tsx --tsconfig scripts/tsconfig.json scripts/trends-smoke.ts",
     "test:brief": "tsx --tsconfig scripts/tsconfig.json scripts/brief-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
+    "test:scrape": "tsx --tsconfig scripts/tsconfig.json scripts/scrape-smoke.ts",
     "test:optimization": "tsx --tsconfig scripts/tsconfig.json scripts/optimization-smoke.ts",
     "test:generation": "tsx --tsconfig scripts/tsconfig.json scripts/generation-smoke.ts",
     "test:catalog": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/catalog-smoke.ts",

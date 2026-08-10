@@ -18,11 +18,10 @@ import { cn } from "@/lib/utils";
 export function IndustryPicker({
   value,
   onChange,
-  disabled = false,
 }: {
   value: string | null;
-  onChange: (industry: string) => void;
-  disabled?: boolean;
+  /** Null when the active choice is pressed again, which clears it. */
+  onChange: (industry: string | null) => void;
 }) {
   return (
     <div
@@ -38,12 +37,13 @@ export function IndustryPicker({
             type="button"
             role="radio"
             aria-checked={active}
-            disabled={disabled}
-            onClick={() => onChange(industry.id)}
+            // Pressing the active one clears it. A radio group normally has no
+            // way back to nothing, and "I would rather not say" is a real answer
+            // to this question.
+            onClick={() => onChange(active ? null : industry.id)}
             className={cn(
               "inline-flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-sm transition-colors",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-              "disabled:cursor-not-allowed disabled:opacity-50",
               active
                 ? "border-ink bg-ink text-paper"
                 : "border-hairline bg-paper text-ink hover:bg-cloud",

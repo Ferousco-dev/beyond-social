@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { fetchPosters } from "@/lib/tiktok/oembed";
 import { TikTokResearchClient } from "@/lib/tiktok/research";
 
@@ -38,16 +39,32 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in to search TikTok." };
 
+  /*
+   * Apify first, TikTok's own API second.
+   *
+   * The Research API is the more authoritative of the two and reports a real
+   * transcript, so it is still preferred where it exists. It is almost never
+   * granted to a commercial product though, which is why the scraper is the
+   * route that actually works and is checked for first when it is configured.
+   */
   const client = new TikTokResearchClient();
-  if (!client.available) return { status: "unconfigured" };
+  const scraping = isScrapeConfigured();
+  if (!scraping && !client.available) return { status: "unconfigured" };
 
   try {
-    const posts = await client.search([parsed.data.query], RESULT_LIMIT);
+    const posts = scraping
+      ? await searchPosts("tiktok", parsed.data.query, RESULT_LIMIT)
+      : await client.search([parsed.data.query], RESULT_LIMIT);
     if (posts.length === 0) return { status: "ok", posts: [] };
 
-    // Posters are a nicety: a lookup that fails leaves a post with no still,
-    // which the scroller renders as a placeholder rather than dropping.
-    const posters = await fetchPosters(posts.map((post) => post.url));
+    /*
+     * Posters only for the posts that arrived without one. The scraper returns
+     * a cover, so this is usually nothing; the Research API does not, so it is
+     * every post. Either way a lookup that fails leaves a post with no still,
+     * which the scroller renders as a placeholder rather than dropping.
+     */
+    const missing = posts.filter((post) => !("thumbnailUrl" in post) || !post.thumbnailUrl);
+    const posters = await fetchPosters(missing.map((post) => post.url));
 
     const results: DiscoverPost[] = posts.map((post) => ({
       videoId: post.videoId,
@@ -55,7 +72,10 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
       url: post.url,
       caption: post.description,
       viewCount: post.viewCount,
-      thumbnailUrl: posters.get(post.url)?.thumbnailUrl ?? null,
+      thumbnailUrl:
+        ("thumbnailUrl" in post ? post.thumbnailUrl : null) ??
+        posters.get(post.url)?.thumbnailUrl ??
+        null,
       likeCount: post.likeCount,
       commentCount: post.commentCount,
       shareCount: post.shareCount,

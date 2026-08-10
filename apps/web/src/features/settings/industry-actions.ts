@@ -15,7 +15,17 @@ import { isTrendCategory } from "@/lib/trends/categories";
  * with no way for the user to see why.
  */
 const schema = z.object({
-  industry: z.string().min(1).max(32).refine(isTrendCategory, "Not an industry we cover"),
+  /**
+   * Null clears it. Not answering and answering "any industry" are different
+   * states: the first is someone who never said, the second is someone who did
+   * and meant no particular one, and the column has always been nullable.
+   */
+  industry: z
+    .string()
+    .min(1)
+    .max(32)
+    .refine(isTrendCategory, "Not an industry we cover")
+    .nullable(),
 });
 
 export type IndustryResult = { ok: true } | { ok: false; message: string };
