@@ -131,3 +131,45 @@
     display: none;
   }
 }
+
+/*
+ * A screen peeking in from the card's right edge.
+ *
+ * Decoration, not documentation. It sits under the copy (`.content` is already
+ * z-index 2), most of it hangs outside the card and is clipped by the existing
+ * `overflow: hidden`, and it fades out towards the text so it never competes
+ * with the words for the reader's attention.
+ *
+ * Deliberately illegible at this size. It is there to suggest a real product
+ * behind the claim, not to be read, which is also why the exact screen it shows
+ * does not need to track the app release by release.
+ */
+.peek {
+  position: absolute;
+  right: -6%;
+  bottom: -14%;
+  z-index: 1;
+  width: 62%;
+  max-width: 360px;
+  height: auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--hairline);
+  transform: rotate(-5deg);
+  opacity: 0.5;
+  pointer-events: none;
+  /* Fades towards the copy on the left, so the two never collide. */
+  mask-image: linear-gradient(to left, rgb(0 0 0) 45%, rgb(0 0 0 / 0) 100%);
+  -webkit-mask-image: linear-gradient(to left, rgb(0 0 0) 45%, rgb(0 0 0 / 0) 100%);
+}
+
+/* Lighter touch on dark, where a bright panel would glare against the surface. */
+:global(.dark) .peek {
+  opacity: 0.32;
+}
+
+/* No room for it beside the copy on a narrow card, so it is not offered. */
+@media (max-width: 640px) {
+  .peek {
+    display: none;
+  }
+}

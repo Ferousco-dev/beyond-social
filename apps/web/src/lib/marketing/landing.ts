@@ -17,6 +17,14 @@ export interface Feature {
   readonly icon: LucideIcon;
   readonly title: string;
   readonly description: string;
+  /**
+   * A screen peeking in from the card's right edge.
+   *
+   * Only on the cards wide enough to carry one. Decoration rather than
+   * documentation: it is clipped, faded and rotated, and is there to suggest a
+   * real product behind the claim rather than to be read.
+   */
+  readonly peek?: { readonly src: string; readonly alt: string };
 }
 
 export interface Step {
@@ -56,6 +64,7 @@ export const FEATURES: readonly Feature[] = [
     title: "Prompt intelligence",
     description:
       "Every prompt is grounded in a knowledge base of cinematography, lighting, and retention craft, then rewritten into a director-grade shot description.",
+    peek: { src: "/app/compose.png", alt: "" },
   },
   {
     icon: Clapperboard,
@@ -74,12 +83,14 @@ export const FEATURES: readonly Feature[] = [
     title: "Schedule once, publish everywhere",
     description:
       "Queue a week of content and let it publish itself to TikTok, Instagram, YouTube, and Facebook at the right moment.",
+    peek: { src: "/app/library.png", alt: "" },
   },
   {
     icon: BarChart3,
     title: "Performance that feeds back",
     description:
       "Views and reach flow back into the engine, so the system learns which creative choices actually earned attention.",
+    peek: { src: "/app/overview.png", alt: "" },
   },
   {
     icon: Sparkles,
