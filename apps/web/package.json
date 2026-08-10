@@ -48,6 +48,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.81.0",
+    "simple-icons": "^16.28.0",
     "stripe": "^22.3.1",
     "tailwind-merge": "^3.6.0",
     "zod": "^3.24.1"

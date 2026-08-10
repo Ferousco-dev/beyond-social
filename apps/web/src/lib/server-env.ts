@@ -22,14 +22,6 @@ const serverEnvSchema = z.object({
   // TikTok and Meta app review do not complete on the same day.
   TIKTOK_CLIENT_KEY: z.string().default(""),
   TIKTOK_CLIENT_SECRET: z.string().default(""),
-  /**
-   * TikTok's Research API, which is a separate app registration from the one
-   * that publishes. Kept as its own pair rather than reusing the posting
-   * credentials, because they are issued under different approvals and will not
-   * arrive together.
-   */
-  TIKTOK_RESEARCH_CLIENT_KEY: z.string().default(""),
-  TIKTOK_RESEARCH_CLIENT_SECRET: z.string().default(""),
   META_APP_ID: z.string().default(""),
   META_APP_SECRET: z.string().default(""),
   GOOGLE_CLIENT_ID: z.string().default(""),
@@ -58,8 +50,6 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   STRIPE_PRICE_STUDIO: process.env.STRIPE_PRICE_STUDIO,
   TIKTOK_CLIENT_KEY: process.env.TIKTOK_CLIENT_KEY,
   TIKTOK_CLIENT_SECRET: process.env.TIKTOK_CLIENT_SECRET,
-  TIKTOK_RESEARCH_CLIENT_KEY: process.env.TIKTOK_RESEARCH_CLIENT_KEY,
-  TIKTOK_RESEARCH_CLIENT_SECRET: process.env.TIKTOK_RESEARCH_CLIENT_SECRET,
   META_APP_ID: process.env.META_APP_ID,
   META_APP_SECRET: process.env.META_APP_SECRET,
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
@@ -105,11 +95,3 @@ export const isPromptEngineConfigured =
 
 /** Trend discovery runs only with a Firecrawl key; without it the feed is empty. */
 export const isTrendDiscoveryConfigured = serverEnv.FIRECRAWL_API_KEY !== "";
-
-/**
- * TikTok's Research API, which is the only official source of what is trending
- * on the platform. Access is granted case by case and may never be, so
- * discovery treats this as the preferred source rather than a required one.
- */
-export const isTikTokResearchConfigured =
-  serverEnv.TIKTOK_RESEARCH_CLIENT_KEY !== "" && serverEnv.TIKTOK_RESEARCH_CLIENT_SECRET !== "";

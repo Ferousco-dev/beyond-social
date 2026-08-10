@@ -6,16 +6,20 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { fetchPosters } from "@/lib/tiktok/oembed";
-import { TikTokResearchClient } from "@/lib/tiktok/research";
 
 import { type DiscoverPost, type DiscoverResult } from "./types";
 
 /**
  * Searching TikTok from the scroller.
  *
- * The search runs on the server because the credentials do, and because a
- * browser cannot call the Research API at all. What comes back is a list of real
- * posts, which the scroller then embeds one at a time.
+ * Through Apify. TikTok's own Research API was the first route and is gone: it
+ * is the more authoritative of the two and reports a real transcript, but access
+ * is granted case by case and commercial products are usually refused, so it was
+ * a dependency on something that might never arrive. It is in the history if it
+ * is ever worth reviving.
+ *
+ * The search runs on the server because the token does. What comes back is a
+ * list of real posts, which the scroller then embeds one at a time.
  */
 
 /** A feed's worth. Beyond this the user is scrolling, not searching. */
@@ -39,31 +43,19 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in to search TikTok." };
 
-  /*
-   * Apify first, TikTok's own API second.
-   *
-   * The Research API is the more authoritative of the two and reports a real
-   * transcript, so it is still preferred where it exists. It is almost never
-   * granted to a commercial product though, which is why the scraper is the
-   * route that actually works and is checked for first when it is configured.
-   */
-  const client = new TikTokResearchClient();
-  const scraping = isScrapeConfigured();
-  if (!scraping && !client.available) return { status: "unconfigured" };
+  if (!isScrapeConfigured()) return { status: "unconfigured" };
 
   try {
-    const posts = scraping
-      ? await searchPosts("tiktok", parsed.data.query, RESULT_LIMIT)
-      : await client.search([parsed.data.query], RESULT_LIMIT);
+    const posts = await searchPosts("tiktok", parsed.data.query, RESULT_LIMIT);
     if (posts.length === 0) return { status: "ok", posts: [] };
 
     /*
-     * Posters only for the posts that arrived without one. The scraper returns
-     * a cover, so this is usually nothing; the Research API does not, so it is
-     * every post. Either way a lookup that fails leaves a post with no still,
-     * which the scroller renders as a placeholder rather than dropping.
+     * Posters only for the posts that arrived without one. The scraper returns a
+     * cover for most, so this is usually a short list, and a lookup that fails
+     * leaves a post with no still, which the scroller renders as a placeholder
+     * rather than dropping.
      */
-    const missing = posts.filter((post) => !("thumbnailUrl" in post) || !post.thumbnailUrl);
+    const missing = posts.filter((post) => post.thumbnailUrl === null);
     const posters = await fetchPosters(missing.map((post) => post.url));
 
     const results: DiscoverPost[] = posts.map((post) => ({
@@ -72,10 +64,7 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
       url: post.url,
       caption: post.description,
       viewCount: post.viewCount,
-      thumbnailUrl:
-        ("thumbnailUrl" in post ? post.thumbnailUrl : null) ??
-        posters.get(post.url)?.thumbnailUrl ??
-        null,
+      thumbnailUrl: post.thumbnailUrl ?? posters.get(post.url)?.thumbnailUrl ?? null,
       likeCount: post.likeCount,
       commentCount: post.commentCount,
       shareCount: post.shareCount,

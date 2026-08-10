@@ -3,6 +3,7 @@
 import { Check, Loader2 } from "lucide-react";
 import { useTransition } from "react";
 
+import { PlatformLogo } from "@/components/brand/platform-logo";
 import { type SocialConnection } from "@/lib/social/connections";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,26 @@ export function ConnectionRow({
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hairline bg-paper p-4">
-      <div className="min-w-0">
+      {/*
+        The platform's real mark, in its own colour only when the row is usable.
+        A full-colour logo on a row that cannot be pressed reads as available,
+        and four identical greyed rows saying "pending" was already hard enough
+        to tell apart.
+      */}
+      <span
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-xl bg-cloud",
+          !connection.available && "opacity-50",
+        )}
+      >
+        <PlatformLogo
+          platform={connection.platform}
+          colour={connection.available}
+          className={cn(!connection.available && "text-ink-soft")}
+        />
+      </span>
+
+      <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-sm font-medium text-ink">
           {connection.label}
           {connection.connected ? (
