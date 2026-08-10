@@ -4,7 +4,7 @@ import { AvatarCard } from "@/features/assets/components/avatar-card";
 import { ProductsCard } from "@/features/assets/components/products-card";
 import { getBrandLibrary } from "@/lib/assets/brand";
 
-export const metadata: Metadata = { title: "You and your products" };
+export const metadata: Metadata = { title: "Your pictures" };
 export const dynamic = "force-dynamic";
 
 /**
@@ -19,6 +19,14 @@ export default async function BrandPage() {
 
   return (
     <section className="mt-6 lg:mt-8">
+      {/* Says where these get used before showing the upload buttons. Both
+          cards otherwise ask for a photo without saying what happens to it,
+          which is a lot to ask for somebody's face. */}
+      <p className="mb-4 text-sm text-ink-soft">
+        Kept so you can put yourself or your products in a video without finding the photo again
+        every time. Attach them from the plus button in the message box.
+      </p>
+
       <AvatarCard avatar={library.avatar} />
       <ProductsCard products={library.products} />
     </section>

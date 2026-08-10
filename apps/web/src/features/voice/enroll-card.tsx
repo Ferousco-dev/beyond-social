@@ -5,14 +5,17 @@ import { useCallback, useRef, useState, useTransition } from "react";
 
 import { useVoiceRecorder } from "@/features/dashboard/hooks/use-voice-recorder";
 import { useVoiceUpload } from "@/features/dashboard/hooks/use-voice-upload";
+import { PHRASE_SECONDS } from "@/lib/voice/phrase";
 
 import { deleteVoiceProfile, enrollVoice, type VoiceProfile } from "./actions";
 
 interface Props {
   initial: VoiceProfile | null;
+  /** The exact wording to read, and the wording stored with the recording. */
+  phrase: string;
 }
 
-export function EnrollCard({ initial }: Props) {
+export function EnrollCard({ initial, phrase }: Props) {
   const [profile, setProfile] = useState<VoiceProfile | null>(initial);
   const [error, setError] = useState<string | null>(null);
   const [enrolling, startEnroll] = useTransition();
@@ -25,10 +28,9 @@ export function EnrollCard({ initial }: Props) {
     projectId: "voice-enroll",
     onVoice: (pending) => {
       startEnroll(async () => {
-        const result = await enrollVoice({
-          path: pending.path,
-          phrase: "Voice enrollment sample",
-        });
+        // The wording that was on screen, not a placeholder. This column exists
+        // so a later dispute can be checked against what was actually asked.
+        const result = await enrollVoice({ path: pending.path, phrase });
         if (result.status === "ok") {
           setProfile(result.profile);
           setError(null);
@@ -153,9 +155,21 @@ export function EnrollCard({ initial }: Props) {
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-medium text-ink">Save your voice</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            Record a short clip of yourself speaking. Once saved, type what you want said instead of
-            recording each time.
+            Read the line below out loud, once. After that you can type what you want said instead
+            of recording every time.
           </p>
+
+          {/* The script is on screen rather than left to the user to invent.
+              A clip of somebody saying "testing, testing" is a worse sample and
+              a worse record: this names them and states what it is for, in
+              their own voice. */}
+          <blockquote className="mt-3 rounded-xl bg-cloud px-4 py-3 text-sm leading-relaxed text-ink">
+            {phrase}
+          </blockquote>
+          <p className="mt-2 text-xs text-ink-soft">
+            About {PHRASE_SECONDS} seconds. Somewhere quiet, at your normal speaking pace.
+          </p>
+
           <div className="mt-3">
             <button
               type="button"
