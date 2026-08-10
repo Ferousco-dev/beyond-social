@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { emptyProject, projectFromGenerations, type GenerationClip } from "./from-generations";
 import { parseProject } from "./schema";
+import { withFreshSources } from "./sources";
 import { type Project } from "./types";
 
 /** Loading a saved timeline. */
@@ -66,6 +67,14 @@ export async function getEditorDocument(projectId: string): Promise<EditorDocume
     durationSeconds: row.duration,
   }));
 
+  // Keyed by generation, which is what a saved clip remembers. The signed URL
+  // it was saved with has long since expired.
+  const urlByGeneration = new Map(
+    clips
+      .filter((clip): clip is GenerationClip & { resultUrl: string } => clip.resultUrl !== null)
+      .map((clip) => [clip.id, clip.resultUrl]),
+  );
+
   const fresh: EditorDocument = {
     project: clips.length > 0 ? projectFromGenerations(clips) : emptyProject(),
     revision: 0,
@@ -81,5 +90,5 @@ export async function getEditorDocument(projectId: string): Promise<EditorDocume
   const project = parseProject(row.document);
   if (!project) return fresh;
 
-  return { project, revision: row.revision, saved: true };
+  return { project: withFreshSources(project, urlByGeneration), revision: row.revision, saved: true };
 }

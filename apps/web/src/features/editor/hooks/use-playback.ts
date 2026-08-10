@@ -13,9 +13,13 @@ export interface Playback {
 }
 
 /**
- * Drives the editor clock. There is no media element yet, so the transport runs
- * off requestAnimationFrame; swapping in a real <video> later means replacing
- * this hook rather than every consumer.
+ * Drives the editor clock.
+ *
+ * The clock is deliberately not the media element. A timeline is longer than
+ * any one clip and has to keep running across gaps, captions and the end of the
+ * last cut, none of which a `<video>` knows about. So the transport runs off
+ * `requestAnimationFrame` and the preview's element follows it; see
+ * `use-clip-sync`.
  */
 export function usePlayback(durationMs: number): Playback {
   const [currentMs, setCurrentMs] = useState(0);

@@ -2,6 +2,7 @@ import { toPercent } from "@/lib/editor/timeline";
 import { type TextItem, type VideoItem } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
 
+import { useClipSync } from "../../hooks/use-clip-sync";
 import { PreviewSafeAreas } from "./preview-safe-areas";
 
 /** Feed captions are read against moving footage, so they carry their own outline. */
@@ -33,6 +34,8 @@ export function PreviewFrame({
   currentMs,
   durationMs,
   showSafeAreas,
+  isPlaying,
+  muted,
 }: {
   frameClassName: string;
   clip: VideoItem | undefined;
@@ -40,8 +43,12 @@ export function PreviewFrame({
   currentMs: number;
   durationMs: number;
   showSafeAreas: boolean;
+  isPlaying: boolean;
+  /** The video track's own mute, which outranks the clip's volume. */
+  muted: boolean;
 }) {
   const style = caption?.style;
+  const videoRef = useClipSync({ clip, currentMs, isPlaying, muted });
 
   return (
     <div
@@ -55,11 +62,13 @@ export function PreviewFrame({
           visibly do something either way. */}
       {clip?.sourceUrl ? (
         <video
+          ref={videoRef}
           key={clip.sourceUrl}
           src={clip.sourceUrl}
-          muted
           playsInline
-          preload="metadata"
+          // The transport seeks this element as the playhead moves, so the
+          // frames have to be there to seek to, not just the metadata.
+          preload="auto"
           style={{
             opacity: clip.opacity,
             filter: filterCss(clip),
