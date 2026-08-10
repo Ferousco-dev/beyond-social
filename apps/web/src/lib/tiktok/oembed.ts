@@ -93,7 +93,5 @@ export async function fetchPosters(
     unique.map(async (url) => [url, await fetchPoster(url)] as const),
   );
 
-  return new Map(
-    results.filter((entry): entry is [string, TikTokPoster] => entry[1] !== null),
-  );
+  return new Map(results.filter((entry): entry is [string, TikTokPoster] => entry[1] !== null));
 }

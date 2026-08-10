@@ -156,9 +156,7 @@ export class TikTokResearchClient {
       .map((video) => {
         // Composed and then re-parsed, so what leaves here has been through the
         // same validation as a URL scraped off a page.
-        const post = parseTikTokPost(
-          `https://www.tiktok.com/@${video.username}/video/${video.id}`,
-        );
+        const post = parseTikTokPost(`https://www.tiktok.com/@${video.username}/video/${video.id}`);
         if (!post) return null;
 
         return {

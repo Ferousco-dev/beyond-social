@@ -95,7 +95,9 @@ export function PostCard({
         </div>
 
         {post.caption ? (
-          <p className={cn("text-sm leading-relaxed text-ink-soft", "line-clamp-3 lg:line-clamp-6")}>
+          <p
+            className={cn("text-sm leading-relaxed text-ink-soft", "line-clamp-3 lg:line-clamp-6")}
+          >
             {post.caption}
           </p>
         ) : null}

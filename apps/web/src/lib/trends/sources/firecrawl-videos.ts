@@ -151,8 +151,7 @@ export class FirecrawlTrendSource implements TrendSource {
     return trends.slice(0, MAX_TRENDS_PER_CATEGORY).map((trend) => {
       // Resolved by index against the posts we parsed ourselves, so the URL that
       // reaches the database is one this process built.
-      const post =
-        trend.videoIndex !== null ? (posts[trend.videoIndex] ?? null) : null;
+      const post = trend.videoIndex !== null ? (posts[trend.videoIndex] ?? null) : null;
 
       return {
         title: trend.title,
