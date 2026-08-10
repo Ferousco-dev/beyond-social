@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
 import { PicturePicker } from "@/features/assets/components/picture-picker";
 import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
@@ -27,10 +27,23 @@ import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { useFootageUpload, VIDEO_ACCEPT, type PendingFootage } from "../hooks/use-footage-upload";
 import { useVoiceUpload, VOICE_ACCEPT, type PendingVoice } from "../hooks/use-voice-upload";
 
-/** A photo already uploaded and waiting to be attached to the next message. */
+/**
+ * A photo waiting to be attached to the next message.
+ *
+ * Shown from the moment it is chosen, not from the moment the server is done
+ * with it. Attaching used to wait on the whole round trip: the browser uploads
+ * to storage, then the server downloads the object back, runs the likeness
+ * classifier over it, records the asset and signs a link. That is seconds of a
+ * blank composer for something the browser already had in its hand.
+ */
 export interface PendingPhoto {
+  /** Stable across the swap from local preview to signed URL. */
+  readonly id: string;
+  /** A local blob while pending, the signed link once the server answers. */
   readonly url: string;
+  /** Empty until the upload lands. Sending is blocked while any photo is. */
   readonly path: string;
+  readonly pending?: boolean;
 }
 
 interface MenuItem {
@@ -78,6 +91,9 @@ const SAVED_VOICE_ITEM: MenuItem = {
   savedVoice: true,
 };
 
+/** Long enough for the swap to paint before the blob goes away. */
+const REVOKE_DELAY_MS = 1000;
+
 const SAVED_PICTURES_ITEM: MenuItem = {
   icon: Images,
   label: "Use your pictures",
@@ -101,7 +117,11 @@ export function ComposeMenu({
   onBusyChange,
 }: {
   projectId: string;
-  onPhotos: (photos: readonly PendingPhoto[]) => void;
+  /**
+   * React's own updater signature, so the menu can append a preview now and
+   * swap it for the signed version later rather than only ever appending.
+   */
+  onPhotos: Dispatch<SetStateAction<readonly PendingPhoto[]>>;
   onVoice: (voice: PendingVoice) => void;
   onFootage: (footage: PendingFootage) => void;
   onShots: () => void;
@@ -141,6 +161,31 @@ export function ComposeMenu({
 
           setUploading(true);
           onBusyChange(true);
+
+          /*
+           * Shown before anything leaves the browser. The round trip behind this
+           * is not short: the object is uploaded, downloaded again by the
+           * server, put through the likeness classifier, recorded, and signed.
+           * Waiting for all of that before showing a picture the browser is
+           * already holding made attaching feel broken.
+           *
+           * `path` stays empty until the real one arrives, and the composer
+           * blocks sending while anything is pending, so an empty path cannot
+           * reach a message.
+           */
+          const previews: PendingPhoto[] = files.map((file) => ({
+            id: crypto.randomUUID(),
+            url: URL.createObjectURL(file),
+            path: "",
+            pending: true,
+          }));
+          onPhotos((current) => [...current, ...previews]);
+
+          const drop = () => {
+            onPhotos((current) => current.filter((p) => !previews.some((v) => v.id === p.id)));
+            previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+          };
+
           void (async () => {
             try {
               // The server only issues tickets. Sending the files themselves
@@ -150,6 +195,7 @@ export function ComposeMenu({
                 files: files.map((file) => ({ type: file.type, size: file.size })),
               });
               if (ticketed.status !== "ok") {
+                drop();
                 onError(
                   ticketed.status === "unconfigured"
                     ? "Uploads need the backend connected."
@@ -179,15 +225,35 @@ export function ComposeMenu({
                 paths: ticketed.tickets.map((ticket) => ticket.path),
               });
               if (attached.status === "ok") {
-                onPhotos(attached.photos);
+                // Matched by position: the tickets, the uploads and the results
+                // are all in the order the files were chosen.
+                onPhotos((current) =>
+                  current.map((photo) => {
+                    const index = previews.findIndex((preview) => preview.id === photo.id);
+                    const settled = index === -1 ? undefined : attached.photos[index];
+                    return settled ? { id: photo.id, url: settled.url, path: settled.path } : photo;
+                  }),
+                );
+
+                /*
+                 * Revoked a beat later, not immediately. The element is still
+                 * showing the blob at the moment state changes, and pulling it
+                 * out from under the swap flashes a broken image.
+                 */
+                window.setTimeout(
+                  () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)),
+                  REVOKE_DELAY_MS,
+                );
                 return;
               }
+              drop();
               onError(
                 attached.status === "unconfigured"
                   ? "Uploads need the backend connected."
                   : attached.message,
               );
             } catch (error) {
+              drop();
               onError(error instanceof Error ? error.message : "Could not upload that photo");
             } finally {
               setUploading(false);
@@ -270,11 +336,13 @@ export function ComposeMenu({
         // Already in storage and already signed, so a saved picture is attached
         // without a round trip: it is the same shape a fresh upload ends up as.
         onPick={(assets) =>
-          onPhotos(
-            assets
+          onPhotos((current) => [
+            ...current,
+            // Already in storage and already signed, so these arrive settled.
+            ...assets
               .filter((asset): asset is typeof asset & { url: string } => asset.url !== null)
-              .map((asset) => ({ url: asset.url, path: asset.path })),
-          )
+              .map((asset) => ({ id: asset.id, url: asset.url, path: asset.path })),
+          ])
         }
       />
     </>

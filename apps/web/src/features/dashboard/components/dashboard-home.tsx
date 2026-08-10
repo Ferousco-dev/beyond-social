@@ -49,8 +49,11 @@ export function DashboardHome({
       // Photos are already uploaded and signed by this point, so only the
       // references travel. Without this the attachment was accepted here, shown
       // here, and then silently dropped by the navigation.
-      if (attachments.length > 0) {
-        window.sessionStorage.setItem("bs:pending-photos", JSON.stringify(attachments));
+      // Settled only: a local blob URL is meaningless on the next screen, and a
+      // photo with no path yet has nothing for the thread to re-sign from.
+      const uploaded = attachments.filter((photo) => photo.path !== "");
+      if (uploaded.length > 0) {
+        window.sessionStorage.setItem("bs:pending-photos", JSON.stringify(uploaded));
       }
       router.push("/dashboard/c/new");
     },

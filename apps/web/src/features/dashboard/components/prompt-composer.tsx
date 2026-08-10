@@ -1,10 +1,19 @@
 "use client";
 
 import { ArrowUp, Loader2, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type KeyboardEvent,
+  type SetStateAction,
+} from "react";
 
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
+import { cn } from "@/lib/utils";
+
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
 import { FootageChip } from "./footage-chip";
 import { RecordButton } from "./record-button";
@@ -17,7 +26,8 @@ interface PromptComposerProps {
   onSubmit: () => void;
   projectId: string;
   photos: readonly PendingPhoto[];
-  onPhotosChange: (photos: readonly PendingPhoto[]) => void;
+  /** React's updater signature, so the menu can settle a preview in place. */
+  onPhotosChange: Dispatch<SetStateAction<readonly PendingPhoto[]>>;
   busy: boolean;
   /** Sets or clears the attached clip. Null is how the chip removes it. */
   onVoice: (voice: PendingVoice | null) => void;
@@ -89,18 +99,32 @@ export function PromptComposer({
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
-            <li key={photo.path} className="relative">
+            <li key={photo.id} className="relative">
               {/* Plain img: these are signed, short-lived URLs on an arbitrary
-                  host, which the image optimiser cannot be configured for. */}
+                  host, which the image optimiser cannot be configured for, and
+                  a local blob before that. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
                 alt=""
-                className="size-14 rounded-lg border border-hairline object-cover"
+                className={cn(
+                  "size-14 rounded-lg border border-hairline object-cover transition-opacity",
+                  // Dimmed while the server is still classifying and signing it.
+                  // The picture is right; only its link is provisional.
+                  photo.pending && "opacity-60",
+                )}
               />
+              {photo.pending ? (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="size-4 animate-spin text-paper drop-shadow" aria-hidden />
+                  <span className="sr-only">Uploading</span>
+                </span>
+              ) : null}
               <button
                 type="button"
-                onClick={() => onPhotosChange(photos.filter((item) => item.path !== photo.path))}
+                onClick={() =>
+                  onPhotosChange((current) => current.filter((item) => item.id !== photo.id))
+                }
                 aria-label="Remove photo"
                 className="absolute -right-1.5 -top-1.5 inline-flex size-5 items-center justify-center rounded-full border border-hairline bg-paper text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
@@ -135,9 +159,9 @@ export function PromptComposer({
               ]);
             }
           }}
-          onPhotos={(next) => {
+          onPhotos={(update) => {
             setError(null);
-            onPhotosChange([...photos, ...next]);
+            onPhotosChange(update);
           }}
           onError={setError}
           onBusyChange={setUploading}

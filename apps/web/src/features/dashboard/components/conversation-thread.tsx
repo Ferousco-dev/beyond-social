@@ -264,7 +264,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       // A seeded turn carries its photos as an argument: they were uploaded on
       // the previous screen, so they are not in this component's state yet and
       // reading state here would send the message without them.
-      const attachments = seeded ?? photos;
+      /*
+       * Settled photos only. A preview shown while its upload is still in
+       * flight has no path yet, and the composer already blocks sending while
+       * one is pending; this is the belt to that pair of braces, since a blob
+       * URL reaching the provider would fail in a way nobody could read.
+       */
+      const attachments = (seeded ?? photos).filter((photo) => photo.path !== "");
       const attached = attachments.map((photo) => photo.url);
       const voiceClip = voice;
 
