@@ -24,6 +24,13 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
   const [message, setMessage] = useState<string | null>(null);
   const [askConsent, setAskConsent] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * Removal clears the picture immediately and puts it back if the server
+   * refuses. Uploading still waits, because there is nothing to show until the
+   * bytes have landed and the attestation may still be needed.
+   */
+  const [removed, setRemoved] = useState(false);
+  const shown = removed ? null : avatar;
   const busy = uploading || pending;
 
   function keep(path: string) {
@@ -78,11 +85,11 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
 
       <div className="mt-5 flex flex-wrap items-center gap-4">
         <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-cloud">
-          {avatar?.url ? (
+          {shown?.url ? (
             // Plain img: these are signed, short-lived URLs the image optimiser
             // cannot be configured for.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatar.url} alt="Your saved avatar" className="size-full object-cover" />
+            <img src={shown.url} alt="Your saved avatar" className="size-full object-cover" />
           ) : (
             <UserRound className="size-8 text-ink-soft" aria-hidden />
           )}
@@ -103,19 +110,23 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
             className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
-            {avatar ? "Replace photo" : "Upload a photo"}
+            {shown ? "Replace photo" : "Upload a photo"}
           </button>
 
-          {avatar ? (
+          {shown ? (
             <button
               type="button"
-              disabled={busy}
-              onClick={() =>
-                startTransition(async () => {
-                  await removeBrandAsset({ id: avatar.id });
-                })
-              }
-              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={() => {
+                const target = shown;
+                setRemoved(true);
+                setMessage(null);
+                void removeBrandAsset({ id: target.id }).then((result) => {
+                  if (result.status === "ok") return;
+                  setRemoved(false);
+                  setMessage("Could not remove that picture.");
+                });
+              }}
+              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <Trash2 className="size-3.5" aria-hidden />
               Remove

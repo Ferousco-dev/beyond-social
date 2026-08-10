@@ -4,6 +4,7 @@ import { Loader2, Package, Plus, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { type BrandAsset } from "@/lib/assets/brand";
+import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
@@ -24,6 +25,14 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
   const { upload, uploading } = usePictureUpload();
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const shelf = useOptimisticList(products);
+
+  /*
+   * Only the upload blocks. Removing is instant, because nothing about it needs
+   * the server's opinion first, but adding genuinely has to wait: the bytes must
+   * reach storage before there is anything to show, and the classifier can still
+   * refuse a picture of a person.
+   */
   const busy = uploading || pending;
 
   async function choose(file: File | undefined) {
@@ -56,7 +65,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
       </p>
 
       <ul className="mt-5 flex flex-wrap gap-3">
-        {products.map((product) => (
+        {shelf.items.map((product) => (
           <li key={product.id} className="group relative">
             <div className="size-24 overflow-hidden rounded-xl border border-hairline bg-cloud">
               {product.url ? (
@@ -75,14 +84,20 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
 
             <button
               type="button"
-              disabled={busy}
               onClick={() =>
-                startTransition(async () => {
-                  await removeBrandAsset({ id: product.id });
+                void shelf.remove(product, async () => {
+                  const result = await removeBrandAsset({ id: product.id });
+                  return result.status === "ok"
+                    ? { ok: true }
+                    : {
+                        ok: false,
+                        message:
+                          result.status === "error" ? result.message : "Not connected right now.",
+                      };
                 })
               }
               aria-label={`Remove ${product.label || "this product"}`}
-              className="absolute -right-1.5 -top-1.5 inline-flex size-6 cursor-pointer items-center justify-center rounded-full border border-hairline bg-paper text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40"
+              className="absolute -right-1.5 -top-1.5 inline-flex size-6 cursor-pointer items-center justify-center rounded-full border border-hairline bg-paper text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <Trash2 className="size-3" aria-hidden />
             </button>
@@ -117,9 +132,9 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
         </li>
       </ul>
 
-      {message ? (
+      {(message ?? shelf.error) ? (
         <p role="status" className="mt-3 text-xs text-destructive">
-          {message}
+          {message ?? shelf.error}
         </p>
       ) : null}
     </section>

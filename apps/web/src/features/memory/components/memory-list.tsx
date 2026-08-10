@@ -1,9 +1,9 @@
 "use client";
 
-import { Brain, Loader2, Trash2 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { Brain, Trash2 } from "lucide-react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
+import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 import { type MemoryLibrary, type RememberedFact } from "@/lib/memory/library";
 import { cn } from "@/lib/utils";
 
@@ -27,17 +27,21 @@ const KIND_LABELS: Readonly<Record<string, string>> = {
 
 export function MemoryList({ library }: { library: MemoryLibrary }) {
   const { confirm, dialog } = useConfirm();
-  const [message, setMessage] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
 
-  const total = library.live.length + library.retired.length;
+  /*
+   * Two lists rather than one, because they are rendered in separate sections
+   * and a single list would have to be re-split on every optimistic change.
+   * Both act immediately and roll back together if the server refuses.
+   */
+  const live = useOptimisticList(library.live);
+  const retired = useOptimisticList(library.retired);
 
-  function forget(id: string) {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await forgetFact({ id });
-      if (!result.ok) setMessage(result.message);
-    });
+  const total = live.items.length + retired.items.length;
+  const message = live.error ?? retired.error;
+
+  function forget(fact: RememberedFact) {
+    const list = fact.supersededAt === null ? live : retired;
+    void list.remove(fact, () => forgetFact({ id: fact.id }));
   }
 
   async function clearAll() {
@@ -49,11 +53,10 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
     });
     if (!agreed) return;
 
-    setMessage(null);
-    startTransition(async () => {
-      const result = await forgetEverything();
-      if (!result.ok) setMessage(result.message);
-    });
+    // One request, both lists. Clearing them separately would fire two deletes
+    // and could leave half the page emptied if the second one failed.
+    const outcome = forgetEverything();
+    await Promise.all([live.clear(() => outcome), retired.clear(() => outcome)]);
   }
 
   if (total === 0) {
@@ -78,29 +81,27 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
           <h2 className="text-sm font-semibold text-ink">
             Known about you
             <span className="ml-2 text-xs font-normal tabular-nums text-ink-soft">
-              {library.live.length}
+              {live.items.length}
             </span>
           </h2>
 
           <button
             type="button"
             onClick={() => void clearAll()}
-            disabled={pending}
-            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40"
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
             Forget everything
           </button>
         </div>
 
         <ul className="mt-3 space-y-2">
-          {library.live.map((fact) => (
-            <FactRow key={fact.id} fact={fact} onForget={forget} disabled={pending} />
+          {live.items.map((fact) => (
+            <FactRow key={fact.id} fact={fact} onForget={forget} />
           ))}
         </ul>
       </section>
 
-      {library.retired.length > 0 ? (
+      {retired.items.length > 0 ? (
         <section className="mt-8">
           <h2 className="text-sm font-semibold text-ink">No longer used</h2>
           <p className="mt-1 text-xs text-ink-soft">
@@ -108,8 +109,8 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
             it was doing.
           </p>
           <ul className="mt-3 space-y-2">
-            {library.retired.map((fact) => (
-              <FactRow key={fact.id} fact={fact} onForget={forget} disabled={pending} retired />
+            {retired.items.map((fact) => (
+              <FactRow key={fact.id} fact={fact} onForget={forget} retired />
             ))}
           </ul>
         </section>
@@ -127,12 +128,10 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
 function FactRow({
   fact,
   onForget,
-  disabled,
   retired = false,
 }: {
   fact: RememberedFact;
-  onForget: (id: string) => void;
-  disabled: boolean;
+  onForget: (fact: RememberedFact) => void;
   retired?: boolean;
 }) {
   return (
@@ -157,12 +156,13 @@ function FactRow({
         </p>
       </div>
 
+      {/* No disabled state and no spinner. The row is gone the moment this is
+          pressed, so there is nothing left to show progress on. */}
       <button
         type="button"
-        onClick={() => onForget(fact.id)}
-        disabled={disabled}
+        onClick={() => onForget(fact)}
         aria-label={`Forget: ${fact.fact}`}
-        className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40"
+        className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Trash2 className="size-3.5" aria-hidden />
       </button>
