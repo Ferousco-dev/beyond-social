@@ -13,6 +13,7 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify } from "@/lib/generation/intent";
 import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
+import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
 import { logger } from "@/lib/logger";
 import { runWithAiUser } from "@/lib/ai/request-user";
 import {
@@ -288,6 +289,18 @@ async function sendForUser(
     finalPrompt = enhanced?.text ?? prompt;
     chunkIds = enhanced?.chunkIds ?? [];
   }
+
+  /*
+   * Appended after enhancement, not before.
+   *
+   * The enhancement pass rewrites the brief against retrieved craft knowledge,
+   * and a rewrite is free to paraphrase. "Feature this exact product" surviving
+   * as "show a product like this" is precisely the failure this exists to
+   * prevent, so the constraint goes on last where nothing else can soften it.
+   */
+  const subjects = await findSavedSubjects(supabase, photoPaths);
+  const direction = describeSavedSubjects(subjects);
+  if (direction !== "") finalPrompt = `${finalPrompt}\n\n${direction}`;
 
   const history = Array.isArray(previous.data)
     ? (previous.data as { role: string; content: string }[]).map((row) => ({
