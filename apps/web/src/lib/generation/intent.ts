@@ -16,7 +16,15 @@ import { logger } from "@/lib/logger";
  * variation of the video on screen.
  */
 
-export const INTENTS = ["create", "adjust", "ask"] as const;
+/**
+ * `chat` exists because "hello" is none of the others.
+ *
+ * Without it a greeting was classified `ask`, whose reply prompt tells the model
+ * to answer from craft experience, so somebody typing hello was met with advice
+ * about establishing shots. Small talk is a real category and needs a real
+ * answer, not the nearest available one.
+ */
+export const INTENTS = ["create", "adjust", "ask", "chat"] as const;
 export type Intent = (typeof INTENTS)[number];
 
 export const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
@@ -57,11 +65,16 @@ function buildPrompt(message: string, hasPreviousVideo: boolean): string {
     hasPreviousVideo
       ? "  adjust  they want a change to the video already made in this conversation"
       : "  adjust  not applicable here: nothing has been generated yet",
-    "  ask     they are asking a question or talking, and want an answer, not a video",
+    "  ask     they are asking a question about craft or this product and want an answer",
+    "  chat    greeting, small talk, thanks, or asking what you can do",
     "",
     "A message is `ask` only when making a video would clearly be wrong: a question about",
     "how something works, a request for advice, or a comment. If they are describing",
     "something they want to see, that is create or adjust.",
+    "",
+    "`chat` covers hello, hi, good morning, thanks, who are you, what can you do. These",
+    "have no craft question in them and no video in them, so answering as though they did",
+    "is worse than saying hello back.",
     "",
     "Also extract, only when the message actually says so:",
     "  aspectRatio      one of 16:9, 9:16, Auto",
@@ -88,11 +101,37 @@ function parse(text: string): Classification | null {
 }
 
 /**
+ * Greetings and pleasantries, recognised without a model.
+ *
+ * The classifier falls back to `create` when it cannot be reached, which is
+ * right for anything ambiguous and badly wrong for "hi": the fallback would
+ * spend a credit rendering a video of the word hello. These are short, closed,
+ * and unmistakable, so they are decided here where nothing can fail.
+ *
+ * Deliberately narrow. Anything longer than a few words, or carrying a verb of
+ * its own, goes to the classifier: "hey can you make me a product video" is a
+ * create that happens to open politely.
+ */
+const PLEASANTRIES =
+  /^(hi|hey+|hello|yo|sup|hiya|howdy|greetings|gm|good\s+(morning|afternoon|evening|day)|thanks|thank\s+you|thx|ty|cheers|ok|okay|cool|nice|great|bye|goodbye|see\s+you)\b/i;
+
+/** Beyond this it is a sentence, not a greeting, whatever it opens with. */
+const PLEASANTRY_WORDS = 4;
+
+function isPleasantry(message: string): boolean {
+  const trimmed = message.trim().replace(/[!.?,]+$/g, "");
+  if (trimmed === "" || trimmed.split(/\s+/).length > PLEASANTRY_WORDS) return false;
+  return PLEASANTRIES.test(trimmed);
+}
+
+/**
  * Classifies a message.
  *
  * Falls back to generating rather than to answering. A classifier that is
  * unavailable must not turn the product into a chatbot that never makes
  * anything, so an unreachable model means "do the thing they came here for".
+ * The one exception is above: a bare greeting is never a request for a video,
+ * and that judgement needs no model to make.
  */
 export async function classify(
   message: string,
@@ -104,6 +143,11 @@ export async function classify(
     aspectRatio: null,
     durationSeconds: null,
   };
+  // Checked before the model, so it holds even when the model is unreachable.
+  if (isPleasantry(message)) {
+    return { intent: "chat", confidence: 1, aspectRatio: null, durationSeconds: null };
+  }
+
   if (!isPromptEngineConfigured || message.trim() === "") return fallback;
 
   try {

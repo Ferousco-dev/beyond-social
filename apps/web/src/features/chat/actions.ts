@@ -103,7 +103,7 @@ export type SendResult =
       generationId: string | null;
       reply: string;
       /** What the message was taken to mean, so the UI can reflect it. */
-      intent: "create" | "adjust" | "ask";
+      intent: "create" | "adjust" | "ask" | "chat";
       /** Present when the video pipeline refused, so the UI can say why. */
       notice?: string;
     }
@@ -145,13 +145,20 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   // Everything below reaches the model gateway, and the gateway keys its rate
   // limit on this. Without it every call landed in one shared `anonymous`
   // bucket, so the whole platform throttled together.
-  return runWithAiUser(user.id, () => sendForUser(parsed.data, user.id, supabase));
+  // The display name rides along rather than being read again downstream: it is
+  // already on the session, and a greeting that does not use somebody's name is
+  // colder than one that does.
+  const metadataName = user.user_metadata?.full_name;
+  const name = typeof metadataName === "string" ? metadataName : "";
+
+  return runWithAiUser(user.id, () => sendForUser(parsed.data, user.id, supabase, name));
 }
 
 async function sendForUser(
   parsed: z.output<typeof sendSchema>,
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
+  name: string,
 ): Promise<SendResult> {
   const { aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
   const user = { id: userId };
@@ -335,7 +342,9 @@ async function sendForUser(
   // A question costs nothing. This is the whole point of classifying: not
   // spending a credit on a video the person did not ask for.
   const startGeneration = async (): Promise<void> => {
-    if (intent.intent === "ask") return;
+    // Neither a question nor a greeting is a request for a video. This is the
+    // whole point of classifying: not spending a credit on "hello".
+    if (intent.intent === "ask" || intent.intent === "chat") return;
 
     // Tier and balance, checked server-side before the provider is called. A
     // refusal here costs nothing and leaves no half-started generation row.
@@ -399,9 +408,10 @@ async function sendForUser(
     startGeneration(),
     writeReply({
       brief: prompt,
-      directedPrompt: intent.intent === "ask" ? null : finalPrompt,
+      directedPrompt: intent.intent === "ask" || intent.intent === "chat" ? null : finalPrompt,
       history,
       intent: intent.intent,
+      name,
       memories: [renderMemories(memories), renderRelated(related)].filter(Boolean).join("\n\n"),
       summary,
     }),
