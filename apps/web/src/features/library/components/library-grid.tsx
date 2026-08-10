@@ -3,7 +3,7 @@
 import { AudioLines, Film, ImageIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { FilterChips, type ChipOption } from "@/features/models/components/filter-chips";
+import { FilterChips, type ChipOption } from "@/components/ui/filter-chips";
 
 import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Boxes,
   CalendarClock,
   LayoutDashboard,
   LibraryBig,
@@ -69,12 +68,6 @@ const LINKS: readonly NavLink[] = [
     label: "Trends",
     icon: TrendingUp,
     motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
-  },
-  {
-    href: "/dashboard/models" as Route,
-    label: "Models",
-    icon: Boxes,
-    motion: "group-hover:-translate-y-px",
   },
 ];
 
