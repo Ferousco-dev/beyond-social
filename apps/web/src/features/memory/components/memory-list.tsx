@@ -2,6 +2,7 @@
 
 import { Brain, Trash2 } from "lucide-react";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 import { type MemoryLibrary, type RememberedFact } from "@/lib/memory/library";
@@ -61,14 +62,12 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
 
   if (total === 0) {
     return (
-      <div className="mt-6 rounded-2xl border border-dashed border-hairline px-6 py-14 text-center">
-        <Brain className="mx-auto size-6 text-ink-soft" aria-hidden />
-        <p className="mt-3 text-sm font-medium text-ink">Nothing remembered yet</p>
-        <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-soft">
-          As you work, standing preferences and facts about what you make get noted here, so you do
-          not have to repeat them. Passing details of one video are not kept.
-        </p>
-      </div>
+      <EmptyState
+        className="mt-6"
+        icon={Brain}
+        title="Nothing remembered yet"
+        body="As you work, standing preferences and facts about what you make get noted here, so you do not have to repeat them. Passing details of one video are not kept."
+      />
     );
   }
 

@@ -37,7 +37,8 @@ export function ScheduleCalendar({
     [month, posts, timeZone, today],
   );
 
-  const onSelected = selected === null ? [] : (days.find((day) => day.key === selected)?.posts ?? []);
+  const onSelected =
+    selected === null ? [] : (days.find((day) => day.key === selected)?.posts ?? []);
 
   function step(by: number) {
     setMonth((current) => shiftMonth(current, by));

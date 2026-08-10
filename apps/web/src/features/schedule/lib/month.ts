@@ -51,8 +51,11 @@ export function shiftMonth(month: string, by: number): string {
 /** How that month reads as a heading, e.g. "March 2026". */
 export function monthLabel(month: string): string {
   const [year = 0, index = 1] = month.split("-").map(Number);
-  return new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(year, index - 1, 1)));
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, index - 1, 1)));
 }
 
 /**

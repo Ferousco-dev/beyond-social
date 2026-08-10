@@ -1,8 +1,10 @@
 "use client";
 
-import { AudioLines, Film, ImageIcon } from "lucide-react";
+import { AudioLines, Film, ImageIcon, LibraryBig } from "lucide-react";
+import { type Route } from "next";
 import { useMemo, useState } from "react";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips, type ChipOption } from "@/components/ui/filter-chips";
 
 import { type LibraryItem, type LibraryKind } from "../types";
@@ -38,13 +40,13 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="mt-10 rounded-2xl border border-dashed border-hairline px-6 py-14 text-center">
-        <p className="text-sm font-medium text-ink">Nothing here yet</p>
-        <p className="mx-auto mt-1.5 max-w-sm text-sm text-ink-soft">
-          Videos you generate, and the photos and voice clips you attach to a message, collect here
-          so you can find your way back to the conversation they belong to.
-        </p>
-      </div>
+      <EmptyState
+        className="mt-10"
+        icon={LibraryBig}
+        title="Nothing here yet"
+        body="Videos you generate, and the photos and voice clips you attach to a message, collect here so you can find your way back to the conversation they belong to."
+        action={{ label: "Make your first video", href: "/dashboard" as Route }}
+      />
     );
   }
 
