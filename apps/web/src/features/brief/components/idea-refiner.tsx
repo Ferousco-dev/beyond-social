@@ -1,54 +1,53 @@
 "use client";
 
-import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 
 import { type IdeaAnalysis } from "@/lib/brief/schema";
+import { cn } from "@/lib/utils";
 
-import { QuestionTurn } from "./question-turn";
+import { QuestionPrompt } from "./question-prompt";
 
 /**
- * The questions between a rough idea and a brief, asked as a conversation.
+ * The questions between a rough idea and a brief.
  *
- * One at a time, not a form. The whole product is a chat, and a page of fields
- * in the middle of it reads as a different application; asking in turn also
- * means each question can be read in the light of the last answer rather than
- * competing with three others for attention.
+ * The analysis sits on the page and the current question is docked over it, one
+ * at a time. Reading back what was understood is the part that has to stay
+ * visible: getting the topic wrong is worth catching here, not after three
+ * questions and a brief about the wrong video.
  *
- * The analysis comes first and unprompted, so the user can see they were
- * understood before answering anything. Getting the topic wrong is worth knowing
- * here, not after three questions and a brief about the wrong video.
+ * Skipped questions are left out of the brief rather than guessed at. A user who
+ * has no opinion about hook style is better served by the writer choosing than
+ * by being made to invent a preference.
  */
 export function IdeaRefiner({
   analysis,
   answers,
+  skipped,
   onAnswer,
+  onSkip,
   onBack,
   onSubmit,
   pending,
 }: {
   analysis: IdeaAnalysis;
   answers: Readonly<Record<string, string>>;
+  skipped: ReadonlySet<string>;
   onAnswer: (label: string, option: string) => void;
+  onSkip: (label: string) => void;
   onBack: () => void;
   onSubmit: () => void;
   pending: boolean;
 }) {
-  const endRef = useRef<HTMLDivElement>(null);
+  const settled = analysis.questions.filter(
+    (question) => answers[question.label] !== undefined || skipped.has(question.label),
+  ).length;
 
-  const answered = analysis.questions.filter((question) => answers[question.label]).length;
-  const complete = answered === analysis.questions.length;
-
-  // Only the answered questions and the next one. Showing the rest would turn
-  // this back into a form that happens to be asked in order.
-  const visible = analysis.questions.slice(0, Math.min(answered + 1, analysis.questions.length));
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, [answered, complete]);
+  const current = analysis.questions.find(
+    (question) => answers[question.label] === undefined && !skipped.has(question.label),
+  );
 
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className="mx-auto w-full max-w-2xl pb-4">
       <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-ink">
         <Sparkles className="size-5 text-ink-soft" aria-hidden />
         Let me get this right
@@ -67,39 +66,59 @@ export function IdeaRefiner({
         ))}
       </dl>
 
-      <p className="mt-3 text-xs text-ink-soft">
-        {complete
-          ? "That is everything I needed."
-          : `A couple of questions, then I will write the brief. ${answered} of ${analysis.questions.length} answered.`}
-      </p>
+      <ol className="mt-6 space-y-3">
+        {analysis.questions.map((question) => {
+          const answer = answers[question.label];
+          const wasSkipped = skipped.has(question.label);
+          if (answer === undefined && !wasSkipped) return null;
 
-      {/* `aria-live` so the next question is announced as it appears, rather
-          than silently replacing the one just answered. */}
-      <div aria-live="polite" className="mt-6 space-y-7">
-        {visible.map((question) => (
-          <QuestionTurn
-            key={question.label}
-            question={question}
-            answer={answers[question.label]}
-            onAnswer={(value) => onAnswer(question.label, value)}
-            disabled={pending}
-          />
-        ))}
-      </div>
+          return (
+            <li key={question.label} className="flex items-start gap-3">
+              <Check
+                className={cn(
+                  "mt-0.5 size-4 shrink-0",
+                  wasSkipped ? "text-ink-soft/50" : "text-primary",
+                )}
+                aria-hidden
+              />
+              <p className="min-w-0 flex-1 text-sm">
+                <span className="text-ink-soft">{question.label}: </span>
+                <span className={cn(wasSkipped ? "text-ink-soft italic" : "text-ink")}>
+                  {wasSkipped ? "your call" : answer}
+                </span>
+              </p>
+            </li>
+          );
+        })}
+      </ol>
 
-      <div ref={endRef} />
+      {current ? (
+        // Docked rather than inline, so the question is the thing on screen while
+        // the analysis it refers to stays readable behind it.
+        <div className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-4">
+          <div className="pointer-events-none w-full max-w-2xl">
+            <QuestionPrompt
+              key={current.label}
+              question={current}
+              index={settled}
+              total={analysis.questions.length}
+              onAnswer={(value) => onAnswer(current.label, value)}
+              onSkip={() => onSkip(current.label)}
+              disabled={pending}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Edit idea
+          </button>
 
-      <div className="mt-9 flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Edit idea
-        </button>
-
-        {complete ? (
           <button
             type="button"
             onClick={onSubmit}
@@ -113,8 +132,8 @@ export function IdeaRefiner({
             )}
             Write the brief
           </button>
-        ) : null}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

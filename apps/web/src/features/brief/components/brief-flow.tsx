@@ -32,6 +32,8 @@ export function BriefFlow({
   const [idea, setIdea] = useState("");
   const [analysis, setAnalysis] = useState<IdeaAnalysis | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  /** Questions the user declined. Left out of the brief rather than guessed. */
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(new Set());
   const [brief, setBrief] = useState<ContentBrief | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -54,6 +56,7 @@ export function BriefFlow({
       // Cleared rather than kept: the questions are generated per idea, so
       // answers from a previous run belong to questions that no longer exist.
       setAnswers({});
+      setSkipped(new Set());
       setStage("refine");
     });
   }
@@ -84,6 +87,7 @@ export function BriefFlow({
     setIdea("");
     setAnalysis(null);
     setAnswers({});
+    setSkipped(new Set());
     setBrief(null);
     setNotice(null);
   }
@@ -106,7 +110,9 @@ export function BriefFlow({
         <IdeaRefiner
           analysis={analysis}
           answers={answers}
+          skipped={skipped}
           onAnswer={(label, option) => setAnswers((current) => ({ ...current, [label]: option }))}
+          onSkip={(label) => setSkipped((current) => new Set(current).add(label))}
           onBack={() => setStage("idea")}
           onSubmit={generate}
           pending={pending}

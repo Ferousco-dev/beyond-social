@@ -76,7 +76,15 @@ export async function buildBrief(
   answers: BriefAnswers,
   industry: string | null,
 ): Promise<ContentBrief | null> {
+  /*
+   * Only what was actually answered.
+   *
+   * A skipped question is absent rather than sent as empty. Telling the writer
+   * that "hook style" is blank invites it to say so in the brief, when the point
+   * of skipping is that the user was happy for it to decide.
+   */
   const chosen = Object.entries(answers)
+    .filter(([, value]) => value.trim() !== "")
     .map(([label, value]) => `${label}: ${value}`)
     .join("\n");
 
@@ -93,7 +101,9 @@ export async function buildBrief(
           `Audience: ${analysis.audience}`,
           `Angle: ${analysis.angle}`,
           "",
-          "Their choices:",
+          chosen === ""
+            ? "They had no preferences to state, so every craft decision is yours."
+            : "Their choices:",
           chosen,
           "",
           "Write a hook that is the actual first line of the video, not a description of one.",
