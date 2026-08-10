@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { isTrendDiscoveryConfigured } from "@/lib/server-env";
 import { createClient } from "@/lib/supabase/server";
 
-import { parseTikTokPost } from "./tiktok-url";
+import { parseTikTokPost } from "@/lib/tiktok/url";
 
 /** Reads the current trend feed. */
 

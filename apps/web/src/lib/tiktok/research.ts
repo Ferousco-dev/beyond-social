@@ -5,8 +5,9 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { isTikTokResearchConfigured, serverEnv } from "@/lib/server-env";
 
-import { type TrendCategory } from "../categories";
-import { parseTikTokPost } from "../tiktok-url";
+import { type TrendCategory } from "@/lib/trends/categories";
+
+import { parseTikTokPost } from "./url";
 
 /**
  * TikTok's Research API.
@@ -52,8 +53,9 @@ const querySchema = z.object({
   error: z.object({ code: z.string().optional(), message: z.string().optional() }).optional(),
 });
 
-/** A post as TikTok reported it, before it is turned into a trend. */
+/** A post as TikTok reported it, once its identity has been validated. */
 export interface ResearchPost {
+  readonly videoId: string;
   readonly url: string;
   readonly handle: string;
   readonly description: string;
@@ -100,7 +102,18 @@ export class TikTokResearchClient {
 
   /** The best-performing recent posts matching a niche, most watched first. */
   async topPosts(category: TrendCategory, limit: number): Promise<readonly ResearchPost[]> {
-    if (!this.available) return [];
+    return this.search([category.label, category.id], limit);
+  }
+
+  /**
+   * The best-performing recent posts matching any keywords, most watched first.
+   *
+   * TikTok returns matches rather than a ranking, so "top" is our sort over what
+   * came back within the window, not a claim about the whole platform.
+   */
+  async search(keywords: readonly string[], limit: number): Promise<readonly ResearchPost[]> {
+    const terms = keywords.map((word) => word.trim()).filter((word) => word !== "");
+    if (!this.available || terms.length === 0) return [];
 
     const accessToken = await this.token();
     if (accessToken === null) return [];
@@ -118,13 +131,7 @@ export class TikTokResearchClient {
         },
         body: JSON.stringify({
           query: {
-            and: [
-              {
-                operation: "IN",
-                field_name: "keyword",
-                field_values: [category.label, category.id],
-              },
-            ],
+            and: [{ operation: "IN", field_name: "keyword", field_values: terms }],
           },
           start_date: stamp(from),
           end_date: stamp(now),
@@ -135,10 +142,7 @@ export class TikTokResearchClient {
     );
 
     if (!response.ok) {
-      logger.warn("tiktok research query failed", {
-        status: response.status,
-        category: category.id,
-      });
+      logger.warn("tiktok research query failed", { status: response.status });
       return [];
     }
 
@@ -158,6 +162,7 @@ export class TikTokResearchClient {
         if (!post) return null;
 
         return {
+          videoId: post.videoId,
           url: post.url,
           handle: post.handle,
           description: video.video_description,

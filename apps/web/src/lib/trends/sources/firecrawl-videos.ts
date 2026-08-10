@@ -7,7 +7,7 @@ import { isPromptEngineConfigured, isTrendDiscoveryConfigured } from "@/lib/serv
 
 import { type TrendCategory, TREND_CATEGORY_IDS, isTrendCategory } from "../categories";
 import { Firecrawl, type ScrapedPage } from "../firecrawl";
-import { extractTikTokPosts, type TikTokPost } from "../tiktok-url";
+import { extractTikTokPosts, type TikTokPost } from "@/lib/tiktok/url";
 import { type DiscoveredTrend, type TrendSource } from "./types";
 
 /**

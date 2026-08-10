@@ -6,7 +6,7 @@ import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 
 import { type TrendCategory } from "../categories";
-import { TikTokResearchClient, type ResearchPost } from "./tiktok-research";
+import { TikTokResearchClient, type ResearchPost } from "@/lib/tiktok/research";
 import { type DiscoveredTrend, type TrendSource } from "./types";
 
 /**
