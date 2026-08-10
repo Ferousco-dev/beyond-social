@@ -254,16 +254,29 @@ async function sendForUser(
     projectId = created;
   }
 
+  /*
+   * Whether this turn is worth grounding.
+   *
+   * "Hello" and "thanks" carry nothing to recall against and nothing worth
+   * remembering, and every one of the reads below is an embedding plus a vector
+   * search. Running them on small talk paid for four lookups to answer a word.
+   *
+   * `ask` keeps all of it: a question about their own work is exactly when
+   * knowing their preferences and their earlier conversations pays.
+   */
+  const grounded = intent.intent !== "chat";
+
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
   // trip in front of every message.
   const [previous, memories, summary, related] = await Promise.all([
+    // Always: the thread is what the screen renders, not context for a model.
     supabase.rpc("project_thread", { p_project: projectId }),
-    recallFacts(prompt),
-    getSummary(projectId),
+    grounded ? recallFacts(prompt) : [],
+    grounded ? getSummary(projectId) : null,
     // Past conversations, excluding this one: it is the closest match to itself
     // and returning it as "earlier work" would be noise.
-    findRelatedConversations(prompt, projectId),
+    grounded ? findRelatedConversations(prompt, projectId) : [],
   ]);
 
   let finalPrompt = prompt;
@@ -434,22 +447,33 @@ async function sendForUser(
   // and a question is not a prompt at all.
   if (intent.intent === "create") void learnFromPrompt(prompt, finalPrompt);
 
-  // Deliberately after the turn is persisted, and deliberately not awaited.
-  // Extraction costs a model call and yields nothing on most turns, so making
-  // the user wait for it would be paying latency for a usually-empty result.
-  void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
+  /*
+   * The same judgement applies afterwards, and matters more here: these are
+   * three writes on every turn, one of them a model call.
+   *
+   * Small talk has nothing to extract, and indexing it actively harms retrieval,
+   * because "hi" is similar to every other "hi" and would surface as the most
+   * related earlier conversation. A summary that records the greetings is worse
+   * than one that does not.
+   */
+  if (grounded) {
+    // Deliberately after the turn is persisted, and deliberately not awaited.
+    // Extraction costs a model call and yields nothing on most turns, so making
+    // the user wait for it would be paying latency for a usually-empty result.
+    void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
 
-  // Makes this turn findable by a later "continue what we started". Indexed from
-  // the row that was actually written, so the embedding can never point at a
-  // message id that does not exist.
-  const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
-    (row) => row.role === "user",
-  );
-  if (userMessage) void indexMessage(userMessage.id, projectId, prompt);
+    // Makes this turn findable by a later "continue what we started". Indexed
+    // from the row that was actually written, so the embedding can never point
+    // at a message id that does not exist.
+    const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
+      (row) => row.role === "user",
+    );
+    if (userMessage) void indexMessage(userMessage.id, projectId, prompt);
 
-  // Also after the fact: the summary is for the *next* turn, so making this one
-  // wait for it would be charging the user for someone else's benefit.
-  void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
+    // Also after the fact: the summary is for the *next* turn, so making this
+    // one wait for it would be charging the user for someone else's benefit.
+    void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
+  }
 
   revalidatePath(`/dashboard/c/${projectId}`);
   // The sidebar is rendered by the dashboard layout, which a page-level
