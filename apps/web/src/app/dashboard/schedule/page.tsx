@@ -1,7 +1,7 @@
 import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
-import { ScheduleBoard } from "@/features/schedule/components/schedule-board";
+import { ScheduleViews } from "@/features/schedule/components/schedule-views";
 import { getScheduleBoard } from "@/features/schedule/lib/queries";
 import { getUserTimeZone } from "@/lib/time/user-zone";
 
@@ -27,7 +27,10 @@ export default async function SchedulePage(): Promise<ReactNode> {
         <p className="mt-1 text-sm text-ink-soft">Every post you have queued, in {timeZone}.</p>
       </header>
 
-      <ScheduleBoard board={board} timeZone={timeZone} />
+      {/* The clock is read once, here, and passed down: a calendar that reads it
+          during render highlights a different day on the server than it does
+          after hydration. */}
+      <ScheduleViews board={board} timeZone={timeZone} now={new Date().toISOString()} />
     </div>
   );
 }
