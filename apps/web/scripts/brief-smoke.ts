@@ -10,6 +10,7 @@
  * excess, drop the individual bad item, keep the answer.
  */
 import { analysisSchema, briefSchema, parseJsonReply } from "../src/lib/brief/schema";
+import { z } from "zod";
 
 const results: string[] = [];
 let failures = 0;
@@ -175,6 +176,80 @@ const beats = [
     analysisSchema,
   );
   check("a fenced reply still parses", "data" in out, "data" in out ? "" : out.reason);
+}
+
+/**
+ * The review pass.
+ *
+ * Restated here rather than imported, because `review.ts` is `server-only` and a
+ * smoke script has no server to be in. The shape is small and the point of the
+ * checks is the behaviour around it: a review must be able to say "nothing
+ * wrong", and must not be able to smuggle a broken brief back in as a revision.
+ */
+const reviewSchema = z.object({
+  issues: z
+    .array(
+      z
+        .string()
+        .trim()
+        .min(1)
+        .transform((value) => value.slice(0, 200)),
+    )
+    .default([])
+    .transform((issues) => issues.slice(0, 6)),
+  revised: briefSchema.nullable().default(null),
+});
+
+const goodBrief = {
+  hook: "He looked up.",
+  titles: ["One"],
+  beats,
+  durationSeconds: 15,
+  hashtags: [],
+  prompt: "x".repeat(50),
+};
+
+{
+  const out = parseJsonReply(JSON.stringify({ issues: [], revised: null }), reviewSchema);
+  check(
+    "a clean review returns no revision",
+    "data" in out && out.data.revised === null && out.data.issues.length === 0,
+    "data" in out ? "" : out.reason,
+  );
+}
+
+{
+  const out = parseJsonReply(JSON.stringify({}), reviewSchema);
+  check(
+    "an empty review object is treated as nothing wrong",
+    "data" in out && out.data.revised === null,
+    "data" in out ? "" : out.reason,
+  );
+}
+
+{
+  const out = parseJsonReply(
+    JSON.stringify({ issues: ["Ignored the stated hook style"], revised: goodBrief }),
+    reviewSchema,
+  );
+  check(
+    "a revision carries a full brief",
+    "data" in out && out.data.revised?.hook === "He looked up.",
+    "data" in out ? "" : out.reason,
+  );
+}
+
+{
+  // A revision that is itself broken must not replace a working brief.
+  const out = parseJsonReply(
+    JSON.stringify({ issues: ["x"], revised: { ...goodBrief, beats: [beats[0]] } }),
+    reviewSchema,
+  );
+  check(
+    "a broken revision is refused, not applied",
+    !("data" in out),
+    "data" in out ? "accepted" : out.reason,
+  );
 }
 
 // `process.stdout` rather than `console`, matching the sibling smoke scripts

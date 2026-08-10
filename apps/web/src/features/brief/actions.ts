@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import { analyseIdea, buildBrief } from "@/lib/brief/generate";
+import { reviewBrief } from "@/lib/brief/review";
 import {
   analysisSchema,
   answersSchema,
@@ -98,7 +99,20 @@ export async function buildBriefAction(
         message: "That came back in a shape we could not read. Try again.",
       };
     }
-    return { status: "ok", brief };
+
+    /*
+     * Reviewed by a model that did not write it, which is the only pass that can
+     * catch a brief being fluent and wrong: an answer quietly ignored, beats that
+     * do not add up, a hook that describes the opening instead of being it.
+     *
+     * Awaited rather than fired off, because the user is about to act on this
+     * and a correction that lands after they read it is no correction. It can
+     * only improve or do nothing: a failed review returns the original.
+     */
+    return {
+      status: "ok",
+      brief: await reviewBrief(parsed.data.idea, parsed.data.analysis, parsed.data.answers, brief),
+    };
   } catch (error) {
     logger.error("brief generation failed", {
       error: error instanceof Error ? error.message : String(error),

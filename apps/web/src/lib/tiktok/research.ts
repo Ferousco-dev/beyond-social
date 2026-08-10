@@ -32,6 +32,23 @@ const TIMEOUT_MS = 30_000;
 /** How far back a query looks. TikTok caps the window at 30 days. */
 const WINDOW_DAYS = 30;
 
+/**
+ * What we ask for. Anything the granted scope does not cover is simply absent
+ * from the response, which the schema above treats as normal.
+ */
+const QUERY_FIELDS = [
+  "id",
+  "username",
+  "video_description",
+  "view_count",
+  "like_count",
+  "comment_count",
+  "share_count",
+  "video_duration",
+  "hashtag_names",
+  "voice_to_text",
+].join(",");
+
 /** Fetched per niche, then cut to the best. Their maximum per page is 100. */
 const QUERY_COUNT = 40;
 
@@ -40,12 +57,31 @@ const tokenSchema = z.object({
   expires_in: z.number().optional(),
 });
 
+/**
+ * Every field is optional except identity.
+ *
+ * The Research API returns what the approved scope allows and omits the rest, so
+ * a missing transcript or duration is a normal response rather than an error. A
+ * required field here would fail the whole search over something we only wanted
+ * if it happened to be there.
+ */
 const videoSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   username: z.string().min(1),
   video_description: z.string().default(""),
   view_count: z.number().nonnegative().default(0),
   like_count: z.number().nonnegative().optional(),
+  comment_count: z.number().nonnegative().optional(),
+  share_count: z.number().nonnegative().optional(),
+  /** Seconds. The single most useful signal for pacing we can actually get. */
+  video_duration: z.number().nonnegative().optional(),
+  hashtag_names: z.array(z.string()).optional(),
+  /**
+   * TikTok's own transcription of the spoken audio. The closest thing to the
+   * content of the video that any API of theirs will hand over, and the reason
+   * an analysis can say anything about structure rather than just captions.
+   */
+  voice_to_text: z.string().optional(),
 });
 
 const querySchema = z.object({
@@ -60,6 +96,14 @@ export interface ResearchPost {
   readonly handle: string;
   readonly description: string;
   readonly viewCount: number;
+  readonly likeCount: number | null;
+  readonly commentCount: number | null;
+  readonly shareCount: number | null;
+  /** Seconds, when TikTok reported it. */
+  readonly durationSeconds: number | null;
+  readonly hashtags: readonly string[];
+  /** Spoken audio as TikTok transcribed it. Null when absent or not granted. */
+  readonly transcript: string | null;
 }
 
 /** `YYYYMMDD`, which is the only date format the query endpoint accepts. */
@@ -121,25 +165,22 @@ export class TikTokResearchClient {
     const now = new Date();
     const from = new Date(now.getTime() - WINDOW_DAYS * 24 * 3600_000);
 
-    const response = await this.doFetch(
-      `${BASE}/research/video/query/?fields=id,username,video_description,view_count,like_count`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          query: {
-            and: [{ operation: "IN", field_name: "keyword", field_values: terms }],
-          },
-          start_date: stamp(from),
-          end_date: stamp(now),
-          max_count: QUERY_COUNT,
-        }),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+    const response = await this.doFetch(`${BASE}/research/video/query/?fields=${QUERY_FIELDS}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        query: {
+          and: [{ operation: "IN", field_name: "keyword", field_values: terms }],
+        },
+        start_date: stamp(from),
+        end_date: stamp(now),
+        max_count: QUERY_COUNT,
+      }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
 
     if (!response.ok) {
       logger.warn("tiktok research query failed", { status: response.status });
@@ -152,23 +193,36 @@ export class TikTokResearchClient {
       return [];
     }
 
-    return (parsed.data.data?.videos ?? [])
-      .map((video) => {
-        // Composed and then re-parsed, so what leaves here has been through the
-        // same validation as a URL scraped off a page.
-        const post = parseTikTokPost(`https://www.tiktok.com/@${video.username}/video/${video.id}`);
-        if (!post) return null;
+    return (
+      (parsed.data.data?.videos ?? [])
+        // `flatMap` rather than map-then-filter: a type predicate over a readonly
+        // field is more trouble than the empty array it replaces.
+        .flatMap((video): ResearchPost[] => {
+          // Composed and then re-parsed, so what leaves here has been through the
+          // same validation as a URL scraped off a page.
+          const post = parseTikTokPost(
+            `https://www.tiktok.com/@${video.username}/video/${video.id}`,
+          );
+          if (!post) return [];
 
-        return {
-          videoId: post.videoId,
-          url: post.url,
-          handle: post.handle,
-          description: video.video_description,
-          viewCount: video.view_count,
-        };
-      })
-      .filter((post): post is ResearchPost => post !== null)
-      .sort((a, b) => b.viewCount - a.viewCount)
-      .slice(0, limit);
+          return [
+            {
+              videoId: post.videoId,
+              url: post.url,
+              handle: post.handle,
+              description: video.video_description,
+              viewCount: video.view_count,
+              likeCount: video.like_count ?? null,
+              commentCount: video.comment_count ?? null,
+              shareCount: video.share_count ?? null,
+              durationSeconds: video.video_duration ?? null,
+              hashtags: video.hashtag_names ?? [],
+              transcript: video.voice_to_text?.trim() || null,
+            },
+          ];
+        })
+        .sort((a, b) => b.viewCount - a.viewCount)
+        .slice(0, limit)
+    );
   }
 }

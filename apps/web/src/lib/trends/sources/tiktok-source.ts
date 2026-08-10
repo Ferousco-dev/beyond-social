@@ -44,9 +44,18 @@ function buildPrompt(category: string, posts: readonly ResearchPost[]): string {
   const catalogue = posts
     // Fenced and labelled, so the model treats captions as data to read rather
     // than instructions to follow. Captions are written by strangers.
-    .map(
-      (post, index) =>
-        `<post index="${index}" views="${post.viewCount}">\n${post.description.slice(0, 500)}\n</post>`,
+    .map((post, index) =>
+      [
+        `<post index="${index}" views="${post.viewCount}"${post.durationSeconds !== null ? ` seconds="${post.durationSeconds}"` : ""}>`,
+        post.description.slice(0, 500),
+        // The transcript, when TikTok gave us one. A caption says what the
+        // post is filed under; the spoken words say how it actually runs, so
+        // a format read from them is worth more than one read from a slogan.
+        post.transcript ? `\nSpoken: ${post.transcript.slice(0, 800)}` : "",
+        "</post>",
+      ]
+        .filter(Boolean)
+        .join("\n"),
     )
     .join("\n\n");
 

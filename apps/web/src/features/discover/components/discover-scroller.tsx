@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import { type Route } from "next";
 import { useState, useTransition, type FormEvent } from "react";
 
+import { analysePostAction } from "../analyse-actions";
 import { searchTikTok } from "../search-actions";
 import { type DiscoverPost } from "../types";
+import { type PostAnalysis } from "@/lib/tiktok/analyse";
 import { useActivePost } from "../hooks/use-active-post";
+import { AnalysisSheet } from "./analysis-sheet";
 import { PostCard } from "./post-card";
 
 /**
@@ -41,6 +44,10 @@ export function DiscoverScroller({
   const [posts, setPosts] = useState<readonly DiscoverPost[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** The post being read, and what came back. Null while nothing is open. */
+  const [reading, setReading] = useState<DiscoverPost | null>(null);
+  const [analysis, setAnalysis] = useState<PostAnalysis | null>(null);
+  const [analysing, startAnalysis] = useTransition();
   const { containerRef, activeIndex, setActiveIndex } = useActivePost(posts?.length ?? 0);
 
   function run(term: string) {
@@ -75,17 +82,56 @@ export function DiscoverScroller({
     run(query);
   }
 
-  /** Carries the post into a new chat as the thing to make something like. */
-  function openAsInspiration(post: DiscoverPost) {
-    const brief = [
-      `Make a video in the style of this TikTok by @${post.handle}.`,
-      post.caption ? `The original caption was: ${post.caption}` : "",
-      `Reference: ${post.url}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
+  /** Seeds a new chat with a brief. The composer waits; nothing is sent. */
+  function seed(brief: string) {
     router.push(`/dashboard/c/new?prompt=${encodeURIComponent(brief)}` as Route);
+  }
+
+  /**
+   * Reads the post, then offers what it found.
+   *
+   * This used to hand the generator one sentence naming the account and pasting
+   * the caption, plus a link no model can open, so "in the style of this TikTok"
+   * was a phrase rather than an instruction. Now the signals TikTok does report
+   * are turned into a format first, and shown before anything is made from them.
+   *
+   * A failure falls back to the old sentence rather than dead-ending: a weaker
+   * brief still beats a button that does nothing.
+   */
+  function openAsInspiration(post: DiscoverPost) {
+    setNotice(null);
+    setAnalysis(null);
+    setReading(post);
+
+    startAnalysis(async () => {
+      const result = await analysePostAction({
+        handle: post.handle,
+        caption: post.caption,
+        viewCount: post.viewCount,
+        likeCount: post.likeCount,
+        commentCount: post.commentCount,
+        shareCount: post.shareCount,
+        durationSeconds: post.durationSeconds,
+        hashtags: [...post.hashtags],
+        transcript: post.transcript,
+      });
+
+      if (result.status === "ok") {
+        setAnalysis(result.analysis);
+        return;
+      }
+
+      setReading(null);
+      seed(
+        [
+          `Make a video in the style of this TikTok by @${post.handle}.`,
+          post.caption ? `The original caption was: ${post.caption}` : "",
+          `Reference: ${post.url}`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      );
+    });
   }
 
   return (
@@ -159,6 +205,27 @@ export function DiscoverScroller({
             </div>
           ))}
         </div>
+      ) : null}
+
+      <AnalysisSheet
+        analysis={analysis}
+        handle={reading?.handle ?? ""}
+        open={reading !== null && analysis !== null}
+        onOpenChange={(next) => {
+          if (!next) {
+            setReading(null);
+            setAnalysis(null);
+          }
+        }}
+        onUse={seed}
+      />
+
+      {/* The read takes a moment and happens after a tap on a card, so it needs
+          to say something or the tap looks ignored. */}
+      {analysing ? (
+        <p role="status" className="mt-4 text-center text-sm text-ink-soft">
+          Reading that post...
+        </p>
       ) : null}
     </div>
   );

@@ -56,6 +56,12 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
       caption: post.description,
       viewCount: post.viewCount,
       thumbnailUrl: posters.get(post.url)?.thumbnailUrl ?? null,
+      likeCount: post.likeCount,
+      commentCount: post.commentCount,
+      shareCount: post.shareCount,
+      durationSeconds: post.durationSeconds,
+      hashtags: post.hashtags,
+      transcript: post.transcript,
     }));
 
     return { status: "ok", posts: results };
