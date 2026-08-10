@@ -90,5 +90,9 @@ export async function getEditorDocument(projectId: string): Promise<EditorDocume
   const project = parseProject(row.document);
   if (!project) return fresh;
 
-  return { project: withFreshSources(project, urlByGeneration), revision: row.revision, saved: true };
+  return {
+    project: withFreshSources(project, urlByGeneration),
+    revision: row.revision,
+    saved: true,
+  };
 }

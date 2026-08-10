@@ -969,6 +969,7 @@ export type Database = {
           id: string;
           project_id: string;
           result_path: string | null;
+          spec: Json | null;
           status: Database["public"]["Enums"]["generation_status"];
           updated_at: string;
           user_id: string;
@@ -981,6 +982,7 @@ export type Database = {
           id?: string;
           project_id: string;
           result_path?: string | null;
+          spec?: Json | null;
           status?: Database["public"]["Enums"]["generation_status"];
           updated_at?: string;
           user_id: string;
@@ -993,6 +995,7 @@ export type Database = {
           id?: string;
           project_id?: string;
           result_path?: string | null;
+          spec?: Json | null;
           status?: Database["public"]["Enums"]["generation_status"];
           updated_at?: string;
           user_id?: string;
@@ -2364,11 +2367,7 @@ export type Database = {
       };
       claim_queued_renders: {
         Args: { p_limit?: number };
-        Returns: {
-          clip_paths: string[];
-          id: string;
-          user_id: string;
-        }[];
+        Returns: { id: string; user_id: string; clip_paths: string[]; spec: Json | null }[];
       };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };

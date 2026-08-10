@@ -7,6 +7,7 @@ import { clamp } from "@/lib/editor/timeline";
 import {
   MIN_ITEM_MS,
   findItem,
+  isVideo,
   projectDurationMs,
   type EditorItem,
   type Project,
@@ -88,10 +89,25 @@ export function useEditorState(initial: Project = emptyProject()): EditorState {
         if (edge === "start") {
           const lower = previous ? previous.startMs + previous.durationMs : 0;
           const startMs = clamp(ms, lower, end - MIN_ITEM_MS);
+
+          /*
+           * Dragging the head in has to skip that much of the source, not just
+           * shorten the clip. Without this a trimmed clip kept playing from its
+           * first frame and simply stopped earlier, which is the opposite of
+           * what the handle appears to do.
+           *
+           * The offset advances at `speed`, because the timeline length already
+           * accounts for it: two seconds of timeline at 2x is four of source.
+           */
+          const skipped = (startMs - item.startMs) * (isVideo(item) ? item.speed : 1);
+
           return mapItem(current, id, (target) => ({
             ...target,
             startMs,
             durationMs: end - startMs,
+            ...(isVideo(target)
+              ? { sourceStartMs: Math.max(0, (target.sourceStartMs ?? 0) + skipped) }
+              : {}),
           }));
         }
 
@@ -166,6 +182,14 @@ export function useEditorState(initial: Project = emptyProject()): EditorState {
             id: `${item.id}-s${Math.round(atMs)}`,
             startMs: atMs,
             durationMs: item.startMs + item.durationMs - atMs,
+            // The second half continues the source rather than restarting it.
+            // Without this, splitting gave two clips that both replayed the
+            // same opening seconds.
+            ...(isVideo(item)
+              ? {
+                  sourceStartMs: (item.sourceStartMs ?? 0) + (atMs - item.startMs) * item.speed,
+                }
+              : {}),
           };
           if (head.durationMs < MIN_ITEM_MS || tail.durationMs < MIN_ITEM_MS) return track;
           return {

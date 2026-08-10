@@ -62,6 +62,10 @@ export function EditorShell({
         saveState={autosave.state}
         onRetrySave={autosave.saveNow}
         canSave={canSave}
+        conversationId={conversationId}
+        // The live timeline, not the saved one: exporting what autosave last
+        // managed to write would silently drop the last few seconds of work.
+        project={editor.project}
         generationId={generationId}
         availablePlatforms={availablePlatforms}
       />

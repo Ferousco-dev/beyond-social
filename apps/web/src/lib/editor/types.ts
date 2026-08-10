@@ -59,6 +59,16 @@ export interface VideoItem extends BaseItem {
   readonly sourceUrl?: string;
   /** The generation this came from, so a clip can be traced to its prompt. */
   readonly generationId?: string;
+  /**
+   * Where this clip starts inside its own file, in milliseconds.
+   *
+   * Distinct from `startMs`, which is where it sits on the timeline. Nothing
+   * recorded this before, so trimming a clip's head shortened it without
+   * skipping anything, and splitting one produced two halves that both replayed
+   * the same opening seconds. Absent means zero, which is what every clip laid
+   * down straight from a render is.
+   */
+  readonly sourceStartMs?: number;
   /** Playback rate; the timeline length already reflects it. */
   readonly speed: number;
   readonly volume: number;

@@ -62,9 +62,18 @@ export function useClipSync({
   const clockRef = useRef(currentMs);
   clockRef.current = currentMs;
 
-  /** Where in the source file the playhead sits, right now. */
-  const sourceSeconds = (): number =>
-    clip === undefined ? 0 : Math.max(0, ((clockRef.current - clip.startMs) / 1000) * clip.speed);
+  /**
+   * Where in the source file the playhead sits, right now.
+   *
+   * `sourceStartMs` is where the clip begins inside its own file, which is not
+   * the same as where it sits on the timeline. A clip trimmed at the head plays
+   * from partway in, and one half of a split continues where the other stopped.
+   */
+  const sourceSeconds = (): number => {
+    if (clip === undefined) return 0;
+    const intoClip = ((clockRef.current - clip.startMs) / 1000) * clip.speed;
+    return Math.max(0, (clip.sourceStartMs ?? 0) / 1000 + intoClip);
+  };
 
   // Grade and rate. Cheap, and unrelated to position.
   useEffect(() => {
