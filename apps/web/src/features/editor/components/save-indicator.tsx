@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, CloudOff, Loader2, RefreshCw } from "lucide-react";
 
 import { type SaveState } from "../hooks/use-autosave";
 
@@ -11,7 +11,36 @@ import { type SaveState } from "../hooks/use-autosave";
  * The two failure states are never silent: a user who does not know a save
  * failed will close the tab and lose the work.
  */
-export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
+export function SaveIndicator({
+  state,
+  onRetry,
+  canSave,
+}: {
+  state: SaveState;
+  onRetry: () => void;
+  /** False when there is no project to save against, so nothing is being kept. */
+  canSave: boolean;
+}) {
+  /*
+   * A project autosave cannot write to says so, permanently.
+   *
+   * This was the one state that rendered nothing: autosave is switched off for a
+   * project that does not exist, the state never leaves idle, and the indicator
+   * is silent while idle. So the timeline accepted every trim, caption and grade
+   * and kept none of them, looking exactly like an editor that was saving fine.
+   */
+  if (!canSave) {
+    return (
+      <span
+        title="This video is not part of a saved project, so changes here are not kept. Send a message in the chat to create one."
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-medium text-ink-soft"
+      >
+        <CloudOff className="size-3.5" aria-hidden />
+        Not saving
+      </span>
+    );
+  }
+
   if (state === "idle") return null;
 
   if (state === "saving") {

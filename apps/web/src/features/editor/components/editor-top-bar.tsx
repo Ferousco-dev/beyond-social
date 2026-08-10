@@ -14,6 +14,7 @@ export function EditorTopBar({
   onTogglePanel,
   saveState,
   onRetrySave,
+  canSave,
   generationId,
   availablePlatforms,
 }: {
@@ -23,6 +24,8 @@ export function EditorTopBar({
   onTogglePanel: () => void;
   saveState: SaveState;
   onRetrySave: () => void;
+  /** False when there is no project behind this timeline, so nothing is kept. */
+  canSave: boolean;
   /** The finished render to publish, or null while none is ready. */
   generationId: string | null;
   availablePlatforms: readonly string[];
@@ -50,7 +53,7 @@ export function EditorTopBar({
         <span className="truncate text-sm font-medium">{title}</span>
       </div>
       <div className="flex items-center gap-2">
-        <SaveIndicator state={saveState} onRetry={onRetrySave} />
+        <SaveIndicator state={saveState} onRetry={onRetrySave} canSave={canSave} />
         <PublishDialog
           videoTitle={title}
           generationId={generationId}

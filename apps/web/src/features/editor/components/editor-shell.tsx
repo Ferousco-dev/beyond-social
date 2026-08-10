@@ -61,6 +61,7 @@ export function EditorShell({
         onTogglePanel={() => setPanelOpen((open) => !open)}
         saveState={autosave.state}
         onRetrySave={autosave.saveNow}
+        canSave={canSave}
         generationId={generationId}
         availablePlatforms={availablePlatforms}
       />
