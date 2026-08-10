@@ -36,11 +36,28 @@ function factHash(fact: string): string {
 }
 
 /**
+ * How close a new claim has to be before it counts as a new version of an old
+ * one rather than a separate fact.
+ *
+ * High on purpose. Two memories about the same subject are common and both
+ * worth keeping ("makes videos for restaurants", "films in the kitchen at
+ * closing time"), so this has to catch restatement and reversal without
+ * swallowing everything in a topic. Below it, both rows live.
+ */
+const SUPERSEDE_SIMILARITY = 0.9;
+
+/**
  * Stores what an exchange revealed.
  *
- * On conflict the existing row wins rather than being overwritten: the first
- * time something was said is the more honest `created_at`, and the fact is
- * identical by definition of the hash.
+ * Exact repeats are still dropped by the hash: the first time something was said
+ * is the more honest `created_at`, and the fact is identical by definition.
+ *
+ * A near-match is the interesting case, and it is why this is not a plain
+ * upsert. "I shoot vertical" and "I've moved to landscape" hash differently and
+ * mean opposite things about the same slot, so storing both left retrieval to
+ * pick between two contradictions on similarity alone. The older row is retired
+ * instead, and kept: when the product starts behaving differently, the previous
+ * value and the moment it changed are the only record of why.
  */
 export async function rememberFacts(
   memories: readonly ExtractedMemory[],
@@ -57,27 +74,64 @@ export async function rememberFacts(
 
     const vectors = await getEmbedder().embed(memories.map((memory) => memory.fact));
 
-    const rows = memories.map((memory, index) => ({
-      user_id: user.id,
-      fact: memory.fact,
-      kind: memory.kind,
-      importance: memory.importance,
-      embedding: vectors[index] ?? null,
-      source_project: projectId,
-      fact_hash: factHash(memory.fact),
-    }));
+    for (const [index, memory] of memories.entries()) {
+      const vector = vectors[index];
 
-    const { error } = await supabase
-      .from("user_memories")
-      .upsert(rows as never, { onConflict: "user_id,fact_hash", ignoreDuplicates: true });
-    if (error) throw new Error(error.message);
+      // Looked up before the insert, so the id being retired is the one that
+      // existed before this claim rather than the claim itself.
+      const replaced = vector ? await findNearest(supabase, vector) : null;
 
-    logger.info("memories stored", { count: rows.length });
+      const { data: inserted, error } = await supabase
+        .from("user_memories")
+        .upsert(
+          {
+            user_id: user.id,
+            fact: memory.fact,
+            kind: memory.kind,
+            importance: memory.importance,
+            embedding: vector ?? null,
+            source_project: projectId,
+            fact_hash: factHash(memory.fact),
+          } as never,
+          { onConflict: "user_id,fact_hash", ignoreDuplicates: true },
+        )
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+
+      // Null when the hash already existed, which means nothing new was said and
+      // there is nothing to retire.
+      const insertedId = (inserted as { id?: string } | null)?.id;
+      if (!insertedId || !replaced) continue;
+
+      await supabase
+        .from("user_memories")
+        .update({ superseded_at: new Date().toISOString(), superseded_by: insertedId } as never)
+        .eq("id", replaced.id);
+
+      logger.info("memory superseded", { was: replaced.fact, now: memory.fact });
+    }
+
+    logger.info("memories stored", { count: memories.length });
   } catch (error) {
     logger.warn("could not store memories", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/** The live memory this claim is a new version of, if there is one. */
+async function findNearest(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  embedding: readonly number[],
+): Promise<{ id: string; fact: string } | null> {
+  const { data } = await supabase.rpc("nearest_user_memory", {
+    p_embedding: embedding as never,
+    p_min_similarity: SUPERSEDE_SIMILARITY,
+  });
+
+  const [nearest] = (data ?? []) as { id: string; fact: string }[];
+  return nearest ?? null;
 }
 
 /**

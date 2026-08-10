@@ -1552,6 +1552,8 @@ export type Database = {
           kind: string;
           last_used_at: string | null;
           source_project: string | null;
+          superseded_at: string | null;
+          superseded_by: string | null;
           use_count: number;
           user_id: string;
         };
@@ -1565,6 +1567,8 @@ export type Database = {
           kind?: string;
           last_used_at?: string | null;
           source_project?: string | null;
+          superseded_at?: string | null;
+          superseded_by?: string | null;
           use_count?: number;
           user_id: string;
         };
@@ -1578,6 +1582,8 @@ export type Database = {
           kind?: string;
           last_used_at?: string | null;
           source_project?: string | null;
+          superseded_at?: string | null;
+          superseded_by?: string | null;
           use_count?: number;
           user_id?: string;
         };
@@ -2561,6 +2567,14 @@ export type Database = {
           p_ttl_seconds: number;
         };
         Returns: undefined;
+      };
+      nearest_user_memory: {
+        Args: { p_embedding: string; p_min_similarity?: number };
+        Returns: { id: string; fact: string; similarity: number }[];
+      };
+      retention_prune_memories: {
+        Args: { p_dry_run?: boolean; p_retired_days?: number; p_unused_days?: number };
+        Returns: { affected: number; oldest: string | null; dry_run: boolean }[];
       };
       retention_prune_embeddings: {
         Args: { p_dry_run?: boolean; p_older_than?: string };

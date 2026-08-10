@@ -1,4 +1,5 @@
 import {
+  Brain,
   CreditCard,
   Gauge,
   Image,
@@ -43,6 +44,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "You and your products",
     description: "A photo of you, and pictures of what you sell.",
     icon: Image,
+  },
+  {
+    href: "/dashboard/settings/memory",
+    label: "Memory",
+    description: "What the app has remembered about you.",
+    icon: Brain,
   },
   {
     href: "/dashboard/settings/voice",
