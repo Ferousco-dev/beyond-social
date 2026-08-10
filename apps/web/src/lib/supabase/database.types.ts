@@ -877,6 +877,7 @@ export type Database = {
           email: string;
           full_name: string | null;
           id: string;
+          industry: string | null;
           plan: string;
           role: Database["public"]["Enums"]["user_role"];
           suspended_at: string | null;
@@ -897,6 +898,7 @@ export type Database = {
           email: string;
           full_name?: string | null;
           id: string;
+          industry?: string | null;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
           suspended_at?: string | null;
@@ -917,6 +919,7 @@ export type Database = {
           email?: string;
           full_name?: string | null;
           id?: string;
+          industry?: string | null;
           plan?: string;
           role?: Database["public"]["Enums"]["user_role"];
           suspended_at?: string | null;
