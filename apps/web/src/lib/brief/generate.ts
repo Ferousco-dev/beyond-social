@@ -1,5 +1,6 @@
 import "server-only";
 
+import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { categoryLabel } from "@/lib/trends/categories";
 
@@ -66,7 +67,13 @@ export async function analyseIdea(
     json: true,
   });
 
-  return parseJsonReply(reply, analysisSchema);
+  const parsed = parseJsonReply(reply, analysisSchema);
+  if ("data" in parsed) return parsed.data;
+
+  // Logged with the reason and a slice of what came back, so the next one of
+  // these is read rather than guessed at.
+  logger.warn("idea analysis did not parse", { reason: parsed.reason, reply: reply.slice(0, 400) });
+  return null;
 }
 
 /** Writes the brief, given the idea and what the user chose. */
@@ -123,5 +130,9 @@ export async function buildBrief(
     json: true,
   });
 
-  return parseJsonReply(reply, briefSchema);
+  const parsed = parseJsonReply(reply, briefSchema);
+  if ("data" in parsed) return parsed.data;
+
+  logger.warn("brief did not parse", { reason: parsed.reason, reply: reply.slice(0, 400) });
+  return null;
 }

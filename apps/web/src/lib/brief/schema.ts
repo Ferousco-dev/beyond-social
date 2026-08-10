@@ -21,41 +21,114 @@ import { z } from "zod";
  * through the same component, so a second shape would only be a second thing to
  * keep in step.
  */
+/**
+ * A length limit that trims rather than refuses.
+ *
+ * Every bound here used to be a hard `.max()`, and Zod rejects the whole object
+ * when one field is a character over. So a single long option threw away the
+ * entire analysis and the user was told their idea "came back in a shape we
+ * could not read" for a brief that was almost perfect.
+ *
+ * These are presentation limits, not correctness ones: a 41-character option is
+ * a slightly wide chip, not a wrong answer. Trimming keeps the answer and loses
+ * the excess, which is the right way round.
+ */
+function text(max: number) {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .transform((value) => value.slice(0, max));
+}
+
 export const questionSchema = z.object({
   /** Short caps label above the question, e.g. "HOOK STYLE". */
-  label: z.string().min(1).max(32),
-  question: z.string().min(1).max(160),
-  options: z.array(z.string().min(1).max(40)).min(2).max(4),
+  label: text(32),
+  question: text(160),
+  // Over four is trimmed to four. Under two is a question with nothing to pick
+  // from, which is genuinely unusable, so it stays a rejection and the caller
+  // drops that one question rather than the whole reply.
+  options: z
+    .array(text(40))
+    .min(2)
+    .transform((options) => options.slice(0, 4)),
 });
 
 export type PickerQuestion = z.infer<typeof questionSchema>;
 
+/**
+ * Questions are validated one at a time and the bad ones dropped.
+ *
+ * A model that returns three good questions and one malformed should cost us
+ * the malformed one, not the conversation. Same reasoning as the memory
+ * extractor, which has worked this way since it was written.
+ */
+const questionsField = z
+  .array(z.unknown())
+  .default([])
+  .transform((items) =>
+    items
+      .map((item) => questionSchema.safeParse(item))
+      .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+      .slice(0, 4),
+  );
+
 export const analysisSchema = z.object({
-  topic: z.string().min(1).max(120),
-  audience: z.string().min(1).max(160),
-  angle: z.string().min(1).max(240),
-  questions: z.array(questionSchema).min(1).max(4),
+  topic: text(120),
+  audience: text(160),
+  angle: text(240),
+  /**
+   * May legitimately end up empty, either because the model asked nothing or
+   * because nothing it asked survived. The flow treats that as "no questions
+   * needed" and writes the brief, which is a better outcome than an error over
+   * a step that was only ever there to sharpen things.
+   */
+  questions: questionsField,
 });
 
 export type IdeaAnalysis = z.infer<typeof analysisSchema>;
 
 /** One beat of the script, with the seconds it occupies. */
 export const beatSchema = z.object({
-  label: z.string().min(1).max(40),
-  timing: z.string().min(1).max(24),
-  detail: z.string().min(1).max(400),
+  label: text(40),
+  timing: text(24),
+  detail: text(400),
 });
+
+/** Same treatment as the questions: a bad beat costs its own beat, not the brief. */
+const beatsField = z
+  .array(z.unknown())
+  .default([])
+  .transform((items) =>
+    items
+      .map((item) => beatSchema.safeParse(item))
+      .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+      .slice(0, 6),
+  )
+  // Two beats is the floor for something that reads as a script rather than a
+  // sentence, and unlike a long string this cannot be salvaged by trimming.
+  .refine((beats) => beats.length >= 2, "A brief needs at least two beats");
 
 export const briefSchema = z.object({
   /** The first line, which is the only part most viewers ever see. */
-  hook: z.string().min(1).max(200),
-  titles: z.array(z.string().min(1).max(120)).min(1).max(5),
-  beats: z.array(beatSchema).min(2).max(6),
-  durationSeconds: z.number().int().min(5).max(180),
+  hook: text(200),
+  titles: z
+    .array(text(120))
+    .min(1)
+    .transform((titles) => titles.slice(0, 5)),
+  beats: beatsField,
+  // Coerced and clamped: models return "15" and 15 interchangeably, and a
+  // number outside the range is a rounding problem rather than a broken brief.
+  durationSeconds: z.coerce
+    .number()
+    .transform((seconds) => Math.min(180, Math.max(5, Math.round(seconds)))),
   /** Without the leading hash, which the interface adds. */
-  hashtags: z.array(z.string().min(1).max(40)).max(8).default([]),
+  hashtags: z
+    .array(text(40))
+    .default([])
+    .transform((tags) => tags.slice(0, 8)),
   /** The self-contained brief handed to generation. */
-  prompt: z.string().min(20).max(2000),
+  prompt: text(2000),
 });
 
 export type ContentBrief = z.infer<typeof briefSchema>;
@@ -72,17 +145,32 @@ export type BriefAnswers = z.infer<typeof answersSchema>;
  * inconsistently, and the recovery is the same either way.
  */
 export function parseJsonReply<S extends z.ZodTypeAny>(
-  text: string,
+  reply: string,
   schema: S,
-): z.output<S> | null {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start === -1 || end <= start) return null;
+): { data: z.output<S> } | { reason: string } {
+  const start = reply.indexOf("{");
+  const end = reply.lastIndexOf("}");
+  if (start === -1 || end <= start) return { reason: "no JSON object in the reply" };
 
+  let json: unknown;
   try {
-    const parsed = schema.safeParse(JSON.parse(text.slice(start, end + 1)));
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
+    json = JSON.parse(reply.slice(start, end + 1));
+  } catch (error) {
+    return { reason: `malformed JSON: ${error instanceof Error ? error.message : "unknown"}` };
   }
+
+  const parsed = schema.safeParse(json);
+  if (parsed.success) return { data: parsed.data };
+
+  /*
+   * The reason travels back rather than being swallowed.
+   *
+   * This returned a bare null, so a rejected reply reached the user as "came
+   * back in a shape we could not read" with nothing anywhere saying which field
+   * was wrong. Diagnosing it meant guessing.
+   */
+  const issue = parsed.error.issues[0];
+  return {
+    reason: issue ? `${issue.path.join(".") || "root"}: ${issue.message}` : "did not match schema",
+  };
 }

@@ -59,16 +59,35 @@ export function BriefFlow({
       // answers from a previous run belong to questions that no longer exist.
       setAnswers({});
       setSkipped(new Set());
+
+      /*
+       * No questions is a valid outcome, not a dead end. The model may have had
+       * nothing worth asking, or the few it asked may all have been malformed
+       * and dropped. Either way the refining step has nothing to show, and
+       * stopping on an empty screen would be worse than simply writing the
+       * brief, which is what the questions were only ever there to sharpen.
+       */
+      if (result.analysis.questions.length === 0) {
+        generateFrom(result.analysis, {});
+        return;
+      }
+
       setStage("refine");
     });
   }
 
-  function generate() {
-    if (analysis === null) return;
+  /**
+   * Writes the brief from an explicit analysis and set of answers.
+   *
+   * Takes both as arguments rather than reading state, so it can be called in
+   * the same tick the analysis arrives: `setAnalysis` has not landed yet at that
+   * point, and reading state would send the previous idea's analysis or none.
+   */
+  function generateFrom(from: IdeaAnalysis, chosen: Readonly<Record<string, string>>) {
     setNotice(null);
 
     startTransition(async () => {
-      const result = await buildBriefAction({ idea, analysis, answers });
+      const result = await buildBriefAction({ idea, analysis: from, answers: chosen });
 
       if (result.status === "unconfigured") {
         setNotice("The idea refiner is not connected on this deployment.");
@@ -82,6 +101,11 @@ export function BriefFlow({
       setBrief(result.brief);
       setStage("brief");
     });
+  }
+
+  function generate() {
+    if (analysis === null) return;
+    generateFrom(analysis, answers);
   }
 
   function restart() {
