@@ -3,10 +3,8 @@
 import { Pencil, X } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
-import { type IdeaAnalysis } from "@/lib/brief/schema";
+import { type PickerQuestion } from "@/lib/brief/schema";
 import { cn } from "@/lib/utils";
-
-type Question = IdeaAnalysis["questions"][number];
 
 /**
  * One question, asked as a prompt docked over the page.
@@ -32,7 +30,7 @@ export function QuestionPrompt({
   onSkip,
   disabled,
 }: {
-  question: Question;
+  question: PickerQuestion;
   index: number;
   total: number;
   onAnswer: (value: string) => void;

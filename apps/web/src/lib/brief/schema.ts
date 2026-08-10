@@ -13,21 +13,28 @@ import { z } from "zod";
  * renders as a broken screen, so a malformed reply is rejected whole.
  */
 
+/**
+ * A question with options, wherever one is asked.
+ *
+ * One shape for the whole product: the refiner asks these about a rough idea and
+ * the chat asks them before spending a credit on a vague brief. They render
+ * through the same component, so a second shape would only be a second thing to
+ * keep in step.
+ */
+export const questionSchema = z.object({
+  /** Short caps label above the question, e.g. "HOOK STYLE". */
+  label: z.string().min(1).max(32),
+  question: z.string().min(1).max(160),
+  options: z.array(z.string().min(1).max(40)).min(2).max(4),
+});
+
+export type PickerQuestion = z.infer<typeof questionSchema>;
+
 export const analysisSchema = z.object({
   topic: z.string().min(1).max(120),
   audience: z.string().min(1).max(160),
   angle: z.string().min(1).max(240),
-  questions: z
-    .array(
-      z.object({
-        /** Short caps label above the question, e.g. "HOOK STYLE". */
-        label: z.string().min(1).max(32),
-        question: z.string().min(1).max(160),
-        options: z.array(z.string().min(1).max(40)).min(2).max(4),
-      }),
-    )
-    .min(1)
-    .max(4),
+  questions: z.array(questionSchema).min(1).max(4),
 });
 
 export type IdeaAnalysis = z.infer<typeof analysisSchema>;

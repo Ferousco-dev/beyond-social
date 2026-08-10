@@ -15,6 +15,12 @@ import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/genera
 import { refinePrompt } from "@/lib/generation/refine";
 import { logger } from "@/lib/logger";
 import { runWithAiUser } from "@/lib/ai/request-user";
+import {
+  applyAnswers,
+  buildClarification,
+  needsClarification,
+  type ClarifyQuestion,
+} from "@/lib/generation/clarify";
 import { extractMemories } from "@/lib/memory/extract";
 import { findRelatedConversations, indexMessage, renderRelated } from "@/lib/memory/conversations";
 import { recallFacts, rememberFacts, renderMemories } from "@/lib/memory/store";
@@ -68,6 +74,18 @@ const sendSchema = z.object({
     )
     .max(5)
     .optional(),
+  /**
+   * True once the caller has answered or skipped the clarifying questions.
+   * Bounds the exchange to one round: without it a model that keeps finding
+   * something to ask about could hold a paid action indefinitely.
+   */
+  clarified: z.boolean().optional(),
+  /**
+   * What the caller said in answer to the clarifying questions, keyed by label.
+   * Folded into the brief on the server, where the prompt is built, so the
+   * client never has to compose a directed prompt of its own.
+   */
+  clarifyAnswers: z.record(z.string().max(32), z.string().max(80)).optional(),
 });
 
 export type SendResult =
@@ -88,6 +106,12 @@ export type SendResult =
       /** Present when the video pipeline refused, so the UI can say why. */
       notice?: string;
     }
+  /**
+   * The request was not specific enough to spend a credit on. Nothing was
+   * created: no project, no message, no render. The client asks, folds the
+   * answers into the brief, and sends the same turn again with `clarified`.
+   */
+  | { status: "clarify"; questions: readonly ClarifyQuestion[] }
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
@@ -128,8 +152,14 @@ async function sendForUser(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<SendResult> {
-  const { prompt, aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
+  const { aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
   const user = { id: userId };
+
+  // The answers become part of what was asked for, not a hidden rider on it:
+  // the thread stores this, so what the user sees is what was sent to render.
+  const prompt = parsed.clarifyAnswers
+    ? applyAnswers(parsed.prompt, parsed.clarifyAnswers)
+    : parsed.prompt;
 
   // The paths come back from the client, so ownership is re-checked here rather
   // than assumed, exactly as the upload actions do. `append_turn` filters these
@@ -163,6 +193,45 @@ async function sendForUser(
     return { status: "consent" };
   }
 
+  /*
+   * What did they actually mean? Every message used to start a generation,
+   * which spent a credit answering a question and turned "make it slower" into
+   * an unrelated video.
+   *
+   * Classified before anything is created. A new project has no prior prompt by
+   * definition, so that case needs no read at all; an existing one is read
+   * first. Doing this here rather than after the parallel block costs one round
+   * trip on an adjustment and buys two things: a turn that ends in a question
+   * leaves no empty project in the sidebar, and it stops before the enhancement
+   * pass, which is a model call spent directing a video we are not making yet.
+   */
+  const previousPrompt =
+    parsed.projectId === "new" ? null : await getLatestDirectedPrompt(supabase, parsed.projectId);
+  const intent = await classify(prompt, previousPrompt !== null);
+
+  /*
+   * Ask before spending.
+   *
+   * The decision is made in `needsClarification` from the classifier's own
+   * confidence and from what the brief plainly lacks, never by asking a model
+   * whether it feels unsure. Nothing is created on this path: no project, no
+   * message, no render. The client answers and sends the same turn again with
+   * `clarified` set, which is also what stops a second round.
+   */
+  // The whole rule lives in `needsClarification`, including the one-round bound,
+  // so there is a single place to read to know when this fires.
+  if (
+    needsClarification({
+      classification: intent,
+      prompt,
+      hasAttachments: (imageUrls?.length ?? 0) > 0 || (videoPaths?.length ?? 0) > 0,
+      alreadyAsked: parsed.clarified === true,
+    })
+  ) {
+    const questions = await buildClarification(prompt, intent);
+    if (questions.length > 0) return { status: "clarify", questions };
+  }
+
   // The project is created on the first message, not on page load, so opening
   // the composer and changing your mind leaves nothing behind.
   let projectId = parsed.projectId;
@@ -177,17 +246,10 @@ async function sendForUser(
     projectId = created;
   }
 
-  // What did they actually mean? Every message used to start a generation,
-  // which spent a credit answering a question and turned "make it slower" into
-  // an unrelated video.
-  //
-  // The prior prompt and the thread are independent reads, so they go together;
-  // classification needs the first of them, so it follows.
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
   // trip in front of every message.
-  const [previousPrompt, previous, memories, summary, related] = await Promise.all([
-    getLatestDirectedPrompt(supabase, projectId),
+  const [previous, memories, summary, related] = await Promise.all([
     supabase.rpc("project_thread", { p_project: projectId }),
     recallFacts(prompt),
     getSummary(projectId),
@@ -195,7 +257,6 @@ async function sendForUser(
     // and returning it as "earlier work" would be noise.
     findRelatedConversations(prompt, projectId),
   ]);
-  const intent = await classify(prompt, previousPrompt !== null);
 
   let finalPrompt = prompt;
   let chunkIds: string[] = [];

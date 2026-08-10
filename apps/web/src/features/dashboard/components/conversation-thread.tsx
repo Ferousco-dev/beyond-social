@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendMessage } from "@/features/chat/actions";
+import { QuestionPrompt } from "@/features/brief/components/question-prompt";
+import { type PickerQuestion } from "@/lib/brief/schema";
 import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
 import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
@@ -38,6 +40,19 @@ const OPTIMISTIC = "pending:";
  */
 type AttachmentRef = { kind: AttachmentKind; path: string };
 
+/**
+ * A turn waiting on answers before it is allowed to spend a credit.
+ *
+ * The payload is kept whole rather than rebuilt from the composer, which has
+ * already been cleared by the time the questions arrive. Resending is then the
+ * same turn with the answers added, not an approximation of it.
+ */
+interface PendingClarification {
+  readonly payload: Parameters<typeof sendMessage>[0];
+  readonly questions: readonly PickerQuestion[];
+  readonly answers: Readonly<Record<string, string>>;
+}
+
 export function ConversationThread({ thread }: { thread: Thread }) {
   const router = useRouter();
   const [messages, setMessages] = useState<readonly ChatMessage[]>(thread.messages);
@@ -54,6 +69,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const [notice, setNotice] = useState<string | null>(null);
   /** True when the composer was filled from elsewhere and has not been sent. */
   const [seeded, setSeeded] = useState(false);
+  /**
+   * A turn held back for questions. Nothing was created for it, so this is the
+   * only record of it: answering or skipping sends it, and a reload drops it,
+   * which is the right trade for a turn that has cost nothing.
+   */
+  const [pending, setPending] = useState<PendingClarification | null>(null);
   const [sending, setSending] = useState(false);
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
@@ -334,6 +355,17 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
         setSending(false);
 
+        /*
+         * The request was too vague to spend a credit on, so nothing was
+         * created and the questions come back instead. The optimistic message
+         * stays on screen: it is what the questions are about, and withdrawing
+         * it would leave them hanging over an empty thread.
+         */
+        if (result.status === "clarify") {
+          setPending({ payload, questions: result.questions, answers: {} });
+          return;
+        }
+
         if (result.status !== "ok") {
           // The optimistic message is withdrawn: leaving it on screen would
           // imply the turn was recorded when it was not.
@@ -395,6 +427,50 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       })();
     },
     [projectId, photos, voice, footage, shots, router, sending, rendering, runAvatar, confirm],
+  );
+
+  /**
+   * Sends the held-back turn, with whatever the user chose to tell us.
+   *
+   * `clarified` goes with it either way. Answering and skipping are both a
+   * decision to proceed, and without the flag a skip would simply be asked the
+   * same questions again.
+   */
+  // The question being asked right now: the first with no answer yet.
+  const current = pending?.questions.find(
+    (question) => pending.answers[question.label] === undefined,
+  );
+
+  const resend = useCallback(
+    (answers: Readonly<Record<string, string>>) => {
+      const held = pending;
+      if (!held) return;
+
+      setPending(null);
+      setSending(true);
+      setNotice(null);
+
+      void (async () => {
+        const result = await sendMessage({
+          ...held.payload,
+          clarified: true,
+          ...(Object.keys(answers).length > 0 ? { clarifyAnswers: answers } : {}),
+        });
+        setSending(false);
+
+        if (result.status !== "ok") {
+          setNotice(
+            result.status === "error" ? result.message : "That could not be sent. Try again.",
+          );
+          return;
+        }
+
+        if (result.notice) setNotice(result.notice);
+        router.refresh();
+        if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+      })();
+    },
+    [pending, projectId, router],
   );
 
   /**
@@ -501,23 +577,54 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       {/* pb-safe on the outer edge, so the composer clears the home indicator on
           an installed app without the padding doubling on a desktop. */}
       <div className="sticky bottom-0 bg-canvas pb-safe pt-2">
-        <div className="pb-4">
-          <PromptComposer
-            value={prompt}
-            onChange={setPrompt}
-            onSubmit={() => submit(prompt)}
-            projectId={projectId}
-            photos={photos}
-            onPhotosChange={setPhotos}
-            voice={voice}
-            onVoice={setVoice}
-            footage={footage}
-            onFootage={setFootage}
-            shots={shots}
-            onShotsChange={setShots}
-            busy={sending || rendering}
-          />
-        </div>
+        {/*
+          The questions take the composer's place rather than sitting above it.
+          This turn is already written and waiting on one answer, so a text box
+          alongside would invite a second turn that cannot be sent yet.
+        */}
+        {pending ? (
+          <div className="pb-4">
+            <QuestionPrompt
+              key={current?.label ?? "done"}
+              question={current ?? pending.questions[0]!}
+              index={Object.keys(pending.answers).length}
+              total={pending.questions.length}
+              disabled={sending}
+              onAnswer={(value) => {
+                if (!current) return;
+                const answers = { ...pending.answers, [current.label]: value };
+                const remaining = pending.questions.filter(
+                  (question) => answers[question.label] === undefined,
+                );
+                // The last answer sends it. Asking and then making them press a
+                // separate button would be one more step than the turn needs.
+                if (remaining.length === 0) resend(answers);
+                else setPending({ ...pending, answers });
+              }}
+              // Skipping any question sends what we have. The point of the gate
+              // was to avoid spending a credit blindly, not to collect a set.
+              onSkip={() => resend(pending.answers)}
+            />
+          </div>
+        ) : (
+          <div className="pb-4">
+            <PromptComposer
+              value={prompt}
+              onChange={setPrompt}
+              onSubmit={() => submit(prompt)}
+              projectId={projectId}
+              photos={photos}
+              onPhotosChange={setPhotos}
+              voice={voice}
+              onVoice={setVoice}
+              footage={footage}
+              onFootage={setFootage}
+              shots={shots}
+              onShotsChange={setShots}
+              busy={sending || rendering}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
