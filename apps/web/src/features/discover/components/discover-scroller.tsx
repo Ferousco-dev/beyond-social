@@ -19,10 +19,23 @@ import { PostCard } from "./post-card";
  * post in.
  */
 
-/** Shown before the first search, so the page is never a bare input. */
+/**
+ * Shown before the first search, and again whenever one comes back empty.
+ *
+ * They used to render only while `posts` was null, so the first search removed
+ * them for good: a search that found nothing left a notice, an empty screen and
+ * no cheap way to try something else.
+ */
 const SUGGESTIONS = ["morning routine", "small business", "before and after", "product review"];
 
-export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string }) {
+export function DiscoverScroller({
+  initialQuery = "",
+  /** The user's industry, prepended so the first suggestions are about them. */
+  industryTerms = [],
+}: {
+  initialQuery?: string;
+  industryTerms?: readonly string[];
+}) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [posts, setPosts] = useState<readonly DiscoverPost[] | null>(null);
@@ -105,9 +118,11 @@ export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string 
         </div>
       </form>
 
-      {posts === null ? (
+      {/* Offered before the first search and after one that found nothing, but
+          never over a feed the user is reading. */}
+      {posts === null || posts.length === 0 ? (
         <div className="mt-6 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((suggestion) => (
+          {[...industryTerms, ...SUGGESTIONS].map((suggestion) => (
             <button
               key={suggestion}
               type="button"

@@ -36,12 +36,12 @@ export function StartScreen({ onRefine, onSkip }: { onRefine: () => void; onSkip
           <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
             <TrendingUp className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Explore trends</h2>
+          <h2 className="mt-5 text-base font-semibold text-ink">Find what is working</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Search TikTok by topic, scroll real posts, and pick one to build from.
           </p>
           <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-ink">
-            Browse trends
+            Search TikTok
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
           </span>
         </Link>

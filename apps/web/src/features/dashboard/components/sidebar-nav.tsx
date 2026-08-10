@@ -65,7 +65,7 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/trends" as Route,
-    label: "Trends",
+    label: "Discover",
     icon: TrendingUp,
     motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
   },

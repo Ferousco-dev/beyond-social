@@ -27,7 +27,7 @@ const RAIL_ITEM =
 const LINKS = [
   { href: "/dashboard", label: "New project", icon: PenSquare },
   { href: "/dashboard/library", label: "Library", icon: LibraryBig },
-  { href: "/dashboard/trends", label: "Trends", icon: TrendingUp },
+  { href: "/dashboard/trends", label: "Discover", icon: TrendingUp },
 ] as const;
 
 export function SidebarRail({

@@ -50,8 +50,8 @@ const BASE_ITEMS: readonly MenuItem[] = [
   { icon: ImagePlus, label: "Add photos", hint: "They become the footage", upload: true },
   {
     icon: TrendingUp,
-    label: "Browse trends",
-    hint: "Find a format to remix",
+    label: "Search TikTok",
+    hint: "Find a post to build from",
     navigate: "/dashboard/trends",
   },
   { icon: Mic, label: "Add your voice", hint: "Speak, and the photo speaks it", voice: true },
