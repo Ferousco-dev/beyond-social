@@ -33,9 +33,18 @@ export function OnboardingChecklist({ done }: { done: readonly OnboardingStepId[
   const percent = Math.round((completed.size / ONBOARDING_STEPS.length) * 100);
 
   return (
+    /*
+     * Hidden below `sm`, not shrunk.
+     *
+     * A panel docked bottom-right at this width covers the send button on a
+     * phone, and on the discover feed it sits on top of the one control the
+     * screen exists for. There is no arrangement of a floating checklist that
+     * does not fight a bottom-anchored composer, so on small screens it is not
+     * offered: the same steps are reachable from the dashboard.
+     */
     <aside
       aria-label="Getting started"
-      className="pointer-events-auto fixed bottom-4 right-4 z-40 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-hairline bg-paper shadow-card"
+      className="pointer-events-auto fixed bottom-4 right-4 z-40 hidden w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-hairline bg-paper shadow-card sm:block"
     >
       <div className="flex items-start gap-2 px-4 py-3.5">
         <div className="min-w-0 flex-1">

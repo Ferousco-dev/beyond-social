@@ -64,8 +64,12 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
   {
     id: "edit",
     title: "Cut it in the editor",
-    blurb: "Trim, caption and grade your render on a timeline built for vertical video.",
-    action: "Open the editor",
+    blurb:
+      "Open a video from your library, then use Edit in the chat header to trim, caption and grade it on the timeline.",
+    // The library, honestly labelled. There is no route that opens the editor
+    // without knowing which project, and a button saying "Open the editor" that
+    // lands two hops away is worse than one that says where it goes.
+    action: "Browse your videos",
     href: "/dashboard/library" as Route,
     icon: Scissors,
   },
