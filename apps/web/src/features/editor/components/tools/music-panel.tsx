@@ -2,52 +2,49 @@
 
 import { Music } from "lucide-react";
 
-import { MUSIC_LIBRARY } from "@/lib/editor/project";
-import { isAudio, type AudioItem } from "@/lib/editor/types";
+import { isAudio } from "@/lib/editor/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { Field } from "./control";
 
-/** Swaps the bed on the audio track, keeping its level and fades. */
+/**
+ * The audio track, and what it can honestly do today.
+ *
+ * This offered four tracks called Sunrise Run, Momentum, Golden Hour and City
+ * Lights. None of them existed. There were no audio files behind the names, the
+ * preview has no audio element to play one through, and the export joins video
+ * only, so choosing a track renamed a silent bar on the timeline and changed
+ * nothing else. It looked like a music library and was a list of four strings.
+ *
+ * So it says what is true instead. A panel that admits it cannot do something is
+ * worth more than one that appears to and does not, and this is the surface to
+ * build real music on when there are files, a player and an export that carries
+ * sound.
+ */
 export function MusicPanel({ editor }: { editor: EditorState }) {
   const track = editor.project.tracks.find((candidate) => candidate.kind === "audio");
   const current = track?.items.find(isAudio) ?? null;
 
   return (
     <Field label="Music">
-      <ul className="space-y-1.5">
-        {MUSIC_LIBRARY.map((option) => {
-          const active = current?.title === option.title;
-          return (
-            <li key={option.id}>
-              <button
-                type="button"
-                onClick={() =>
-                  current &&
-                  editor.update<AudioItem>(current.id, {
-                    title: option.title,
-                    durationMs: option.durationMs,
-                  })
-                }
-                aria-pressed={active}
-                className={`flex w-full cursor-pointer items-center gap-2.5 rounded-md border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                  active ? "border-primary bg-primary/10" : "border-hairline hover:bg-cloud"
-                }`}
-              >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded bg-cloud text-ink-soft">
-                  <Music className="size-3.5" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs text-ink">{option.title}</span>
-                  <span className="block text-[11px] tabular-nums text-ink-soft">
-                    {(option.durationMs / 1000).toFixed(0)}s
-                  </span>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {current ? (
+        <div className="flex items-center gap-2.5 rounded-md border border-hairline p-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded bg-cloud text-ink-soft">
+            <Music className="size-3.5" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-xs text-ink">{current.title}</span>
+            <span className="block text-[11px] tabular-nums text-ink-soft">
+              {(current.durationMs / 1000).toFixed(0)}s
+            </span>
+          </span>
+        </div>
+      ) : null}
+
+      <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+        There is no music library yet. Any audio on a generated clip is kept, and you can mute or
+        level it from the audio track, but a separate soundtrack cannot be added here.
+      </p>
     </Field>
   );
 }

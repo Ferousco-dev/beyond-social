@@ -6,10 +6,8 @@ import {
   ImagePlus,
   Images,
   Mic,
-  Music,
   Plus,
   Scissors,
-  Sparkles,
   TrendingUp,
   UserRound,
   type LucideIcon,
@@ -80,8 +78,6 @@ const BASE_ITEMS: readonly MenuItem[] = [
     hint: "Cut between scenes in one call",
     shots: true,
   },
-  { icon: Music, label: "Music library", hint: "Add a track in the editor" },
-  { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
 
 const SAVED_VOICE_ITEM: MenuItem = {
