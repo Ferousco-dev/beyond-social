@@ -1,6 +1,7 @@
 import {
   CreditCard,
   Gauge,
+  Image,
   KeyRound,
   Palette,
   ScrollText,
@@ -36,6 +37,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Appearance",
     description: "Light, dark, or follow your system.",
     icon: Palette,
+  },
+  {
+    href: "/dashboard/settings/brand",
+    label: "You and your products",
+    description: "A photo of you, and pictures of what you sell.",
+    icon: Image,
   },
   {
     href: "/dashboard/settings/voice",

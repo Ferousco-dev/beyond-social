@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   Clapperboard,
   ImagePlus,
+  Images,
   Mic,
   Music,
   Plus,
@@ -17,6 +18,8 @@ import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
+import { PicturePicker } from "@/features/assets/components/picture-picker";
+import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { attachUploadedPhotos, createUploadTickets } from "@/features/chat/upload-actions";
 import { useSavedVoice } from "@/features/voice/use-saved-voice";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
@@ -39,6 +42,7 @@ interface MenuItem {
   savedVoice?: boolean;
   footage?: boolean;
   shots?: boolean;
+  saved?: boolean;
   navigate?: string;
 }
 
@@ -74,6 +78,13 @@ const SAVED_VOICE_ITEM: MenuItem = {
   savedVoice: true,
 };
 
+const SAVED_PICTURES_ITEM: MenuItem = {
+  icon: Images,
+  label: "Use your pictures",
+  hint: "You and your products, already saved",
+  saved: true,
+};
+
 /**
  * The composer's attachment menu.
  *
@@ -103,10 +114,16 @@ export function ComposeMenu({
   const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
   const footage = useFootageUpload({ onFootage, onError, onBusyChange });
   const savedVoice = useSavedVoice();
+  const saved = useBrandLibrary();
+  const [picking, setPicking] = useState(false);
 
-  const items = savedVoice.profile
+  const withVoice = savedVoice.profile
     ? [BASE_ITEMS[0]!, BASE_ITEMS[1]!, SAVED_VOICE_ITEM, BASE_ITEMS[2]!, ...BASE_ITEMS.slice(3)]
     : BASE_ITEMS;
+
+  // Offered only when there is something saved. An entry that opens an empty
+  // picker teaches the user that the menu lies about what it can do.
+  const items = saved.has ? [SAVED_PICTURES_ITEM, ...withVoice] : withVoice;
 
   return (
     <>
@@ -216,6 +233,8 @@ export function ComposeMenu({
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
+                  } else if (item.saved) {
+                    setPicking(true);
                   } else if (item.savedVoice) {
                     const pending = savedVoice.toPendingVoice();
                     if (pending) onVoice(pending);
@@ -242,6 +261,21 @@ export function ComposeMenu({
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+
+      <PicturePicker
+        library={saved.library}
+        open={picking}
+        onOpenChange={setPicking}
+        // Already in storage and already signed, so a saved picture is attached
+        // without a round trip: it is the same shape a fresh upload ends up as.
+        onPick={(assets) =>
+          onPhotos(
+            assets
+              .filter((asset): asset is typeof asset & { url: string } => asset.url !== null)
+              .map((asset) => ({ url: asset.url, path: asset.path })),
+          )
+        }
+      />
     </>
   );
 }

@@ -1,0 +1,157 @@
+"use client";
+
+import { Loader2, Trash2, UserRound } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+
+import { CONSENT_STATEMENT } from "@/features/generation/consent";
+import { recordLikenessConsent } from "@/features/generation/avatar-actions";
+import { type BrandAsset } from "@/lib/assets/brand";
+
+import { removeBrandAsset, saveBrandAsset } from "../actions";
+import { usePictureUpload } from "../hooks/use-picture-upload";
+
+/**
+ * The saved likeness.
+ *
+ * One picture, replaceable, deletable. Keeping a face is a further promise than
+ * sending one for a single render, so the attestation is asked for here rather
+ * than assumed from whatever was agreed to in a thread, and it is asked before
+ * the picture is kept rather than after.
+ */
+export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const { upload, uploading } = usePictureUpload();
+  const [message, setMessage] = useState<string | null>(null);
+  const [askConsent, setAskConsent] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const busy = uploading || pending;
+
+  function keep(path: string) {
+    startTransition(async () => {
+      const result = await saveBrandAsset({ kind: "avatar", path });
+
+      if (result.status === "consent") {
+        // Held rather than discarded: the picture is already in storage, and
+        // making somebody choose the file again after agreeing is a punishment
+        // for reading the statement.
+        setAskConsent(path);
+        return;
+      }
+      setMessage(result.status === "ok" ? null : "Could not save that picture.");
+    });
+  }
+
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setMessage(null);
+
+    const path = await upload(file);
+    if (path === null) {
+      setMessage("That picture could not be uploaded.");
+      return;
+    }
+    keep(path);
+  }
+
+  function agree() {
+    const path = askConsent;
+    if (path === null) return;
+
+    startTransition(async () => {
+      const consent = await recordLikenessConsent();
+      if (consent.status !== "ok") {
+        setMessage("Could not record that agreement.");
+        return;
+      }
+      setAskConsent(null);
+      keep(path);
+    });
+  }
+
+  return (
+    <section className="rounded-2xl border border-hairline bg-paper p-5">
+      <h2 className="text-sm font-semibold text-ink">You</h2>
+      <p className="mt-1.5 text-sm text-ink-soft">
+        A photo of yourself, kept so your videos can be of you without uploading it every time. Face
+        forward, well lit, nothing covering it.
+      </p>
+
+      <div className="mt-5 flex flex-wrap items-center gap-4">
+        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-cloud">
+          {avatar?.url ? (
+            // Plain img: these are signed, short-lived URLs the image optimiser
+            // cannot be configured for.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatar.url} alt="Your saved avatar" className="size-full object-cover" />
+          ) : (
+            <UserRound className="size-8 text-ink-soft" aria-hidden />
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="sr-only"
+            onChange={(event) => void choose(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            {avatar ? "Replace photo" : "Upload a photo"}
+          </button>
+
+          {avatar ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                startTransition(async () => {
+                  await removeBrandAsset({ id: avatar.id });
+                })
+              }
+              className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Remove
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {askConsent !== null ? (
+        <div className="mt-5 rounded-xl border border-hairline bg-cloud p-4">
+          <p className="text-xs leading-relaxed text-ink">{CONSENT_STATEMENT}</p>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={agree}
+              disabled={pending}
+              className="inline-flex h-9 cursor-pointer items-center rounded-full bg-ink px-4 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-40"
+            >
+              I agree
+            </button>
+            <button
+              type="button"
+              onClick={() => setAskConsent(null)}
+              className="inline-flex h-9 cursor-pointer items-center rounded-full px-4 text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {message ? (
+        <p role="status" className="mt-3 text-xs text-destructive">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}

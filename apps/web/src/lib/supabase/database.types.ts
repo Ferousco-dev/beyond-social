@@ -309,6 +309,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      brand_assets: {
+        Row: {
+          consent_version: number | null;
+          created_at: string;
+          id: string;
+          kind: string;
+          label: string;
+          storage_path: string;
+          user_id: string;
+        };
+        Insert: {
+          consent_version?: number | null;
+          created_at?: string;
+          id?: string;
+          kind: string;
+          label?: string;
+          storage_path: string;
+          user_id: string;
+        };
+        Update: {
+          consent_version?: number | null;
+          created_at?: string;
+          id?: string;
+          kind?: string;
+          label?: string;
+          storage_path?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       conversation_summaries: {
         Row: {
           covered_through: string;
