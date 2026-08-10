@@ -52,6 +52,8 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   const [footage, setFootage] = useState<PendingFootage | null>(null);
   const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** True when the composer was filled from elsewhere and has not been sent. */
+  const [seeded, setSeeded] = useState(false);
   const [sending, setSending] = useState(false);
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
@@ -233,6 +235,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       setSending(true);
       setNotice(null);
       setPrompt("");
+      setSeeded(false);
 
       const optimisticId = `${OPTIMISTIC}${counter.current++}`;
       // A seeded turn carries its photos as an argument: they were uploaded on
@@ -394,8 +397,15 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     [projectId, photos, voice, footage, shots, router, sending, rendering, runAvatar, confirm],
   );
 
-  // Seeded from the dashboard composer or a trend card. The key is cleared
-  // before submitting so a re-render cannot fire a second generation.
+  /**
+   * Seeded from the dashboard composer, a brief, or a TikTok post.
+   *
+   * The composer is filled and left alone. This used to submit the seed on
+   * mount, which meant one tap on "Use as inspiration" while scrolling started a
+   * render: the user arrived at a thread where their credits had already been
+   * spent on a prompt they had not read. Credits do not come back, so the send
+   * has to be something a person did on purpose.
+   */
   useEffect(() => {
     if (thread.projectId !== null) return;
     const queryPrompt = new URLSearchParams(window.location.search).get("prompt");
@@ -405,21 +415,23 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
     const storedPhotos = window.sessionStorage.getItem(PENDING_PHOTOS_KEY);
     window.sessionStorage.removeItem(PENDING_PHOTOS_KEY);
-    let seeded: readonly PendingPhoto[] | undefined;
     if (storedPhotos) {
       // Session storage is client-controlled, so a malformed or hand-edited
       // value must not take the composer down with it.
       try {
         const parsed: unknown = JSON.parse(storedPhotos);
-        if (Array.isArray(parsed)) seeded = parsed as readonly PendingPhoto[];
+        if (Array.isArray(parsed)) setPhotos(parsed as readonly PendingPhoto[]);
       } catch {
-        seeded = undefined;
+        // A seed that cannot be read is dropped: the prompt still arrives, and
+        // the user can attach the picture again if they wanted one.
       }
     }
 
-    submit(pending, seeded);
-    // A one-shot seed, so it must not re-run when `submit` is recreated.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setPrompt(pending);
+    setSeeded(true);
+    // A one-shot seed. Only state setters are called, so there is nothing else
+    // to depend on; it used to submit, which is what needed the exhaustive-deps
+    // exemption that is no longer here.
   }, [thread.projectId]);
 
   useEffect(() => {
@@ -443,10 +455,22 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       >
         {messages.length === 0 ? (
           <div className="text-center">
-            <p className="text-sm font-medium text-ink">Describe the video you want</p>
-            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-              Say what it is for and who it is for. Add photos and they become the footage.
-            </p>
+            {seeded ? (
+              <>
+                <p className="text-sm font-medium text-ink">Ready when you are</p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+                  We have filled in the brief below. Read it over, change anything you want, then
+                  send it to start the render.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-ink">Describe the video you want</p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+                  Say what it is for and who it is for. Add photos and they become the footage.
+                </p>
+              </>
+            )}
           </div>
         ) : null}
 
