@@ -214,6 +214,7 @@ export function ComposeMenu({
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
+            data-tip-anchor="compose-plus"
             aria-label="Add photos and more"
             disabled={uploading || voice.uploading || footage.uploading}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"

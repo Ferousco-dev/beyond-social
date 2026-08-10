@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
+import { Coachmark } from "@/features/tips/components/coachmark";
+import { TIPS } from "@/lib/tips/tips";
 import { type PickerQuestion } from "@/lib/brief/schema";
 import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
@@ -622,6 +624,18 @@ export function ConversationThread({ thread }: { thread: Thread }) {
               shots={shots}
               onShotsChange={setShots}
               busy={sending || rendering}
+            />
+
+            {/*
+              Only for somebody who has sent something and never attached
+              anything. Before the first message the screen already explains
+              what to do, and once a photo has been sent the button is found.
+            */}
+            <Coachmark
+              tip={TIPS.attach}
+              when={
+                messages.length > 0 && messages.every((message) => message.attachments.length === 0)
+              }
             />
           </div>
         )}

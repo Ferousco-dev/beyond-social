@@ -91,6 +91,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               href={link.href}
               onClick={onNavigate}
+              data-tip-anchor={`nav-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
               aria-current={active ? "page" : undefined}
               className={cn(
                 ITEM,

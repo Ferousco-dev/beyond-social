@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { BriefFlow } from "@/features/brief/components/brief-flow";
+import { Coachmark } from "@/features/tips/components/coachmark";
+import { TIPS } from "@/lib/tips/tips";
 import { SUGGESTIONS } from "@/lib/dashboard/data";
 import { buildGreeting } from "@/lib/dashboard/greetings";
 import { cn } from "@/lib/utils";
@@ -18,7 +20,13 @@ import { PromptComposer } from "./prompt-composer";
  * for a finished thought before the person has had one, and the composer is
  * still one click away for anybody who arrived with theirs already formed.
  */
-export function DashboardHome({ name }: { name: string }) {
+export function DashboardHome({
+  name,
+  recents = [],
+}: {
+  name: string;
+  recents?: readonly { id: string; title: string }[];
+}) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
@@ -52,7 +60,14 @@ export function DashboardHome({ name }: { name: string }) {
   if (!composing) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-12">
-        <BriefFlow onSkip={() => setComposing(true)} onUse={(brief) => start(brief)} />
+        <BriefFlow
+          onSkip={() => setComposing(true)}
+          onUse={(brief) => start(brief)}
+          recents={recents}
+        />
+        {/* Only for someone with nothing under way. Pointing a first-timer at
+            the sidebar is help; doing it to somebody mid-project is noise. */}
+        <Coachmark tip={TIPS.discover} when={recents.length === 0} />
       </div>
     );
   }

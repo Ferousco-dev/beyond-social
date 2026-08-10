@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Lightbulb, PenLine, TrendingUp } from "lucide-react";
+import { ArrowRight, Clock, Lightbulb, PenLine, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 
@@ -12,7 +12,16 @@ import Link from "next/link";
  * actually arrive with, borrow something that is working or bring a half-formed
  * idea, plus a way past both for anybody who already knows what they want.
  */
-export function StartScreen({ onRefine, onSkip }: { onRefine: () => void; onSkip: () => void }) {
+export function StartScreen({
+  onRefine,
+  onSkip,
+  recents = [],
+}: {
+  onRefine: () => void;
+  onSkip: () => void;
+  /** The last few projects, so starting fresh does not hide the work in flight. */
+  recents?: readonly { id: string; title: string }[];
+}) {
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="text-center">
@@ -64,6 +73,30 @@ export function StartScreen({ onRefine, onSkip }: { onRefine: () => void; onSkip
           </span>
         </button>
       </div>
+
+      {recents.length > 0 ? (
+        // Below the two ways in, not above them: this screen is for starting
+        // something, and the work already under way is what you reach for when
+        // that turns out not to be what you came for.
+        <section className="mt-9">
+          <h2 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+            <Clock className="size-3.5" aria-hidden />
+            Pick up where you left off
+          </h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {recents.map((project) => (
+              <li key={project.id}>
+                <Link
+                  href={`/dashboard/c/${project.id}` as Route}
+                  className="inline-flex max-w-xs cursor-pointer items-center rounded-full border border-hairline bg-paper px-4 py-2 text-sm text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <span className="truncate">{project.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="mt-8 text-center">
         <button

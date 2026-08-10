@@ -24,9 +24,11 @@ type Stage = "start" | "idea" | "refine" | "brief";
 export function BriefFlow({
   onSkip,
   onUse,
+  recents = [],
 }: {
   onSkip: () => void;
   onUse: (brief: string) => void;
+  recents?: readonly { id: string; title: string }[];
 }) {
   const [stage, setStage] = useState<Stage>("start");
   const [idea, setIdea] = useState("");
@@ -94,7 +96,9 @@ export function BriefFlow({
 
   return (
     <div className="w-full">
-      {stage === "start" ? <StartScreen onRefine={() => setStage("idea")} onSkip={onSkip} /> : null}
+      {stage === "start" ? (
+        <StartScreen onRefine={() => setStage("idea")} onSkip={onSkip} recents={recents} />
+      ) : null}
 
       {stage === "idea" ? (
         <IdeaInput
