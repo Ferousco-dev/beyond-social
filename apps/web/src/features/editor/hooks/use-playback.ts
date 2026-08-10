@@ -10,6 +10,15 @@ export interface Playback {
   readonly durationMs: number;
   readonly toggle: () => void;
   readonly seek: (ms: number) => void;
+  /**
+   * Bumped only when somebody actually seeks.
+   *
+   * The clock moves constantly while playing, so "currentMs changed" says
+   * nothing about whether the media element needs moving. This distinguishes a
+   * jump the user asked for from the clock simply advancing, which is what lets
+   * the video play without being corrected sixty times a second.
+   */
+  readonly seekNonce: number;
 }
 
 /**
@@ -24,6 +33,7 @@ export interface Playback {
 export function usePlayback(durationMs: number): Playback {
   const [currentMs, setCurrentMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [seekNonce, setSeekNonce] = useState(0);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -55,6 +65,7 @@ export function usePlayback(durationMs: number): Playback {
   const seek = useCallback(
     (ms: number) => {
       setCurrentMs(clamp(ms, 0, durationMs));
+      setSeekNonce((nonce) => nonce + 1);
     },
     [durationMs],
   );
@@ -62,10 +73,14 @@ export function usePlayback(durationMs: number): Playback {
   const toggle = useCallback(() => {
     setIsPlaying((playing) => {
       // Restarting from the end is friendlier than a dead play button.
-      if (!playing && currentMs >= durationMs) setCurrentMs(0);
+      if (!playing && currentMs >= durationMs) {
+        setCurrentMs(0);
+        // A restart moves the playhead, so the element has to be told.
+        setSeekNonce((nonce) => nonce + 1);
+      }
       return !playing;
     });
   }, [currentMs, durationMs]);
 
-  return { currentMs, isPlaying, durationMs, toggle, seek };
+  return { currentMs, isPlaying, durationMs, toggle, seek, seekNonce };
 }

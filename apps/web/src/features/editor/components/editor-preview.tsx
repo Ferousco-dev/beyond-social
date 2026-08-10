@@ -57,6 +57,7 @@ export function EditorPreview({ playback, editor }: { playback: Playback; editor
           showSafeAreas={showSafeAreas}
           isPlaying={playback.isPlaying}
           muted={videoMuted}
+          seekNonce={playback.seekNonce}
         />
       </div>
 
