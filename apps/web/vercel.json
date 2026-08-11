@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"],
+  "regions": [
+    "arn1"
+  ],
   "crons": [
     {
       "path": "/api/cron/prune-caches",

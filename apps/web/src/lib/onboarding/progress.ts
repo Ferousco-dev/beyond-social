@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/session";
@@ -26,12 +28,37 @@ export interface OnboardingProgress {
 
 const NOT_LIVE: OnboardingProgress = { done: new Set(), live: false };
 
+/**
+ * How long a completed step can look incomplete.
+ *
+ * Six existence checks ran on every dashboard navigation, because this is in the
+ * layout and the layout renders on every page. That is six round trips to
+ * Stockholm to decide whether a checklist should show a tick.
+ *
+ * A minute is the trade: ticking a step a moment late is a checklist being
+ * slightly stale, which nobody notices, and the alternative was making every
+ * page in the product wait for it.
+ */
+const CACHE_SECONDS = 60;
+
 export async function getOnboardingProgress(): Promise<OnboardingProgress> {
   if (!isSupabaseConfigured) return NOT_LIVE;
 
   const user = await getAuthUser();
   if (!user) return NOT_LIVE;
 
+  // Keyed by user, so one person's progress can never be served to another.
+  const cached = unstable_cache(() => readProgress(user.id), ["onboarding-progress", user.id], {
+    revalidate: CACHE_SECONDS,
+    tags: [`onboarding:${user.id}`],
+  });
+
+  const done = await cached();
+  return { done: new Set(done), live: true };
+}
+
+/** The six checks themselves, run only on a cache miss. */
+async function readProgress(userId: string): Promise<OnboardingStepId[]> {
   const supabase = await createClient();
 
   /** True when the user owns at least one row in the table. */
@@ -43,7 +70,7 @@ export async function getOnboardingProgress(): Promise<OnboardingProgress> {
       | "social_connections"
       | "scheduled_posts",
   ): Promise<boolean> => {
-    const { data } = await supabase.from(table).select("id").eq("user_id", user.id).limit(1);
+    const { data } = await supabase.from(table).select("id").eq("user_id", userId).limit(1);
     return (data?.length ?? 0) > 0;
   };
 
@@ -51,7 +78,7 @@ export async function getOnboardingProgress(): Promise<OnboardingProgress> {
     supabase
       .from("profiles")
       .select("industry")
-      .eq("id", user.id)
+      .eq("id", userId)
       .maybeSingle()
       .then(({ data }) => typeof data?.industry === "string" && data.industry !== ""),
     owns("video_generations"),
@@ -61,13 +88,15 @@ export async function getOnboardingProgress(): Promise<OnboardingProgress> {
     owns("scheduled_posts"),
   ]);
 
-  const done = new Set<OnboardingStepId>();
-  if (industry) done.add("industry");
-  if (generated) done.add("generate");
-  if (edited) done.add("edit");
-  if (voiced) done.add("voice");
-  if (connected) done.add("connect");
-  if (published) done.add("publish");
+  const done: OnboardingStepId[] = [];
+  if (industry) done.push("industry");
+  if (generated) done.push("generate");
+  if (edited) done.push("edit");
+  if (voiced) done.push("voice");
+  if (connected) done.push("connect");
+  if (published) done.push("publish");
 
-  return { done, live: true };
+  // An array rather than a Set: the cache serialises this, and a Set does not
+  // survive that round trip.
+  return done;
 }

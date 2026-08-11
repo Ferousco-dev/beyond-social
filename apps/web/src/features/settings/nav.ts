@@ -6,7 +6,6 @@ import {
   KeyRound,
   Mic,
   Palette,
-  ScrollText,
   Share2,
   UserRound,
   Users,
@@ -108,11 +107,5 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Webhooks",
     description: "Get a signed request when something finishes.",
     icon: Webhook,
-  },
-  {
-    href: "/dashboard/settings/logs",
-    label: "Activity log",
-    description: "Everything the platform did on your behalf.",
-    icon: ScrollText,
   },
 ];
