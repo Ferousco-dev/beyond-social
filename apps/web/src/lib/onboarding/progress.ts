@@ -1,7 +1,5 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
-
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthUser } from "@/lib/supabase/session";
@@ -28,36 +26,36 @@ export interface OnboardingProgress {
 
 const NOT_LIVE: OnboardingProgress = { done: new Set(), live: false };
 
-/**
- * How long a completed step can look incomplete.
+/*
+ * NOT CACHED, deliberately, and this is the second attempt at that.
  *
- * Six existence checks ran on every dashboard navigation, because this is in the
- * layout and the layout renders on every page. That is six round trips to
- * Stockholm to decide whether a checklist should show a tick.
+ * These six existence checks run on every dashboard navigation because this
+ * lives in the layout, which is real cost worth removing. Wrapping it in
+ * `unstable_cache` looked like the fix and took the whole dashboard down with a
+ * 500: the queries run through the request-scoped Supabase client, that client
+ * reads `cookies()`, and Next refuses to let a cached function touch request
+ * data. The error is only reachable at runtime, so it built and deployed clean.
  *
- * A minute is the trade: ticking a step a moment late is a checklist being
- * slightly stale, which nobody notices, and the alternative was making every
- * page in the product wait for it.
+ * The two ways out both have a cost. Caching means reading with the service
+ * role, which bypasses row-level security and makes a `user_id` filter the only
+ * thing standing between one person's progress and another's. Not caching means
+ * six cheap indexed lookups per navigation, now in the same region as the
+ * database.
+ *
+ * Six indexed reads is the cheaper mistake. Revisit with the service client only
+ * if this shows up in real traces.
  */
-const CACHE_SECONDS = 60;
-
 export async function getOnboardingProgress(): Promise<OnboardingProgress> {
   if (!isSupabaseConfigured) return NOT_LIVE;
 
   const user = await getAuthUser();
   if (!user) return NOT_LIVE;
 
-  // Keyed by user, so one person's progress can never be served to another.
-  const cached = unstable_cache(() => readProgress(user.id), ["onboarding-progress", user.id], {
-    revalidate: CACHE_SECONDS,
-    tags: [`onboarding:${user.id}`],
-  });
-
-  const done = await cached();
+  const done = await readProgress(user.id);
   return { done: new Set(done), live: true };
 }
 
-/** The six checks themselves, run only on a cache miss. */
+/** The six checks themselves. */
 async function readProgress(userId: string): Promise<OnboardingStepId[]> {
   const supabase = await createClient();
 
