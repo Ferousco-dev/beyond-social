@@ -1,6 +1,7 @@
 import "server-only";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { streamReply, writeReply } from "./reply";
@@ -493,7 +494,9 @@ export async function runTurn(
 
   // Only a fresh brief teaches the engine anything: an adjustment is a delta
   // and a question is not a prompt at all.
-  if (intent.intent === "create") void learnFromPrompt(prompt, finalPrompt);
+  // Same reasoning as the writes below: worth doing after the reply, worthless
+  // if the process is gone before it runs.
+  if (intent.intent === "create") after(() => learnFromPrompt(prompt, finalPrompt));
 
   /*
    * The same judgement applies afterwards, and matters more here: these are
@@ -505,10 +508,27 @@ export async function runTurn(
    * than one that does not.
    */
   if (grounded) {
-    // Deliberately after the turn is persisted, and deliberately not awaited.
-    // Extraction costs a model call and yields nothing on most turns, so making
-    // the user wait for it would be paying latency for a usually-empty result.
-    void extractMemories(prompt, reply).then((facts) => rememberFacts(facts, projectId));
+    /*
+     * Handed to `after` rather than left as a floating promise.
+     *
+     * All three still run once the reply is on its way, which is the point:
+     * extraction is a model call that yields nothing on most turns, and making
+     * somebody wait for it would be paying latency for a usually-empty result.
+     *
+     * But `void somePromise()` is a bet that the process outlives the response,
+     * and on serverless it does not: the function can be torn down the moment
+     * the response is sent, taking the unfinished write with it. That is not
+     * theoretical here. A name correction landed 0.4s after its own turn, which
+     * is late enough that the next question had already looked for it and found
+     * nothing, and only landed at all because the teardown happened to be slow.
+     *
+     * `after` is Next's contract for exactly this: the platform keeps the
+     * invocation alive until the work finishes.
+     */
+    after(async () => {
+      const facts = await extractMemories(prompt, reply);
+      await rememberFacts(facts, projectId);
+    });
 
     // Makes this turn findable by a later "continue what we started". Indexed
     // from the row that was actually written, so the embedding can never point
@@ -516,11 +536,11 @@ export async function runTurn(
     const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
       (row) => row.role === "user",
     );
-    if (userMessage) void indexMessage(userMessage.id, projectId, prompt);
+    if (userMessage) after(() => indexMessage(userMessage.id, projectId, prompt));
 
     // Also after the fact: the summary is for the *next* turn, so making this
     // one wait for it would be charging the user for someone else's benefit.
-    void updateSummary(projectId, [...history, { role: "user", content: prompt }]);
+    after(() => updateSummary(projectId, [...history, { role: "user", content: prompt }]));
   }
 
   revalidatePath(`/dashboard/c/${projectId}`);

@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -63,7 +64,9 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   if (error || !generationId) return { status: "error", message: "Could not start generation" };
 
   // Best-effort: let the system learn from the original prompt in the background.
-  void learnFromPrompt(prompt, enhanced?.text);
+  // `after` rather than a floating promise: this runs once the response is on
+  // its way, and on serverless a floating one can be torn down before it does.
+  after(() => learnFromPrompt(prompt, enhanced?.text));
 
   return { status: "ok", generationId, sourceChunks: enhanced?.chunkIds ?? [] };
 }
