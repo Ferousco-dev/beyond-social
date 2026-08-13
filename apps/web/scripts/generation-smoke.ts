@@ -78,8 +78,14 @@ async function main(): Promise<void> {
   );
 
   // The vocabularies the classifier is allowed to return must stay in step with
-  // what the rest of the pipeline accepts.
-  check("intents are the three the router handles", INTENTS.join(",") === "create,adjust,ask");
+  // what the rest of the pipeline accepts. `chat` joined them when small talk
+  // stopped being answered as though a video were being made, and this was not
+  // updated with it, so the suite has been one short since.
+  check(
+    "intents are the four the router handles",
+    INTENTS.join(",") === "create,adjust,ask,chat",
+    INTENTS.join(","),
+  );
   check("aspect ratios match the edge function", ASPECT_RATIOS.join(",") === "16:9,9:16,Auto");
 
   process.stdout.write(

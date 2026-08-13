@@ -43,6 +43,16 @@ const THIN_PROMPT_CHARS = 25;
 /** The label doubles as the key an answer is filed under. */
 export type ClarifyQuestion = PickerQuestion;
 
+/**
+ * Why this turn is being held.
+ *
+ * Returned rather than kept internal so the interface can say which it was.
+ * "Two quick questions" in front of a request the user thought was perfectly
+ * clear reads as the product being difficult; naming the reason turns the same
+ * pause into the product being careful with their money.
+ */
+export type ClarifyReason = "unsure" | "thin";
+
 const questionsSchema = z.object({
   questions: z.array(questionSchema).max(3).default([]),
 });
@@ -57,31 +67,45 @@ export interface ClarifyContext {
 }
 
 /**
- * Whether this turn is worth a question.
+ * Whether this turn is worth a question, and which rule caught it.
  *
  * Every branch is checkable without a model. An unsure classification and a
  * one-line brief are both things we can see, and neither needs judgement to
- * recognise.
+ * recognise. Null means go ahead and spend.
  */
-export function needsClarification(context: ClarifyContext): boolean {
+export function needsClarification(context: ClarifyContext): ClarifyReason | null {
   const { classification, prompt, hasAttachments, alreadyAsked } = context;
 
   // One round, ever. A second pass would let a model that keeps finding things
   // to ask about hold a paid action hostage indefinitely.
-  if (alreadyAsked) return false;
+  if (alreadyAsked) return null;
 
   // A question or an adjustment costs nothing to get slightly wrong.
-  if (classification.intent !== "create") return false;
+  if (classification.intent !== "create") return null;
 
-  if (classification.confidence < CONFIDENCE_FLOOR) return true;
+  if (classification.confidence < CONFIDENCE_FLOOR) return "unsure";
 
   /*
    * A thin brief with nothing attached is the expensive kind of vague. The same
    * words alongside a photo are not: the picture carries most of the direction,
    * and asking then reads as not having looked at what was sent.
    */
-  return prompt.trim().length < THIN_PROMPT_CHARS && !hasAttachments;
+  return prompt.trim().length < THIN_PROMPT_CHARS && !hasAttachments ? "thin" : null;
 }
+
+/**
+ * What the assistant says before the questions appear.
+ *
+ * Written here beside the rule that fired, rather than in the component, so the
+ * sentence and the reason cannot drift apart. Not generated: this is a fixed
+ * fact about what just happened, and a model call to phrase it would add a
+ * round trip to the one moment the user is already waiting.
+ */
+export const CLARIFY_FRAMING: Readonly<Record<ClarifyReason, string>> = {
+  unsure:
+    "I want to make sure I have this right before I use a credit on it. Two quick questions, or skip and I will go with my read of it.",
+  thin: "That gives me a lot of room, and a render costs a credit whether or not it lands. Tell me a little more, or skip and I will make my own call.",
+};
 
 function buildPrompt(prompt: string, classification: Classification): string {
   const known = [

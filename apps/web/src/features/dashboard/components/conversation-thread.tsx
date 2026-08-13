@@ -2,13 +2,15 @@
 
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
 import { Coachmark } from "@/features/tips/components/coachmark";
+import { FollowUpChips } from "./follow-up-chips";
 import { TIPS } from "@/lib/tips/tips";
 import { type PickerQuestion } from "@/lib/brief/schema";
+import { followUpsFor } from "@/lib/generation/follow-ups";
 import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
 import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
@@ -53,6 +55,8 @@ interface PendingClarification {
   readonly payload: Parameters<typeof sendMessage>[0];
   readonly questions: readonly PickerQuestion[];
   readonly answers: Readonly<Record<string, string>>;
+  /** Why it is asking, said in the thread before the card appears. */
+  readonly framing: string;
 }
 
 export function ConversationThread({ thread }: { thread: Thread }) {
@@ -163,6 +167,25 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   // minute. Sending again in that window starts a second render and spends a
   // second credit, so the composer stays locked until the draft settles.
   const rendering = messages.some((message) => message.draft?.status === "generating");
+
+  /*
+   * The next moves, offered under the newest finished video only.
+   *
+   * Under every video in a long thread they would be a row of buttons repeated
+   * down the page, and the ones higher up refer to a cut that has already been
+   * revised twice. Derived from the brief that produced it, so anything the
+   * user already specified is not offered back to them.
+   */
+  const followUps = useMemo(() => {
+    const last = messages.at(-1);
+    if (!last?.draft || last.draft.status !== "ready") return [];
+
+    // The brief is the user turn this reply answered, which is the message
+    // before it. A thread always opens with one, so this is only null on a
+    // draft with no turn in front of it, which should not happen.
+    const asked = [...messages.slice(0, -1)].reverse().find((item) => item.role === "user");
+    return asked ? followUpsFor(asked.content) : [];
+  }, [messages]);
 
   // Resume watching anything still in flight, including after a reload. This is
   // the payoff from persisting the thread: a refresh mid-generation picks the
@@ -370,7 +393,35 @@ export function ConversationThread({ thread }: { thread: Thread }) {
          * it would leave them hanging over an empty thread.
          */
         if (result.status === "clarify") {
-          setPending({ payload, questions: result.questions, answers: {} });
+          /*
+           * The reason goes into the thread as a turn of its own, before the
+           * card appears.
+           *
+           * The questions used to arrive with nothing said: the message posted,
+           * the composer was replaced by an interrogation, and a user who
+           * thought their request was perfectly clear got friction with no
+           * account of it. Saying that a render costs a credit and that this is
+           * an attempt to spend it well turns the same pause into care.
+           *
+           * Not persisted. It belongs to a turn that was never recorded, and
+           * writing it to the thread would leave a question hanging in the
+           * history next to a video that answered it.
+           */
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${OPTIMISTIC}clarify-${counter.current++}`,
+              role: "assistant",
+              content: result.framing,
+              attachments: [],
+            },
+          ]);
+          setPending({
+            payload,
+            questions: result.questions,
+            answers: {},
+            framing: result.framing,
+          });
           return;
         }
 
@@ -570,6 +621,18 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           />
         ))}
 
+        {/* Not while something is in flight or a question is waiting: both are
+            moments where another suggestion is one thing too many. */}
+        {!sending && !rendering && pending === null ? (
+          <FollowUpChips
+            suggestions={followUps}
+            disabled={sending}
+            // Filled, not sent. Same rule as "Use as inspiration": a chip that
+            // starts a render spends a credit on one tap.
+            onPick={setPrompt}
+          />
+        ) : null}
+
         {/* Sits where the reply will appear, so the answer replaces the
             progress rather than arriving somewhere else. */}
         {sending ? <ThinkingIndicator /> : null}
@@ -630,6 +693,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
               shots={shots}
               onShotsChange={setShots}
               busy={sending || rendering}
+              credits={thread.credits}
             />
 
             {/*

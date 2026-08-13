@@ -19,6 +19,7 @@ import { runWithAiUser } from "@/lib/ai/request-user";
 import {
   applyAnswers,
   buildClarification,
+  CLARIFY_FRAMING,
   needsClarification,
   type ClarifyQuestion,
 } from "@/lib/generation/clarify";
@@ -112,7 +113,12 @@ export type SendResult =
    * created: no project, no message, no render. The client asks, folds the
    * answers into the brief, and sends the same turn again with `clarified`.
    */
-  | { status: "clarify"; questions: readonly ClarifyQuestion[] }
+  | {
+      status: "clarify";
+      questions: readonly ClarifyQuestion[];
+      /** What the assistant says before the questions, so the pause is explained. */
+      framing: string;
+    }
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
@@ -228,16 +234,33 @@ async function sendForUser(
    */
   // The whole rule lives in `needsClarification`, including the one-round bound,
   // so there is a single place to read to know when this fires.
-  if (
-    needsClarification({
-      classification: intent,
-      prompt,
-      hasAttachments: (imageUrls?.length ?? 0) > 0 || (videoPaths?.length ?? 0) > 0,
-      alreadyAsked: parsed.clarified === true,
-    })
-  ) {
+  const clarifyReason = needsClarification({
+    classification: intent,
+    prompt,
+    hasAttachments: (imageUrls?.length ?? 0) > 0 || (videoPaths?.length ?? 0) > 0,
+    alreadyAsked: parsed.clarified === true,
+  });
+
+  if (clarifyReason !== null) {
     const questions = await buildClarification(prompt, intent);
-    if (questions.length > 0) return { status: "clarify", questions };
+    /*
+     * Logged whether or not it asks, because the two thresholds this rule turns
+     * on were picked by judgement and there was no way to check them against
+     * what people actually send. `asked: false` is the interesting row: the
+     * blunt gate fired and the model then found nothing worth asking, which is
+     * the shape of a floor set too high.
+     */
+    logger.info("clarify gate fired", {
+      reason: clarifyReason,
+      confidence: intent.confidence,
+      promptChars: prompt.trim().length,
+      asked: questions.length > 0,
+      questions: questions.length,
+    });
+
+    if (questions.length > 0) {
+      return { status: "clarify", questions, framing: CLARIFY_FRAMING[clarifyReason] };
+    }
   }
 
   // The project is created on the first message, not on page load, so opening

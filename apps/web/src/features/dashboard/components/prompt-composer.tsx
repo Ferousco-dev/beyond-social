@@ -40,6 +40,11 @@ interface PromptComposerProps {
   /** The shot list for multi-shot generation. Null when not using shots. */
   shots: readonly PendingShot[] | null;
   onShotsChange: (shots: readonly PendingShot[] | null) => void;
+  /**
+   * What a video costs and what is left. Null when there is no backend to ask,
+   * in which case nothing is claimed about price.
+   */
+  credits: { readonly cost: number; readonly balance: number } | null;
 }
 
 export function PromptComposer({
@@ -56,6 +61,7 @@ export function PromptComposer({
   footage,
   shots,
   onShotsChange,
+  credits,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -209,6 +215,27 @@ export function PromptComposer({
       {error ? (
         <p role="alert" className="px-3 pt-1 text-xs text-destructive">
           {error}
+        </p>
+      ) : null}
+
+      {/*
+        The price, next to the button that pays it.
+        
+        The balance was on the billing page and the overview tile and nowhere
+        near here, so the way to find out the account was empty was to write a
+        brief, send it, and be refused. Stated quietly: this is a fact worth
+        having, not a warning, right up until there is not enough for one video.
+      */}
+      {credits !== null ? (
+        <p
+          className={cn(
+            "px-3 pt-1 text-xs",
+            credits.balance < credits.cost ? "text-destructive" : "text-ink-soft",
+          )}
+        >
+          {credits.balance < credits.cost
+            ? `A video costs ${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} and you have ${credits.balance}. Top up to keep generating.`
+            : `${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} a video · ${credits.balance} left`}
         </p>
       ) : null}
     </div>

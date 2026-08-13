@@ -23,9 +23,12 @@ import { PromptComposer } from "./prompt-composer";
 export function DashboardHome({
   name,
   recents = [],
+  credits = null,
 }: {
   name: string;
   recents?: readonly { id: string; title: string }[];
+  /** What a video costs and what is left, shown under the composer. */
+  credits?: { readonly cost: number; readonly balance: number } | null;
 }) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
@@ -103,6 +106,7 @@ export function DashboardHome({
         shots={null}
         onShotsChange={() => {}}
         busy={false}
+        credits={credits}
       />
 
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
