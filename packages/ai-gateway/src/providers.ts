@@ -357,4 +357,102 @@ export class GeminiClient implements ProviderClient {
         (data.usageMetadata?.thoughtsTokenCount ?? 0),
     };
   }
+
+  /**
+   * The same call against `streamGenerateContent`.
+   *
+   * `alt=sse` matters: without it Gemini streams a JSON array in fragments,
+   * which cannot be parsed incrementally without assembling the whole thing
+   * first, defeating the point.
+   *
+   * The safety and empty-answer failures `complete` guards against apply here
+   * too, but only once the stream ends: a candidate with no text so far is
+   * normal mid-stream and only a failure if nothing ever arrives.
+   */
+  async *stream(spec: ModelSpec, request: CompletionRequest): AsyncIterable<StreamEvent> {
+    const response = await fetch(
+      `${this.baseUrl}/models/${spec.id}:streamGenerateContent?alt=sse`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.system }] },
+          contents: request.messages.map((message) => ({
+            role: message.role === "assistant" ? "model" : "user",
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: {
+            temperature: request.temperature ?? 1,
+            maxOutputTokens: Math.min(
+              (request.maxTokens ?? 4096) + (spec.minThinkingTokens ?? 0),
+              spec.maxOutput,
+            ),
+            ...(spec.minThinkingTokens === undefined
+              ? {}
+              : { thinkingConfig: { thinkingBudget: spec.minThinkingTokens } }),
+            ...(request.json && spec.jsonMode ? { responseMimeType: "application/json" } : {}),
+          },
+        }),
+        ...(request.signal ? { signal: request.signal } : {}),
+      },
+    );
+
+    if (!response.ok) throw await toProviderError(response);
+    if (!response.body) throw new ProviderError("stream had no body", 502, null);
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let emitted = false;
+    let finishReason: string | undefined;
+
+    for await (const line of sseLines(response.body)) {
+      if (!line.startsWith("data:")) continue;
+
+      const payload = line.slice(5).trim();
+      if (payload === "" || payload === "[DONE]") continue;
+
+      let data: GeminiResponse;
+      try {
+        data = JSON.parse(payload) as GeminiResponse;
+      } catch {
+        continue;
+      }
+
+      if (data.error) throw new ProviderError(`gemini: ${data.error.message ?? "error"}`, 502, null);
+
+      const candidate = data.candidates?.[0];
+      finishReason = candidate?.finishReason ?? finishReason;
+
+      const text = (candidate?.content?.parts ?? []).map((part) => part.text ?? "").join("");
+      if (text !== "") {
+        emitted = true;
+        yield { type: "chunk", text };
+      }
+
+      // Usage is repeated on every event and only final on the last, so the
+      // latest value wins rather than the first.
+      if (data.usageMetadata) {
+        inputTokens = data.usageMetadata.promptTokenCount ?? inputTokens;
+        outputTokens =
+          (data.usageMetadata.candidatesTokenCount ?? 0) +
+          (data.usageMetadata.thoughtsTokenCount ?? 0);
+      }
+    }
+
+    // An answer that never produced a word is a failure, exactly as in
+    // `complete`. Truncation may pass on a retry with a different budget; a
+    // refusal will not.
+    if (!emitted) {
+      throw new ProviderError(
+        `gemini streamed no text (finishReason: ${finishReason ?? "unknown"})`,
+        finishReason === "MAX_TOKENS" ? 503 : 400,
+        null,
+      );
+    }
+
+    yield { type: "done", usage: { inputTokens, outputTokens } };
+  }
 }

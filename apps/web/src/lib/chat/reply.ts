@@ -146,6 +146,115 @@ export interface ReplyContext {
 }
 
 /**
+ * The prompt for a turn, and whether there is anything to send.
+ *
+ * Shared by `writeReply` and `streamReply` so the two cannot drift into
+ * answering the same message differently depending on which the caller used.
+ */
+function planReply(
+  context: ReplyContext,
+): { kind: "fallback"; text: string } | { kind: "ask"; system: string; content: string } {
+  const asking = context.intent === "ask";
+  const chatting = context.intent === "chat";
+  // First name only: "Hello Sarah Okonkwo-Whitfield" reads like a summons.
+  const name = (context.name ?? "").trim().split(/\s+/)[0] ?? "";
+
+  // The intent is read before this returns, not after: with no model
+  // configured, "hello" used to be answered with "Working on that now" when
+  // nothing had been started and nothing was coming.
+  if (!isPromptEngineConfigured || context.brief.trim() === "") {
+    return { kind: "fallback", text: quietFallback(chatting, asking, name) };
+  }
+
+  // Only the last few turns: the whole thread would grow the prompt without
+  // improving a two-sentence reply.
+  const history = (context.history ?? [])
+    .slice(-4)
+    .map((turn) => `${turn.role}: ${turn.content}`)
+    .join("\n");
+
+  // The summary stands in for the middle of a long thread; the recent turns
+  // are still sent verbatim, because "make it slower" refers to something a
+  // summary would have flattened away.
+  const summary = context.summary
+    ? `Earlier in this conversation, summarised:\n<summary>\n${context.summary}\n</summary>\n`
+    : "";
+  const grounding = `${context.memories ?? ""}\n${summary}`.trim();
+
+  return {
+    kind: "ask",
+    system:
+      "You are a video director collaborating with a creator. You are specific about craft, brief in conversation, and you never pad.",
+    content: chatting
+      ? chatPrompt(context.brief, history, grounding, name)
+      : asking
+        ? answerPrompt(context.brief, history, grounding)
+        : buildPrompt(
+            context.brief,
+            context.directedPrompt ?? null,
+            history,
+            context.intent === "adjust",
+            grounding,
+          ),
+  };
+}
+
+/** The fallback for a context, without rebuilding the whole plan for it. */
+function fallbackFor(context: ReplyContext): string {
+  return quietFallback(
+    context.intent === "chat",
+    context.intent === "ask",
+    (context.name ?? "").trim().split(/\s+/)[0] ?? "",
+  );
+}
+
+/**
+ * The reply, delivered as it is written.
+ *
+ * For the two conversational intents this is most of the perceived speed of
+ * the product: `ask` and `chat` have nothing to wait for except these words,
+ * so three seconds of silence is three seconds of looking broken.
+ *
+ * A mid-stream failure ends the reply rather than replacing it. Half an answer
+ * is still an answer, and appending an apology to it reads worse than the half
+ * answer alone; only a failure before anything was shown gets the fallback.
+ */
+export async function* streamReply(context: ReplyContext): AsyncGenerator<string> {
+  const plan = planReply(context);
+  if (plan.kind === "fallback") {
+    yield plan.text;
+    return;
+  }
+
+  const chat = getChat();
+  // Not every provider chain can stream. Completing and yielding once is the
+  // same answer, just later, which beats refusing to reply.
+  if (!chat.stream) {
+    yield await writeReply(context);
+    return;
+  }
+
+  let emitted = false;
+  try {
+    for await (const piece of chat.stream({
+      system: plan.system,
+      messages: [{ role: "user", content: plan.content }],
+      temperature: 0.6,
+      maxTokens: 220,
+    })) {
+      if (piece === "") continue;
+      emitted = true;
+      yield piece;
+    }
+  } catch {
+    if (!emitted) yield fallbackFor(context);
+    return;
+  }
+
+  if (!emitted) yield fallbackFor(context);
+}
+
+/**
  * Writes the assistant's reply. Falls back to a plain acknowledgement rather
  * than throwing, because a missing model must not cost the user their video.
  */
