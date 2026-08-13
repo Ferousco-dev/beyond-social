@@ -2,34 +2,35 @@
 
 import { useEffect, useState } from "react";
 
+import { type TurnStage } from "@/lib/chat/turn";
+
 /**
  * What the assistant is doing while it works.
  *
  * A bare spinner tells the user only that something is happening, which after
- * three seconds reads as broken. These are the real stages of the turn, in the
- * order they occur, so the wait becomes legible rather than merely long.
+ * three seconds reads as broken.
  *
- * The timings are honest about the work: classification is fast, grounding the
- * prompt against the knowledge base is the slow part, and the render request is
- * last. Nothing here claims a stage has finished, only that it has begun.
+ * The stages used to advance on a timer: a list of labels with millisecond
+ * offsets, guessed from how long each step usually takes. That is confidently
+ * wrong the moment a step runs long, and it claimed the render had started
+ * while the classifier was still going. They now come from the turn itself, so
+ * the label is what is actually happening. The timer is only a fallback for a
+ * caller that reports nothing.
  */
 
-interface Stage {
-  readonly label: string;
-  /** Milliseconds after send that this stage starts. */
-  readonly atMs: number;
-}
+const LABELS: Readonly<Record<TurnStage, string>> = {
+  understanding: "Reading your brief",
+  recalling: "Remembering what you have made before",
+  directing: "Choosing the shot and the light",
+  rendering: "Sending it to the renderer",
+  replying: "Writing back",
+  saving: "Saving the turn",
+};
 
-const STAGES: readonly Stage[] = [
-  { label: "Reading your brief", atMs: 0 },
-  { label: "Choosing the shot and the light", atMs: 1200 },
-  { label: "Writing the direction", atMs: 3200 },
-  { label: "Sending it to the renderer", atMs: 6000 },
-  // Past here the render is genuinely queued and the wait is the provider's.
-  { label: "Rendering, this part takes a minute", atMs: 12000 },
-];
+/** Shown only when the turn reports nothing, which is the server action path. */
+const UNTRACKED = "Working on that";
 
-export function ThinkingIndicator() {
+export function ThinkingIndicator({ stage }: { stage?: TurnStage | null }) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -38,7 +39,14 @@ export function ThinkingIndicator() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const stage = [...STAGES].reverse().find((entry) => elapsed >= entry.atMs) ?? STAGES[0];
+  // The elapsed counter still drives the long-render line, which is the one
+  // stage whose length nothing reports: past a minute the wait is the video
+  // provider's and saying so is better than a label that stopped changing.
+  const label = stage
+    ? stage === "rendering" && elapsed > 12_000
+      ? "Rendering, this part takes a minute"
+      : LABELS[stage]
+    : UNTRACKED;
 
   return (
     <div className="flex items-center gap-2.5 text-sm text-ink-soft">
@@ -55,7 +63,7 @@ export function ThinkingIndicator() {
       </span>
       {/* Announced politely so a screen reader hears the stage change without
           being interrupted mid-sentence. */}
-      <span aria-live="polite">{stage?.label}</span>
+      <span aria-live="polite">{label}</span>
     </div>
   );
 }

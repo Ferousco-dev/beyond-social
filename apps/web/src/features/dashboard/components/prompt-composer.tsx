@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Loader2, X } from "lucide-react";
+import { ArrowUp, Loader2, Square, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -45,6 +45,11 @@ interface PromptComposerProps {
    * in which case nothing is claimed about price.
    */
   credits: { readonly cost: number; readonly balance: number } | null;
+  /**
+   * Stops reading the turn in flight. Absent where there is nothing to stop,
+   * which is the dashboard composer: it navigates before a turn begins.
+   */
+  onStop?: () => void;
 }
 
 export function PromptComposer({
@@ -62,6 +67,7 @@ export function PromptComposer({
   shots,
   onShotsChange,
   credits,
+  onStop,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -195,20 +201,37 @@ export function PromptComposer({
             onError={setError}
             onBusyChange={setUploading}
           />
-          <button
-            type="button"
-            onClick={() => canSubmit && onSubmit()}
-            disabled={!canSubmit}
-            aria-label={sendReason}
-            title={sendReason}
-            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            {busy || uploading ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <ArrowUp className="size-4" />
-            )}
-          </button>
+          {/*
+            One button, two jobs. While a turn is running the only useful thing
+            here is to stop it, and a spinner that cannot be pressed was the
+            product asking somebody to wait with no way out.
+          */}
+          {busy && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label="Stop"
+              title="Stop"
+              className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90"
+            >
+              <Square className="size-3 fill-current" aria-hidden />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => canSubmit && onSubmit()}
+              disabled={!canSubmit}
+              aria-label={sendReason}
+              title={sendReason}
+              className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              {uploading ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <ArrowUp className="size-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
 

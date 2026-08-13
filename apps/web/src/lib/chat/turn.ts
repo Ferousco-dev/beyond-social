@@ -3,7 +3,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
-import { writeReply } from "./reply";
+import { streamReply, writeReply } from "./reply";
 import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/consent-gate";
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
@@ -45,6 +45,27 @@ const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
 
 /** The composer's ceiling: four reference photos plus one voice clip. */
 const MAX_ATTACHMENTS = 5;
+
+/**
+ * What the turn is doing, as it does it.
+ *
+ * Emitted at the real boundaries rather than on a timer. The interface used to
+ * advance a list of stage labels off elapsed milliseconds, which meant it was
+ * confidently wrong whenever a step took longer than the guess: a slow
+ * classification showed "Writing the direction" while the classifier was still
+ * running.
+ *
+ * Optional throughout. A caller that only wants the result passes nothing and
+ * the pipeline behaves exactly as it did.
+ */
+export type TurnStage =
+  "understanding" | "recalling" | "directing" | "rendering" | "replying" | "saving";
+
+export interface TurnEvents {
+  readonly onStage?: (stage: TurnStage) => void;
+  /** Pieces of the reply as they are written. */
+  readonly onReplyChunk?: (text: string) => void;
+}
 
 export const sendSchema = z.object({
   /** `new` means no project exists yet. */
@@ -137,9 +158,11 @@ export async function runTurn(
   userId: string,
   supabase: Awaited<ReturnType<typeof createClient>>,
   name: string,
+  events: TurnEvents = {},
 ): Promise<SendResult> {
   const { aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
   const user = { id: userId };
+  const stage = (next: TurnStage): void => events.onStage?.(next);
 
   // The answers become part of what was asked for, not a hidden rider on it:
   // the thread stores this, so what the user sees is what was sent to render.
@@ -193,6 +216,7 @@ export async function runTurn(
    */
   const previousPrompt =
     parsed.projectId === "new" ? null : await getLatestDirectedPrompt(supabase, parsed.projectId);
+  stage("understanding");
   const intent = await classify(prompt, previousPrompt !== null);
 
   /*
@@ -264,6 +288,7 @@ export async function runTurn(
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
   // trip in front of every message.
+  stage("recalling");
   const [previous, memories, summary, related] = await Promise.all([
     // Always: the thread is what the screen renders, not context for a model.
     supabase.rpc("project_thread", { p_project: projectId }),
@@ -290,6 +315,7 @@ export async function runTurn(
      * nothing. Both are derived from what the turn already knows rather than
      * asked for.
      */
+    stage("directing");
     const enhanced = await enhancePrompt({
       prompt,
       ...(platformFromAspect(intent.aspectRatio ?? aspectRatio)
@@ -350,6 +376,7 @@ export async function runTurn(
   // A question costs nothing. This is the whole point of classifying: not
   // spending a credit on a video the person did not ask for.
   const startGeneration = async (): Promise<void> => {
+    stage("rendering");
     // Neither a question nor a greeting is a request for a video. This is the
     // whole point of classifying: not spending a credit on "hello".
     if (intent.intent === "ask" || intent.intent === "chat") return;
@@ -412,19 +439,39 @@ export async function runTurn(
    * Waiting for the provider to acknowledge before starting to write added the
    * whole round trip to how long the user stares at a spinner.
    */
-  const [, reply] = await Promise.all([
-    startGeneration(),
-    writeReply({
-      brief: prompt,
-      directedPrompt: intent.intent === "ask" || intent.intent === "chat" ? null : finalPrompt,
-      history,
-      intent: intent.intent,
-      name,
-      memories: [renderMemories(memories), renderRelated(related)].filter(Boolean).join("\n\n"),
-      summary,
-    }),
-  ]);
+  const replyContext = {
+    brief: prompt,
+    directedPrompt: intent.intent === "ask" || intent.intent === "chat" ? null : finalPrompt,
+    history,
+    intent: intent.intent,
+    name,
+    memories: [renderMemories(memories), renderRelated(related)].filter(Boolean).join("\n\n"),
+    summary,
+  };
 
+  /*
+   * Streamed only when somebody is listening.
+   *
+   * A caller with no `onReplyChunk` gets the same blocking call as before, so
+   * the action path is unchanged. The assembled text is what gets persisted
+   * either way: what the thread stores has to be the whole reply, not the last
+   * piece of it.
+   */
+  const writeOrStream = async (): Promise<string> => {
+    stage("replying");
+    if (!events.onReplyChunk) return writeReply(replyContext);
+
+    let assembled = "";
+    for await (const piece of streamReply(replyContext)) {
+      assembled += piece;
+      events.onReplyChunk(piece);
+    }
+    return assembled;
+  };
+
+  const [, reply] = await Promise.all([startGeneration(), writeOrStream()]);
+
+  stage("saving");
   const { data: turnRows, error: turnError } = await supabase.rpc("append_turn", {
     p_project: projectId,
     p_user_content: prompt,

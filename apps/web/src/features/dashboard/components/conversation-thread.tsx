@@ -26,6 +26,7 @@ import { ConversationHeader } from "./conversation-header";
 import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { useStreamedTurn } from "../hooks/use-streamed-turn";
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
@@ -68,6 +69,17 @@ export function ConversationThread({ thread }: { thread: Thread }) {
    * which is the right trade for a turn that has cost nothing.
    */
   const [sending, setSending] = useState(false);
+  /*
+   * The turn, read as it happens.
+   *
+   * `sendMessage` is passed as the fallback rather than replaced by it: a
+   * browser or proxy that cannot hold the stream still gets the same result
+   * from the same pipeline, just at the end instead of throughout.
+   */
+  const turn = useStreamedTurn(sendMessage);
+  // Destructured because it is what `submit` depends on: the hook's object
+  // identity changes every render, the callback on it does not.
+  const { send: sendTurn } = turn;
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
   const counter = useRef(0);
@@ -357,7 +369,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           videoPaths: clip ? [clip.path] : undefined,
           shots: validShots && validShots.length > 0 ? validShots : undefined,
         };
-        let result = await sendMessage(payload);
+        let result = await sendTurn(payload);
 
         /*
          * A photo of a person needs the likeness attestation, and the server
@@ -375,7 +387,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
             const recorded = await recordLikenessConsent();
             result =
               recorded.status === "ok"
-                ? await sendMessage(payload)
+                ? await sendTurn(payload)
                 : { status: "error", message: "Could not record that confirmation. Try again." };
           } else {
             result = {
@@ -497,6 +509,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       runAvatar,
       confirm,
       hold,
+      sendTurn,
     ],
   );
 
@@ -584,7 +597,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
         {/* Sits where the reply will appear, so the answer replaces the
             progress rather than arriving somewhere else. */}
-        {sending ? <ThinkingIndicator /> : null}
+        {/* The reply as it is written, in the place the finished one will
+            occupy, so the text does not jump when the turn completes. */}
+        {sending && turn.partial !== "" ? (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{turn.partial}</p>
+        ) : null}
+
+        {sending && turn.partial === "" ? <ThinkingIndicator stage={turn.stage} /> : null}
 
         {notice ? (
           <p role="status" className="text-center text-xs text-ink-soft">
@@ -631,6 +650,9 @@ export function ConversationThread({ thread }: { thread: Thread }) {
               onShotsChange={setShots}
               busy={sending || rendering}
               credits={thread.credits}
+              // Only while a turn is streaming. A queued render is the
+              // provider's to finish and has its own cancel on the draft.
+              onStop={sending ? turn.cancel : undefined}
             />
 
             {/*
