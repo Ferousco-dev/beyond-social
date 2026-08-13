@@ -101,6 +101,16 @@ const beats = [
   { label: "Lift", timing: "3-8s", detail: "He rises through cloud" },
 ];
 
+/** A brief that should always parse, so each case can vary one field of it. */
+const goodBrief = {
+  hook: "He looked up.",
+  titles: ["One"],
+  beats,
+  durationSeconds: 15,
+  hashtags: [],
+  prompt: "x".repeat(50),
+};
+
 {
   const out = parseJsonReply(
     JSON.stringify({
@@ -161,6 +171,40 @@ const beats = [
 }
 
 {
+  // A trailing empty string is a routine model artefact, and it used to reject
+  // the whole brief on either of these two fields.
+  const out = parseJsonReply(
+    JSON.stringify({ ...goodBrief, hashtags: ["fashion", ""], titles: ["Three ways", ""] }),
+    briefSchema,
+  );
+  check(
+    "an empty hashtag and title are dropped, not fatal",
+    "data" in out && out.data.hashtags.length === 1 && out.data.titles.length === 1,
+    "data" in out ? "" : out.reason,
+  );
+}
+
+{
+  const out = parseJsonReply(JSON.stringify({ ...goodBrief, titles: [""] }), briefSchema);
+  check(
+    "a brief with no usable title is still refused",
+    !("data" in out),
+    "data" in out ? "accepted" : out.reason,
+  );
+}
+
+{
+  // The one length bound that is correctness rather than presentation: this
+  // string reaches the video model unedited and spends a credit.
+  const out = parseJsonReply(JSON.stringify({ ...goodBrief, prompt: "a video" }), briefSchema);
+  check(
+    "a prompt too thin to direct anything is refused",
+    !("data" in out),
+    "data" in out ? "accepted" : out.reason,
+  );
+}
+
+{
   const out = parseJsonReply("not json at all", analysisSchema);
   check(
     "a non-JSON reply reports why",
@@ -199,15 +243,6 @@ const reviewSchema = z.object({
     .transform((issues) => issues.slice(0, 6)),
   revised: briefSchema.nullable().default(null),
 });
-
-const goodBrief = {
-  hook: "He looked up.",
-  titles: ["One"],
-  beats,
-  durationSeconds: 15,
-  hashtags: [],
-  prompt: "x".repeat(50),
-};
 
 {
   const out = parseJsonReply(JSON.stringify({ issues: [], revised: null }), reviewSchema);

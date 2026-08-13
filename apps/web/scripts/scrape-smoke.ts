@@ -101,6 +101,27 @@ const tiktokRow = {
 }
 
 {
+  // The URL branch, which this file used to skip entirely: the id was taken by
+  // splitting before the query was stripped, so a link carrying `?igsh=` used
+  // the query as the post's identity.
+  const post = mapScrapedPost("instagram", {
+    url: "https://www.instagram.com/reel/C8xKq2Ltabc/?igsh=MzRlODBiNWFlZA==",
+    ownerUsername: "roastery",
+    caption: "new single origin",
+  });
+  check(
+    "an Instagram id ignores the query string",
+    post?.videoId === "C8xKq2Ltabc",
+    String(post?.videoId),
+  );
+  check(
+    "the query is stripped from the URL too",
+    post?.url === "https://www.instagram.com/reel/C8xKq2Ltabc/",
+    String(post?.url),
+  );
+}
+
+{
   const post = mapScrapedPost("instagram", { caption: "orphan", likesCount: 5 });
   check("an Instagram row with no identity is dropped", post === null, post ? "kept" : "");
 }

@@ -19,7 +19,9 @@ function check(name: string, passed: boolean, detail = ""): void {
 }
 
 async function main(): Promise<void> {
-  const greetings = ["hello", "Hi", "hey!", "good morning", "thanks", "gm", "ok cool", "Heyyy"];
+  // "ok" and "cool" alone are small talk; the same words opening a request are
+  // not, which is what the whole-message anchor separates.
+  const greetings = ["hello", "Hi", "hey!", "good morning", "thanks", "gm", "cool", "hey there"];
   for (const message of greetings) {
     const { intent } = await classify(message, false);
     check(`"${message}" is small talk`, intent === "chat", intent);
@@ -35,6 +37,14 @@ async function main(): Promise<void> {
     "hey can you make me a product video",
     "hello I want a video about my coffee shop",
     "good morning, make something for TikTok",
+    // These matched a prefix and four words, so every one was answered with a
+    // greeting and never rendered. The guard is anchored to the whole message
+    // now, which is the only thing keeping the acknowledgements safe to list.
+    "great product demo video",
+    "nice clean product shot",
+    "cool product video please",
+    "ok make a promo",
+    "hi res product shots",
   ];
   for (const message of requests) {
     const { intent } = await classify(message, false);

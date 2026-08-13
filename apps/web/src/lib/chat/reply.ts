@@ -150,7 +150,23 @@ export interface ReplyContext {
  * than throwing, because a missing model must not cost the user their video.
  */
 export async function writeReply(context: ReplyContext): Promise<string> {
-  if (!isPromptEngineConfigured || context.brief.trim() === "") return FALLBACK;
+  const asking = context.intent === "ask";
+  const chatting = context.intent === "chat";
+  // First name only: "Hello Sarah Okonkwo-Whitfield" reads like a summons.
+  const name = (context.name ?? "").trim().split(/\s+/)[0] ?? "";
+
+  /*
+   * The intent is read before this returns, not after.
+   *
+   * This used to hand back `FALLBACK` for every intent, so with no model
+   * configured "hello" was answered with "Working on that now, I will have a
+   * first draft for you in a moment" when nothing had been started and nothing
+   * was coming. `quietFallback` exists for exactly that and was unreachable
+   * from here.
+   */
+  if (!isPromptEngineConfigured || context.brief.trim() === "") {
+    return quietFallback(chatting, asking, name);
+  }
 
   // Only the last few turns: the whole thread would grow the prompt without
   // improving a two-sentence reply.
@@ -159,10 +175,6 @@ export async function writeReply(context: ReplyContext): Promise<string> {
     .map((turn) => `${turn.role}: ${turn.content}`)
     .join("\n");
 
-  const asking = context.intent === "ask";
-  const chatting = context.intent === "chat";
-  // First name only: "Hello Sarah Okonkwo-Whitfield" reads like a summons.
-  const name = (context.name ?? "").trim().split(/\s+/)[0] ?? "";
   const memories = context.memories ?? "";
   // The summary stands in for the middle of a long thread; the recent turns
   // above are still sent verbatim, because a request like "make it slower"

@@ -108,20 +108,27 @@ function parse(text: string): Classification | null {
  * spend a credit rendering a video of the word hello. These are short, closed,
  * and unmistakable, so they are decided here where nothing can fail.
  *
- * Deliberately narrow. Anything longer than a few words, or carrying a verb of
- * its own, goes to the classifier: "hey can you make me a product video" is a
- * create that happens to open politely.
+ * ANCHORED TO THE WHOLE MESSAGE, which is the entire safety of this rule.
+ *
+ * It matched a prefix and allowed four words, so every one of "great product
+ * demo video", "nice clean product shot", "cool product video please" and "ok
+ * make a promo" was answered with a greeting and never rendered. That is a worse
+ * failure than the one this was written to fix: a wrong reply can be followed up,
+ * a request that silently refuses to make anything cannot, and the guard runs
+ * before the model so nothing downstream can correct it.
+ *
+ * Anchoring is what makes the acknowledgements safe to keep. "cool" on its own
+ * is small talk; "cool product video please" is a brief, and only the first
+ * matches now.
  */
 const PLEASANTRIES =
-  /^(hi|hey+|hello|yo|sup|hiya|howdy|greetings|gm|good\s+(morning|afternoon|evening|day)|thanks|thank\s+you|thx|ty|cheers|ok|okay|cool|nice|great|bye|goodbye|see\s+you)\b/i;
-
-/** Beyond this it is a sentence, not a greeting, whatever it opens with. */
-const PLEASANTRY_WORDS = 4;
+  /^(hi+|hey+|hello+|yo|sup|hiya|howdy|greetings|gm|gn|good\s+(morning|afternoon|evening|day|night)|thanks|thank\s+you|thx|ty|cheers|ok|okay|cool|nice|great|bye|goodbye|see\s+you)(\s+(there|again|all|team|everyone|mate))?$/i;
 
 function isPleasantry(message: string): boolean {
+  // Trailing punctuation only: "hi!" is a greeting, and stripping it from the
+  // middle would let "hi, make me a video" through.
   const trimmed = message.trim().replace(/[!.?,]+$/g, "");
-  if (trimmed === "" || trimmed.split(/\s+/).length > PLEASANTRY_WORDS) return false;
-  return PLEASANTRIES.test(trimmed);
+  return trimmed !== "" && PLEASANTRIES.test(trimmed);
 }
 
 /**

@@ -67,8 +67,16 @@ function instagramUrl(row: Record<string, unknown>): { url: string; id: string }
   const shortcode = asText(pick(row, ["shortCode", "shortcode", "code", "id"]));
 
   if (/^https:\/\/(www\.)?instagram\.com\/(p|reel|reels)\/[\w-]+/i.test(direct)) {
-    const id = direct.split("/").filter(Boolean).pop() ?? shortcode;
-    return { url: direct.split("?")[0] ?? direct, id: id || shortcode };
+    /*
+     * The query goes before the split, not after.
+     *
+     * It was stripped only when building the URL, so a link carrying `?igsh=`
+     * or `?img_index=`, which is most of what a scraper returns, popped the
+     * query itself off the end and used that as the post's id.
+     */
+    const clean = direct.split("?")[0] ?? direct;
+    const id = clean.split("/").filter(Boolean).pop() ?? shortcode;
+    return { url: clean, id: id || shortcode };
   }
   if (/^[\w-]{5,20}$/.test(shortcode)) {
     return { url: `https://www.instagram.com/reel/${shortcode}/`, id: shortcode };

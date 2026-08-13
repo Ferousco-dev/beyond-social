@@ -109,13 +109,33 @@ const beatsField = z
   // sentence, and unlike a long string this cannot be salvaged by trimming.
   .refine((beats) => beats.length >= 2, "A brief needs at least two beats");
 
+/**
+ * A list of strings where a bad entry costs only itself.
+ *
+ * `z.array(text(n))` fails the whole array when one element does, which fails
+ * the whole brief. A trailing empty string is a routine model artefact, so
+ * `hashtags: ["fashion", ""]` was rejecting an otherwise complete brief with the
+ * same "shape we could not read" this file exists to prevent. Same treatment as
+ * the questions and the beats: parse each, keep what survives.
+ */
+function textList(max: number, keep: number) {
+  return z
+    .array(z.unknown())
+    .default([])
+    .transform((items) =>
+      items
+        .map((item) => text(max).safeParse(item))
+        .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+        .slice(0, keep),
+    );
+}
+
 export const briefSchema = z.object({
   /** The first line, which is the only part most viewers ever see. */
   hook: text(200),
-  titles: z
-    .array(text(120))
-    .min(1)
-    .transform((titles) => titles.slice(0, 5)),
+  // At least one title has to survive, since the interface offers a choice of
+  // them and an empty list is a section with nothing in it.
+  titles: textList(120, 5).refine((titles) => titles.length >= 1, "A brief needs a title"),
   beats: beatsField,
   // Coerced and clamped: models return "15" and 15 interchangeably, and a
   // number outside the range is a rounding problem rather than a broken brief.
@@ -123,12 +143,21 @@ export const briefSchema = z.object({
     .number()
     .transform((seconds) => Math.min(180, Math.max(5, Math.round(seconds)))),
   /** Without the leading hash, which the interface adds. */
-  hashtags: z
-    .array(text(40))
-    .default([])
-    .transform((tags) => tags.slice(0, 8)),
-  /** The self-contained brief handed to generation. */
-  prompt: text(2000),
+  hashtags: textList(40, 8),
+  /**
+   * The self-contained brief handed to generation.
+   *
+   * The floor is a correctness bound, not a presentation one, and is the reason
+   * this is not `text()`: every other limit here trims because forty-one
+   * characters is a wide chip, but a two-word prompt reaches the video model
+   * unedited and spends a credit that does not come back on something too thin
+   * to direct anything.
+   */
+  prompt: z
+    .string()
+    .trim()
+    .min(20)
+    .transform((value) => value.slice(0, 2000)),
 });
 
 export type ContentBrief = z.infer<typeof briefSchema>;
