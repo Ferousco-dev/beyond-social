@@ -431,6 +431,9 @@ importers:
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
+      ffmpeg-static:
+        specifier: ^5.3.0
+        version: 5.3.0
       zod:
         specifier: ^3.24.1
         version: 3.25.76
@@ -441,6 +444,12 @@ importers:
       '@beyond-social/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.20.1
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.5(jiti@2.7.0)
       tsup:
         specifier: ^8.3.5
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.18)(tsx@4.23.0)(typescript@5.9.3)

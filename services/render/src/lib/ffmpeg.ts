@@ -3,6 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import ffmpegPath from "ffmpeg-static";
+
 import { type RenderClip } from "./spec.js";
 
 /**
@@ -17,6 +19,13 @@ import { type RenderClip } from "./spec.js";
  * The output is the vertical short-form shape the whole product is built around.
  * Clips of other sizes are padded rather than stretched, because a stretched
  * face is worse than a letterboxed one.
+ *
+ * The binary comes from `ffmpeg-static` rather than the PATH, matching the
+ * publish worker beside it. Depending on a system ffmpeg meant the service
+ * could only run somewhere that had one installed, which ruled out every plain
+ * Node host and made a Docker image the price of exporting a video at all. The
+ * package ships a binary per platform, so the host requirement is now just
+ * Node.
  */
 
 /** The shape everything renders to. Everything else in the product assumes it. */
@@ -29,9 +38,15 @@ const TIMEOUT_MS = 8 * 60 * 1000;
 
 export class FfmpegError extends Error {}
 
+/** `ffmpeg-static` resolves to null on a platform it has no binary for. */
+function binary(): string {
+  if (!ffmpegPath) throw new FfmpegError("ffmpeg is unavailable on this platform");
+  return ffmpegPath;
+}
+
 function run(args: readonly string[]): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("ffmpeg", ["-hide_banner", "-loglevel", "error", ...args]);
+    const child = spawn(binary(), ["-hide_banner", "-loglevel", "error", ...args]);
 
     // stderr is the only place ffmpeg explains itself, and a failure with no
     // reason is unactionable in a log a week later.

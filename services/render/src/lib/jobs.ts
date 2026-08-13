@@ -8,6 +8,7 @@ import { pipeline } from "node:stream/promises";
 import { type SupabaseClient } from "@supabase/supabase-js";
 
 import { joinClips } from "./ffmpeg.js";
+import { logger } from "./logger.js";
 import { specOrWholeClips, type RenderSpec } from "./spec.js";
 
 /**
@@ -85,7 +86,7 @@ async function renderOne(client: SupabaseClient, job: ClaimedJob, spec: RenderSp
         })
         .eq("id", job.id);
 
-      console.info(`[render] ${job.id} done (${Math.round(size / 1024)}kb)`);
+      logger.info("job done", { job: job.id, kb: Math.round(size / 1024) });
     } finally {
       await cleanup();
     }
@@ -103,7 +104,7 @@ export async function processJob(client: SupabaseClient, job: ClaimedJob): Promi
     await renderOne(client, job, spec);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[render] ${job.id} failed: ${message}`);
+    logger.error("job failed", { job: job.id, error: message });
 
     // The user is watching this row. A failure with no reason on it shows as a
     // spinner that never stops.

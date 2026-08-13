@@ -97,7 +97,48 @@ the migrations and functions that already live in the repo.
    `external_id`. The provider call in `apps/worker/src/lib/publish.ts` fails
    closed until Upload-post (or Blotato) is wired.
 
-## 4. Verify
+## 4. Render worker (export)
+
+The editor queues an export into `project_renders`; this worker is what turns it
+into a file. Without it running, every export sits at "Queued" until the button
+gives up after ten minutes. It is a separate service from the publish worker
+above because joining video is minutes of CPU and hundreds of megabytes of disk,
+neither of which belongs in a request.
+
+It needs no system ffmpeg. The binary ships inside `ffmpeg-static`, so any host
+that runs Node will do, and the image is a plain `node:22-slim`.
+
+1. Deploy from the **repo root**, since the Dockerfile copies workspace packages
+   that live above the service directory:
+
+   ```
+   fly deploy --config services/render/fly.toml --dockerfile services/render/Dockerfile
+   ```
+
+2. Set the two secrets it needs. Nothing else is required; the rest has
+   defaults in `fly.toml`:
+
+   ```
+   fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... --config services/render/fly.toml
+   ```
+
+   The service role key is what lets it claim rows and write to the `renders`
+   bucket, so it is a secret and never goes in `fly.toml`.
+
+3. Confirm it is up. `GET /health` returns `{"status":"ok"}` while the loop is
+   turning and 503 once a shutdown has started, so a rolling deploy drains
+   rather than dropping a job halfway.
+
+Region is `arn` (Stockholm) to match the Supabase project: the worker streams
+every source clip down and the finished file back up, so the distance is paid on
+every export rather than once. Do not let the machine scale to zero. A stopped
+machine claims nothing, and an export queued while it slept would sit there
+until something else woke it.
+
+Any container host works, not just Fly. The Dockerfile is standard and the
+service takes `PORT` from the environment.
+
+## 5. Verify
 
 - `GET /api/health` returns liveness; `GET /api/ready` checks Supabase
   reachability (503 when degraded).

@@ -1,0 +1,50 @@
+# Fly config for the render worker.
+#
+# `arn` is Stockholm, which is where the Supabase project lives. The worker
+# streams every source clip down and the finished file back up, so the distance
+# between this and the database is paid on every export, not once.
+#
+# Deploy from the repo root, since the Dockerfile copies workspace packages that
+# live above this directory:
+#   fly deploy --config services/render/fly.toml --dockerfile services/render/Dockerfile
+
+app = "beyond-social-render"
+primary_region = "arn"
+
+[build]
+
+[env]
+  PORT = "8080"
+  # A queue that is empty most of the time does not need a fast poll. Exports
+  # arrive a few times an hour, and a tighter loop is only more requests at the
+  # database for the same answer.
+  RENDER_POLL_MS = "15000"
+  # One job saturates a core, so a second in parallel makes both slower rather
+  # than finishing either sooner. Raise this only alongside the CPU count.
+  RENDER_CONCURRENCY = "1"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Never scaled to zero. A stopped machine claims nothing, so an export queued
+  # while it slept would sit there until something else woke it, which is the
+  # failure this service exists to prevent.
+  auto_stop_machines = false
+  auto_start_machines = false
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  # ffmpeg is CPU-bound and the encode is the whole job. Memory is for the clips
+  # on their way through rather than for the encode itself, which streams.
+  size = "performance-1x"
+  memory = "2gb"
+
+# SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are secrets, never listed here:
+#   fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... --config services/render/fly.toml
