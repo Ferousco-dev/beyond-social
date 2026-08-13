@@ -141,12 +141,24 @@ async function findNearest(
  * uses embeddings: "make it taller" should recall a preference recorded as
  * "prefers vertical 9:16 framing" even though they share no words.
  */
-export async function recallFacts(query: string, limit = 5): Promise<readonly Memory[]> {
+export async function recallFacts(
+  query: string,
+  limit = 5,
+  /**
+   * The query already embedded, when the caller has it.
+   *
+   * A turn asks two questions of the same sentence, what this person is like
+   * and what they were working on, and each embedded it separately: two calls
+   * to the embedder, half a second each, for one identical vector. The caller
+   * now embeds once and hands the result to both.
+   */
+  embedding?: readonly number[],
+): Promise<readonly Memory[]> {
   if (query.trim() === "") return [];
 
   try {
     const supabase = await createClient();
-    const [vector] = await getEmbedder().embed([query]);
+    const vector = embedding ?? (await getEmbedder().embed([query]))[0];
     if (!vector) return [];
 
     const { data, error } = await supabase.rpc("match_user_memories", {

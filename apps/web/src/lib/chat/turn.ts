@@ -10,6 +10,7 @@ import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
+import { getEmbedder } from "@/lib/prompt-engine/providers";
 import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
@@ -217,7 +218,39 @@ export async function runTurn(
    */
   const previousPrompt =
     parsed.projectId === "new" ? null : await getLatestDirectedPrompt(supabase, parsed.projectId);
+  /*
+   * Whether this turn is worth grounding, decided before the classification
+   * rather than from it.
+   *
+   * This is a string test, so it can be answered instantly, and that is what
+   * lets the embedding start now. The reads it feeds do not depend on what the
+   * message turns out to be: a memory lookup is the same lookup whether the
+   * sentence was a question or a brief.
+   */
+  const grounded = !isPleasantry(prompt);
+
+  /*
+   * Classified and embedded at the same time.
+   *
+   * Neither needs the other, and running them in series put one round trip in
+   * front of another for no reason: measured warm, classification is about
+   * 270ms and the embedding about 500ms, and together they cost what the slower
+   * one costs. The embedding is started here and awaited below, so nothing
+   * changes about what the turn does, only when the waiting happens.
+   *
+   * Not awaited at the point of creation, so a failure here is a rejected
+   * promise with no handler until it is read. It is caught where it is read.
+   */
   stage("understanding");
+  const embedding = grounded
+    ? getEmbedder()
+        .embed([prompt])
+        .then(([vector]) => vector)
+        // The reads below each fall back to embedding it themselves, so a
+        // failure costs the saving rather than the recall.
+        .catch(() => undefined)
+    : Promise.resolve(undefined);
+
   const intent = await classify(prompt, previousPrompt !== null);
 
   /*
@@ -274,23 +307,10 @@ export async function runTurn(
     projectId = created;
   }
 
-  /*
-   * Whether this turn is worth grounding.
-   *
-   * The test is whether the message is actually small talk, not whether the
-   * classifier called it `chat`. Those are not the same thing, and treating
-   * them as the same lost the single most important fact a person can state:
-   * "no, my name is Feranmi" is a `chat` turn, so nothing was recalled for it
-   * and nothing was remembered from it. The correction held for the rest of
-   * that conversation, because the thread is sent verbatim, and was gone by the
-   * next one.
-   *
-   * "Hello" and "thanks" really do carry nothing, and every read below is an
-   * embedding plus a vector search, so those still skip it. Anything else does
-   * not: "what's my name" is chat and needs recall, and "I only make vertical
-   * video" is chat and is worth keeping.
-   */
-  const grounded = !isPleasantry(prompt);
+  // Started before the classification, so by here it has usually resolved and
+  // this costs nothing. Awaited once rather than inside the array below, where
+  // it would hold up the reads that follow it.
+  const vector = await embedding;
 
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
@@ -299,11 +319,11 @@ export async function runTurn(
   const [previous, memories, summary, related] = await Promise.all([
     // Always: the thread is what the screen renders, not context for a model.
     supabase.rpc("project_thread", { p_project: projectId }),
-    grounded ? recallFacts(prompt) : [],
+    grounded ? recallFacts(prompt, undefined, vector) : [],
     grounded ? getSummary(projectId) : null,
     // Past conversations, excluding this one: it is the closest match to itself
     // and returning it as "earlier work" would be noise.
-    grounded ? findRelatedConversations(prompt, projectId) : [],
+    grounded ? findRelatedConversations(prompt, projectId, undefined, vector) : [],
   ]);
 
   let finalPrompt = prompt;

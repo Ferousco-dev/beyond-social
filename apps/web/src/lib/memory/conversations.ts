@@ -86,12 +86,14 @@ export async function findRelatedConversations(
   query: string,
   currentProjectId: string | null,
   limit = 2,
+  /** The query already embedded, so a turn embeds one sentence once. */
+  embedding?: readonly number[],
 ): Promise<readonly RelatedConversation[]> {
   if (query.trim().length < MIN_INDEXABLE_LENGTH) return [];
 
   try {
     const supabase = await createClient();
-    const [vector] = await getEmbedder().embed([query]);
+    const vector = embedding ?? (await getEmbedder().embed([query]))[0];
     if (!vector) return [];
 
     const { data, error } = await supabase.rpc("match_conversations", {
