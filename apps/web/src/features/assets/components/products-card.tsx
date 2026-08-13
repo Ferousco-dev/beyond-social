@@ -57,7 +57,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
   }
 
   return (
-    <section className="mt-4 rounded-2xl border border-hairline bg-paper p-5">
+    <section className="mt-4 rounded-xl border border-hairline bg-paper p-5">
       <h2 className="text-sm font-semibold text-ink">Your products</h2>
       <p className="mt-1.5 text-sm text-ink-soft">
         Pictures of what you sell, so a video can feature the real thing instead of something the

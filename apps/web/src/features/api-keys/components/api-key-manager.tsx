@@ -37,7 +37,7 @@ export function ApiKeyManager({ keys }: { keys: readonly ApiKeySummary[] }) {
               }
             });
           }}
-          className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-paper p-5"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-hairline bg-paper p-5"
         >
           <label className="sr-only" htmlFor="key-name">
             Key name

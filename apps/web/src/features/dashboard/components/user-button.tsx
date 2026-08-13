@@ -21,9 +21,13 @@ import { cn } from "@/lib/utils";
  * you are, where the account lives, the one preference worth changing without
  * leaving, and the way out.
  *
- * Every row leads somewhere real. There is no credits row, because the product
- * does not meter credits, and no referral or feedback row, because there is
- * nothing behind either.
+ * Every row leads somewhere real, and there is no referral or feedback row
+ * because there is nothing behind either.
+ *
+ * No credits row, but not because credits are not metered: they are, and every
+ * run passes `checkVideoRun`. The balance is stated under the composer that
+ * spends it, which is where somebody actually needs the number, and repeating
+ * it here would be a second place to keep in step for no extra answer.
  */
 
 const ROW =

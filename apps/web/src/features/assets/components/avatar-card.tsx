@@ -78,7 +78,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
   }
 
   return (
-    <section className="rounded-2xl border border-hairline bg-paper p-5">
+    <section className="rounded-xl border border-hairline bg-paper p-5">
       {dialog}
       <h2 className="text-sm font-semibold text-ink">You</h2>
       <p className="mt-1.5 text-sm text-ink-soft">

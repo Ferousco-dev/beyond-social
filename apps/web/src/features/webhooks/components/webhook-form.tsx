@@ -54,7 +54,7 @@ export function WebhookForm({ onCreated, submit }: WebhookFormProps) {
           }
         });
       }}
-      className="rounded-2xl border border-hairline bg-paper p-5"
+      className="rounded-xl border border-hairline bg-paper p-5"
     >
       <label htmlFor={urlId} className="block text-sm font-medium text-ink">
         Endpoint URL

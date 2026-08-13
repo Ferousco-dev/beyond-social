@@ -107,7 +107,7 @@ export function EnrollCard({ initial, phrase }: Props) {
 
   if (profile) {
     return (
-      <div className="rounded-2xl border border-hairline bg-paper p-5">
+      <div className="rounded-xl border border-hairline bg-paper p-5">
         {dialog}
         <div className="flex items-start gap-4">
           <span
@@ -162,7 +162,7 @@ export function EnrollCard({ initial, phrase }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-hairline bg-paper p-5">
+    <div className="rounded-xl border border-hairline bg-paper p-5">
       <div className="flex items-start gap-4">
         <span
           aria-hidden
