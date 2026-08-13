@@ -1,6 +1,11 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5";
+  };
   public: {
     Tables: {
       admin_audit_log: {
@@ -1379,6 +1384,27 @@ export type Database = {
           },
         ];
       };
+      scrape_cache: {
+        Row: {
+          fetched_at: string;
+          platform: string;
+          posts: Json;
+          query: string;
+        };
+        Insert: {
+          fetched_at?: string;
+          platform: string;
+          posts: Json;
+          query: string;
+        };
+        Update: {
+          fetched_at?: string;
+          platform?: string;
+          posts?: Json;
+          query?: string;
+        };
+        Relationships: [];
+      };
       social_connections: {
         Row: {
           access_token: string;
@@ -1504,6 +1530,7 @@ export type Database = {
       };
       trends: {
         Row: {
+          author_handle: string | null;
           category: string;
           confidence: number;
           description: string;
@@ -1515,8 +1542,11 @@ export type Database = {
           source_name: string;
           source_url: string;
           title: string;
+          video_url: string | null;
+          view_count: number | null;
         };
         Insert: {
+          author_handle?: string | null;
           category: string;
           confidence?: number;
           description?: string;
@@ -1528,8 +1558,11 @@ export type Database = {
           source_name?: string;
           source_url: string;
           title: string;
+          video_url?: string | null;
+          view_count?: number | null;
         };
         Update: {
+          author_handle?: string | null;
           category?: string;
           confidence?: number;
           description?: string;
@@ -1541,6 +1574,8 @@ export type Database = {
           source_name?: string;
           source_url?: string;
           title?: string;
+          video_url?: string | null;
+          view_count?: number | null;
         };
         Relationships: [];
       };
@@ -1596,6 +1631,13 @@ export type Database = {
             columns: ["source_project"];
             isOneToOne: false;
             referencedRelation: "projects";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_memories_superseded_by_fkey";
+            columns: ["superseded_by"];
+            isOneToOne: false;
+            referencedRelation: "user_memories";
             referencedColumns: ["id"];
           },
         ];
@@ -1703,6 +1745,7 @@ export type Database = {
           created_at: string;
           duration: number;
           error: string | null;
+          extended_from: string | null;
           id: string;
           image_urls: string[];
           model: string;
@@ -1723,6 +1766,7 @@ export type Database = {
           created_at?: string;
           duration?: number;
           error?: string | null;
+          extended_from?: string | null;
           id?: string;
           image_urls?: string[];
           model?: string;
@@ -1743,6 +1787,7 @@ export type Database = {
           created_at?: string;
           duration?: number;
           error?: string | null;
+          extended_from?: string | null;
           id?: string;
           image_urls?: string[];
           model?: string;
@@ -1759,6 +1804,13 @@ export type Database = {
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "video_generations_extended_from_fkey";
+            columns: ["extended_from"];
+            isOneToOne: false;
+            referencedRelation: "video_generations";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "video_generations_project_id_fkey";
             columns: ["project_id"];
@@ -2367,7 +2419,12 @@ export type Database = {
       };
       claim_queued_renders: {
         Args: { p_limit?: number };
-        Returns: { id: string; user_id: string; clip_paths: string[]; spec: Json | null }[];
+        Returns: {
+          clip_paths: string[];
+          id: string;
+          spec: Json;
+          user_id: string;
+        }[];
       };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
@@ -2443,6 +2500,14 @@ export type Database = {
           similarity: number;
         }[];
       };
+      nearest_user_memory: {
+        Args: { p_embedding: string; p_min_similarity?: number };
+        Returns: {
+          fact: string;
+          id: string;
+          similarity: number;
+        }[];
+      };
       plan_rank: { Args: { p_plan: string }; Returns: number };
       product_activity_daily: {
         Args: { p_days?: number; p_user: string };
@@ -2474,6 +2539,7 @@ export type Database = {
           content: string;
           created_at: string;
           generation_id: string;
+          generation_model: string;
           generation_status: Database["public"]["Enums"]["generation_status"];
           id: string;
           result_path: string;
@@ -2536,6 +2602,7 @@ export type Database = {
         Args: { p_chunk: Json; p_embedding: Json };
         Returns: undefined;
       };
+      prune_scrape_cache: { Args: { p_max_age?: string }; Returns: undefined };
       rate_limit_hit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number };
         Returns: {
@@ -2567,14 +2634,6 @@ export type Database = {
         };
         Returns: undefined;
       };
-      nearest_user_memory: {
-        Args: { p_embedding: string; p_min_similarity?: number };
-        Returns: { id: string; fact: string; similarity: number }[];
-      };
-      retention_prune_memories: {
-        Args: { p_dry_run?: boolean; p_retired_days?: number; p_unused_days?: number };
-        Returns: { affected: number; oldest: string | null; dry_run: boolean }[];
-      };
       retention_prune_embeddings: {
         Args: { p_dry_run?: boolean; p_older_than?: string };
         Returns: {
@@ -2593,6 +2652,18 @@ export type Database = {
           dry_run: boolean;
           payloads_cleared: number;
           rows_deleted: number;
+        }[];
+      };
+      retention_prune_memories: {
+        Args: {
+          p_dry_run?: boolean;
+          p_retired_days?: number;
+          p_unused_days?: number;
+        };
+        Returns: {
+          affected: number;
+          dry_run: boolean;
+          oldest: string;
         }[];
       };
       retention_rollup_ai_usage: {
@@ -2621,6 +2692,7 @@ export type Database = {
       trends_current: {
         Args: { p_category?: string; p_limit?: number };
         Returns: {
+          author_handle: string | null;
           category: string;
           confidence: number;
           description: string;
@@ -2632,6 +2704,8 @@ export type Database = {
           source_name: string;
           source_url: string;
           title: string;
+          video_url: string | null;
+          view_count: number | null;
         }[];
         SetofOptions: {
           from: "*";

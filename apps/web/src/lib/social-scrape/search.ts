@@ -4,6 +4,7 @@ import { logger } from "@/lib/logger";
 import { serverEnv } from "@/lib/server-env";
 
 import { isApifyConfigured, runActor } from "./apify";
+import { readCachedPosts, writeCachedPosts } from "./cache";
 import { mapScrapedPost } from "./map";
 import { type ScrapedPost, type ScrapePlatform } from "./types";
 
@@ -101,6 +102,12 @@ export async function searchPosts(
 ): Promise<readonly ScrapedPost[]> {
   if (!isApifyConfigured() || query.trim() === "") return [];
 
+  // Answered without a run when somebody has already asked this recently. The
+  // results are public posts, identical whoever asked, so there is nothing
+  // per-user to keep them apart.
+  const cached = await readCachedPosts(platform, query);
+  if (cached) return cached.slice(0, limit);
+
   try {
     const rows = await runActor(actorFor(platform), inputFor(platform, query, limit));
 
@@ -119,7 +126,12 @@ export async function searchPosts(
       });
     }
 
-    return posts.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0)).slice(0, limit);
+    const ranked = posts.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
+    // Written before slicing, so a later search asking for more is not a miss
+    // against a row we already have the posts for.
+    await writeCachedPosts(platform, query, ranked);
+
+    return ranked.slice(0, limit);
   } catch (error) {
     logger.error("apify search failed", {
       platform,
