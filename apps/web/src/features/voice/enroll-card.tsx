@@ -3,6 +3,7 @@
 import { Loader2, Mic, Pause, Play, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState, useTransition } from "react";
 
+import { useConfirm } from "@/components/ui/use-confirm";
 import { useVoiceRecorder } from "@/features/dashboard/hooks/use-voice-recorder";
 import { useVoiceUpload } from "@/features/dashboard/hooks/use-voice-upload";
 import { PHRASE_SECONDS } from "@/lib/voice/phrase";
@@ -23,6 +24,7 @@ export function EnrollCard({ initial, phrase }: Props) {
   const [playing, setPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const { confirm, dialog } = useConfirm();
   const recorder = useVoiceRecorder(setError);
   const uploader = useVoiceUpload({
     projectId: "voice-enroll",
@@ -54,7 +56,22 @@ export function EnrollCard({ initial, phrase }: Props) {
     }
   }, [recorder, uploader]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
+    /*
+     * Asked for, because this one cannot be undone by re-recording. The clip is
+     * a voiceprint: deleting it discards the enrolment and the consent record
+     * that went with it, and the replacement is a new recording rather than the
+     * one that was there.
+     */
+    const agreed = await confirm({
+      title: "Delete your saved voice?",
+      description:
+        "The recording and the agreement stored with it are removed for good. Your videos stop being able to speak in your voice until you record again.",
+      confirmLabel: "Delete it",
+      tone: "destructive",
+    });
+    if (!agreed) return;
+
     startDelete(async () => {
       const result = await deleteVoiceProfile();
       if (result.status === "ok") {
@@ -68,7 +85,7 @@ export function EnrollCard({ initial, phrase }: Props) {
         setError(result.message);
       }
     });
-  }, []);
+  }, [confirm]);
 
   const togglePlay = useCallback(() => {
     if (!profile?.url) return;
@@ -91,6 +108,7 @@ export function EnrollCard({ initial, phrase }: Props) {
   if (profile) {
     return (
       <div className="rounded-2xl border border-hairline bg-paper p-5">
+        {dialog}
         <div className="flex items-start gap-4">
           <span
             aria-hidden
@@ -124,7 +142,7 @@ export function EnrollCard({ initial, phrase }: Props) {
               </button>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 disabled={busy}
                 className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >

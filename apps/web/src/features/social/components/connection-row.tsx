@@ -4,6 +4,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useTransition } from "react";
 
 import { PlatformLogo } from "@/components/brand/platform-logo";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { type SocialConnection } from "@/lib/social/connections";
 import { cn } from "@/lib/utils";
 
@@ -22,9 +23,11 @@ export function ConnectionRow({
   onMessage: (message: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
+  const { confirm, dialog } = useConfirm();
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-hairline bg-paper p-4">
+      {dialog}
       {/*
         The platform's real mark, in its own colour only when the row is usable.
         A full-colour logo on a row that cannot be pressed reads as available,
@@ -68,10 +71,26 @@ export function ConnectionRow({
           type="button"
           disabled={pending}
           onClick={() => {
-            startTransition(async () => {
-              const result = await disconnectPlatform({ platform: connection.platform });
-              if (result.status === "error") onMessage(result.message);
-            });
+            /*
+             * Asked for, because the consequence outlives the click. Anything
+             * already scheduled to this account stops going out, and getting it
+             * back means the whole OAuth round trip again rather than an undo.
+             */
+            void (async () => {
+              const agreed = await confirm({
+                title: `Disconnect ${connection.label}?`,
+                description:
+                  "Scheduled posts to this account will stop going out. Reconnecting means signing in to the platform again.",
+                confirmLabel: "Disconnect",
+                tone: "destructive",
+              });
+              if (!agreed) return;
+
+              startTransition(async () => {
+                const result = await disconnectPlatform({ platform: connection.platform });
+                if (result.status === "error") onMessage(result.message);
+              });
+            })();
           }}
           className="inline-flex h-9 items-center gap-2 rounded-full border border-hairline px-3.5 text-xs font-medium text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
         >

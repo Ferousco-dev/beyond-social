@@ -3,6 +3,7 @@
 import { Loader2, Trash2, UserRound } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
+import { useConfirm } from "@/components/ui/use-confirm";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
 import { recordLikenessConsent } from "@/features/generation/avatar-actions";
 import { type BrandAsset } from "@/lib/assets/brand";
@@ -24,6 +25,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
   const [message, setMessage] = useState<string | null>(null);
   const [askConsent, setAskConsent] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { confirm, dialog } = useConfirm();
   /*
    * Removal clears the picture immediately and puts it back if the server
    * refuses. Uploading still waits, because there is nothing to show until the
@@ -77,6 +79,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
 
   return (
     <section className="rounded-2xl border border-hairline bg-paper p-5">
+      {dialog}
       <h2 className="text-sm font-semibold text-ink">You</h2>
       <p className="mt-1.5 text-sm text-ink-soft">
         A photo of yourself, kept so your videos can be of you without uploading it every time. Face
@@ -118,13 +121,26 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
               type="button"
               onClick={() => {
                 const target = shown;
-                setRemoved(true);
-                setMessage(null);
-                void removeBrandAsset({ id: target.id }).then((result) => {
-                  if (result.status === "ok") return;
-                  setRemoved(false);
-                  setMessage("Could not remove that picture.");
-                });
+                // Asked for: the file is deleted from storage, so restoring it
+                // means finding the original photo and uploading it again.
+                void (async () => {
+                  const agreed = await confirm({
+                    title: "Remove your photo?",
+                    description:
+                      "It is deleted for good. Putting it back means uploading the picture again and agreeing to the likeness statement.",
+                    confirmLabel: "Remove it",
+                    tone: "destructive",
+                  });
+                  if (!agreed) return;
+
+                  setRemoved(true);
+                  setMessage(null);
+                  void removeBrandAsset({ id: target.id }).then((result) => {
+                    if (result.status === "ok") return;
+                    setRemoved(false);
+                    setMessage("Could not remove that picture.");
+                  });
+                })();
               }}
               className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
