@@ -61,6 +61,22 @@ export function PromptComposer({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSubmit = value.trim().length > 0 && !busy && !uploading;
+  /*
+   * Why the button is off, rather than only that it is.
+   *
+   * It was labelled "Send" in all four states, so a greyed-out button during a
+   * render read as broken rather than busy, and there was nothing on the page
+   * saying to wait. The reason is both the accessible name and the tooltip,
+   * because a pointer user gets no announcement and a screen reader user gets
+   * no hover.
+   */
+  const sendReason = uploading
+    ? "Wait for the upload to finish"
+    : busy
+      ? "Wait for the current video to finish"
+      : value.trim() === ""
+        ? "Describe a video first"
+        : "Send";
 
   /*
    * Keyed on the value rather than done in the change handler, so it responds
@@ -177,7 +193,8 @@ export function PromptComposer({
             type="button"
             onClick={() => canSubmit && onSubmit()}
             disabled={!canSubmit}
-            aria-label="Send"
+            aria-label={sendReason}
+            title={sendReason}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
           >
             {busy || uploading ? (

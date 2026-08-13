@@ -12,18 +12,26 @@ function ToolButton({
   label,
   icon: Icon,
   disabled,
+  reason,
   onClick,
 }: {
   label: string;
   icon: typeof ZoomIn;
   disabled?: boolean;
+  /**
+   * What has to be true for this to work, shown instead of the label while it
+   * is off. Every one of these is icon-only, so a greyed-out square with the
+   * tooltip "Split at playhead" told nobody why splitting was unavailable.
+   */
+  reason?: string;
   onClick: () => void;
 }) {
+  const name = disabled && reason ? `${label} (${reason})` : label;
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
+      title={name}
+      aria-label={name}
       disabled={disabled}
       onClick={onClick}
       className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
@@ -62,17 +70,42 @@ export function TimelineToolbar({
 }) {
   return (
     <div className="flex items-center gap-1 border-b border-hairline px-2 py-1.5">
-      <ToolButton label="Undo" icon={Undo2} onClick={onUndo} disabled={!canUndo} />
-      <ToolButton label="Redo" icon={Redo2} onClick={onRedo} disabled={!canRedo} />
+      <ToolButton
+        label="Undo"
+        icon={Undo2}
+        onClick={onUndo}
+        disabled={!canUndo}
+        reason="nothing to undo"
+      />
+      <ToolButton
+        label="Redo"
+        icon={Redo2}
+        onClick={onRedo}
+        disabled={!canRedo}
+        reason="nothing to redo"
+      />
       <span className="mx-1 h-5 w-px bg-hairline" aria-hidden />
       <ToolButton
         label="Split at playhead"
         icon={SplitSquareHorizontal}
         onClick={onSplit}
         disabled={!canSplit}
+        reason="put the playhead inside a clip"
       />
-      <ToolButton label="Duplicate" icon={Copy} onClick={onDuplicate} disabled={!canDuplicate} />
-      <ToolButton label="Delete" icon={Trash2} onClick={onDelete} disabled={!canDelete} />
+      <ToolButton
+        label="Duplicate"
+        icon={Copy}
+        onClick={onDuplicate}
+        disabled={!canDuplicate}
+        reason="select a clip first"
+      />
+      <ToolButton
+        label="Delete"
+        icon={Trash2}
+        onClick={onDelete}
+        disabled={!canDelete}
+        reason="select a clip first"
+      />
 
       <div className="ml-auto flex items-center gap-1">
         <ToolButton
@@ -80,6 +113,7 @@ export function TimelineToolbar({
           icon={ZoomOut}
           onClick={() => onZoomChange(zoomIndex - 1)}
           disabled={zoomIndex <= 0}
+          reason="already fully zoomed out"
         />
         <input
           type="range"
@@ -95,6 +129,7 @@ export function TimelineToolbar({
           icon={ZoomIn}
           onClick={() => onZoomChange(zoomIndex + 1)}
           disabled={zoomIndex >= ZOOM_LEVELS.length - 1}
+          reason="already fully zoomed in"
         />
       </div>
     </div>
