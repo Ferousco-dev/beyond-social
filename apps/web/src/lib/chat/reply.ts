@@ -3,6 +3,8 @@ import "server-only";
 import { getChat } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 
+import { PRODUCT_FACTS } from "./product";
+
 /**
  * The assistant's side of the conversation.
  *
@@ -39,6 +41,12 @@ function answerPrompt(brief: string, history: string, memories: string): string 
     "You are a video director. The person you are working with has asked you something.",
     "Answer it directly and briefly, in two or three sentences, from craft experience.",
     "If they are asking about themselves, answer from what you have been told about them rather than from craft.",
+    // A question about the product was being answered from general knowledge:
+    // "what's Beyond Social" came back as a thought about going beyond social
+    // media, because nothing in the prompt said what the product was.
+    "If they are asking about this product or what you can do, answer from the facts below and not from anything you assume.",
+    "",
+    PRODUCT_FACTS,
     "",
     "No video is being made from this message, so do not say you are working on one.",
     "Do not use bullets or exclamation marks, and do not pad the answer.",
@@ -82,6 +90,9 @@ function chatPrompt(brief: string, history: string, memories: string, name: stri
     history === ""
       ? "This is the start of the conversation, so it is fair to offer briefly what you can help with: making a short video from an idea, a photo, or something already working on TikTok."
       : "You are mid-conversation, so do not reintroduce yourself.",
+    "If they ask what this is or what you can do, answer from the facts below rather than from anything you assume.",
+    "",
+    PRODUCT_FACTS,
     "No bullets and no exclamation marks.",
     "",
     memories,
