@@ -6,6 +6,9 @@ import { useState, useTransition } from "react";
 import { createOrganization } from "../actions";
 
 /** Minimal create form; the slug is derived, so there is one field to fill. */
+/** Referenced by the name field, so the reason is announced with it. */
+const MESSAGE_ID = "create-team-message";
+
 export function CreateTeamForm() {
   const [name, setName] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -28,6 +31,10 @@ export function CreateTeamForm() {
         Team name
       </label>
       <input
+        // This message is only ever set on failure, so the field is invalid
+        // whenever there is one, and it interrupts rather than waits.
+        aria-invalid={message !== null || undefined}
+        aria-describedby={message ? MESSAGE_ID : undefined}
         id="team-name"
         value={name}
         onChange={(event) => setName(event.target.value)}
@@ -43,7 +50,7 @@ export function CreateTeamForm() {
         Create team
       </button>
       {message ? (
-        <p role="status" className="w-full text-xs text-destructive">
+        <p id={MESSAGE_ID} role="alert" className="w-full text-xs text-destructive">
           {message}
         </p>
       ) : null}

@@ -3,14 +3,21 @@
 import { Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { cn } from "@/lib/utils";
+
 import { updateProfile } from "../actions";
 
 const FIELD =
   "mt-1.5 w-full rounded-lg border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/** Referenced by the name field, so a rejection is announced with it. */
+const MESSAGE_ID = "account-form-message";
+
 export function AccountForm({ email, fullName }: { email: string; fullName: string }) {
   const [name, setName] = useState(fullName);
   const [message, setMessage] = useState<string | null>(null);
+  // A rejected name and a saved one were rendered and announced identically.
+  const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -18,9 +25,11 @@ export function AccountForm({ email, fullName }: { email: string; fullName: stri
       onSubmit={(event) => {
         event.preventDefault();
         setMessage(null);
+        setFailed(false);
         startTransition(async () => {
           const result = await updateProfile({ fullName: name });
           setMessage(result.message);
+          setFailed(result.status !== "ok");
         });
       }}
       className="rounded-xl border border-hairline bg-paper p-5"
@@ -57,6 +66,8 @@ export function AccountForm({ email, fullName }: { email: string; fullName: stri
           maxLength={80}
           autoComplete="name"
           placeholder="How your name appears in the app"
+          aria-invalid={failed || undefined}
+          aria-describedby={message ? MESSAGE_ID : undefined}
           className={FIELD}
         />
       </div>
@@ -71,7 +82,12 @@ export function AccountForm({ email, fullName }: { email: string; fullName: stri
           Save
         </button>
         {message ? (
-          <p role="status" className="text-xs text-ink-soft">
+          <p
+            id={MESSAGE_ID}
+            // Interrupts on failure, waits its turn on success.
+            role={failed ? "alert" : "status"}
+            className={cn("text-xs", failed ? "text-destructive" : "text-ink-soft")}
+          >
             {message}
           </p>
         ) : null}
