@@ -116,7 +116,7 @@ export function MemoryList({ library }: { library: MemoryLibrary }) {
       ) : null}
 
       {message ? (
-        <p role="status" className="mt-4 text-xs text-destructive">
+        <p role="alert" className="mt-4 text-xs text-destructive">
           {message}
         </p>
       ) : null}

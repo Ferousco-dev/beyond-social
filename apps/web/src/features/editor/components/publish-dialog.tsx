@@ -272,7 +272,7 @@ export function PublishDialog({
                   </div>
 
                   {captionError ? (
-                    <p role="status" className="text-xs text-destructive">
+                    <p role="alert" className="text-xs text-destructive">
                       {captionError}
                     </p>
                   ) : null}

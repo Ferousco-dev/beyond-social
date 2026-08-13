@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips, type ChipOption } from "@/components/ui/filter-chips";
 
+import { dayHeading, groupByDay } from "../lib/group";
 import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";
 
@@ -38,6 +39,8 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
     [items, kind],
   );
 
+  const days = useMemo(() => groupByDay(visible), [visible]);
+
   if (items.length === 0) {
     return (
       <EmptyState
@@ -59,11 +62,20 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
       {visible.length === 0 ? (
         <p className="mt-10 text-center text-sm text-ink-soft">Nothing of that kind yet.</p>
       ) : (
-        <ul className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {visible.map((item) => (
-            <LibraryCard key={item.id} item={item} />
-          ))}
-        </ul>
+        days.map((day) => (
+          <section key={day.key} className="mt-8 first:mt-6">
+            {/* Sticky so the date stays readable while its own run of items
+                scrolls past, which is the point at which you need it. */}
+            <h2 className="sticky top-0 z-10 bg-canvas py-2 text-xs font-medium uppercase tracking-[0.08em] text-ink-soft">
+              {dayHeading(day.key)}
+            </h2>
+            <ul className="mt-2 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {day.items.map((item) => (
+                <LibraryCard key={item.id} item={item} />
+              ))}
+            </ul>
+          </section>
+        ))
       )}
     </>
   );

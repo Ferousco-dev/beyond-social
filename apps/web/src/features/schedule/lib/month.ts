@@ -59,6 +59,23 @@ export function monthLabel(month: string): string {
 }
 
 /**
+ * How a `YYYY-MM-DD` key reads as a heading, e.g. "Thursday 13 August".
+ *
+ * Built in UTC from the key's own numbers, for the same reason as the month
+ * label beside it: a calendar square is a date, not a moment, and formatting it
+ * in a zone can move it a day.
+ */
+export function dayLabel(key: string): string {
+  const [year = 0, month = 1, day = 1] = key.split("-").map(Number);
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/**
  * The cells of one month, padded to whole weeks and carrying their posts.
  *
  * The grid is built in UTC from the month's own numbers rather than from any

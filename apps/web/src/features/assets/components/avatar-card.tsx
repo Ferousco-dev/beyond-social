@@ -175,7 +175,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
       ) : null}
 
       {message ? (
-        <p role="status" className="mt-3 text-xs text-destructive">
+        <p role="alert" className="mt-3 text-xs text-destructive">
           {message}
         </p>
       ) : null}

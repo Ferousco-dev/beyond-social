@@ -28,9 +28,24 @@ const GIVE_UP_MS = 10 * 60 * 1000;
 
 type State =
   | { kind: "idle" }
-  | { kind: "working" }
+  /**
+   * `phase` is what the row actually says, and `seconds` is how long it has been
+   * saying it. The button read "Exporting" from the first click to the last
+   * frame, so a job sitting in the queue behind three others looked identical to
+   * one that had stalled, and there was nothing to tell a slow export from a
+   * dead one except closing the tab.
+   *
+   * No percentage: nothing in the pipeline reports one, and inventing a bar that
+   * creeps to 90 and waits is worse than a number that is true.
+   */
+  | { kind: "working"; phase: "queued" | "generating"; seconds: number }
   | { kind: "done"; url: string | null }
   | { kind: "problem"; message: string };
+
+/** `m:ss`, because "142 seconds" is arithmetic the reader should not have to do. */
+function elapsed(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
 
 export function ExportButton({
   projectId,
@@ -73,7 +88,9 @@ export function ExportButton({
             setState({ kind: "problem", message: result.message });
             return;
           }
-          if (result.status === "unknown" || Date.now() - startedAt.current > GIVE_UP_MS) {
+
+          const since = Date.now() - startedAt.current;
+          if (result.status === "unknown" || since > GIVE_UP_MS) {
             stop();
             setState({
               kind: "problem",
@@ -82,6 +99,11 @@ export function ExportButton({
               message: "Still going after ten minutes. Check the library shortly.",
             });
           }
+
+          // The give-up branch above returns on "unknown"; this restates it so
+          // the phase narrows to the two the button can report.
+          if (result.status === "unknown") return;
+          setState({ kind: "working", phase: result.status, seconds: Math.round(since / 1000) });
         });
       }, POLL_MS);
     },
@@ -89,7 +111,7 @@ export function ExportButton({
   );
 
   function start() {
-    setState({ kind: "working" });
+    setState({ kind: "working", phase: "queued", seconds: 0 });
 
     void requestExport({ projectId, project }).then((result) => {
       if (result.status === "ok") {
@@ -126,7 +148,7 @@ export function ExportButton({
   return (
     <span className="flex items-center gap-2">
       {state.kind === "problem" ? (
-        <span role="status" className="max-w-56 truncate text-xs text-destructive">
+        <span role="alert" className="max-w-56 truncate text-xs text-destructive">
           {state.message}
         </span>
       ) : null}
@@ -147,7 +169,9 @@ export function ExportButton({
         ) : (
           <Download className="size-3.5" aria-hidden />
         )}
-        {state.kind === "working" ? "Exporting" : "Export"}
+        {state.kind === "working"
+          ? `${state.phase === "queued" ? "Queued" : "Joining clips"} ${elapsed(state.seconds)}`
+          : "Export"}
       </button>
     </span>
   );

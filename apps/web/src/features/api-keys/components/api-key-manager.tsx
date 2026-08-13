@@ -62,7 +62,7 @@ export function ApiKeyManager({ keys }: { keys: readonly ApiKeySummary[] }) {
             Create key
           </button>
           {message ? (
-            <p role="status" className="w-full text-xs text-destructive">
+            <p role="alert" className="w-full text-xs text-destructive">
               {message}
             </p>
           ) : null}

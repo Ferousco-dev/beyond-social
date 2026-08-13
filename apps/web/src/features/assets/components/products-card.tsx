@@ -133,7 +133,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
       </ul>
 
       {(message ?? shelf.error) ? (
-        <p role="status" className="mt-3 text-xs text-destructive">
+        <p role="alert" className="mt-3 text-xs text-destructive">
           {message ?? shelf.error}
         </p>
       ) : null}

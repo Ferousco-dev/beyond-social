@@ -34,17 +34,21 @@ export function OnboardingChecklist({ done }: { done: readonly OnboardingStepId[
 
   return (
     /*
-     * Hidden below `sm`, not shrunk.
+     * Docked to the top on a phone, to the bottom everywhere else.
      *
-     * A panel docked bottom-right at this width covers the send button on a
-     * phone, and on the discover feed it sits on top of the one control the
-     * screen exists for. There is no arrangement of a floating checklist that
-     * does not fight a bottom-anchored composer, so on small screens it is not
-     * offered: the same steps are reachable from the dashboard.
+     * It used to be `hidden` below `sm`, on the reasoning that a panel anchored
+     * bottom-right covers the send button and, on the discover feed, the one
+     * control the screen exists for. That part was right; the conclusion was
+     * not. This component is the only place the steps are rendered, so hiding
+     * it meant a first-time user on a phone got no guidance at all, which is
+     * most first-time users of a short-form video product.
+     *
+     * The top edge is the one place nothing is anchored, so it goes there
+     * instead: below the header, above the content, clear of the composer.
      */
     <aside
       aria-label="Getting started"
-      className="pointer-events-auto fixed bottom-4 right-4 z-40 hidden w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-hairline bg-paper shadow-card sm:block"
+      className="pointer-events-auto fixed inset-x-3 top-[4.5rem] z-40 overflow-hidden rounded-2xl border border-hairline bg-paper shadow-card sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-auto sm:w-[min(22rem,calc(100vw-2rem))]"
     >
       <div className="flex items-start gap-2 px-4 py-3.5">
         <div className="min-w-0 flex-1">
@@ -81,7 +85,7 @@ export function OnboardingChecklist({ done }: { done: readonly OnboardingStepId[
       </div>
 
       {collapsed ? null : (
-        <ul className="max-h-[50vh] overflow-y-auto px-2 pb-1">
+        <ul className="max-h-[45vh] overflow-y-auto px-2 pb-1 sm:max-h-[50vh]">
           {ONBOARDING_STEPS.map((step) => (
             <ChecklistItem
               key={step.id}

@@ -152,7 +152,7 @@ export function SidebarProjects({
       {/* A rollback on its own looks like the app ignoring the click, so the
           reason is stated where the change appeared to happen. */}
       {error ? (
-        <p role="status" className="px-3 pb-2 text-xs text-destructive">
+        <p role="alert" className="px-3 pb-2 text-xs text-destructive">
           {error}
         </p>
       ) : null}

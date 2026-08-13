@@ -124,7 +124,7 @@ export function ScheduledPostCard({
           )}
 
           {message === null ? null : (
-            <p role="status" className="mt-2 text-xs text-destructive">
+            <p role="alert" className="mt-2 text-xs text-destructive">
               {message}
             </p>
           )}

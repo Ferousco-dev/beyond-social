@@ -152,7 +152,7 @@ export function BriefFlow({
       ) : null}
 
       {notice ? (
-        <p role="status" className="mx-auto mt-6 max-w-2xl text-center text-sm text-destructive">
+        <p role="alert" className="mx-auto mt-6 max-w-2xl text-center text-sm text-destructive">
           {notice}
         </p>
       ) : null}

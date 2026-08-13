@@ -207,7 +207,7 @@ export function PromptComposer({
       </div>
 
       {error ? (
-        <p role="status" className="px-3 pt-1 text-xs text-destructive">
+        <p role="alert" className="px-3 pt-1 text-xs text-destructive">
           {error}
         </p>
       ) : null}

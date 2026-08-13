@@ -3,7 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { buildMonth, dayKey, monthKey, monthLabel, shiftMonth } from "../lib/month";
+import { buildMonth, dayKey, dayLabel, monthKey, monthLabel, shiftMonth } from "../lib/month";
 import { type ScheduledPost } from "../lib/types";
 import { MonthGrid } from "./month-grid";
 import { ScheduledPostCard } from "./scheduled-post-card";
@@ -29,7 +29,8 @@ export function ScheduleCalendar({
   now: string;
 }) {
   const today = useMemo(() => new Date(now), [now]);
-  const [month, setMonth] = useState(() => monthKey(dayKey(today, timeZone)));
+  const thisMonth = monthKey(dayKey(today, timeZone));
+  const [month, setMonth] = useState(thisMonth);
   const [selected, setSelected] = useState<string | null>(null);
 
   const days = useMemo(
@@ -53,6 +54,21 @@ export function ScheduleCalendar({
         <h2 className="text-sm font-semibold text-ink">{monthLabel(month)}</h2>
 
         <div className="flex items-center gap-1">
+          {/* Shown only when it would do something. Paging six months out and
+              then hunting for the way back one arrow at a time was the only
+              route to the current month. */}
+          {month !== thisMonth ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMonth(thisMonth);
+                setSelected(null);
+              }}
+              className="mr-1 inline-flex h-8 cursor-pointer items-center rounded-full border border-hairline px-3 text-xs font-medium text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Today
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => step(-1)}
@@ -76,7 +92,8 @@ export function ScheduleCalendar({
 
       {selected !== null ? (
         <section aria-live="polite" className="mt-6">
-          <h3 className="text-sm font-semibold text-ink">{selected}</h3>
+          {/* The raw `2026-08-13` key was being used as the heading. */}
+          <h3 className="text-sm font-semibold text-ink">{dayLabel(selected)}</h3>
           {onSelected.length === 0 ? (
             <p className="mt-2 text-sm text-ink-soft">Nothing scheduled for this day.</p>
           ) : (
