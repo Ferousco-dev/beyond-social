@@ -9,7 +9,7 @@
 import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
 import { z } from "zod";
-import { type CompletionResult, type ProviderClient } from "../src/providers";
+import { type CompletionResult, type ProviderClient, type StreamEvent } from "../src/providers";
 import { TieredLimiter, TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
 import { ProviderError } from "../src/retry";
 import {
@@ -48,6 +48,37 @@ const broken: ProviderClient = {
     throw new ProviderError("server error", 500);
   },
 };
+
+/** Streams `pieces`, then fails, to test what happens mid-reply. */
+function streamer(pieces: readonly string[], failAfter = -1): ProviderClient {
+  return {
+    async complete(): Promise<CompletionResult> {
+      return { text: pieces.join(""), inputTokens: 10, outputTokens: 10 };
+    },
+    async *stream(): AsyncIterable<StreamEvent> {
+      for (const [index, text] of pieces.entries()) {
+        if (index === failAfter) throw new ProviderError("died mid-stream", 500);
+        yield { type: "chunk", text };
+      }
+      yield { type: "done", usage: { inputTokens: 10, outputTokens: 10 } };
+    },
+  };
+}
+
+/** Cannot stream at all, so the gateway must complete and emit one chunk. */
+const completeOnly: ProviderClient = {
+  async complete(): Promise<CompletionResult> {
+    return { text: "whole answer", inputTokens: 4, outputTokens: 4 };
+  },
+};
+
+async function collect(events: AsyncIterable<StreamEvent>): Promise<string[]> {
+  const chunks: string[] = [];
+  for await (const event of events) {
+    if (event.type === "chunk" && event.text) chunks.push(event.text);
+  }
+  return chunks;
+}
 
 async function main(): Promise<void> {
   // 1. Retries a transient failure rather than surfacing it.
@@ -447,6 +478,73 @@ async function main(): Promise<void> {
     windowError.includes("reserved for output"),
     windowError.slice(0, 70),
   );
+
+  // Streaming: text arrives in pieces rather than one block.
+  {
+    const streamGateway = new AiGateway({ clients: { anthropic: streamer(["a", "b", "c"]) } });
+    const chunks = await collect(
+      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+    );
+    check("a stream arrives in pieces", chunks.join("") === "abc" && chunks.length === 3, chunks.join("|"));
+  }
+
+  // A provider with no `stream` still works, as one chunk.
+  {
+    const streamGateway = new AiGateway({ clients: { anthropic: completeOnly } });
+    const chunks = await collect(
+      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+    );
+    check(
+      "a provider that cannot stream is completed and emitted whole",
+      chunks.length === 1 && chunks[0] === "whole answer",
+      chunks.join("|"),
+    );
+  }
+
+  // Failing before the first token is a normal fallback: nothing was shown.
+  {
+    const streamGateway = new AiGateway({
+      // Fails at index 0, so it throws before yielding anything at all.
+      clients: { anthropic: streamer(["never seen"], 0), openai: streamer(["from the second"]) },
+    });
+    const chunks = await collect(
+      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+    );
+    check(
+      "a failure before the first token falls back to the next model",
+      chunks.join("") === "from the second",
+      chunks.join("|"),
+    );
+  }
+
+  /*
+   * Failing after the first token is terminal. Switching models here would
+   * splice a second answer onto the half of the first one already on screen,
+   * which is worse than an error the caller can handle.
+   */
+  {
+    const streamGateway = new AiGateway({
+      clients: { anthropic: streamer(["half ", "way"], 1), openai: streamer(["a whole other answer"]) },
+    });
+    let threw = false;
+    const chunks: string[] = [];
+    try {
+      for await (const event of streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      })) {
+        if (event.type === "chunk" && event.text) chunks.push(event.text);
+      }
+    } catch {
+      threw = true;
+    }
+    check(
+      "a failure after the first token does not splice in another model",
+      threw && chunks.join("") === "half ",
+      `threw=${threw} got="${chunks.join("")}"`,
+    );
+  }
 
   process.stdout.write(`${results.join("\n")}\n`);
   process.stdout.write(
