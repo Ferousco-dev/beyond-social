@@ -21,7 +21,11 @@ const SHORTCODE = /^[A-Za-z0-9_-]{5,24}$/;
  * served without a token but is not guaranteed: Instagram blocks the embed for
  * private and some age-restricted accounts, and the card is built to fall back
  * rather than to show an empty frame.
+ *
+ * `/p/` rather than `/reel/`. It is the canonical path for every post type and
+ * it is what the scraper returns even for reels, so building `/reel/` meant
+ * composing a URL that did not match the one the post was found at.
  */
 export function instagramEmbedUrl(shortcode: string): string | null {
-  return SHORTCODE.test(shortcode) ? `https://www.instagram.com/reel/${shortcode}/embed/` : null;
+  return SHORTCODE.test(shortcode) ? `https://www.instagram.com/p/${shortcode}/embed/` : null;
 }

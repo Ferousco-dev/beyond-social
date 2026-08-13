@@ -54,10 +54,30 @@ function inputFor(platform: ScrapePlatform, query: string, limit: number): Recor
     };
   }
 
+  /*
+   * Instagram is reached by URL, not by the actor's `search` field.
+   *
+   * `search` + `searchType: "hashtag"` is what the actor documents and it
+   * returns `no_items` for every term tried against it, with or without the
+   * leading `#`. Instagram blocks the search endpoint the actor uses for it.
+   * The explore page for the same tag still scrapes, so the tag is turned into
+   * that URL here.
+   *
+   * The tag is stripped to what a hashtag can actually be: Instagram tags carry
+   * no spaces or punctuation, so "before and after" is one tag, not three
+   * words, and sending the raw query guaranteed a miss.
+   *
+   * `reels` rather than `posts`, because the tag's post feed is photographs.
+   * Thirty rows off one tag came back as sixteen carousels and eleven stills
+   * and not one video, which is nothing for a scroller that exists to play
+   * them. The same URL under `reels` returns video every time.
+   */
+  const tag = query.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (tag === "") return { directUrls: [], resultsType: "reels", maxItems: limit };
+
   return {
-    search: query,
-    searchType: "hashtag",
-    resultsType: "posts",
+    directUrls: [`https://www.instagram.com/explore/tags/${tag}/`],
+    resultsType: "reels",
     resultsLimit: limit,
     maxItems: limit,
     addParentData: false,
