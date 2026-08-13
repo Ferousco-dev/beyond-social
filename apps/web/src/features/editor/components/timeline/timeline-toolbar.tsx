@@ -1,8 +1,19 @@
 "use client";
 
-import { Copy, Redo2, SplitSquareHorizontal, Trash2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import {
+  Copy,
+  Keyboard,
+  Redo2,
+  SplitSquareHorizontal,
+  Trash2,
+  Undo2,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
+
+import { ShortcutsDialog } from "../shortcuts-dialog";
 
 /** Pixels per second of timeline, from a whole-project overview to frame work. */
 export const ZOOM_LEVELS = [12, 20, 32, 52, 84, 136] as const;
@@ -108,6 +119,18 @@ export function TimelineToolbar({
       />
 
       <div className="ml-auto flex items-center gap-1">
+        {/* The shortcuts were bound and never named anywhere. This is the one
+            surface they all apply to, so the way in belongs on it. */}
+        <ShortcutsDialog>
+          <button
+            type="button"
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+            className="mr-1 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <Keyboard className="size-4" />
+          </button>
+        </ShortcutsDialog>
         <ToolButton
           label="Zoom out"
           icon={ZoomOut}
