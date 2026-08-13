@@ -38,6 +38,7 @@ function answerPrompt(brief: string, history: string, memories: string): string 
   return [
     "You are a video director. The person you are working with has asked you something.",
     "Answer it directly and briefly, in two or three sentences, from craft experience.",
+    "If they are asking about themselves, answer from what you have been told about them rather than from craft.",
     "",
     "No video is being made from this message, so do not say you are working on one.",
     "Do not use bullets or exclamation marks, and do not pad the answer.",
@@ -62,8 +63,17 @@ function answerPrompt(brief: string, history: string, memories: string): string 
 function chatPrompt(brief: string, history: string, memories: string, name: string): string {
   return [
     "Someone has just said something conversational to you. Reply the way a person would.",
+    /*
+     * The account name is a starting guess, not a fact.
+     *
+     * It used to be stated flatly, so a signed-up-as "Test" beat everything:
+     * somebody who had said "no, my name is Feranmi" was greeted as Test in the
+     * next conversation, because the metadata was asserted and the memory was
+     * merely context. What they told us wins over what they typed into a signup
+     * form, which is the order any person would apply.
+     */
     name !== ""
-      ? `Their first name is ${name}. Use it if you are greeting them, but not in every sentence.`
+      ? `Their account name is ${name}, which may be a placeholder. If anything you have been told about them says what they are called, use that instead. Use their name when greeting them, but not in every sentence.`
       : "You do not know their name, so do not invent one and do not ask for it.",
     "",
     "One or two sentences. Warm, plain, and short.",

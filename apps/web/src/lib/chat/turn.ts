@@ -8,7 +8,7 @@ import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/cons
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
-import { classify } from "@/lib/generation/intent";
+import { classify, isPleasantry } from "@/lib/generation/intent";
 import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
@@ -276,14 +276,20 @@ export async function runTurn(
   /*
    * Whether this turn is worth grounding.
    *
-   * "Hello" and "thanks" carry nothing to recall against and nothing worth
-   * remembering, and every one of the reads below is an embedding plus a vector
-   * search. Running them on small talk paid for four lookups to answer a word.
+   * The test is whether the message is actually small talk, not whether the
+   * classifier called it `chat`. Those are not the same thing, and treating
+   * them as the same lost the single most important fact a person can state:
+   * "no, my name is Feranmi" is a `chat` turn, so nothing was recalled for it
+   * and nothing was remembered from it. The correction held for the rest of
+   * that conversation, because the thread is sent verbatim, and was gone by the
+   * next one.
    *
-   * `ask` keeps all of it: a question about their own work is exactly when
-   * knowing their preferences and their earlier conversations pays.
+   * "Hello" and "thanks" really do carry nothing, and every read below is an
+   * embedding plus a vector search, so those still skip it. Anything else does
+   * not: "what's my name" is chat and needs recall, and "I only make vertical
+   * video" is chat and is worth keeping.
    */
-  const grounded = intent.intent !== "chat";
+  const grounded = !isPleasantry(prompt);
 
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round

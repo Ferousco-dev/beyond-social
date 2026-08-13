@@ -58,9 +58,21 @@ function prompt(message: string, reply: string): string {
     "Remember only what would still be true in a month and would change how their next video is made:",
     "a standing preference, a constraint they work under, who their audience is, what they are building.",
     "",
+    /*
+     * Identity is its own case and was missing.
+     *
+     * The list above is about how work gets made, so a correction like "no, my
+     * name is Feranmi" matched none of it and was dropped. It is also the one
+     * fact a person notices you forgetting: the next conversation greeted them
+     * by their account name again, having been told otherwise a minute earlier.
+     */
+    "Always remember what they want to be called when they tell you, or correct you. That is worth keeping even though it changes nothing about the video.",
+    "",
     "Do not remember the subject of this particular brief. Wanting a video about coffee today says nothing about tomorrow.",
     "Do not remember anything you inferred rather than were told.",
-    "Write each fact in the third person, as a short statement, without naming the person.",
+    // The exception is deliberate: a name is useless written anonymously, and
+    // "prefers to be called by their name" is not a fact anyone can act on.
+    "Write each fact in the third person, as a short statement. Do not name the person, except when the fact is what they are called.",
     "",
     "Returning an empty list is the normal outcome and is always acceptable. Most exchanges reveal nothing durable.",
     "",

@@ -124,7 +124,15 @@ function parse(text: string): Classification | null {
 const PLEASANTRIES =
   /^(hi+|hey+|hello+|yo|sup|hiya|howdy|greetings|gm|gn|good\s+(morning|afternoon|evening|day|night)|thanks|thank\s+you|thx|ty|cheers|ok|okay|cool|nice|great|bye|goodbye|see\s+you)(\s+(there|again|all|team|everyone|mate))?$/i;
 
-function isPleasantry(message: string): boolean {
+/**
+ * True for a message that is only a greeting or a thanks.
+ *
+ * Exported because it is a better answer than the intent to a second question:
+ * whether a turn is worth remembering. A `chat` turn is not automatically
+ * empty of facts, and treating it as such threw away the most important thing
+ * a person can tell you.
+ */
+export function isPleasantry(message: string): boolean {
   // Trailing punctuation only: "hi!" is a greeting, and stripping it from the
   // middle would let "hi, make me a video" through.
   const trimmed = message.trim().replace(/[!.?,]+$/g, "");
