@@ -5,12 +5,13 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
+import { SCRAPE_PLATFORMS } from "@/lib/social-scrape/types";
 import { fetchPosters } from "@/lib/tiktok/oembed";
 
 import { type DiscoverPost, type DiscoverResult } from "./types";
 
 /**
- * Searching TikTok from the scroller.
+ * Searching a platform from the scroller.
  *
  * Through Apify. TikTok's own Research API was the first route and is gone: it
  * is the more authoritative of the two and reports a real transcript, but access
@@ -27,9 +28,12 @@ const RESULT_LIMIT = 24;
 
 const schema = z.object({
   query: z.string().trim().min(2, "Search for something a little longer").max(80),
+  // The Instagram scraper has been in `social-scrape` since the pivot and
+  // nothing could reach it, because this action named TikTok directly.
+  platform: z.enum(SCRAPE_PLATFORMS).default("tiktok"),
 });
 
-export async function searchTikTok(input: z.input<typeof schema>): Promise<DiscoverResult> {
+export async function searchSocial(input: z.input<typeof schema>): Promise<DiscoverResult> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Try another search" };
@@ -41,12 +45,13 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Sign in to search TikTok." };
+  if (!user) return { status: "error", message: "Sign in to search." };
 
   if (!isScrapeConfigured()) return { status: "unconfigured" };
 
   try {
-    const posts = await searchPosts("tiktok", parsed.data.query, RESULT_LIMIT);
+    const { platform } = parsed.data;
+    const posts = await searchPosts(platform, parsed.data.query, RESULT_LIMIT);
     if (posts.length === 0) return { status: "ok", posts: [] };
 
     /*
@@ -55,10 +60,12 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
      * leaves a post with no still, which the scroller renders as a placeholder
      * rather than dropping.
      */
-    const missing = posts.filter((post) => post.thumbnailUrl === null);
+    // oEmbed here is TikTok's, so it is only worth asking for TikTok posts.
+    const missing = platform === "tiktok" ? posts.filter((post) => post.thumbnailUrl === null) : [];
     const posters = await fetchPosters(missing.map((post) => post.url));
 
     const results: DiscoverPost[] = posts.map((post) => ({
+      platform: post.platform,
       videoId: post.videoId,
       handle: post.handle,
       url: post.url,
@@ -75,9 +82,10 @@ export async function searchTikTok(input: z.input<typeof schema>): Promise<Disco
 
     return { status: "ok", posts: results };
   } catch (error) {
-    logger.error("tiktok search failed", {
+    logger.error("social search failed", {
+      platform: parsed.data.platform,
       error: error instanceof Error ? error.message : String(error),
     });
-    return { status: "error", message: "Could not reach TikTok just now." };
+    return { status: "error", message: "Could not reach that platform just now." };
   }
 }

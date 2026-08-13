@@ -2,6 +2,7 @@
 
 import { Eye, Play, Sparkles } from "lucide-react";
 
+import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 import { cn } from "@/lib/utils";
 
@@ -10,11 +11,14 @@ import { type DiscoverPost } from "../types";
 /**
  * One post in the scroller.
  *
- * Shows its poster until it is the post being watched, then swaps in TikTok's
- * player. Only one card is ever active, so the page holds one iframe however far
- * the user scrolls: mounting a player per result would load a TikTok bundle for
- * every card in the feed.
+ * Shows its poster until it is the post being watched, then swaps in the
+ * platform's own player. Only one card is ever active, so the page holds one
+ * iframe however far the user scrolls: mounting a player per result would load a
+ * third-party bundle for every card in the feed.
  */
+
+/** What each platform is called in the interface, rather than its id. */
+const PLATFORM_NAME = { tiktok: "TikTok", instagram: "Instagram" } as const;
 
 /** Views read as "1.2M", because the exact figure is noise at this size. */
 function formatViews(views: number): string {
@@ -34,7 +38,9 @@ export function PostCard({
   onActivate: () => void;
   onUse: () => void;
 }) {
-  const embedUrl = tikTokEmbedUrl(post.videoId);
+  const name = PLATFORM_NAME[post.platform];
+  const embedUrl =
+    post.platform === "instagram" ? instagramEmbedUrl(post.videoId) : tikTokEmbedUrl(post.videoId);
 
   return (
     // Stacked on small screens rather than hiding the side column: the caption
@@ -44,7 +50,7 @@ export function PostCard({
         {active && embedUrl ? (
           <iframe
             src={embedUrl}
-            title={`TikTok post by @${post.handle}`}
+            title={`${name} post by @${post.handle}`}
             allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             // The player is a third party: it gets no access to this document
             // and no ability to navigate the page it is embedded in.
@@ -60,7 +66,7 @@ export function PostCard({
             className="group size-full cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             {post.thumbnailUrl ? (
-              // Plain img: TikTok's CDN is not a configured image-optimiser host,
+              // Plain img: neither CDN is a configured image-optimiser host,
               // and these are short-lived URLs on a domain we do not control.
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -117,7 +123,7 @@ export function PostCard({
           rel="noopener noreferrer"
           className="text-xs text-ink-soft underline-offset-2 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          Open on TikTok
+          Open on {name}
         </a>
       </div>
     </article>

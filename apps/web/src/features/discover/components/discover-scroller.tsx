@@ -5,8 +5,12 @@ import { useRouter } from "next/navigation";
 import { type Route } from "next";
 import { useState, useTransition, type FormEvent } from "react";
 
+import { PlatformLogo } from "@/components/brand/platform-logo";
+import { SCRAPE_PLATFORMS, type ScrapePlatform } from "@/lib/social-scrape/types";
+import { cn } from "@/lib/utils";
+
 import { analysePostAction } from "../analyse-actions";
-import { searchTikTok } from "../search-actions";
+import { searchSocial } from "../search-actions";
 import { type DiscoverPost } from "../types";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 import { useActivePost } from "../hooks/use-active-post";
@@ -14,7 +18,7 @@ import { AnalysisSheet } from "./analysis-sheet";
 import { PostCard } from "./post-card";
 
 /**
- * Search TikTok, then scroll the results like a feed.
+ * Search a platform, then scroll the results like a feed.
  *
  * The scroll is snapped so a flick lands on a post rather than between two, and
  * the container scrolls rather than the page: a feed that moves the whole
@@ -31,6 +35,12 @@ import { PostCard } from "./post-card";
  */
 const SUGGESTIONS = ["morning routine", "small business", "before and after", "product review"];
 
+/** Both scrapers have existed since the pivot; only one had a way in. */
+const PLATFORM_NAME: Record<ScrapePlatform, string> = {
+  tiktok: "TikTok",
+  instagram: "Instagram",
+};
+
 export function DiscoverScroller({
   initialQuery = "",
   /** The user's industry, prepended so the first suggestions are about them. */
@@ -41,6 +51,15 @@ export function DiscoverScroller({
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
+  const [platform, setPlatform] = useState<ScrapePlatform>("tiktok");
+  /**
+   * What the shown results were actually a search for.
+   *
+   * Held apart from `query`, which changes as the user types. Without it the
+   * count under the feed relabelled itself mid-edit and claimed the results
+   * belonged to a search that had not been run.
+   */
+  const [searched, setSearched] = useState<{ term: string; platform: ScrapePlatform } | null>(null);
   const [posts, setPosts] = useState<readonly DiscoverPost[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -50,7 +69,7 @@ export function DiscoverScroller({
   const [analysing, startAnalysis] = useTransition();
   const { containerRef, activeIndex, setActiveIndex } = useActivePost(posts?.length ?? 0);
 
-  function run(term: string) {
+  function run(term: string, on: ScrapePlatform = platform) {
     const text = term.trim();
     if (text.length < 2) return;
 
@@ -58,22 +77,27 @@ export function DiscoverScroller({
     setNotice(null);
 
     startTransition(async () => {
-      const result = await searchTikTok({ query: text });
+      const result = await searchSocial({ query: text, platform: on });
 
       if (result.status === "unconfigured") {
         setPosts([]);
-        setNotice("TikTok search is not connected yet.");
+        setSearched(null);
+        setNotice("Search is not connected yet.");
         return;
       }
       if (result.status === "error") {
         setPosts([]);
+        setSearched(null);
         setNotice(result.message);
         return;
       }
 
       setPosts(result.posts);
+      setSearched({ term: text, platform: on });
       setActiveIndex(0);
-      if (result.posts.length === 0) setNotice(`Nothing came back for "${text}".`);
+      if (result.posts.length === 0) {
+        setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
+      }
     });
   }
 
@@ -136,9 +160,38 @@ export function DiscoverScroller({
 
   return (
     <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-4 py-6 sm:px-6">
+      {/* Which platform is being searched, chosen before the search rather than
+          discovered from the results. Re-runs the current term on switch, so
+          the toggle answers "what does this look like over there" in one tap. */}
+      <div role="group" aria-label="Platform to search" className="mb-3 flex shrink-0 gap-2">
+        {SCRAPE_PLATFORMS.map((option) => {
+          const current = option === platform;
+          return (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={current}
+              onClick={() => {
+                setPlatform(option);
+                if (query.trim().length >= 2) run(query, option);
+              }}
+              className={cn(
+                "inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                current
+                  ? "border-transparent bg-ink text-paper"
+                  : "border-hairline bg-paper text-ink-soft hover:text-ink",
+              )}
+            >
+              <PlatformLogo platform={option} className="size-4" colour={!current} />
+              {PLATFORM_NAME[option]}
+            </button>
+          );
+        })}
+      </div>
+
       <form onSubmit={handleSubmit} className="shrink-0">
-        <label htmlFor="tiktok-search" className="sr-only">
-          Search TikTok
+        <label htmlFor="social-search" className="sr-only">
+          Search {PLATFORM_NAME[platform]}
         </label>
         <div className="relative">
           <Search
@@ -146,11 +199,11 @@ export function DiscoverScroller({
             aria-hidden
           />
           <input
-            id="tiktok-search"
+            id="social-search"
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search TikTok for anything..."
+            placeholder={`Search ${PLATFORM_NAME[platform]} for anything...`}
             className="h-12 w-full rounded-full border border-hairline bg-paper pl-11 pr-28 text-base text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
@@ -181,9 +234,25 @@ export function DiscoverScroller({
         </div>
       ) : null}
 
-      {notice ? (
+      {/*
+        The search takes seconds against a scraper, and the only sign it had
+        started was a spinner inside the button, with the previous results still
+        on screen underneath. So a slow search looked like a search that had
+        found the same thing again. This says what is happening, and afterwards
+        says what came back rather than leaving the user to count the feed.
+      */}
+      {pending ? (
+        <p role="status" className="mt-6 text-sm text-ink-soft">
+          Searching {PLATFORM_NAME[platform]} for &ldquo;{query.trim()}&rdquo;...
+        </p>
+      ) : notice ? (
         <p role="status" className="mt-6 text-sm text-ink-soft">
           {notice}
+        </p>
+      ) : searched !== null && posts !== null && posts.length > 0 ? (
+        <p role="status" className="mt-4 shrink-0 text-sm text-ink-soft">
+          {posts.length} {posts.length === 1 ? "post" : "posts"} for &ldquo;{searched.term}&rdquo;
+          on {PLATFORM_NAME[searched.platform]}
         </p>
       ) : null}
 
