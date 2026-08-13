@@ -30,6 +30,9 @@ export function ResultsGrid({
   count,
   suggestions,
   onSuggestion,
+  shown,
+  onShowMore,
+  history,
 }: {
   /** The tiles. */
   children: ReactNode;
@@ -45,6 +48,11 @@ export function ResultsGrid({
   count: number;
   suggestions: readonly string[];
   onSuggestion: (term: string) => void;
+  /** How many of `children` are on screen; the rest are behind "show more". */
+  shown: number;
+  onShowMore: () => void;
+  /** Rendered under the suggestions when there is nothing to show yet. */
+  history?: ReactNode;
 }) {
   if (busy) {
     return (
@@ -86,6 +94,7 @@ export function ResultsGrid({
             </button>
           ))}
         </div>
+        {history}
       </div>
     );
   }
@@ -104,10 +113,26 @@ export function ResultsGrid({
 
       <div className="min-h-0 flex-1 lg:overflow-y-auto lg:pr-1">
         <p className="pb-3 text-[13px] text-ink-soft">
-          <span className="tabular-nums text-ink">{count}</span> posts for &ldquo;{term}&rdquo; on{" "}
+          Showing <span className="tabular-nums text-ink">{Math.min(shown, count)}</span> of{" "}
+          <span className="tabular-nums text-ink">{count}</span> for &ldquo;{term}&rdquo; on{" "}
           {PLATFORM_NAME[platform]}
         </p>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{children}</ul>
+
+        {/* Paged from the set already fetched, so this costs nothing: a second
+            scrape would be a second charge for an overlapping page. */}
+        {shown < count ? (
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              onClick={onShowMore}
+              className="inline-flex h-9 cursor-pointer items-center rounded-lg border border-hairline bg-paper px-4 text-[13px] font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Show more
+              <span className="ml-1.5 tabular-nums text-ink-soft/70">{count - shown} left</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

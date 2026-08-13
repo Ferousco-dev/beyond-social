@@ -8,7 +8,9 @@ import { type ScrapePlatform } from "@/lib/social-scrape/types";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
 import { analysePostAction } from "../analyse-actions";
+import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
 import { PLATFORM_NAME } from "../lib/platforms";
+import { suggestQueries } from "../query-actions";
 import { searchSocial } from "../search-actions";
 import { type DiscoverPost } from "../types";
 import { AnalysisSheet } from "./analysis-sheet";
@@ -16,6 +18,7 @@ import { PostDetail } from "./post-detail";
 import { PostTile } from "./post-tile";
 import { ResultsGrid } from "./results-grid";
 import { SearchBar } from "./search-bar";
+import { SearchHistory, SuggestedQueries } from "./search-history";
 
 /**
  * Search a platform, then study what comes back.
@@ -35,6 +38,32 @@ import { SearchBar } from "./search-bar";
 
 /** Shown before the first search, and again whenever one comes back empty. */
 const SUGGESTIONS = ["morning routine", "small business", "before and after", "product review"];
+
+/** One screen of results. The rest are behind "show more", already fetched. */
+const PAGE = 24;
+
+/**
+ * Whether a query is a description rather than a search term.
+ *
+ * Neither platform can search a sentence: TikTok returns nothing and Instagram
+ * turns it into a hashtag, which drops every word after the first. Rather than
+ * spend a scrape finding that out, a query that reads like a brief is turned
+ * into real terms first.
+ *
+ * Length alone is not the test, and using it was wrong. Real search terms run
+ * long: "get ready with me makeup" and "day in the life of a nurse" are five
+ * and seven words and both are exactly what somebody would type. What actually
+ * separates the two is who the query is about. A brief is written in the first
+ * person, about their shop and their product, where a search term is written
+ * about the world.
+ */
+const FIRST_PERSON = /\b(i|my|our|we|us|mine)\b/i;
+
+function readsLikeABrief(query: string): boolean {
+  const words = query.trim().split(/\s+/).length;
+  // Long enough is a brief whoever it is about; in between, the pronoun decides.
+  return words > 8 || (words > 4 && FIRST_PERSON.test(query));
+}
 
 interface Results {
   readonly posts: readonly DiscoverPost[];
@@ -56,6 +85,9 @@ export function DiscoverScroller({
   const [results, setResults] = useState<Results | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shown, setShown] = useState(PAGE);
+  const [suggested, setSuggested] = useState<readonly string[] | null>(null);
+  const { history, remember, clear } = useSearchHistory();
   const [pending, startTransition] = useTransition();
   const [reading, setReading] = useState<DiscoverPost | null>(null);
   const [analysis, setAnalysis] = useState<PostAnalysis | null>(null);
@@ -71,44 +103,86 @@ export function DiscoverScroller({
    */
   const cache = useRef(new Map<string, readonly DiscoverPost[]>());
 
-  const run = useCallback((term: string, on: ScrapePlatform) => {
-    const text = term.trim();
-    if (text.length < 2) return;
+  const run = useCallback(
+    (term: string, on: ScrapePlatform) => {
+      const text = term.trim();
+      if (text.length < 2) return;
 
-    setQuery(text);
-    setNotice(null);
+      setQuery(text);
+      setNotice(null);
+      setSuggested(null);
+      // Back to the first page: leaving it where it was showed forty results
+      // for a search that had just returned thirty.
+      setShown(PAGE);
+      remember(text, on);
 
-    const key = `${on}:${text.toLowerCase()}`;
-    const held = cache.current.get(key);
-    if (held) {
-      setResults({ posts: held, term: text, platform: on });
-      setSelectedId(held[0]?.videoId ?? null);
-      if (held.length === 0) setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await searchSocial({ query: text, platform: on });
-
-      if (result.status !== "ok") {
-        setResults(null);
-        setSelectedId(null);
-        setNotice(
-          result.status === "unconfigured" ? "Search is not connected yet." : result.message,
-        );
+      const key = `${on}:${text.toLowerCase()}`;
+      const held = cache.current.get(key);
+      if (held) {
+        setResults({ posts: held, term: text, platform: on });
+        setSelectedId(held[0]?.videoId ?? null);
+        if (held.length === 0)
+          setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
         return;
       }
 
-      cache.current.set(key, result.posts);
-      setResults({ posts: result.posts, term: text, platform: on });
-      // The first result opens on its own. Landing on a grid where nothing is
-      // playing makes the pane look broken until you happen to click.
-      setSelectedId(result.posts[0]?.videoId ?? null);
-      if (result.posts.length === 0) {
-        setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
+      startTransition(async () => {
+        const result = await searchSocial({ query: text, platform: on });
+
+        if (result.status !== "ok") {
+          setResults(null);
+          setSelectedId(null);
+          setNotice(
+            result.status === "unconfigured" ? "Search is not connected yet." : result.message,
+          );
+          return;
+        }
+
+        cache.current.set(key, result.posts);
+        setResults({ posts: result.posts, term: text, platform: on });
+        // The first result opens on its own. Landing on a grid where nothing is
+        // playing makes the pane look broken until you happen to click.
+        setSelectedId(result.posts[0]?.videoId ?? null);
+        if (result.posts.length === 0) {
+          setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
+        }
+      });
+    },
+    [remember],
+  );
+
+  /**
+   * What pressing Search does.
+   *
+   * A short query is a search term and goes straight through. A long one is a
+   * description, which neither platform can search, so it is read into terms
+   * and offered before anything is scraped: finding that out by spending a run
+   * and showing nothing would cost money to teach the user their query was
+   * wrong.
+   */
+  const submit = useCallback(
+    (term: string, on: ScrapePlatform) => {
+      const text = term.trim();
+      if (text.length < 2) return;
+      if (!readsLikeABrief(text)) {
+        run(text, on);
+        return;
       }
-    });
-  }, []);
+
+      setNotice(null);
+      startTransition(async () => {
+        const result = await suggestQueries({ prompt: text });
+        // `skip` covers no model, a signed-out caller and a failed read. In
+        // every one of them searching what they typed beats doing nothing.
+        if (result.status !== "ok") {
+          run(text, on);
+          return;
+        }
+        setSuggested(result.queries);
+      });
+    },
+    [run],
+  );
 
   /** Seeds a new chat with a brief. The composer waits; nothing is sent. */
   const seed = useCallback(
@@ -175,12 +249,25 @@ export function DiscoverScroller({
           platform={platform}
           onPlatformChange={(next) => {
             setPlatform(next);
-            if (query.trim().length >= 2) run(query, next);
+            if (query.trim().length >= 2) submit(query, next);
           }}
-          onSubmit={() => run(query, platform)}
+          onSubmit={() => submit(query, platform)}
           busy={pending}
         />
       </div>
+
+      {/* Offered instead of results when the query was a sentence. Choosing one
+          searches it; declining searches what they actually typed. */}
+      {suggested && !pending ? (
+        <SuggestedQueries
+          queries={suggested}
+          onPick={(term) => run(term, platform)}
+          onSearchAnyway={() => {
+            setSuggested(null);
+            run(query, platform);
+          }}
+        />
+      ) : null}
 
       <ResultsGrid
         busy={pending}
@@ -191,6 +278,18 @@ export function DiscoverScroller({
         count={posts.length}
         suggestions={[...industryTerms, ...SUGGESTIONS]}
         onSuggestion={(term) => run(term, platform)}
+        shown={shown}
+        onShowMore={() => setShown((current) => current + PAGE)}
+        history={
+          <SearchHistory
+            history={history}
+            onPick={(past: PastSearch) => {
+              setPlatform(past.platform);
+              run(past.term, past.platform);
+            }}
+            onClear={clear}
+          />
+        }
         detail={
           selected ? (
             <PostDetail
@@ -201,7 +300,7 @@ export function DiscoverScroller({
           ) : null
         }
       >
-        {posts.map((post) => (
+        {posts.slice(0, shown).map((post) => (
           <PostTile
             key={post.videoId}
             post={post}

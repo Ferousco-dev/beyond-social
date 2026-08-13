@@ -23,8 +23,17 @@ import { type DiscoverPost, type DiscoverResult } from "./types";
  * list of real posts, which the scroller then embeds one at a time.
  */
 
-/** A feed's worth. Beyond this the user is scrolling, not searching. */
-const RESULT_LIMIT = 24;
+/**
+ * How many one run fetches.
+ *
+ * Paging is done client-side from this set rather than by running the actor
+ * again. A second run is a second charge and returns an overlapping page, since
+ * neither actor takes a reliable offset, so "show more" would cost real money
+ * to mostly repeat itself. Fetching more up front costs one larger run, and the
+ * cache holds the whole set, so every later page and every repeat search is
+ * free.
+ */
+const RESULT_LIMIT = 60;
 
 const schema = z.object({
   query: z.string().trim().min(2, "Search for something a little longer").max(80),
