@@ -1,6 +1,7 @@
 import { Users } from "lucide-react";
 import { type Metadata } from "next";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import { CreateTeamForm } from "@/features/organizations/components/create-team-form";
 import { getOrganizations } from "@/lib/dashboard/organizations";
 
@@ -42,12 +43,12 @@ export default async function TeamPage() {
           ))}
         </ul>
       ) : (
-        <div className="mt-4 rounded-2xl border border-dashed border-hairline bg-paper p-10 text-center">
-          <p className="text-sm font-medium text-ink">No teams yet</p>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-            Create one to share projects. You will be its owner, and you can add people afterwards.
-          </p>
-        </div>
+        <EmptyState
+          className="mt-4"
+          icon={Users}
+          title="No teams yet"
+          body="Create one to share projects. You will be its owner, and you can add people afterwards."
+        />
       )}
     </section>
   );

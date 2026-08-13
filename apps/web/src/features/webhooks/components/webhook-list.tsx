@@ -1,7 +1,9 @@
 "use client";
 
+import { Webhook } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import { type WebhookSummary } from "@/lib/webhooks/types";
 
 export interface WebhookListProps {
@@ -23,12 +25,11 @@ export function WebhookList({ webhooks, onRotate, onToggle, onDelete }: WebhookL
 
   if (webhooks.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-hairline bg-paper p-10 text-center">
-        <p className="text-sm font-medium text-ink">No endpoints yet</p>
-        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-          Add one to receive a signed request whenever a video finishes or a post goes live.
-        </p>
-      </div>
+      <EmptyState
+        icon={Webhook}
+        title="No endpoints yet"
+        body="Add one to receive a signed request whenever a video finishes or a post goes live."
+      />
     );
   }
 

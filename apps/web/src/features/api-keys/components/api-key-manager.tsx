@@ -3,6 +3,7 @@
 import { Check, Copy, KeyRound, Loader2, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { EmptyState } from "@/components/ui/empty-state";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { type ApiKeySummary } from "@/lib/dashboard/api-keys";
 
@@ -146,13 +147,11 @@ export function ApiKeyManager({ keys }: { keys: readonly ApiKeySummary[] }) {
             ))}
           </ul>
         ) : (
-          <div className="rounded-2xl border border-dashed border-hairline bg-paper p-10 text-center">
-            <p className="text-sm font-medium text-ink">No API keys yet</p>
-            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-soft">
-              Create one to call the API from your own code. Keys carry your access, so treat them
-              like passwords.
-            </p>
-          </div>
+          <EmptyState
+            icon={KeyRound}
+            title="No API keys yet"
+            body="Create one to call the API from your own code. Keys carry your access, so treat them like passwords."
+          />
         )}
       </div>
     </>
