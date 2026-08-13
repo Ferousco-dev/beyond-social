@@ -7,9 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
 import { Coachmark } from "@/features/tips/components/coachmark";
+import { useClarification } from "../hooks/use-clarification";
 import { FollowUpChips } from "./follow-up-chips";
 import { TIPS } from "@/lib/tips/tips";
-import { type PickerQuestion } from "@/lib/brief/schema";
 import { followUpsFor } from "@/lib/generation/follow-ups";
 import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
@@ -29,6 +29,8 @@ import { ThinkingIndicator } from "./thinking-indicator";
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { type PendingPhoto } from "./compose-menu";
+import { turnAttachments } from "../lib/turn-attachments";
+import { ThreadIntro } from "./thread-intro";
 import { type PendingShot } from "./shot-list-editor";
 
 const PENDING_PROMPT_KEY = "bs:pending-prompt";
@@ -43,21 +45,6 @@ const OPTIMISTIC = "pending:";
  * type for one is not readonly.
  */
 type AttachmentRef = { kind: AttachmentKind; path: string };
-
-/**
- * A turn waiting on answers before it is allowed to spend a credit.
- *
- * The payload is kept whole rather than rebuilt from the composer, which has
- * already been cleared by the time the questions arrive. Resending is then the
- * same turn with the answers added, not an approximation of it.
- */
-interface PendingClarification {
-  readonly payload: Parameters<typeof sendMessage>[0];
-  readonly questions: readonly PickerQuestion[];
-  readonly answers: Readonly<Record<string, string>>;
-  /** Why it is asking, said in the thread before the card appears. */
-  readonly framing: string;
-}
 
 export function ConversationThread({ thread }: { thread: Thread }) {
   const router = useRouter();
@@ -80,7 +67,6 @@ export function ConversationThread({ thread }: { thread: Thread }) {
    * only record of it: answering or skipping sends it, and a reload drops it,
    * which is the right trade for a turn that has cost nothing.
    */
-  const [pending, setPending] = useState<PendingClarification | null>(null);
   const [sending, setSending] = useState(false);
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
@@ -272,6 +258,46 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     [projectId, confirm],
   );
 
+  /**
+   * Sends the held-back turn, with whatever the user chose to tell us.
+   *
+   * `clarified` goes with it either way. Answering and skipping are both a
+   * decision to proceed, and without the flag a skip would simply be asked the
+   * same questions again.
+   */
+  const proceed = useCallback(
+    (payload: Parameters<typeof sendMessage>[0], answers: Readonly<Record<string, string>>) => {
+      setSending(true);
+      setNotice(null);
+
+      void (async () => {
+        const result = await sendMessage({
+          ...payload,
+          clarified: true,
+          ...(Object.keys(answers).length > 0 ? { clarifyAnswers: answers } : {}),
+        });
+        setSending(false);
+
+        if (result.status !== "ok") {
+          setNotice(
+            result.status === "error" ? result.message : "That could not be sent. Try again.",
+          );
+          return;
+        }
+
+        if (result.notice) setNotice(result.notice);
+        router.refresh();
+        if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+      })();
+    },
+    [projectId, router],
+  );
+
+  const clarify = useClarification(proceed);
+  // Destructured because it is what `submit` depends on: the hook's object
+  // identity changes every render, the callback on it does not.
+  const { hold } = clarify;
+
   const submit = useCallback(
     (text: string, seeded?: readonly PendingPhoto[]) => {
       const trimmed = text.trim();
@@ -284,37 +310,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       setSeeded(false);
 
       const optimisticId = `${OPTIMISTIC}${counter.current++}`;
-      // A seeded turn carries its photos as an argument: they were uploaded on
-      // the previous screen, so they are not in this component's state yet and
-      // reading state here would send the message without them.
-      /*
-       * Settled photos only. A preview shown while its upload is still in
-       * flight has no path yet, and the composer already blocks sending while
-       * one is pending; this is the belt to that pair of braces, since a blob
-       * URL reaching the provider would fail in a way nobody could read.
-       */
-      const attachments = (seeded ?? photos).filter((photo) => photo.path !== "");
-      const attached = attachments.map((photo) => photo.url);
       const voiceClip = voice;
-
-      // Paths, not URLs, are what gets persisted: the signed links above expire
-      // in two hours, so a thread reloaded tomorrow re-signs from these.
-      const attachmentRefs = [
-        ...attachments.map((photo) => ({ kind: "photo" as const, path: photo.path })),
-        ...(voiceClip ? [{ kind: "audio" as const, path: voiceClip.path }] : []),
-      ];
-      // The links are still fresh right now, so the optimistic turn can show
-      // what was attached without waiting for the server to sign them again.
-      const optimisticAttachments = [
-        ...attachments.map((photo) => ({
-          kind: "photo" as const,
-          path: photo.path,
-          url: photo.url,
-        })),
-        ...(voiceClip
-          ? [{ kind: "audio" as const, path: voiceClip.path, url: voiceClip.url }]
-          : []),
-      ];
+      const {
+        refs: attachmentRefs,
+        optimistic: optimisticAttachments,
+        photoUrls: attached,
+      } = turnAttachments(seeded ?? photos, voiceClip);
 
       const clip = footage;
       const shotList = shots;
@@ -416,10 +417,9 @@ export function ConversationThread({ thread }: { thread: Thread }) {
               attachments: [],
             },
           ]);
-          setPending({
+          hold({
             payload,
             questions: result.questions,
-            answers: {},
             framing: result.framing,
           });
           return;
@@ -485,51 +485,19 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         }
       })();
     },
-    [projectId, photos, voice, footage, shots, router, sending, rendering, runAvatar, confirm],
-  );
-
-  /**
-   * Sends the held-back turn, with whatever the user chose to tell us.
-   *
-   * `clarified` goes with it either way. Answering and skipping are both a
-   * decision to proceed, and without the flag a skip would simply be asked the
-   * same questions again.
-   */
-  // The question being asked right now: the first with no answer yet.
-  const current = pending?.questions.find(
-    (question) => pending.answers[question.label] === undefined,
-  );
-
-  const resend = useCallback(
-    (answers: Readonly<Record<string, string>>) => {
-      const held = pending;
-      if (!held) return;
-
-      setPending(null);
-      setSending(true);
-      setNotice(null);
-
-      void (async () => {
-        const result = await sendMessage({
-          ...held.payload,
-          clarified: true,
-          ...(Object.keys(answers).length > 0 ? { clarifyAnswers: answers } : {}),
-        });
-        setSending(false);
-
-        if (result.status !== "ok") {
-          setNotice(
-            result.status === "error" ? result.message : "That could not be sent. Try again.",
-          );
-          return;
-        }
-
-        if (result.notice) setNotice(result.notice);
-        router.refresh();
-        if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
-      })();
-    },
-    [pending, projectId, router],
+    [
+      projectId,
+      photos,
+      voice,
+      footage,
+      shots,
+      router,
+      sending,
+      rendering,
+      runAvatar,
+      confirm,
+      hold,
+    ],
   );
 
   /**
@@ -588,26 +556,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           messages.length === 0 && "justify-center pb-24",
         )}
       >
-        {messages.length === 0 ? (
-          <div className="text-center">
-            {seeded ? (
-              <>
-                <p className="text-sm font-medium text-ink">Ready when you are</p>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-                  We have filled in the brief below. Read it over, change anything you want, then
-                  send it to start the render.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-medium text-ink">Describe the video you want</p>
-                <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-                  Say what it is for and who it is for. Add photos and they become the footage.
-                </p>
-              </>
-            )}
-          </div>
-        ) : null}
+        {messages.length === 0 ? <ThreadIntro seeded={seeded} /> : null}
 
         {messages.map((message) => (
           <MessageBubble
@@ -623,7 +572,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
         {/* Not while something is in flight or a question is waiting: both are
             moments where another suggestion is one thing too many. */}
-        {!sending && !rendering && pending === null ? (
+        {!sending && !rendering && clarify.pending === null ? (
           <FollowUpChips
             suggestions={followUps}
             disabled={sending}
@@ -653,28 +602,16 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           This turn is already written and waiting on one answer, so a text box
           alongside would invite a second turn that cannot be sent yet.
         */}
-        {pending ? (
+        {clarify.pending ? (
           <div className="pb-4">
             <QuestionPrompt
-              key={current?.label ?? "done"}
-              question={current ?? pending.questions[0]!}
-              index={Object.keys(pending.answers).length}
-              total={pending.questions.length}
+              key={clarify.current?.label ?? "done"}
+              question={clarify.current ?? clarify.pending.questions[0]!}
+              index={clarify.answered}
+              total={clarify.total}
               disabled={sending}
-              onAnswer={(value) => {
-                if (!current) return;
-                const answers = { ...pending.answers, [current.label]: value };
-                const remaining = pending.questions.filter(
-                  (question) => answers[question.label] === undefined,
-                );
-                // The last answer sends it. Asking and then making them press a
-                // separate button would be one more step than the turn needs.
-                if (remaining.length === 0) resend(answers);
-                else setPending({ ...pending, answers });
-              }}
-              // Skipping any question sends what we have. The point of the gate
-              // was to avoid spending a credit blindly, not to collect a set.
-              onSkip={() => resend(pending.answers)}
+              onAnswer={clarify.answer}
+              onSkip={clarify.skip}
             />
           </div>
         ) : (
