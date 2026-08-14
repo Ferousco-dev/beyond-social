@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 
 import { logger } from "@/lib/logger";
 import { getEmbedder } from "@/lib/prompt-engine/providers";
+
+import { type LazyEmbedding } from "./embed-once";
 import { createClient } from "@/lib/supabase/server";
 
 import { type ExtractedMemory } from "./extract";
@@ -145,21 +147,51 @@ export async function recallFacts(
   query: string,
   limit = 5,
   /**
-   * The query already embedded, when the caller has it.
+   * The query embedded, asked for only if this actually needs it.
    *
-   * A turn asks two questions of the same sentence, what this person is like
-   * and what they were working on, and each embedded it separately: two calls
-   * to the embedder, half a second each, for one identical vector. The caller
-   * now embeds once and hands the result to both.
+   * Passed as a getter rather than a value so the common case never pays for
+   * one. See the fetch below: when somebody has few enough memories that they
+   * would all be returned anyway, ranking them by relevance is an expensive way
+   * to arrive at the same list.
    */
-  embedding?: readonly number[],
+  getVector?: LazyEmbedding,
 ): Promise<readonly Memory[]> {
   if (query.trim() === "") return [];
 
   try {
     const supabase = await createClient();
-    const vector = embedding ?? (await getEmbedder().embed([query]))[0];
-    if (!vector) return [];
+
+    /*
+     * The cheap path first: everything they have, best first.
+     *
+     * One indexed read, no embedding, no vector search. `limit + 1` is the
+     * test: fewer rows than that means this is the whole set, and the whole set
+     * is what a relevance search would have returned anyway, so there is
+     * nothing left to decide.
+     */
+    const { data: all, error: allError } = await supabase
+      .from("user_memories")
+      .select("id, fact, kind, importance")
+      .is("superseded_at", null)
+      .order("importance", { ascending: false })
+      .limit(limit + 1);
+    if (allError) throw new Error(allError.message);
+
+    const rows = (all ?? []) as Omit<Memory, "similarity">[];
+    if (rows.length <= limit) {
+      // Similarity is not measured on this path and is not claimed: 1 would be
+      // a lie about relevance, and the callers only render the fact.
+      return rows.map((row) => ({ ...row, similarity: 0 }));
+    }
+
+    // Past that there is more than fits, so which ones matter has to be
+    // answered properly, and that is what the embedding is for.
+    const vector = await getVector?.();
+    if (!vector) {
+      // No embedder, or it failed. The most important memories are a worse
+      // answer than the most relevant ones, and a much better answer than none.
+      return rows.slice(0, limit).map((row) => ({ ...row, similarity: 0 }));
+    }
 
     const { data, error } = await supabase.rpc("match_user_memories", {
       p_embedding: vector as never,

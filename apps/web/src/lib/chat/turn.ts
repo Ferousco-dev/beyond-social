@@ -10,7 +10,7 @@ import { preferredModel } from "@/lib/generation/preferred-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
-import { getEmbedder } from "@/lib/prompt-engine/providers";
+import { embedOnce } from "@/lib/memory/embed-once";
 import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
@@ -269,26 +269,16 @@ export async function runTurn(
   const grounded = !isPleasantry(prompt);
 
   /*
-   * Classified and embedded at the same time.
+   * The embedding, prepared but not started.
    *
-   * Neither needs the other, and running them in series put one round trip in
-   * front of another for no reason: measured warm, classification is about
-   * 270ms and the embedding about 500ms, and together they cost what the slower
-   * one costs. The embedding is started here and awaited below, so nothing
-   * changes about what the turn does, only when the waiting happens.
-   *
-   * Not awaited at the point of creation, so a failure here is a rejected
-   * promise with no handler until it is read. It is caught where it is read.
+   * Nothing here needs it yet, and most turns never will. It is the most
+   * expensive thing available to a turn, about 600ms warm and 2.3 seconds on a
+   * cold instance where the connection to the embedder is new, so the readers
+   * below ask for it only when they genuinely have a choice to make. If both
+   * ask, it happens once; if neither does, it never happens.
    */
   stage("understanding");
-  const embedding = grounded
-    ? getEmbedder()
-        .embed([prompt])
-        .then(([vector]) => vector)
-        // The reads below each fall back to embedding it themselves, so a
-        // failure costs the saving rather than the recall.
-        .catch(() => undefined)
-    : Promise.resolve(undefined);
+  const vector = embedOnce(prompt);
 
   const intent = await classify(prompt, previousPrompt !== null);
 
@@ -346,30 +336,16 @@ export async function runTurn(
     projectId = created;
   }
 
-  /*
-   * Started before the classification, so by here it has usually resolved.
-   *
-   * Bounded so a hung read cannot hold a turn open indefinitely. The bound is
-   * deliberately loose: the cold cost here is connection setup to somebody
-   * else's host, which this code cannot make faster, and cutting it short would
-   * buy under a second at the price of a reply that has forgotten who it is
-   * talking to.
-   */
-  const vector = await deadline(embedding, GROUNDING_BUDGET_MS, undefined);
-
   // Recall joins the existing parallel reads rather than adding a stage: it is
-  // an independent lookup, and running it in series would put an embedding round
-  // trip in front of every message.
+  // an independent lookup, and running it in series would put a round trip in
+  // front of every message.
   stage("recalling");
   const [previous, memories, summary, related] = await Promise.all([
     // Always, and unbounded: the thread is what the screen renders rather than
     // context for a model, so a turn without it has nothing to show.
     supabase.rpc("project_thread", { p_project: projectId }),
-    // Bounded for the same reason as the vector: a read that never returns
-    // must not take the turn with it.
-    grounded && vector
-      ? deadline(recallFacts(prompt, undefined, vector), GROUNDING_BUDGET_MS, [])
-      : [],
+    // Bounded so a read that has genuinely hung cannot take the turn with it.
+    grounded ? deadline(recallFacts(prompt, undefined, vector), GROUNDING_BUDGET_MS, []) : [],
     grounded ? deadline(getSummary(projectId), GROUNDING_BUDGET_MS, null) : null,
     // Past conversations, excluding this one: it is the closest match to itself
     // and returning it as "earlier work" would be noise.
