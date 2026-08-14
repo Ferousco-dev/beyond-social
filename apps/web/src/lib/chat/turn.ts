@@ -69,6 +69,45 @@ export interface TurnEvents {
   readonly onReplyChunk?: (text: string) => void;
 }
 
+/**
+ * How long the turn will wait to be well informed before answering anyway.
+ *
+ * Set above the cold path, not merely above the warm one. The warm path is an
+ * embedding at about 600ms plus a vector search; a fresh serverless instance
+ * pays about 2.3 seconds for the same embedding, because its first connection
+ * to the embedder is a new one.
+ *
+ * A tighter budget would turn that cold turn into a reply with no memory in it,
+ * which is the wrong trade for this product: somebody who has told us their
+ * name notices being greeted wrongly far more than they notice a slower reply.
+ * So this is a guard against a read that has genuinely hung, not a latency
+ * dial, and in normal running nothing is ever dropped.
+ */
+const GROUNDING_BUDGET_MS = 4_000;
+
+/**
+ * The value, or the fallback if it takes too long.
+ *
+ * The work is not cancelled, only stopped being waited on: these are reads, so
+ * letting one finish unobserved costs nothing, and cancelling would need every
+ * caller to thread a signal through for no gain.
+ */
+async function deadline<T>(work: Promise<T>, ms: number, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(fallback), ms);
+      }),
+    ]);
+  } finally {
+    // Or the timer holds the process open for its full duration after a fast
+    // read has already answered.
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export const sendSchema = z.object({
   /** `new` means no project exists yet. */
   projectId: z.string().min(1),
@@ -307,23 +346,40 @@ export async function runTurn(
     projectId = created;
   }
 
-  // Started before the classification, so by here it has usually resolved and
-  // this costs nothing. Awaited once rather than inside the array below, where
-  // it would hold up the reads that follow it.
-  const vector = await embedding;
+  /*
+   * Started before the classification, so by here it has usually resolved.
+   *
+   * Bounded so a hung read cannot hold a turn open indefinitely. The bound is
+   * deliberately loose: the cold cost here is connection setup to somebody
+   * else's host, which this code cannot make faster, and cutting it short would
+   * buy under a second at the price of a reply that has forgotten who it is
+   * talking to.
+   */
+  const vector = await deadline(embedding, GROUNDING_BUDGET_MS, undefined);
 
   // Recall joins the existing parallel reads rather than adding a stage: it is
   // an independent lookup, and running it in series would put an embedding round
   // trip in front of every message.
   stage("recalling");
   const [previous, memories, summary, related] = await Promise.all([
-    // Always: the thread is what the screen renders, not context for a model.
+    // Always, and unbounded: the thread is what the screen renders rather than
+    // context for a model, so a turn without it has nothing to show.
     supabase.rpc("project_thread", { p_project: projectId }),
-    grounded ? recallFacts(prompt, undefined, vector) : [],
-    grounded ? getSummary(projectId) : null,
+    // Bounded for the same reason as the vector: a read that never returns
+    // must not take the turn with it.
+    grounded && vector
+      ? deadline(recallFacts(prompt, undefined, vector), GROUNDING_BUDGET_MS, [])
+      : [],
+    grounded ? deadline(getSummary(projectId), GROUNDING_BUDGET_MS, null) : null,
     // Past conversations, excluding this one: it is the closest match to itself
     // and returning it as "earlier work" would be noise.
-    grounded ? findRelatedConversations(prompt, projectId, undefined, vector) : [],
+    grounded && vector
+      ? deadline(
+          findRelatedConversations(prompt, projectId, undefined, vector),
+          GROUNDING_BUDGET_MS,
+          [],
+        )
+      : [],
   ]);
 
   let finalPrompt = prompt;
