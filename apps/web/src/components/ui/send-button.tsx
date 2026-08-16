@@ -1,24 +1,20 @@
 "use client";
 
-import { CornerDownLeft, Loader2 } from "lucide-react";
+import { ArrowUp, Loader2 } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
 /**
- * The control that sends a brief.
+ * The control that sends a brief: a filled circle with an arrow.
  *
- * It was a black circle with an arrow pointing up, which is the assistant
- * convention every chat product shipped in the same year, and this product is
- * not trying to look like a chat product. What it is is a piece of software you
- * type an instruction into, so the button says what pressing it does and shows
- * the key that does the same thing.
+ * One component rather than the copy in the composer and the copy in the editor,
+ * which had drifted to different sizes and different disabled opacities while
+ * being the same control.
  *
- * The glyph is the return arrow rather than a direction of travel. It names the
- * shortcut instead of miming an upload, which is the more useful of the two
- * things an icon here could say. On a narrow screen the label goes and the
- * glyph carries it alone, which is why the accessible name never comes from the
- * label.
+ * The circle is 44px on a touch screen, where the visual size would otherwise be
+ * under what a thumb can reliably land on. That is the only thing here that
+ * changes with the pointer.
  */
 export function SendButton({
   onClick,
@@ -45,30 +41,19 @@ export function SendButton({
       aria-label={hint ?? label}
       title={hint ?? label}
       className={cn(
-        "group inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-ink font-medium text-paper transition-[opacity,transform] hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none motion-reduce:active:scale-100",
-        // 44px on a touch screen either way: a send button is the one control
-        // on the screen that must not be missable.
-        "pointer-coarse:h-11",
-        size === "compact" ? "h-7 px-2.5 text-xs" : "h-9 px-3 text-sm",
+        "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-[opacity,transform] hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none motion-reduce:active:scale-100",
+        "pointer-coarse:size-11",
+        size === "compact" ? "size-7" : "size-9",
       )}
     >
       {busy ? (
         <Loader2
-          className={cn("animate-spin", size === "compact" ? "size-3" : "size-3.5")}
+          className={cn("animate-spin", size === "compact" ? "size-3.5" : "size-4")}
           aria-hidden
         />
       ) : (
-        <CornerDownLeft
-          className={cn(
-            // Nudges on hover in the direction the key sends it. One pixel of
-            // acknowledgement, not an animation.
-            "transition-transform group-hover:translate-x-px motion-reduce:transition-none motion-reduce:group-hover:translate-x-0",
-            size === "compact" ? "size-3" : "size-3.5",
-          )}
-          aria-hidden
-        />
+        <ArrowUp className={cn(size === "compact" ? "size-3.5" : "size-4")} aria-hidden />
       )}
-      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }

@@ -2,7 +2,7 @@ import { Play } from "lucide-react";
 import Image from "next/image";
 import { type ReactNode } from "react";
 
-import { SHOWCASE } from "@/lib/marketing/landing";
+import { SHOWCASE, SHOWCASE_IS_PLACEHOLDER } from "@/lib/marketing/landing";
 
 import { Reveal } from "./reveal";
 import { SectionHeading } from "./section-heading";
@@ -10,8 +10,15 @@ import { SectionHeading } from "./section-heading";
 /**
  * Format showcase. Vertical cards mirror the 9:16 frame the product actually
  * outputs, so the section demonstrates the format rather than describing it.
+ *
+ * Which is exactly why it must not demonstrate it with stock photographs. The
+ * tiles were captioned as this product's work, and a visitor deciding whether a
+ * video tool is any good looks at the output before they read a word. Same rule
+ * as the testimonials, same guard: nothing renders until the renders are real.
  */
 export function Showcase(): ReactNode {
+  if (SHOWCASE_IS_PLACEHOLDER) return null;
+
   return (
     <section id="showcase" className="scroll-mt-20 border-t border-hairline py-24 sm:py-32">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">

@@ -67,11 +67,15 @@ export function LandingHero(): ReactNode {
               Start creating free
             </Link>
             <a
-              href="#showcase"
+              // Pointed at the workflow rather than the showcase: the showcase
+              // is held back until there are real renders in it, and a hero
+              // button that scrolls to nothing is worse than one that scrolls
+              // to the honest answer.
+              href="#ai-workflow"
               className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-hairline bg-paper px-8 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
             >
               <Play className="size-3.5 fill-current" aria-hidden />
-              See what it makes
+              See how it works
             </a>
           </div>
 
