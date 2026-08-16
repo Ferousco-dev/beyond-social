@@ -1,29 +1,31 @@
 import "server-only";
 
+import { type PlanId } from "@/lib/billing/plans";
 import { logger } from "@/lib/logger";
 import { type createClient } from "@/lib/supabase/server";
 
 import { selectModel, type CatalogModel, type ModelChoice } from "./select-model";
 
 /**
- * Reads what the selector needs, then asks it.
+ * The chooser, given a real account and the real catalogue.
  *
- * Split from `select-model` so the deciding is a pure function with no database
- * in it: the rules are the part worth testing, and they are testable without a
- * connection. This is the boring half that fetches the plan and the catalogue.
+ * `selectModel` is the decision and is pure so it can be tested without a
+ * database. This is the part that fetches what it decides from: the plan the
+ * account is on, and the models actually live at the prices actually billed.
  *
- * Returns null rather than throwing. A failure to read the catalogue should
- * leave the caller on the edge function's default, which still makes a video,
- * rather than taking the turn down over a model preference.
+ * Never throws. A generation that cannot establish a model falls through to the
+ * edge function's own default, which is what happened for every video until
+ * now, so the worst case here is the behaviour this replaced.
  */
 export async function chooseModel(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   prompt: string,
   videoPaths: readonly string[] | undefined,
+  hasFaceAndVoice: boolean,
 ): Promise<ModelChoice | null> {
   try {
-    const [{ data: profile }, { data: rows }] = await Promise.all([
+    const [{ data: profile }, { data: models }] = await Promise.all([
       supabase.from("profiles").select("plan").eq("id", userId).maybeSingle(),
       supabase
         .from("model_catalog")
@@ -32,24 +34,24 @@ export async function chooseModel(
         .eq("is_active", true),
     ]);
 
-    const catalog: CatalogModel[] = (
-      (rows ?? []) as {
-        id: string;
-        credit_cost: number;
-        min_plan: string;
-        capabilities: string[] | null;
-        is_active: boolean;
-      }[]
-    ).map((row) => ({
+    const rows = (models ?? []) as {
+      id: string;
+      credit_cost: number;
+      min_plan: string;
+      capabilities: string[] | null;
+      is_active: boolean;
+    }[];
+    if (rows.length === 0) return null;
+
+    const catalog: CatalogModel[] = rows.map((row) => ({
       id: row.id,
       creditCost: row.credit_cost,
-      // The column is free text at the database level; anything unrecognised is
-      // treated as the most restrictive tier rather than the least, so a typo
-      // cannot hand an expensive model to a free account.
-      minPlan:
-        row.min_plan === "free" || row.min_plan === "creator" || row.min_plan === "studio"
-          ? row.min_plan
-          : "studio",
+      // An unknown tier is treated as the most restrictive rather than the
+      // least: guessing "free" for a value we do not recognise would hand out
+      // the expensive models.
+      minPlan: (["free", "creator", "studio"].includes(row.min_plan)
+        ? row.min_plan
+        : "studio") as PlanId,
       capabilities: row.capabilities ?? [],
       isActive: row.is_active,
     }));
@@ -58,17 +60,8 @@ export async function chooseModel(
 
     return selectModel({
       prompt,
-      // Same reasoning as the tier above: an unknown plan is treated as the
-      // cheapest, so a missing profile row cannot buy a Kling render.
-      plan: plan === "creator" || plan === "studio" ? plan : "free",
-      /*
-       * Avatar work does not come through here.
-       *
-       * A photo plus a voice clip is sent by `startAvatarGeneration`, which is
-       * its own path with its own consent gate, so this branch never sees one
-       * and says so rather than pretending to check.
-       */
-      hasFaceAndVoice: false,
+      plan: (["free", "creator", "studio"].includes(plan ?? "") ? plan : "free") as PlanId,
+      hasFaceAndVoice,
       hasFootage: (videoPaths?.length ?? 0) > 0,
       catalog,
     });

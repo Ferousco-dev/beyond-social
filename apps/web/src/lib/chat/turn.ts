@@ -240,6 +240,8 @@ export async function runTurn(
   // Asked once and used twice: it decides whether the attestation is required,
   // and it tells the retriever what kind of video this is.
   const showsPerson = await attachmentsShowAPerson(supabase, user.id, photoPaths);
+  // A face and a voice together is an avatar job, whatever the sentence says.
+  const voiceAttached = attachments?.some((item) => item.kind === "audio") ?? false;
   if (showsPerson && !(await hasCurrentConsent(supabase, user.id))) {
     return { status: "consent" };
   }
@@ -436,7 +438,9 @@ export async function runTurn(
    */
   const preference = await preferredModel(supabase, user.id, "video");
   const choice =
-    preference === null ? await chooseModel(supabase, user.id, prompt, videoPaths) : null;
+    preference === null
+      ? await chooseModel(supabase, user.id, prompt, videoPaths, showsPerson && voiceAttached)
+      : null;
   if (choice?.worthConfirming) {
     logger.info("skipped a costlier model until it can be confirmed", {
       model: choice.modelId,

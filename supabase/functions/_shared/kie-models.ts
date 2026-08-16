@@ -156,8 +156,42 @@ const klingMotionControl: Builder = (request) => {
   };
 };
 
+/**
+ * Wan Video to Video.
+ *
+ * Restyles footage from a prompt: one video in, one video out, with no image
+ * involved. The field names follow the convention every other market model on
+ * this provider uses, `video_urls` for footage exactly as motion control takes
+ * it, which is an inference from its siblings rather than something confirmed
+ * against a successful call.
+ *
+ * That is why the catalogue row stays inactive. The shape is very likely right
+ * and "very likely" is not good enough when being wrong costs thirty credits
+ * per attempt and fails at the provider rather than here. One manual run
+ * against kie confirms it, and activating is then a one-line change.
+ */
+const wanVideoToVideo: Builder = (request) => {
+  if (request.videoUrls.length === 0) {
+    throw new UnsupportedModelError(
+      "wan/2-6-video-to-video",
+      "it restyles an existing video, and none was supplied",
+    );
+  }
+  if (request.prompt === "") {
+    throw new UnsupportedModelError(
+      "wan/2-6-video-to-video",
+      "it needs a description of what to restyle the footage into",
+    );
+  }
+  return {
+    prompt: request.prompt,
+    video_urls: request.videoUrls.slice(0, 1),
+  };
+};
+
 const BUILDERS: Readonly<Record<string, Builder>> = {
   "kling-3.0/motion-control": klingMotionControl,
+  "wan/2-6-video-to-video": wanVideoToVideo,
   "kling-3.0/video": klingVideo,
   "bytedance/seedance-1.5-pro": seedance,
 };

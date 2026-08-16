@@ -128,6 +128,19 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
     );
   }
 
+  /*
+   * Footage with no motion request is a restyle rather than a transfer.
+   *
+   * Reached only once `wan/2-6-video-to-video` is active, which it is not: its
+   * request shape is inferred from its siblings rather than confirmed, and
+   * being wrong costs thirty credits an attempt. `firstUsable` skips inactive
+   * models, so this falls through to the workhorse until somebody turns it on.
+   */
+  if (hasFootage && !MOTION.test(prompt)) {
+    const restyle = firstUsable(["wan/2-6-video-to-video"], catalog, plan);
+    if (restyle) return pick(restyle, "You attached footage, so this restyles what you sent.");
+  }
+
   if (hasFootage && MOTION.test(prompt)) {
     const motion = firstUsable(["kling-3.0/motion-control"], catalog, plan);
     // Not available on this plan is not a reason to fail: the workhorse can

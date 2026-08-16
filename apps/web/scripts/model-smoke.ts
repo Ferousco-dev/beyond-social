@@ -224,6 +224,43 @@ const choose = (
   );
 }
 
+{
+  // Footage with no motion request is a restyle. Inactive today, so it must
+  // fall through rather than pick a model nothing can dispatch.
+  const out = choose("make this look like film", "studio", { hasFootage: true });
+  check(
+    "footage without a motion request does not pick an inactive restyle model",
+    out?.modelId === "kling-3.0/video",
+    out?.modelId ?? "none",
+  );
+}
+
+{
+  // And once it is switched on, it is what footage should reach.
+  const withRestyle = [
+    ...CATALOG,
+    {
+      id: "wan/2-6-video-to-video",
+      creditCost: 30,
+      minPlan: "studio" as const,
+      capabilities: [],
+      isActive: true,
+    },
+  ];
+  const out = selectModel({
+    prompt: "make this look like film",
+    plan: "studio",
+    hasFaceAndVoice: false,
+    hasFootage: true,
+    catalog: withRestyle,
+  });
+  check(
+    "an active restyle model is what footage reaches",
+    out?.modelId === "wan/2-6-video-to-video",
+    out?.modelId ?? "none",
+  );
+}
+
 process.stdout.write(
   `${results.join("\n")}\n\n${results.length - failures}/${results.length} passed\n`,
 );
