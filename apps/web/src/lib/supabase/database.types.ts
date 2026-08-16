@@ -1693,7 +1693,7 @@ export type Database = {
           id: string;
           is_active: boolean;
           last_delivery_at: string | null;
-          secret_hash: string;
+          secret_encrypted: string;
           secret_last_four: string;
           url: string;
           user_id: string;
@@ -1705,7 +1705,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           last_delivery_at?: string | null;
-          secret_hash: string;
+          secret_encrypted: string;
           secret_last_four: string;
           url: string;
           user_id: string;
@@ -1717,7 +1717,7 @@ export type Database = {
           id?: string;
           is_active?: boolean;
           last_delivery_at?: string | null;
-          secret_hash?: string;
+          secret_encrypted?: string;
           secret_last_four?: string;
           url?: string;
           user_id?: string;
@@ -2430,6 +2430,7 @@ export type Database = {
         Args: { p_provider_task_id: string; p_result_url: string };
         Returns: undefined;
       };
+      count_webhook_failure: { Args: { p_webhook: string }; Returns: undefined };
       create_organization: {
         Args: { p_name: string; p_slug: string };
         Returns: string;
