@@ -23,7 +23,8 @@ export interface Benefit {
 
 export interface PricingTier {
   readonly name: string;
-  readonly price: string;
+  /** Null when the plan is not priced yet, which the card has to say out loud. */
+  readonly price: string | null;
   readonly description: string;
   readonly videos: string;
   readonly features: readonly string[];

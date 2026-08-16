@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 
+import { getCurrentPlan } from "@/lib/billing/current-plan";
+import { PLANS, type PlanId } from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getAuthUser } from "@/lib/supabase/session";
 
@@ -20,7 +22,13 @@ const PLACEHOLDER: DashboardUser = {
   name: "Alex Rivera",
   email: "alex@studio.com",
   initials: "AR",
+  plan: "free",
 };
+
+/** Anything unrecognised reads as free, which is the safe thing to display. */
+function asPlanId(value: string): PlanId {
+  return (PLANS as readonly string[]).includes(value) ? (value as PlanId) : "free";
+}
 
 export async function getCurrentUser(): Promise<DashboardUser> {
   if (!isSupabaseConfigured) return PLACEHOLDER;
@@ -30,5 +38,8 @@ export async function getCurrentUser(): Promise<DashboardUser> {
 
   const metadataName = authUser.user_metadata.full_name;
   const name = typeof metadataName === "string" ? metadataName : (authUser.email ?? "there");
-  return { name, email: authUser.email ?? "", initials: toInitials(name) };
+  // The plan comes from the same request-scoped read the rest of the dashboard
+  // uses, so this costs nothing beyond the first caller.
+  const plan = asPlanId(await getCurrentPlan());
+  return { name, email: authUser.email ?? "", initials: toInitials(name), plan };
 }

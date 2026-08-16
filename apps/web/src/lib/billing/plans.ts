@@ -22,7 +22,13 @@ export interface Plan {
   readonly description: string;
   /** Monthly videos included. */
   readonly credits: number;
-  /** USD per month, for display only; Stripe is the source of truth. */
+  /**
+   * USD per month, for display only; Stripe is the source of truth.
+   *
+   * Zero on a paid plan means "not priced yet" rather than "free". They are
+   * different facts and the difference matters: showing the second when the
+   * first is true advertises a price we would not honour.
+   */
   readonly priceUsd: number;
   readonly features: readonly string[];
   /** The tier the pricing page lifts as the guided choice. */
@@ -69,6 +75,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
       "400 videos a month",
       "Brand kits",
       "Batch scheduling",
+      "API, webhooks, and MCP for your own tools",
       "Priority support",
     ],
     featured: false,
@@ -91,7 +98,20 @@ export function planForPrice(
 /** Ordered cheapest first, which is the order the pricing cards read in. */
 export const PLAN_LIST: readonly Plan[] = PLANS.map((id) => PLAN_CATALOGUE[id]);
 
-/** Display price, so "$0" and "Free" are decided in one place. */
-export function priceLabel(plan: Plan): string {
-  return plan.priceUsd === 0 ? "Free" : `$${plan.priceUsd}`;
+/**
+ * Display price, or null when the plan has no price to show.
+ *
+ * Null rather than "$0" or "Free": a paid plan whose price is not set yet is
+ * not a free plan, and every surface that renders it has to say something other
+ * than the wrong thing. Returning null forces that decision at the call site
+ * instead of hiding it here.
+ */
+export function priceLabel(plan: Plan): string | null {
+  if (plan.id === "free") return "Free";
+  return plan.priceUsd > 0 ? `$${plan.priceUsd}` : null;
+}
+
+/** True when the plan can actually be sold: it has a price to charge. */
+export function isPriced(plan: Plan): boolean {
+  return plan.id === "free" || plan.priceUsd > 0;
 }
