@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { callerHasIntegrations, INTEGRATIONS_DENIAL } from "@/lib/billing/integration-gate";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -38,6 +39,9 @@ export async function createWebhook(input: CreateWebhookInput): Promise<SecretRe
   const parsed = createWebhookSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Pick a URL and at least one event." };
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // The panel is hidden below the plan, but a server action is a public
+  // endpoint: this is the check that actually decides.
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
 
   // Re-checked on the server because the client check is a convenience. This is
   // the one that decides, and it is the SSRF guard.
@@ -81,6 +85,7 @@ export async function createWebhook(input: CreateWebhookInput): Promise<SecretRe
  */
 export async function rotateWebhookSecret(id: string): Promise<SecretResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
 
   try {
     const supabase = await createClient();
@@ -108,6 +113,11 @@ export async function rotateWebhookSecret(id: string): Promise<SecretResult> {
 /** Pauses or resumes an endpoint without discarding its secret. */
 export async function setWebhookActive(id: string, isActive: boolean): Promise<ActionResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // Resuming an endpoint is starting deliveries again, so it is gated the same
+  // way creating one is. Pausing is not: stopping is always allowed.
+  if (isActive && !(await callerHasIntegrations())) {
+    return { status: "error", message: INTEGRATIONS_DENIAL };
+  }
   try {
     const supabase = await createClient();
     const { error } = await supabase

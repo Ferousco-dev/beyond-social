@@ -8,10 +8,12 @@ import {
   Palette,
   Share2,
   UserRound,
-  Users,
   Webhook,
   type LucideIcon,
 } from "lucide-react";
+
+import { INTEGRATIONS_PLAN } from "@/lib/billing/entitlements";
+import { type PlanId } from "@/lib/billing/plans";
 
 /**
  * The settings sections. One list, used by both the hub cards and the section
@@ -31,6 +33,13 @@ export interface SettingsSection {
   readonly label: string;
   readonly description: string;
   readonly icon: LucideIcon;
+  /**
+   * The plan that owns this section, when it is not on every plan. The row
+   * stays visible below it and carries the plan's name, because a section
+   * someone cannot use is still a section they may want to buy; hiding it
+   * makes the upgrade undiscoverable.
+   */
+  readonly plan?: PlanId;
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
@@ -91,21 +100,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Gauge,
   },
   {
-    href: "/dashboard/settings/team",
-    label: "Team",
-    description: "Who else can work in this workspace.",
-    icon: Users,
-  },
-  {
     href: "/dashboard/settings/api-keys",
     label: "API keys",
     description: "Call the API from your own code.",
     icon: KeyRound,
+    plan: INTEGRATIONS_PLAN,
   },
   {
     href: "/dashboard/settings/webhooks",
     label: "Webhooks",
     description: "Get a signed request when something finishes.",
     icon: Webhook,
+    plan: INTEGRATIONS_PLAN,
   },
 ];

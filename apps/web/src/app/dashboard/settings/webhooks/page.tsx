@@ -1,6 +1,8 @@
 import { Info } from "lucide-react";
 import { type Metadata } from "next";
 
+import { PlanLocked } from "@/features/billing/components/plan-locked";
+import { callerHasIntegrations } from "@/lib/billing/integration-gate";
 import { SignatureDoc } from "@/features/webhooks/components/signature-doc";
 import { WebhookManager } from "@/features/webhooks/components/webhook-manager";
 import { getWebhooks } from "@/lib/webhooks/queries";
@@ -8,7 +10,9 @@ import { getWebhooks } from "@/lib/webhooks/queries";
 export const metadata: Metadata = { title: "Webhooks" };
 
 export default async function WebhooksPage() {
-  const webhooks = await getWebhooks();
+  const entitled = await callerHasIntegrations();
+  // Nothing to list for someone who cannot register one, and no reason to ask.
+  const webhooks = entitled ? await getWebhooks() : [];
 
   return (
     <section className="mt-6 lg:mt-8">
@@ -34,7 +38,14 @@ export default async function WebhooksPage() {
       </div>
 
       <div className="mt-6">
-        <WebhookManager webhooks={webhooks} />
+        {entitled ? (
+          <WebhookManager webhooks={webhooks} />
+        ) : (
+          <PlanLocked
+            title="Be told when something finishes"
+            body="A signed HTTPS request arrives at your endpoint the moment a video renders or a post goes live, so your own systems do not have to poll for it."
+          />
+        )}
       </div>
 
       <div className="mt-10">

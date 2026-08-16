@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { generateApiKey } from "@/lib/api/keys";
+import { callerHasIntegrations, INTEGRATIONS_DENIAL } from "@/lib/billing/integration-gate";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,9 @@ export async function createApiKey(input: z.input<typeof createSchema>): Promise
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Give the key a name" };
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // The panel is hidden below the plan, but a server action is a public
+  // endpoint: this is the check that actually decides.
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
 
   try {
     const supabase = await createClient();

@@ -4,6 +4,7 @@ import { type Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 import { cn } from "@/lib/utils";
 
 import { SETTINGS_SECTIONS } from "../nav";
@@ -39,7 +40,12 @@ export function SettingsRail() {
                 )}
               >
                 <section.icon className="size-4 shrink-0" aria-hidden />
-                {section.label}
+                <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                {section.plan !== undefined && (
+                  <span className="shrink-0 rounded-full border border-hairline px-1.5 py-0.5 text-[10px] font-medium text-ink-soft">
+                    {PLAN_CATALOGUE[section.plan].name}
+                  </span>
+                )}
               </Link>
             </li>
           );

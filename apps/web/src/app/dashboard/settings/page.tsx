@@ -3,6 +3,7 @@ import { type Metadata, type Route } from "next";
 import Link from "next/link";
 
 import { SETTINGS_SECTIONS } from "@/features/settings/nav";
+import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -28,7 +29,14 @@ export default function SettingsPage() {
             >
               <section.icon className="size-5 shrink-0 text-ink-soft" aria-hidden />
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-ink">{section.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-ink">{section.label}</span>
+                  {section.plan !== undefined && (
+                    <span className="rounded-full border border-hairline px-2 py-0.5 text-[10px] font-medium text-ink-soft">
+                      {PLAN_CATALOGUE[section.plan].name}
+                    </span>
+                  )}
+                </span>
                 <span className="block text-xs text-ink-soft">{section.description}</span>
               </span>
               <ChevronRight className="size-4 shrink-0 text-ink-soft" aria-hidden />
