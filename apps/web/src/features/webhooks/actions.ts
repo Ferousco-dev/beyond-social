@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
+import { callerHasIntegrations, INTEGRATIONS_DENIAL } from "@/lib/billing/integration-gate";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { generateWebhookSecret } from "@/lib/webhooks/secret";
+import { generateWebhookSecret, isWebhookSigningConfigured } from "@/lib/webhooks/secret";
 import { createWebhookSchema, type CreateWebhookInput } from "@/lib/webhooks/types";
 import { checkWebhookUrl, WEBHOOK_URL_MESSAGES } from "@/lib/webhooks/url";
 
@@ -38,6 +39,15 @@ export async function createWebhook(input: CreateWebhookInput): Promise<SecretRe
   const parsed = createWebhookSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Pick a URL and at least one event." };
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // The panel is hidden below the plan, but a server action is a public
+  // endpoint: this is the check that actually decides.
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
+  // Without the key there is nothing to sign a delivery with, so an endpoint
+  // registered now would be stored and never used. Refused up front rather than
+  // accepted and quietly inert.
+  if (!isWebhookSigningConfigured) {
+    return { status: "error", message: "Webhook signing is not configured yet." };
+  }
 
   // Re-checked on the server because the client check is a convenience. This is
   // the one that decides, and it is the SSRF guard.
@@ -56,7 +66,7 @@ export async function createWebhook(input: CreateWebhookInput): Promise<SecretRe
       user_id: user.id,
       url: checked.url,
       events: [...parsed.data.events],
-      secret_hash: secret.hash,
+      secret_encrypted: secret.encrypted,
       secret_last_four: secret.lastFour,
     });
     if (error) return { status: "error", message: describeDbError(error.message) };
@@ -81,6 +91,13 @@ export async function createWebhook(input: CreateWebhookInput): Promise<SecretRe
  */
 export async function rotateWebhookSecret(id: string): Promise<SecretResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
+  // Without the key there is nothing to sign a delivery with, so an endpoint
+  // registered now would be stored and never used. Refused up front rather than
+  // accepted and quietly inert.
+  if (!isWebhookSigningConfigured) {
+    return { status: "error", message: "Webhook signing is not configured yet." };
+  }
 
   try {
     const supabase = await createClient();
@@ -89,7 +106,7 @@ export async function rotateWebhookSecret(id: string): Promise<SecretResult> {
     // someone else matches nothing rather than rotating their secret.
     const { data, error } = await supabase
       .from("user_webhooks")
-      .update({ secret_hash: secret.hash, secret_last_four: secret.lastFour })
+      .update({ secret_encrypted: secret.encrypted, secret_last_four: secret.lastFour })
       .eq("id", id)
       .select("id");
     if (error) throw new Error(error.message);
@@ -108,6 +125,11 @@ export async function rotateWebhookSecret(id: string): Promise<SecretResult> {
 /** Pauses or resumes an endpoint without discarding its secret. */
 export async function setWebhookActive(id: string, isActive: boolean): Promise<ActionResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // Resuming an endpoint is starting deliveries again, so it is gated the same
+  // way creating one is. Pausing is not: stopping is always allowed.
+  if (isActive && !(await callerHasIntegrations())) {
+    return { status: "error", message: INTEGRATIONS_DENIAL };
+  }
   try {
     const supabase = await createClient();
     const { error } = await supabase

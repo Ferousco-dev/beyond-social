@@ -36,6 +36,13 @@ const serverEnvSchema = z.object({
   APIFY_TIKTOK_ACTOR: z.string().default(""),
   APIFY_INSTAGRAM_ACTOR: z.string().default(""),
   CRON_SECRET: z.string().default(""),
+  /**
+   * Encrypts webhook signing secrets at rest, 32 bytes base64. Shared with the
+   * edge function that sends deliveries, which needs the same key to sign with.
+   * Empty means endpoints cannot be registered, which the page says out loud
+   * rather than storing something it cannot use.
+   */
+  WEBHOOK_SECRET_KEY: z.string().default(""),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -59,6 +66,7 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   APIFY_TIKTOK_ACTOR: process.env.APIFY_TIKTOK_ACTOR,
   APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
+  WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
 });
 
 /**

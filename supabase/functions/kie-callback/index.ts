@@ -8,6 +8,7 @@ import { corsHeaders, json } from "../_shared/http.ts";
 import { parseUrls } from "../_shared/kie.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
 import { persistRender } from "../_shared/store.ts";
+import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
 
 interface CallbackBody {
@@ -51,7 +52,7 @@ Deno.serve(async (req) => {
   // searching for.
   const { data: generation } = await admin
     .from("video_generations")
-    .select("user_id, trace_id")
+    .select("id, user_id, trace_id")
     .eq("provider_task_id", taskId)
     .single();
   const traceId = generation?.trace_id ?? null;
@@ -63,10 +64,36 @@ Deno.serve(async (req) => {
       : urls[0];
     await admin.rpc("complete_generation", { p_provider_task_id: taskId, p_result_url: resultUrl });
     log("info", "generation completed", { traceId, taskId });
+    if (generation) {
+      await deliverEvent(
+        admin,
+        generation.user_id,
+        "generation.completed",
+        {
+          generation_id: generation.id,
+          // The signed link, not the storage path: a receiver can fetch this, and
+          // it expires, which is the same contract the REST API gives.
+          result_url: resultUrl,
+        },
+        traceId,
+      );
+    }
   } else {
     const reason = body.msg ?? "Generation failed";
     await admin.rpc("fail_generation", { p_provider_task_id: taskId, p_error: reason });
     log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
+    if (generation) {
+      await deliverEvent(
+        admin,
+        generation.user_id,
+        "generation.failed",
+        {
+          generation_id: generation.id,
+          error: reason,
+        },
+        traceId,
+      );
+    }
   }
 
   return json({ received: true });

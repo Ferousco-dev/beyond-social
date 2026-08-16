@@ -1,6 +1,7 @@
-import { Info } from "lucide-react";
 import { type Metadata } from "next";
 
+import { PlanLocked } from "@/features/billing/components/plan-locked";
+import { callerHasIntegrations } from "@/lib/billing/integration-gate";
 import { SignatureDoc } from "@/features/webhooks/components/signature-doc";
 import { WebhookManager } from "@/features/webhooks/components/webhook-manager";
 import { getWebhooks } from "@/lib/webhooks/queries";
@@ -8,7 +9,9 @@ import { getWebhooks } from "@/lib/webhooks/queries";
 export const metadata: Metadata = { title: "Webhooks" };
 
 export default async function WebhooksPage() {
-  const webhooks = await getWebhooks();
+  const entitled = await callerHasIntegrations();
+  // Nothing to list for someone who cannot register one, and no reason to ask.
+  const webhooks = entitled ? await getWebhooks() : [];
 
   return (
     <section className="mt-6 lg:mt-8">
@@ -16,25 +19,24 @@ export default async function WebhooksPage() {
         Get a signed HTTPS request when something finishes, instead of polling the API for it.
       </p>
 
-      {/* The sender does not exist yet. Saying so here is the difference between
-          a feature that is not finished and a feature that looks broken: without
-          this, a correctly registered endpoint that never receives anything
-          reads as a bug worth filing. */}
-      <div
-        role="note"
-        className="mt-5 flex items-start gap-2.5 rounded-xl border border-hairline bg-cloud p-4"
-      >
-        <Info className="mt-0.5 size-4 shrink-0 text-ink-soft" aria-hidden />
-        <p className="text-xs leading-relaxed text-ink-soft">
-          <strong className="font-medium text-ink">Deliveries are not being sent yet.</strong> You
-          can register endpoints and secrets now, and they will start receiving events as soon as
-          the delivery service ships. Nothing will arrive at your URL before then, so an endpoint
-          that stays quiet is not misconfigured.
-        </p>
-      </div>
+      {/* Which events actually fire today. The post events can be subscribed to
+          and will not arrive until scheduled publishing runs somewhere, and an
+          endpoint that stays quiet is otherwise indistinguishable from a bug. */}
+      <p className="mt-2 text-xs text-ink-soft">
+        <span className="font-medium text-ink">generation.completed</span> and{" "}
+        <span className="font-medium text-ink">generation.failed</span> are being sent now. The post
+        events start arriving when scheduled publishing goes live.
+      </p>
 
       <div className="mt-6">
-        <WebhookManager webhooks={webhooks} />
+        {entitled ? (
+          <WebhookManager webhooks={webhooks} />
+        ) : (
+          <PlanLocked
+            title="Be told when something finishes"
+            body="A signed HTTPS request arrives at your endpoint the moment a video finishes rendering, so your own systems do not have to poll for it."
+          />
+        )}
       </div>
 
       <div className="mt-10">

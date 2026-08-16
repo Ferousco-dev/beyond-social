@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 
+import { hasIntegrations } from "@/lib/billing/entitlements";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -8,28 +9,11 @@ import { hashApiKey, readBearerKey } from "./keys";
 
 export interface ApiCaller {
   userId: string;
+  /** The plan the key belongs to, which decides whether the key may be used at all. */
+  plan: string;
 }
 
-/**
- * `profiles.deleted_at` (0042) is not in the generated database types yet, so
- * the read goes through a narrow seam and the payload stays `unknown`, which
- * forces the parse below. Remove this and select the column directly once the
- * types are regenerated.
- */
-type DeletionProbe = {
-  from: (table: "profiles") => {
-    select: (columns: "deleted_at") => {
-      eq: (
-        column: "id",
-        value: string,
-      ) => {
-        maybeSingle: () => PromiseLike<{ data: unknown; error: { message: string } | null }>;
-      };
-    };
-  };
-};
-
-const deletionSchema = z.object({ deleted_at: z.string().nullable() });
+const profileSchema = z.object({ deleted_at: z.string().nullable(), plan: z.string() });
 
 /**
  * Authenticates a public API request by its key. Returns null for anything
@@ -42,6 +26,11 @@ const deletionSchema = z.object({ deleted_at: z.string().nullable() });
  * this a revoked-by-deletion account keeps full read access to its own data
  * through any key it minted beforehand. Suspension is deliberately not checked:
  * a suspended account is stopped from writing, not from reading.
+ *
+ * The plan is read here for the same reason. A key minted on a paid plan
+ * outlives the subscription that justified it, so the entitlement has to be
+ * checked per request against the account as it is now, not as it was when the
+ * key was created.
  */
 export async function authenticateRequest(request: Request): Promise<ApiCaller | null> {
   if (!isSupabaseConfigured) return null;
@@ -53,17 +42,30 @@ export async function authenticateRequest(request: Request): Promise<ApiCaller |
   const { data, error } = await service.rpc("api_key_owner", { p_hash: hashApiKey(key) });
   if (error || typeof data !== "string" || data.length === 0) return null;
 
-  const probe = await (service as unknown as DeletionProbe)
+  const probe = await service
     .from("profiles")
-    .select("deleted_at")
+    .select("deleted_at, plan")
     .eq("id", data)
     .maybeSingle();
 
   // An unreadable profile is not proof the account is live, and an API caller
   // has no session to fall back on, so this one fails closed.
   if (probe.error !== null) return null;
-  const profile = deletionSchema.safeParse(probe.data);
+  const profile = profileSchema.safeParse(probe.data);
   if (!profile.success || profile.data.deleted_at !== null) return null;
 
-  return { userId: data };
+  return { userId: data, plan: profile.data.plan };
+}
+
+/**
+ * Whether the key's account is on a plan that includes the API.
+ *
+ * Separate from authentication because the two failures are different answers:
+ * a bad key is 401 and there is nothing to do about it, while a valid key on
+ * the wrong plan is 403 and the remedy is an upgrade. Collapsing them into
+ * "unauthorized" would send a paying customer hunting for a credential problem
+ * that does not exist.
+ */
+export function callerMayUseApi(caller: ApiCaller): boolean {
+  return hasIntegrations(caller.plan);
 }

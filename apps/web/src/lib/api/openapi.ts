@@ -20,7 +20,7 @@ export function buildOpenApiDocument(): Record<string, unknown> {
       title: "Beyond Social API",
       version: "1.0.0",
       description:
-        "Read access to your generations and AI usage. Authenticate with an API key created in the dashboard.",
+        "Read access to your generations and AI usage. Authenticate with an API key created in the dashboard. The API is part of the Studio plan.",
     },
     servers: [{ url: `${env.NEXT_PUBLIC_APP_URL}/api/v1` }],
     components: {
@@ -91,6 +91,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
               description: "Missing or invalid API key",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
+            "403": {
+              description: "The key is valid but the account's plan does not include the API",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
             "429": {
               description: "Rate limited; see the Retry-After header",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
@@ -120,6 +124,10 @@ export function buildOpenApiDocument(): Record<string, unknown> {
             },
             "401": {
               description: "Missing or invalid API key",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
+            },
+            "403": {
+              description: "The key is valid but the account's plan does not include the API",
               content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } },
             },
           },
