@@ -1,11 +1,11 @@
-/* Bento grid with cursor-tracking border glow, adapted from React Bits MagicBento.
-   Colours come from the design tokens and the brand accent rather than the
-   original purple, and cards size to their content instead of a fixed aspect
-   ratio, because the real feature copy is longer than the demo's. */
+/* The capabilities grid.
+   Colours come from the design tokens and the brand accent, and cards size to
+   their content rather than to a fixed aspect ratio, because the real feature
+   copy is longer than a demo's. The cursor-tracking glow this grid was ported
+   with is gone; what remains is layout. */
 
 .grid {
   position: relative;
-  user-select: none;
   display: grid;
   gap: 1rem;
   grid-template-columns: 1fr;
@@ -46,12 +46,6 @@
   transition:
     border-color 0.3s ease,
     background-color 0.3s ease;
-  transform-style: preserve-3d;
-
-  --glow-x: 50%;
-  --glow-y: 50%;
-  --glow-intensity: 0;
-  --glow-radius: 220px;
 }
 
 .card:hover {
@@ -89,32 +83,6 @@
   color: var(--ink-soft);
 }
 
-/* Border glow that follows the cursor. Masked so only the border lights up. */
-.borderGlow::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  background: radial-gradient(
-    var(--glow-radius) circle at var(--glow-x) var(--glow-y),
-    rgba(var(--glow-color), calc(var(--glow-intensity) * 0.9)) 0%,
-    rgba(var(--glow-color), calc(var(--glow-intensity) * 0.4)) 30%,
-    transparent 60%
-  );
-  border-radius: inherit;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 1;
-  transition: opacity 0.3s ease;
-}
-
 .content {
   position: relative;
   z-index: 2;
@@ -125,10 +93,6 @@
   .card,
   .icon {
     transition: none;
-  }
-
-  .borderGlow::after {
-    display: none;
   }
 }
 

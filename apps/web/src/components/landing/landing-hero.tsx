@@ -5,7 +5,6 @@ import { type ReactNode } from "react";
 import { PLATFORMS } from "@/lib/marketing/site";
 
 import { HeroGrid, HeroOrbit } from "./hero-orbit";
-import { Reveal } from "./reveal";
 
 /**
  * The hero.
@@ -25,11 +24,15 @@ export function LandingHero(): ReactNode {
       <HeroOrbit />
 
       <div className="relative mx-auto w-full max-w-5xl px-5 sm:px-6">
-        <Reveal className="text-center">
+        {/* Not wrapped in Reveal. The first screen fading in is a transition
+            the reader did not ask for, it delays the largest text on the page,
+            and an entrance animation is only meaningful where something has
+            arrived. Everything below the fold still reveals on scroll. */}
+        <div className="text-center">
           {/* Two parts: a solid chip carrying the fact, and the sentence it
               belongs to. Splitting them stops a long announcement reading as
               one grey smear. */}
-          <span className="inline-flex items-center gap-2.5 rounded-full border border-hairline bg-paper/70 py-1.5 pl-1.5 pr-4 text-xs backdrop-blur-md">
+          <span className="inline-flex items-center gap-2.5 rounded-full border border-hairline bg-paper py-1.5 pl-1.5 pr-4 text-xs">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold tracking-wide text-canvas">
               <Sparkles className="size-3" aria-hidden />
               NEW
@@ -53,28 +56,33 @@ export function LandingHero(): ReactNode {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            {/* The primary action carries its own glow rather than borrowing the
-                section's: it has to stay the brightest thing on screen even
-                where the horizon is strongest. */}
+            {/* No glow. A coloured halo around a button is the house style of
+                every AI product shipped this year, and it was doing work that
+                contrast already does: this is the only saturated element above
+                the fold, which is what makes it the brightest thing on screen. */}
             <Link
               href="/signup"
-              className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-8 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_color-mix(in_srgb,var(--primary)_60%,transparent),0_8px_32px_-8px_color-mix(in_srgb,var(--primary)_70%,transparent)] transition-all duration-200 hover:scale-[1.02] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-reduce:transition-none motion-reduce:hover:scale-100 sm:w-auto"
+              className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-8 text-sm font-medium text-primary-foreground transition-[filter,transform] duration-150 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.99] motion-reduce:transition-none motion-reduce:active:scale-100 sm:w-auto"
             >
               Start creating free
             </Link>
             <a
-              href="#showcase"
-              className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-hairline bg-paper/40 px-8 text-sm font-medium text-ink backdrop-blur-md transition-colors hover:border-ink-soft/40 hover:bg-paper/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
+              // Pointed at the workflow rather than the showcase: the showcase
+              // is held back until there are real renders in it, and a hero
+              // button that scrolls to nothing is worse than one that scrolls
+              // to the honest answer.
+              href="#ai-workflow"
+              className="inline-flex h-12 w-full items-center justify-center gap-2.5 rounded-full border border-hairline bg-paper px-8 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
             >
               <Play className="size-3.5 fill-current" aria-hidden />
-              See what it makes
+              See how it works
             </a>
           </div>
 
           <p className="mt-6 text-xs text-ink-soft">
             No card required. Publishes to {PLATFORMS.slice(0, 3).join(", ")}, and more.
           </p>
-        </Reveal>
+        </div>
       </div>
 
       {/* The orbit is decorative and hidden from assistive tech, so the claim it

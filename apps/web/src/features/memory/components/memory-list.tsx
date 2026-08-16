@@ -161,7 +161,7 @@ function FactRow({
         type="button"
         onClick={() => onForget(fact)}
         aria-label={`Forget: ${fact.fact}`}
-        className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex size-8 shrink-0 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Trash2 className="size-3.5" aria-hidden />
       </button>

@@ -74,8 +74,17 @@ const MARKS = Array.from({ length: Math.round(360 / STEP_DEGREES) }, (_, index) 
 export function HeroOrbit(): ReactNode {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* The wash. Broad and weak, so the headline stays readable over it. */}
-      <div className="absolute inset-x-0 bottom-0 h-[62rem] bg-[radial-gradient(95%_78%_at_50%_100%,color-mix(in_srgb,var(--primary)_78%,transparent),color-mix(in_srgb,var(--primary)_34%,transparent)_38%,color-mix(in_srgb,var(--primary)_10%,transparent)_62%,transparent_80%)] blur-xl" />
+      {/*
+        The wash.
+        
+        It was strong enough to be the first thing you saw: a saturated blue
+        dome under the headline, which is the single effect this product's
+        design direction rules out. What the horizon needs is light spilling off
+        an edge, and light off an edge is faint. Cut to roughly a third of its
+        old strength and shortened, so the arc below is what reads and the
+        colour is something you notice second.
+      */}
+      <div className="absolute inset-x-0 bottom-0 h-[44rem] bg-[radial-gradient(90%_70%_at_50%_100%,color-mix(in_srgb,var(--primary)_26%,transparent),color-mix(in_srgb,var(--primary)_12%,transparent)_40%,color-mix(in_srgb,var(--primary)_4%,transparent)_64%,transparent_82%)] blur-2xl" />
 
       {/*
         The orbit sits behind the sphere in the stacking order on purpose: a
@@ -125,7 +134,7 @@ export function HeroOrbit(): ReactNode {
           up into the wash and a little down onto the dark. */}
       <div
         style={{ width: SPHERE.width, top: SPHERE.top }}
-        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t-2 border-[color-mix(in_srgb,var(--primary)_90%,white_25%)] blur-[6px]"
+        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t border-[color-mix(in_srgb,var(--primary)_55%,white_35%)] blur-[5px]"
       />
     </div>
   );

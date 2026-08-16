@@ -73,7 +73,7 @@ export function ScheduleCalendar({
             type="button"
             onClick={() => step(-1)}
             aria-label="Previous month"
-            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex size-8 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <ChevronLeft className="size-4" aria-hidden />
           </button>
@@ -81,7 +81,7 @@ export function ScheduleCalendar({
             type="button"
             onClick={() => step(1)}
             aria-label="Next month"
-            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex size-8 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <ChevronRight className="size-4" aria-hidden />
           </button>

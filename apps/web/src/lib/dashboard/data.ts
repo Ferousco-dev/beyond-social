@@ -1,5 +1,7 @@
 import { CalendarClock, Clapperboard, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
 
+import { type PlanId } from "@/lib/billing/plans";
+
 export interface Project {
   readonly id: string;
   readonly title: string;
@@ -20,6 +22,8 @@ export interface DashboardUser {
   readonly name: string;
   readonly email: string;
   readonly initials: string;
+  /** The plan they are actually on. The sidebar said "Free plan" to everyone. */
+  readonly plan: PlanId;
 }
 
 export interface SidebarProject {

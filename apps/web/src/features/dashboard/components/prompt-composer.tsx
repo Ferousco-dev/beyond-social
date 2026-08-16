@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Loader2, Square, X } from "lucide-react";
+import { Loader2, Square, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -12,6 +12,7 @@ import {
 
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
+import { SendButton } from "@/components/ui/send-button";
 import { cn } from "@/lib/utils";
 
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
@@ -217,20 +218,12 @@ export function PromptComposer({
               <Square className="size-3 fill-current" aria-hidden />
             </button>
           ) : (
-            <button
-              type="button"
+            <SendButton
               onClick={() => canSubmit && onSubmit()}
               disabled={!canSubmit}
-              aria-label={sendReason}
-              title={sendReason}
-              className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              {uploading ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-              ) : (
-                <ArrowUp className="size-4" />
-              )}
-            </button>
+              busy={uploading}
+              hint={sendReason}
+            />
           )}
         </div>
       </div>

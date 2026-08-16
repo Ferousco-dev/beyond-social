@@ -4,8 +4,10 @@ import { z } from "zod";
 
 import { listGenerations, readCreditBalance, readUsage } from "@/lib/api/resources";
 
+import { MCP_TOOL_SUMMARIES, type McpToolSummary } from "./catalogue";
+
 /**
- * What an agent connected over MCP can do.
+ * What an agent connected over MCP can actually do.
  *
  * Read-only, deliberately. A tool that starts a render spends real money on
  * behalf of someone who is not watching, and the moment an agent can do that by
@@ -14,21 +16,17 @@ import { listGenerations, readCreditBalance, readUsage } from "@/lib/api/resourc
  *
  * The handlers read through `lib/api/resources`, the same functions the REST
  * routes use, so the two surfaces cannot come to disagree about what a
- * generation looks like from outside.
+ * generation looks like from outside. What each tool is called and says lives in
+ * `catalogue.ts`, which the public docs page renders.
  */
 
-export interface McpTool {
-  readonly name: string;
-  readonly title: string;
-  readonly description: string;
-  /** JSON Schema, which is what the protocol puts on the wire. */
-  readonly inputSchema: Record<string, unknown>;
-  /** Parses the agent's arguments; the schema above is only a description of this. */
+export interface McpTool extends McpToolSummary {
+  /** Parses the agent's arguments; the schema in the summary describes this. */
   readonly parse: (args: unknown) => { ok: true; value: unknown } | { ok: false; message: string };
   readonly run: (userId: string, args: unknown) => Promise<unknown>;
 }
 
-/** Turns a zod schema into the pair of things a tool needs: a wire schema and a parser. */
+/** Turns a zod schema into the parser a tool call runs its arguments through. */
 function parser<T extends z.ZodTypeAny>(schema: T): McpTool["parse"] {
   return (args) => {
     const parsed = schema.safeParse(args ?? {});
@@ -44,27 +42,13 @@ const listSchema = z.object({
 
 const emptySchema = z.object({}).strip();
 
-const NO_ARGUMENTS = { type: "object", properties: {}, additionalProperties: false } as const;
-
-export const MCP_TOOLS: readonly McpTool[] = [
-  {
-    name: "list_generations",
-    title: "List videos",
-    description:
-      "The caller's video generations, newest first, with their status and a short-lived download link when one is ready.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        limit: {
-          type: "integer",
-          minimum: 1,
-          maximum: 100,
-          default: 20,
-          description: "How many to return.",
-        },
-      },
-      additionalProperties: false,
-    },
+/**
+ * Behaviour, keyed by tool name. Kept beside the catalogue rather than merged
+ * into it so the catalogue stays importable from anywhere, including the
+ * browser bundle the docs page ships.
+ */
+const BEHAVIOUR: Record<string, Pick<McpTool, "parse" | "run">> = {
+  list_generations: {
     parse: parser(listSchema),
     run: async (userId, args) => {
       const { limit } = args as z.infer<typeof listSchema>;
@@ -73,11 +57,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
       return { generations: rows };
     },
   },
-  {
-    name: "get_usage",
-    title: "Get usage",
-    description: "Rolled-up AI spend and volume for the caller over the last 30 days.",
-    inputSchema: NO_ARGUMENTS,
+  get_usage: {
     parse: parser(emptySchema),
     run: async (userId) => {
       const usage = await readUsage(userId);
@@ -85,12 +65,7 @@ export const MCP_TOOLS: readonly McpTool[] = [
       return { period_days: 30, usage: usage.usage };
     },
   },
-  {
-    name: "get_credit_balance",
-    title: "Get credit balance",
-    description:
-      "Credits left on the account. A video costs between 3 and 60 depending on the model, so this is what decides whether another run is possible.",
-    inputSchema: NO_ARGUMENTS,
+  get_credit_balance: {
     parse: parser(emptySchema),
     run: async (userId) => {
       const balance = await readCreditBalance(userId);
@@ -98,7 +73,14 @@ export const MCP_TOOLS: readonly McpTool[] = [
       return { balance };
     },
   },
-];
+};
+
+export const MCP_TOOLS: readonly McpTool[] = MCP_TOOL_SUMMARIES.flatMap((summary) => {
+  const behaviour = BEHAVIOUR[summary.name];
+  // A described tool with no implementation is not offered at all. Listing one
+  // an agent cannot call is worse than not listing it.
+  return behaviour ? [{ ...summary, ...behaviour }] : [];
+});
 
 export function findTool(name: unknown): McpTool | undefined {
   return typeof name === "string" ? MCP_TOOLS.find((tool) => tool.name === name) : undefined;

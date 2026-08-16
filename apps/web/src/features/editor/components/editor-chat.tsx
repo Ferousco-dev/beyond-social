@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowUp, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useState } from "react";
 
+import { SendButton } from "@/components/ui/send-button";
 import { cn } from "@/lib/utils";
 
 import { type EditorState } from "../hooks/use-editor-state";
@@ -129,15 +130,7 @@ export function EditorChat({
             aria-label="Describe a change"
             className="max-h-24 min-h-6 flex-1 resize-none bg-transparent text-xs text-ink placeholder:text-ink-soft focus:outline-none"
           />
-          <button
-            type="button"
-            onClick={submit}
-            disabled={prompt.trim() === ""}
-            aria-label="Send"
-            className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <ArrowUp className="size-3.5" />
-          </button>
+          <SendButton onClick={submit} disabled={prompt.trim() === ""} size="compact" />
         </div>
       </div>
     </div>
