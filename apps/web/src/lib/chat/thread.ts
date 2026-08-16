@@ -28,7 +28,10 @@ const rowSchema = z.object({
   content: z.string(),
   created_at: z.string(),
   generation_id: z.string().nullable(),
-  generation_status: z.enum(["queued", "generating", "ready", "failed"]).nullable(),
+  // Every state the column can hold. `cancelled` was missing, and because a
+  // parse failure drops the whole thread, cancelling one draft and reloading
+  // emptied the conversation.
+  generation_status: z.enum(["queued", "generating", "ready", "failed", "cancelled"]).nullable(),
   result_url: z.string().nullable(),
   // The durable fact. `result_url` is a public link that stopped resolving
   // when the bucket was closed, so playback is signed from this instead.
@@ -36,6 +39,8 @@ const rowSchema = z.object({
   // Defaulted, so a build running against a database that has not taken the
   // migration yet reads the thread rather than failing the whole parse.
   generation_model: z.string().nullable().default(null),
+  // Why it failed, in the provider's words. Defaulted for the same reason.
+  generation_error: z.string().nullable().default(null),
   // `project_thread` coalesces to an empty array, so this is never null. The
   // default covers a stale build reading a thread before the migration lands.
   attachments: z.array(attachmentRowSchema).default([]),
@@ -52,6 +57,12 @@ export interface MessageDraft {
    * interface needs this to decide whether continuing is even on offer.
    */
   readonly model?: string | null;
+  /**
+   * Why it failed, when it failed. The provider's reason, or ours when the run
+   * never reached the provider. Null while it is still running, and on a draft
+   * the client has just created optimistically.
+   */
+  readonly error?: string | null;
   /**
    * When the turn was recorded, ISO 8601. Absent on a draft the client has
    * just created optimistically, which has not been persisted yet.
@@ -90,10 +101,14 @@ export interface Thread {
   readonly credits: { readonly cost: number; readonly balance: number } | null;
 }
 
-/** `queued` and `generating` are both "not finished yet" to the reader. */
+/**
+ * `queued` and `generating` are both "not finished yet" to the reader, and a
+ * cancelled render is one that produced nothing, which is what failed means
+ * here. What separates them is the reason on the row, not the state.
+ */
 function toDraftStatus(status: string | null): DraftStatus {
   if (status === "ready") return "ready";
-  if (status === "failed") return "failed";
+  if (status === "failed" || status === "cancelled") return "failed";
   return "generating";
 }
 
@@ -118,6 +133,7 @@ function toMessage(
           // bucket and has nothing playable left, which reads as null.
           resultUrl: row.result_path ? (renders.get(row.result_path) ?? null) : null,
           model: row.generation_model ?? null,
+          error: row.generation_error,
           startedAt: row.created_at,
         }
       : undefined,

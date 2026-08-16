@@ -33,6 +33,8 @@ import { platformFromAspect, productTypeFromAttachments } from "@/lib/prompt-eng
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { type createClient } from "@/lib/supabase/server";
 
+import { toHistory } from "./history";
+
 /**
  * One turn of the conversation, from a validated request to a persisted reply.
  *
@@ -405,12 +407,9 @@ export async function runTurn(
   const direction = describeSavedSubjects(subjects);
   if (direction !== "") finalPrompt = `${finalPrompt}\n\n${direction}`;
 
-  const history = Array.isArray(previous.data)
-    ? (previous.data as { role: string; content: string }[]).map((row) => ({
-        role: row.role,
-        content: row.content,
-      }))
-    : [];
+  // Carries the reason a past render failed into the turn it belongs to, so
+  // "why did that fail" is answered from the record rather than guessed at.
+  const history = toHistory(previous.data);
 
   let generationId: string | null = null;
   let notice: string | undefined;
