@@ -1,20 +1,21 @@
 // Authenticated endpoint: starts a kie.ai video generation for the signed-in
-// user, after verifying they have credits, and records the task.
+// user and records the task.
+//
+// The credits are taken here, before the provider is called, by the one
+// statement that checks the balance and debits it. The profile counters this
+// used to read were a second source that could disagree with the ledger the
+// charge actually lands in, and reading them proved nothing about what the
+// balance would still be a moment later.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { UnsupportedModelError } from "../_shared/kie-models.ts";
-import {
-  ShotsNotSupportedError,
-  resolveDuration,
-  resolveShots,
-} from "../_shared/video-capabilities.ts";
-import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
-/** The model used when the caller does not name one. */
-const DEFAULT_MODEL = "veo3_fast";
+import { abandonRun, adminClient, reserveCredits } from "./credits.ts";
+import { handFootageOver, handStillsOver } from "./inputs.ts";
+import { planRun } from "./plan.ts";
 
 interface GenerateBody {
   projectId?: string;
@@ -73,48 +74,19 @@ Deno.serve(async (req) => {
     return json({ error: "projectId and prompt are required" }, 400);
   }
 
-  // Enforce the credit quota before spending money on a generation.
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits_total, credits_used")
-    .eq("id", user.id)
-    .single();
-  if (profile && profile.credits_used >= profile.credits_total) {
-    return json({ error: "No video credits remaining" }, 402);
-  }
-
   const aspectRatio =
     body.aspectRatio === "16:9" || body.aspectRatio === "Auto" ? body.aspectRatio : "9:16";
 
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
   const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
 
-  /*
-   * Reference images are handed to kie as bytes rather than as links to our
-   * own storage.
-   *
-   * The bytes are read here through the service client, which talks to storage
-   * over the platform's internal network, so this works regardless of whether
-   * our storage is reachable from the public internet. That is the whole point:
-   * passing a signed link meant kie had to fetch us, and in local development
-   * that link is a 127.0.0.1 address pointing at kie's own loopback.
-   *
-   * Paths, not URLs, for the same reason the thread stores paths: a signed URL
-   * is a fact that expires.
-   */
   let referenceUrls: string[] | undefined;
   try {
-    const paths = body.imagePaths?.slice(0, 2);
-    if (paths && paths.length > 0) {
-      referenceUrls = [];
-      for (const path of paths) {
-        referenceUrls.push(await handToProvider(supabase, "uploads", path, traceId));
-      }
-    } else {
-      // Nothing was uploaded through the composer, so whatever the caller sent
-      // is already a URL kie can reach.
-      referenceUrls = body.imageUrls?.slice(0, 2);
-    }
+    referenceUrls = await handStillsOver(
+      supabase,
+      { paths: body.imagePaths, urls: body.imageUrls },
+      traceId,
+    );
   } catch (error) {
     log("error", "could not hand the reference image to the provider", { traceId });
     return json(
@@ -123,18 +95,9 @@ Deno.serve(async (req) => {
     );
   }
 
-  /*
-   * Footage the run edits or copies motion from, handed over the same way the
-   * stills are: uploaded as bytes rather than linked, so the provider never has
-   * to reach our storage and a signed link cannot expire in a queue. A separate
-   * bucket from the photos, because video has a different size ceiling and a
-   * different set of allowed types.
-   */
-  const footageUrls: string[] = [];
+  let footageUrls: string[];
   try {
-    for (const path of body.videoPaths?.slice(0, 1) ?? []) {
-      footageUrls.push(await handToProvider(supabase, "video-uploads", path, traceId));
-    }
+    footageUrls = await handFootageOver(supabase, body.videoPaths, traceId);
   } catch (error) {
     log("error", "could not hand the reference video to the provider", { traceId });
     return json(
@@ -143,68 +106,64 @@ Deno.serve(async (req) => {
     );
   }
 
-  /*
-   * Which model, and therefore which endpoint.
-   *
-   * The requested id is looked up rather than trusted, and constrained to the
-   * video family: naming an avatar model here would otherwise charge that
-   * model's rate for a request shaped for a different endpoint. An inactive
-   * row is refused, which is what keeps a half-built path from spending a
-   * credit.
-   */
-  const requested = body.model ?? DEFAULT_MODEL;
-  const { data: chosen } = await supabase
-    .from("model_catalog")
-    .select("id, is_active")
-    .eq("id", requested)
-    .eq("family", "video")
-    .maybeSingle();
-  if (!chosen?.is_active) return json({ error: "That model is not available" }, 503);
+  const planned = await planRun(supabase, {
+    model: body.model,
+    duration: body.duration,
+    shots: body.shots,
+  });
+  if (!planned.ok) return json({ error: planned.error }, planned.status);
+  const { model, duration, shots, isVeo } = planned.plan;
 
   /*
-   * Length is a property of the model, so it can only be settled once the model
-   * is known. This was previously fixed at Veo's `[4, 6, 8]` for the whole
-   * catalogue, which capped every model at the cheapest one's ceiling: a Kling
-   * run that could have been fifteen seconds came back as eight, and a request
-   * for twelve fell back to eight rather than being honoured.
+   * The row is written before the provider is called, because the credits are
+   * taken before the provider is called and the reservation needs something to
+   * hang off. `queued` is the honest state for it: accepted here, not yet
+   * dispatched. The poller already treats a row with no task id as nothing to
+   * ask about.
    */
-  const duration = resolveDuration(chosen.id, body.duration);
+  const { data: generation, error: insertError } = await supabase
+    .from("video_generations")
+    .insert({
+      project_id: body.projectId,
+      user_id: user.id,
+      prompt,
+      aspect_ratio: aspectRatio,
+      duration,
+      image_urls: body.imageUrls ?? [],
+      status: "queued",
+      // Recorded so completion prices this against the model that actually ran,
+      // and so polling knows which status endpoint to ask.
+      model,
+      // Carried on the row because the callback arrives in a different process,
+      // minutes later, where no header from the original request survives.
+      trace_id: traceId,
+    })
+    .select("id")
+    .single();
 
-  /*
-   * A shot list is refused rather than dropped when the model cannot cut, for
-   * the same reason an unknown input field is refused: silently generating one
-   * continuous take for someone who asked for five beats bills them in full for
-   * something they did not ask for.
-   */
-  let shots: readonly { prompt: string; duration: number }[];
-  try {
-    shots = resolveShots(
-      chosen.id,
-      body.shots?.flatMap((shot) =>
-        typeof shot?.prompt === "string" && typeof shot?.duration === "number"
-          ? [{ prompt: shot.prompt, duration: shot.duration }]
-          : [],
-      ),
-    );
-  } catch (error) {
-    if (error instanceof ShotsNotSupportedError) return json({ error: error.message }, 400);
-    throw error;
+  if (insertError || !generation) {
+    log("error", "could not record the generation", { traceId });
+    return json({ error: "Could not record the generation" }, 500);
   }
 
-  /*
-   * Veo models are created on `/veo/generate`; every other model on this
-   * provider is a market model on `/jobs/createTask`, with a different request
-   * shape. The same split the poller makes when asking for status, and by the
-   * same test, so a task can always be followed up on the endpoint that made
-   * it.
-   */
-  const isVeo = chosen.id.startsWith("veo");
+  // Nothing is dispatched until the credits are actually held.
+  const admin = adminClient();
+  const reservation = await reserveCredits(admin, generation.id);
+  if (!reservation.held) {
+    log("error", "credit reservation refused", {
+      traceId,
+      generationId: generation.id,
+      model,
+    });
+    await abandonRun(admin, generation.id, reservation.reason);
+    return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
+  }
 
   let taskId: string;
   try {
     taskId = isVeo
       ? await createVideoTask({
-          model: chosen.id,
+          model,
           prompt,
           imageUrls: referenceUrls,
           aspectRatio,
@@ -212,7 +171,7 @@ Deno.serve(async (req) => {
           callBackUrl,
         })
       : await createMarketVideoTask({
-          model: chosen.id,
+          model,
           prompt,
           imageUrls: referenceUrls ?? [],
           videoUrls: footageUrls,
@@ -228,40 +187,36 @@ Deno.serve(async (req) => {
      * provider that is down. Reporting it as 502 would blame kie for a shape
      * this code chose.
      */
+    const message = error instanceof Error ? error.message : "Generation failed";
+    // Nothing rendered, so the reservation is given back on the way out.
+    await abandonRun(admin, generation.id, message);
     if (error instanceof UnsupportedModelError) {
       log("error", "refused to dispatch a model with an unknown request shape", {
         traceId,
-        model: chosen.id,
+        model,
       });
-      return json({ error: error.message }, 400);
+      return json({ error: message, generationId: generation.id }, 400);
     }
-    return json({ error: error instanceof Error ? error.message : "Generation failed" }, 502);
+    return json({ error: message, generationId: generation.id }, 502);
   }
 
-  const { data: generation, error: insertError } = await supabase
+  /*
+   * The task id closes the loop: it is what the callback and the poller look
+   * the row up by. Written under the service role because the row is only
+   * insertable by its owner, not updatable.
+   */
+  const { error: dispatchError } = await admin
     .from("video_generations")
-    .insert({
-      project_id: body.projectId,
-      user_id: user.id,
-      prompt,
-      aspect_ratio: aspectRatio,
-      duration,
-      image_urls: body.imageUrls ?? [],
-      status: "generating",
-      // Recorded so completion prices this against the model that actually ran,
-      // and so polling knows which status endpoint to ask.
-      model: chosen.id,
-      provider_task_id: taskId,
-      // Carried on the row because the callback arrives in a different process,
-      // minutes later, where no header from the original request survives.
-      trace_id: traceId,
-    })
-    .select("id")
-    .single();
+    .update({ status: "generating", provider_task_id: taskId })
+    .eq("id", generation.id);
 
-  if (insertError || !generation) {
-    log("error", "could not record the generation", { traceId, taskId });
-    return json({ error: "Could not record the generation" }, 500);
+  if (dispatchError) {
+    // The render is running and we cannot follow it, so it can only be settled
+    // as failed. Refunding is the right side to err on: we cannot show a
+    // result we have lost the handle to.
+    log("error", "could not record the dispatched task", { traceId, taskId });
+    await abandonRun(admin, generation.id, "Could not follow this render");
+    return json({ error: "Could not record the generation", generationId: generation.id }, 500);
   }
 
   log("info", "generation submitted", { traceId, taskId, generationId: generation.id });
