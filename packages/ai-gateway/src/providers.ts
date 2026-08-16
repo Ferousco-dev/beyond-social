@@ -421,7 +421,8 @@ export class GeminiClient implements ProviderClient {
         continue;
       }
 
-      if (data.error) throw new ProviderError(`gemini: ${data.error.message ?? "error"}`, 502, null);
+      if (data.error)
+        throw new ProviderError(`gemini: ${data.error.message ?? "error"}`, 502, null);
 
       const candidate = data.candidates?.[0];
       finishReason = candidate?.finishReason ?? finishReason;

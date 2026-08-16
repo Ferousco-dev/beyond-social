@@ -83,7 +83,9 @@ async function main(): Promise<void> {
     const done = await tick().catch((error: unknown) => {
       // The loop must survive anything a single pass throws, or one bad row
       // takes the worker down and every queued export stops.
-      logger.error("tick failed", { error: error instanceof Error ? error.message : String(error) });
+      logger.error("tick failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return 0;
     });
 

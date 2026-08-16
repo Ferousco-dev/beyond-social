@@ -483,16 +483,28 @@ async function main(): Promise<void> {
   {
     const streamGateway = new AiGateway({ clients: { anthropic: streamer(["a", "b", "c"]) } });
     const chunks = await collect(
-      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
     );
-    check("a stream arrives in pieces", chunks.join("") === "abc" && chunks.length === 3, chunks.join("|"));
+    check(
+      "a stream arrives in pieces",
+      chunks.join("") === "abc" && chunks.length === 3,
+      chunks.join("|"),
+    );
   }
 
   // A provider with no `stream` still works, as one chunk.
   {
     const streamGateway = new AiGateway({ clients: { anthropic: completeOnly } });
     const chunks = await collect(
-      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
     );
     check(
       "a provider that cannot stream is completed and emitted whole",
@@ -508,7 +520,11 @@ async function main(): Promise<void> {
       clients: { anthropic: streamer(["never seen"], 0), openai: streamer(["from the second"]) },
     });
     const chunks = await collect(
-      streamGateway.stream({ task: "chat", system: "s", messages: [{ role: "user", content: "x" }] }),
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
     );
     check(
       "a failure before the first token falls back to the next model",
@@ -524,7 +540,10 @@ async function main(): Promise<void> {
    */
   {
     const streamGateway = new AiGateway({
-      clients: { anthropic: streamer(["half ", "way"], 1), openai: streamer(["a whole other answer"]) },
+      clients: {
+        anthropic: streamer(["half ", "way"], 1),
+        openai: streamer(["a whole other answer"]),
+      },
     });
     let threw = false;
     const chunks: string[] = [];
