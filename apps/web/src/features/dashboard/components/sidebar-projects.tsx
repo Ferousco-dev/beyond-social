@@ -73,7 +73,10 @@ export function SidebarProjects({
             if (event.key === "Escape") setEditingId(null);
           }}
           aria-label="Rename project"
-          className="w-full rounded-[10px] border border-primary bg-paper px-3 py-2 text-sm text-ink focus:outline-none"
+          // The border alone is not a focus state: it is painted whether or not
+          // the field has focus, so removing the outline left keyboard users
+          // with nothing. The ring is the focus state; the border is the shape.
+          className="w-full rounded-[10px] border border-primary bg-paper px-3 py-2 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
         />
       );
     }

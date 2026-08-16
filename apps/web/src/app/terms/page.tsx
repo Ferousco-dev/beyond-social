@@ -55,7 +55,13 @@ export default function Page(): ReactNode {
           </p>
           <p>
             Your credentials. An API key is shown once, at creation, and stored only as a hash, so a
-            key you lose cannot be recovered and has to be revoked and replaced.
+            key you lose cannot be recovered and has to be revoked and replaced. A key is the whole
+            account as far as the API is concerned, including any agent you connect over MCP, so
+            treat handing one out as handing over read access.
+          </p>
+          <p>
+            Where you point a webhook. We will POST to the URL you register, signed with your
+            secret, and we do not check what is on the other end of it.
           </p>
         </Section>
 
@@ -65,10 +71,11 @@ export default function Page(): ReactNode {
             or return something unusable, and no amount of prompt work makes that impossible.
           </p>
           <p>
-            When a generation fails, it costs nothing. The credits are returned to your balance,
-            once, whether the failure was immediate or a late reversal from the provider. A
-            generation that finishes and simply is not what you wanted is a generation that ran, and
-            it stays spent.
+            Credits are taken when a run starts, not when it finishes, so a balance always reflects
+            the work already in flight. When a generation fails, it costs nothing: the credits are
+            returned to your balance, once, whether it failed before reaching the provider, during
+            the render, or as a late reversal afterwards. A generation that finishes and simply is
+            not what you wanted is a generation that ran, and it stays spent.
           </p>
           <p>
             We also depend on services we do not run: the model providers, Stripe, and the social
