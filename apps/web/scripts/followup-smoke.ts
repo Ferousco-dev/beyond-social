@@ -53,7 +53,11 @@ const labels = (prompt: string): string[] => followUpsFor(prompt).map((item) => 
 
 {
   const out = labels("Open on the espresso machine, then the street");
-  check("a stated opening drops Different opening", !out.includes("Different opening"), out.join(", "));
+  check(
+    "a stated opening drops Different opening",
+    !out.includes("Different opening"),
+    out.join(", "),
+  );
 }
 
 {

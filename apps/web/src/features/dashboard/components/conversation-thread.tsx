@@ -8,37 +8,24 @@ import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
 import { Coachmark } from "@/features/tips/components/coachmark";
 import { useClarification } from "../hooks/use-clarification";
-import { FollowUpChips } from "./follow-up-chips";
 import { TIPS } from "@/lib/tips/tips";
 import { followUpsFor } from "@/lib/generation/follow-ups";
-import { cancelGeneration } from "@/features/generation/actions";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
 import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { type AttachmentKind, type ChatMessage, type Thread } from "@/lib/chat/thread";
-import { cn } from "@/lib/utils";
+import { type AttachmentKind, type Thread } from "@/lib/chat/thread";
 
-import { useGenerationPoll, type PollOutcome } from "../hooks/use-generation-poll";
-import { useExtendDraft } from "../hooks/use-extend-draft";
-import { useRegenerateDraft } from "../hooks/use-regenerate-draft";
 import { ConversationHeader } from "./conversation-header";
-import { MessageBubble } from "./message-bubble";
 import { PromptComposer } from "./prompt-composer";
-import { ThinkingIndicator } from "./thinking-indicator";
+import { useComposerDraft } from "../hooks/use-composer-draft";
 import { useStreamedTurn } from "../hooks/use-streamed-turn";
-import { type PendingFootage } from "../hooks/use-footage-upload";
-import { type PendingVoice } from "../hooks/use-voice-upload";
+import { useThreadMessages } from "../hooks/use-thread-messages";
 import { type PendingPhoto } from "./compose-menu";
 import { turnAttachments } from "../lib/turn-attachments";
-import { ThreadIntro } from "./thread-intro";
-import { type PendingShot } from "./shot-list-editor";
-
-const PENDING_PROMPT_KEY = "bs:pending-prompt";
-const PENDING_PHOTOS_KEY = "bs:pending-photos";
+import { ThreadTranscript } from "./thread-transcript";
 
 /** Optimistic ids are prefixed so a server id can never collide with one. */
-const OPTIMISTIC = "pending:";
 
 /**
  * What the server persists for an attachment: the object, not a link to it.
@@ -49,26 +36,39 @@ type AttachmentRef = { kind: AttachmentKind; path: string };
 
 export function ConversationThread({ thread }: { thread: Thread }) {
   const router = useRouter();
-  const [messages, setMessages] = useState<readonly ChatMessage[]>(thread.messages);
-  const [prompt, setPrompt] = useState("");
-  const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
-  const [voice, setVoice] = useState<PendingVoice | null>(null);
-  /*
-   * Footage is held apart from the attachments. It is an input to the render
-   * rather than something the thread shows back, so it never becomes a message
-   * attachment and is cleared on send like the rest of the composer.
-   */
-  const [footage, setFootage] = useState<PendingFootage | null>(null);
-  const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  /** True when the composer was filled from elsewhere and has not been sent. */
-  const [seeded, setSeeded] = useState(false);
-  /**
-   * A turn held back for questions. Nothing was created for it, so this is the
-   * only record of it: answering or skipping sends it, and a reload drops it,
-   * which is the right trade for a turn that has cost nothing.
-   */
   const [sending, setSending] = useState(false);
+
+  const { confirm, dialog } = useConfirm();
+  const endRef = useRef<HTMLDivElement>(null);
+
+  const projectId = thread.projectId ?? "new";
+  const editorHref = `/editor/${projectId}` as Route;
+
+  // What the thread is showing, and the drafts still moving in it.
+  const {
+    messages,
+    setMessages,
+    nextId,
+    rendering,
+    watch,
+    cancelDraft,
+    regenerate,
+    extend,
+    regeneratingId,
+  } = useThreadMessages(thread, confirm, setNotice);
+
+  // What is in the composer and not yet sent. Cleared as a whole on send.
+  const draft = useComposerDraft(thread.projectId);
+  /*
+   * The two callbacks `submit` uses, destructured.
+   *
+   * Depending on `draft` itself would rebuild `submit` on every keystroke,
+   * because the hook returns a fresh object each render while the callbacks on
+   * it are stable.
+   */
+  const { clear: clearDraft, setPrompt: setDraftPrompt } = draft;
+
   /*
    * The turn, read as it happens.
    *
@@ -80,91 +80,6 @@ export function ConversationThread({ thread }: { thread: Thread }) {
   // Destructured because it is what `submit` depends on: the hook's object
   // identity changes every render, the callback on it does not.
   const { send: sendTurn } = turn;
-  const { confirm, dialog } = useConfirm();
-  const endRef = useRef<HTMLDivElement>(null);
-  const counter = useRef(0);
-
-  const projectId = thread.projectId ?? "new";
-  const editorHref = `/editor/${projectId}` as Route;
-
-  // The server is the source of truth: a navigation or revalidation replaces
-  // whatever optimistic state is on screen.
-  useEffect(() => {
-    setMessages((current) => {
-      /*
-       * With one exception. The first message of a new chat is sent from
-       * `/dashboard/c/new`, whose thread is empty by definition, and the
-       * project is only created by that send. Until the navigation to the real
-       * project lands, any re-render of the layout pushes that empty thread
-       * back down here, and adopting it wiped the message the user had just
-       * sent: they watched their own turn disappear.
-       *
-       * An empty thread never has anything to teach a screen that is already
-       * showing unsaved messages, so it is ignored. Anything the server
-       * actually has still wins, which is what settles the optimistic ids.
-       */
-      const unsaved = current.some((message) => message.id.startsWith(OPTIMISTIC));
-      if (thread.messages.length === 0 && unsaved) return current;
-      return thread.messages;
-    });
-  }, [thread.messages]);
-
-  const applyOutcome = useCallback((generationId: string, outcome: PollOutcome) => {
-    setMessages((current) =>
-      current.map((message) =>
-        message.draft?.generationId === generationId
-          ? {
-              ...message,
-              draft:
-                outcome.status === "ready"
-                  ? { ...message.draft, status: "ready" as const, resultUrl: outcome.resultUrl }
-                  : { ...message.draft, status: "failed" as const, resultUrl: null },
-            }
-          : message,
-      ),
-    );
-    if (outcome.status === "failed") setNotice(outcome.reason);
-  }, []);
-
-  const { watch, stop } = useGenerationPoll(applyOutcome);
-
-  const { regenerate, busyId: regeneratingId } = useRegenerateDraft({
-    confirm,
-    onMessage: (message) => setMessages((current) => [...current, message]),
-    onNotice: setNotice,
-    onStarted: watch,
-  });
-
-  const { extend } = useExtendDraft({
-    confirm,
-    onMessage: (message) => setMessages((current) => [...current, message]),
-    onNotice: setNotice,
-    onStarted: watch,
-  });
-
-  /**
-   * Stops waiting for a render. The provider cannot be told to stop, so the
-   * render finishes and is charged either way; this only settles the row and
-   * ends the polling. The notice says as much, because a control that reads
-   * like undo and is not would be worse than no control at all.
-   */
-  const cancelDraft = useCallback(
-    (generationId: string) => {
-      stop(generationId);
-      setMessages((current) =>
-        current.filter((message) => message.draft?.generationId !== generationId),
-      );
-      setNotice("Stopped waiting. That render still finishes and is charged.");
-      void cancelGeneration(generationId);
-    },
-    [stop],
-  );
-
-  // A render outlives the request that started it: `sending` goes false as soon
-  // as the reply arrives, while the video keeps rendering for about another
-  // minute. Sending again in that window starts a second render and spends a
-  // second credit, so the composer stays locked until the draft settles.
-  const rendering = messages.some((message) => message.draft?.status === "generating");
 
   /*
    * The next moves, offered under the newest finished video only.
@@ -254,7 +169,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       setMessages((current) => [
         ...current,
         {
-          id: `${OPTIMISTIC}avatar-${counter.current++}`,
+          id: `${nextId()}-avatar`,
           role: "assistant",
           content: AVATAR_REPLY,
           attachments: [],
@@ -267,7 +182,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       ]);
       return true;
     },
-    [projectId, confirm],
+    [projectId, confirm, nextId, setMessages],
   );
 
   /**
@@ -318,23 +233,18 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
       setSending(true);
       setNotice(null);
-      setPrompt("");
-      setSeeded(false);
 
-      const optimisticId = `${OPTIMISTIC}${counter.current++}`;
-      const voiceClip = voice;
+      const optimisticId = nextId();
+      const voiceClip = draft.voice;
       const {
         refs: attachmentRefs,
         optimistic: optimisticAttachments,
         photoUrls: attached,
-      } = turnAttachments(seeded ?? photos, voiceClip);
+      } = turnAttachments(seeded ?? draft.photos, voiceClip);
 
-      const clip = footage;
-      const shotList = shots;
-      setPhotos([]);
-      setVoice(null);
-      setFootage(null);
-      setShots(null);
+      const clip = draft.footage;
+      const shotList = draft.shots;
+      clearDraft();
       setMessages((current) => [
         ...current,
         { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
@@ -423,7 +333,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           setMessages((current) => [
             ...current,
             {
-              id: `${OPTIMISTIC}clarify-${counter.current++}`,
+              id: `${nextId()}-clarify`,
               role: "assistant",
               content: result.framing,
               attachments: [],
@@ -441,7 +351,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           // The optimistic message is withdrawn: leaving it on screen would
           // imply the turn was recorded when it was not.
           setMessages((current) => current.filter((message) => message.id !== optimisticId));
-          setPrompt(trimmed);
+          setDraftPrompt(trimmed);
           setNotice(
             result.status === "unconfigured"
               ? "The backend is not connected yet, so nothing can be generated."
@@ -469,7 +379,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         setMessages((current) => [
           ...current,
           {
-            id: `${OPTIMISTIC}reply-${counter.current++}`,
+            id: `${nextId()}-reply`,
             role: "assistant",
             content: result.reply,
             attachments: [],
@@ -499,10 +409,10 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     },
     [
       projectId,
-      photos,
-      voice,
-      footage,
-      shots,
+      draft.photos,
+      draft.voice,
+      draft.footage,
+      draft.shots,
       router,
       sending,
       rendering,
@@ -510,45 +420,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       confirm,
       hold,
       sendTurn,
+      nextId,
+      setMessages,
+      clearDraft,
+      setDraftPrompt,
     ],
   );
-
-  /**
-   * Seeded from the dashboard composer, a brief, or a TikTok post.
-   *
-   * The composer is filled and left alone. This used to submit the seed on
-   * mount, which meant one tap on "Use as inspiration" while scrolling started a
-   * render: the user arrived at a thread where their credits had already been
-   * spent on a prompt they had not read. Credits do not come back, so the send
-   * has to be something a person did on purpose.
-   */
-  useEffect(() => {
-    if (thread.projectId !== null) return;
-    const queryPrompt = new URLSearchParams(window.location.search).get("prompt");
-    const pending = queryPrompt ?? window.sessionStorage.getItem(PENDING_PROMPT_KEY);
-    if (!pending) return;
-    window.sessionStorage.removeItem(PENDING_PROMPT_KEY);
-
-    const storedPhotos = window.sessionStorage.getItem(PENDING_PHOTOS_KEY);
-    window.sessionStorage.removeItem(PENDING_PHOTOS_KEY);
-    if (storedPhotos) {
-      // Session storage is client-controlled, so a malformed or hand-edited
-      // value must not take the composer down with it.
-      try {
-        const parsed: unknown = JSON.parse(storedPhotos);
-        if (Array.isArray(parsed)) setPhotos(parsed as readonly PendingPhoto[]);
-      } catch {
-        // A seed that cannot be read is dropped: the prompt still arrives, and
-        // the user can attach the picture again if they wanted one.
-      }
-    }
-
-    setPrompt(pending);
-    setSeeded(true);
-    // A one-shot seed. Only state setters are called, so there is nothing else
-    // to depend on; it used to submit, which is what needed the exhaustive-deps
-    // exemption that is no longer here.
-  }, [thread.projectId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -559,59 +436,24 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       {dialog}
       <ConversationHeader title={thread.title} editorHref={editorHref} />
 
-      {/* Centred while empty, top-aligned once there is a thread to read. A
-          fixed top alignment left the invitation stranded against the header
-          with ~425px of dead space beneath it, which reads as a broken layout
-          rather than a quiet one. */}
-      <div
-        className={cn(
-          "flex flex-1 flex-col gap-6 py-8",
-          messages.length === 0 && "justify-center pb-24",
-        )}
-      >
-        {messages.length === 0 ? <ThreadIntro seeded={seeded} /> : null}
-
-        {messages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            message={message}
-            editorHref={editorHref}
-            onCancelDraft={cancelDraft}
-            onRegenerate={(id) => void regenerate(id)}
-            onExtend={(id) => void extend(id)}
-            regeneratingId={regeneratingId}
-          />
-        ))}
-
-        {/* Not while something is in flight or a question is waiting: both are
-            moments where another suggestion is one thing too many. */}
-        {!sending && !rendering && clarify.pending === null ? (
-          <FollowUpChips
-            suggestions={followUps}
-            disabled={sending}
-            // Filled, not sent. Same rule as "Use as inspiration": a chip that
-            // starts a render spends a credit on one tap.
-            onPick={setPrompt}
-          />
-        ) : null}
-
-        {/* Sits where the reply will appear, so the answer replaces the
-            progress rather than arriving somewhere else. */}
-        {/* The reply as it is written, in the place the finished one will
-            occupy, so the text does not jump when the turn completes. */}
-        {sending && turn.partial !== "" ? (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{turn.partial}</p>
-        ) : null}
-
-        {sending && turn.partial === "" ? <ThinkingIndicator stage={turn.stage} /> : null}
-
-        {notice ? (
-          <p role="status" className="text-center text-xs text-ink-soft">
-            {notice}
-          </p>
-        ) : null}
-        <div ref={endRef} />
-      </div>
+      <ThreadTranscript
+        messages={messages}
+        editorHref={editorHref}
+        seeded={draft.seeded}
+        sending={sending}
+        rendering={rendering}
+        awaitingAnswer={clarify.pending !== null}
+        partial={turn.partial}
+        stage={turn.stage}
+        notice={notice}
+        followUps={followUps}
+        regeneratingId={regeneratingId}
+        onPickFollowUp={draft.setPrompt}
+        onCancelDraft={cancelDraft}
+        onRegenerate={(id) => void regenerate(id)}
+        onExtend={(id) => void extend(id)}
+        endRef={endRef}
+      />
 
       {/* pb-safe on the outer edge, so the composer clears the home indicator on
           an installed app without the padding doubling on a desktop. */}
@@ -636,18 +478,18 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         ) : (
           <div className="pb-4">
             <PromptComposer
-              value={prompt}
-              onChange={setPrompt}
-              onSubmit={() => submit(prompt)}
+              value={draft.prompt}
+              onChange={draft.setPrompt}
+              onSubmit={() => submit(draft.prompt)}
               projectId={projectId}
-              photos={photos}
-              onPhotosChange={setPhotos}
-              voice={voice}
-              onVoice={setVoice}
-              footage={footage}
-              onFootage={setFootage}
-              shots={shots}
-              onShotsChange={setShots}
+              photos={draft.photos}
+              onPhotosChange={draft.setPhotos}
+              voice={draft.voice}
+              onVoice={draft.setVoice}
+              footage={draft.footage}
+              onFootage={draft.setFootage}
+              shots={draft.shots}
+              onShotsChange={draft.setShots}
               busy={sending || rendering}
               credits={thread.credits}
               // Only while a turn is streaming. A queued render is the

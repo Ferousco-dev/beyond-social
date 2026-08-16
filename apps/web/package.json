@@ -16,6 +16,7 @@
     "test:trends": "tsx --tsconfig scripts/tsconfig.json scripts/trends-smoke.ts",
     "test:brief": "tsx --tsconfig scripts/tsconfig.json scripts/brief-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
+    "test:model": "tsx --tsconfig scripts/tsconfig.json scripts/model-smoke.ts",
     "test:followup": "tsx --tsconfig scripts/tsconfig.json scripts/followup-smoke.ts",
     "test:scrape": "tsx --tsconfig scripts/tsconfig.json scripts/scrape-smoke.ts",
     "test:optimization": "tsx --tsconfig scripts/tsconfig.json scripts/optimization-smoke.ts",
