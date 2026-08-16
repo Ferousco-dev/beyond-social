@@ -46,6 +46,9 @@ export function SendButton({
       title={hint ?? label}
       className={cn(
         "group inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg bg-ink font-medium text-paper transition-[opacity,transform] hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30 motion-reduce:transition-none motion-reduce:active:scale-100",
+        // 44px on a touch screen either way: a send button is the one control
+        // on the screen that must not be missable.
+        "pointer-coarse:h-11",
         size === "compact" ? "h-7 px-2.5 text-xs" : "h-9 px-3 text-sm",
       )}
     >

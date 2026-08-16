@@ -30,7 +30,7 @@ export function AppSidebar({
             type="button"
             onClick={onCollapse}
             aria-label="Collapse sidebar"
-            className="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
+            className="inline-flex size-8 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-lg text-ink-soft transition-colors hover:bg-cloud hover:text-ink"
           >
             <PanelLeft className="size-4" />
           </button>

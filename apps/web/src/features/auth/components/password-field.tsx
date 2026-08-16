@@ -51,7 +51,10 @@ export function PasswordField({
           tabIndex={-1}
           onClick={() => setVisible((current) => !current)}
           aria-label={visible ? "Hide password" : "Show password"}
-          className="absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground"
+          // The eye is the only way back from a mistyped password on a phone, so
+          // it gets a finger-sized target there. Focus is visible: the field it
+          // sits inside is the one place a keyboard user is most likely to be.
+          className="absolute right-1.5 top-1/2 inline-flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary pointer-coarse:size-11"
         >
           {visible ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>

@@ -83,7 +83,11 @@ export function VideoDraftCard({
                 "inline-flex size-10 items-center justify-center rounded-full bg-paper text-ink shadow-card transition-opacity " +
                 // Once it is playing the control gets out of the way, and comes
                 // back on hover or keyboard focus so it is never unreachable.
-                (playing ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100" : "")
+                // A finger cannot hover, so on touch the controls stay visible
+                // rather than disappearing the moment playback starts.
+                (playing
+                  ? "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100"
+                  : "")
               }
             >
               {playing ? (
