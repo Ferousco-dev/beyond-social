@@ -53,8 +53,14 @@ export default function Page(): ReactNode {
             replies are not embedded, and very short messages are skipped.
           </p>
           <p>
-            Usage records: which model ran, what it cost in credits, whether it succeeded, and
-            enough of a trace to answer a billing question later.
+            Usage records: which model ran, what it cost in credits, whether it succeeded, the
+            provider&rsquo;s reason when it did not, and enough of a trace to answer a billing
+            question later.
+          </p>
+          <p>
+            Integration credentials, if you make any. An API key is stored as a hash and cannot be
+            recovered. A webhook signing secret is stored encrypted, because signing a delivery
+            needs the secret itself, and the key that decrypts it is held outside the database.
           </p>
         </Section>
 
@@ -89,6 +95,13 @@ export default function Page(): ReactNode {
             Instagram, Facebook, or YouTube, whichever you connected, through that platform&rsquo;s
             own API. We integrate each one directly rather than through an aggregator, so nothing
             passes through a middleman not named here.
+          </p>
+          <p>
+            Anywhere you point us. If you register a webhook endpoint, we POST what happened, signed
+            with your secret, to the URL you gave us. If you connect an AI agent over MCP, that
+            agent reads your generations, usage, and balance with the key you handed it. Both are
+            your choice and both are revocable from Settings; what leaves this way leaves because
+            you asked it to.
           </p>
           <p>We do not sell personal data.</p>
         </Section>

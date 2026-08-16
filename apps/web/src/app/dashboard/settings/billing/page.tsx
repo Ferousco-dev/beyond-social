@@ -1,10 +1,10 @@
 import { type Metadata } from "next";
 
-import { BalanceCard } from "@/features/billing/components/balance-card";
+import { BillingSummary } from "@/features/billing/components/billing-summary";
 import { CreditPackGrid } from "@/features/billing/components/credit-pack-grid";
-import { PlanSummary } from "@/features/billing/components/plan-summary";
+import { ModelAccess } from "@/features/billing/components/model-access";
+import { PlanPicker } from "@/features/billing/components/plan-picker";
 import { TransactionHistory } from "@/features/billing/components/transaction-history";
-import { UpgradePanel } from "@/features/billing/components/upgrade-panel";
 import { getCreditHistory } from "@/features/billing/ledger";
 import { getCurrentPlan } from "@/lib/billing/current-plan";
 import { PLAN_CATALOGUE, PLANS, type PlanId } from "@/lib/billing/plans";
@@ -26,6 +26,11 @@ function asPlanId(value: string): PlanId {
  * ledger that explains both. The balance comes from `credit_balance()` rather
  * than the profile counters, because the ledger is the source of truth and the
  * counters are a cache of it.
+ *
+ * The page reads in the order the questions arrive: what am I on and what do I
+ * have left, what else is there, what can I run with it, how do I get more,
+ * where did it go. Each section is one surface, and only the header is allowed
+ * to be loud.
  */
 export default async function BillingPage() {
   const [planId, balance, models, entries, timeZone] = await Promise.all([
@@ -46,15 +51,18 @@ export default async function BillingPage() {
 
   return (
     <section className="mt-6 lg:mt-8">
-      <div className="grid gap-4 lg:grid-cols-2">
-        <BalanceCard balance={balance} cheapest={cheapest} />
-        <PlanSummary plan={plan} models={models} />
-      </div>
+      <BillingSummary
+        plan={plan}
+        balance={balance}
+        cheapest={cheapest}
+        portalReady={isBillingConfigured}
+      />
+
+      <PlanPicker currentPlan={plan.id} checkoutReady={isBillingConfigured} />
+
+      <ModelAccess plan={plan.id} models={models} />
 
       <CreditPackGrid checkoutReady={isBillingConfigured} />
-
-      {/* Owns its own heading and the billing-portal button. */}
-      <UpgradePanel currentPlan={planId} checkoutReady={isBillingConfigured} />
 
       <TransactionHistory entries={entries} timeZone={timeZone} />
     </section>

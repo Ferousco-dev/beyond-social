@@ -44,8 +44,10 @@ export function MessageBubble({
       {message.content ? (
         <>
           <p className="whitespace-pre-wrap leading-7">{message.content}</p>
-          {/* Revealed on hover so the thread stays quiet while reading. */}
-          <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100">
+          {/* Revealed on hover so the thread stays quiet while reading, and shown
+              outright where there is no hover, because otherwise a phone has no way
+              to copy a reply. */}
+          <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100">
             <CopyButton value={message.content} label="Copy reply" />
           </div>
         </>
