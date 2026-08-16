@@ -27,8 +27,17 @@ export const DEFAULT_VIDEO_MODEL_ID = "veo3_fast";
 export type RunGate =
   { readonly allowed: true } | { readonly allowed: false; readonly notice: string };
 
-/** Denials name the dial that stopped the run, so the reply can offer the right remedy. */
-export async function checkVideoRun(): Promise<RunGate> {
-  const check = await canRunModel(DEFAULT_VIDEO_MODEL_ID);
+/**
+ * Denials name the dial that stopped the run, so the reply can offer the right
+ * remedy.
+ *
+ * Takes the model actually being run rather than assuming the default. It was
+ * fixed to `veo3_fast` back when nothing chose a model, so once the chooser
+ * started naming Kling a thirty credit run would have been checked against a
+ * six credit price: enough to pass the gate, not enough to pay for what it
+ * then started.
+ */
+export async function checkVideoRun(modelId: string = DEFAULT_VIDEO_MODEL_ID): Promise<RunGate> {
+  const check = await canRunModel(modelId);
   return check.allowed ? { allowed: true } : { allowed: false, notice: DENIAL_COPY[check.reason] };
 }

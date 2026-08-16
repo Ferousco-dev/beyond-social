@@ -7,6 +7,7 @@ import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { streamReply, writeReply } from "./reply";
 import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/consent-gate";
 import { preferredModel } from "@/lib/generation/preferred-model";
+import { chooseModel } from "@/lib/generation/choose-model";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
@@ -418,7 +419,32 @@ export async function runTurn(
    * set, which was veo's, and told a Kling user that clips can be four, six or
    * eight seconds when Kling does fifteen: the app refusing something it can do.
    */
-  const chosenModel = await preferredModel(supabase, user.id, "video");
+  /*
+   * A stored preference still wins, then the chooser.
+   *
+   * Almost nobody has a preference: setting one was a page that has since been
+   * removed, and the rows of those who did are honoured rather than deleted.
+   * Everybody else used to fall through to the edge function's default, which
+   * is why every video was Veo at six credits while five other live models sat
+   * in the catalogue unused.
+   *
+   * Anything that costs more than this plan's everyday generator is not taken
+   * yet. The chooser reports it, and the interface that asks about it is the
+   * next piece of work: until then a surprise five times charge is worse than
+   * a video made by the ordinary model, so the workhorse is used and the
+   * choice is logged.
+   */
+  const preference = await preferredModel(supabase, user.id, "video");
+  const choice =
+    preference === null ? await chooseModel(supabase, user.id, prompt, videoPaths) : null;
+  if (choice?.worthConfirming) {
+    logger.info("skipped a costlier model until it can be confirmed", {
+      model: choice.modelId,
+      credits: choice.creditCost,
+      reason: choice.reason,
+    });
+  }
+  const chosenModel = preference ?? (choice && !choice.worthConfirming ? choice.modelId : null);
 
   // Asking for a length we cannot render is worth saying out loud. Silently
   // producing eight seconds when someone asked for thirty is the kind of thing
@@ -442,7 +468,8 @@ export async function runTurn(
 
     // Tier and balance, checked server-side before the provider is called. A
     // refusal here costs nothing and leaves no half-started generation row.
-    const gate = await checkVideoRun();
+    // Priced against the model actually being run, not a fixed default.
+    const gate = await checkVideoRun(chosenModel ?? undefined);
     if (!gate.allowed) {
       notice = gate.notice;
       return;
