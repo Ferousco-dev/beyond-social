@@ -2452,6 +2452,10 @@ export type Database = {
         Args: { p_error: string; p_provider_task_id: string };
         Returns: undefined;
       };
+      fail_generation_by_id: {
+        Args: { p_error: string; p_generation: string };
+        Returns: undefined;
+      };
       grant_credits: {
         Args: {
           p_amount: number;
@@ -2538,6 +2542,7 @@ export type Database = {
           attachments: Json;
           content: string;
           created_at: string;
+          generation_error: string;
           generation_id: string;
           generation_model: string;
           generation_status: Database["public"]["Enums"]["generation_status"];
@@ -2621,6 +2626,10 @@ export type Database = {
           email: string;
           id: string;
         }[];
+      };
+      reserve_generation_credits: {
+        Args: { p_generation: string };
+        Returns: boolean;
       };
       response_cache_get: { Args: { p_key: string }; Returns: string };
       response_cache_put: {
