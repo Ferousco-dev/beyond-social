@@ -73,6 +73,13 @@ verify_jwt = false
 [functions.generate-avatar]
 verify_jwt = false
 
+# Authenticated: continues a clip the caller already made. Listed for the same
+# reason its siblings are, and left off for the same one: it resolves the caller
+# itself and refuses anything it cannot identify, so the platform gate would be
+# a second lock on a door this function already holds shut.
+[functions.extend-video]
+verify_jwt = false
+
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]
 verify_jwt = false
