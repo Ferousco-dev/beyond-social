@@ -10,6 +10,7 @@ import { type BrandAsset } from "@/lib/assets/brand";
 
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
+import { MakeVideoButton } from "./make-video-button";
 
 /**
  * The saved likeness.
@@ -115,6 +116,15 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
             {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
             {shown ? "Replace photo" : "Upload a photo"}
           </button>
+
+          {shown ? (
+            <MakeVideoButton
+              asset={shown}
+              className="h-9 border border-hairline px-4 text-ink hover:bg-cloud"
+            >
+              Make a video of you
+            </MakeVideoButton>
+          ) : null}
 
           {shown ? (
             <button

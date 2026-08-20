@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Clock, Lightbulb, PenLine, TrendingUp } from "lucide-react";
+import { ArrowRight, Clock, Lightbulb, Package, PenLine, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 
@@ -8,9 +8,10 @@ import Link from "next/link";
  * Where a new video starts.
  *
  * A blank textarea is the hardest possible first screen: it asks for a finished
- * thought before the person has had one. These are the two ways in that people
- * actually arrive with, borrow something that is working or bring a half-formed
- * idea, plus a way past both for anybody who already knows what they want.
+ * thought before the person has had one. These are the three ways in that people
+ * actually arrive with, borrow something that is working, bring a half-formed
+ * idea, or have a thing to sell and a photo of it, plus a way past all of them
+ * for anybody who already knows what they want.
  */
 export function StartScreen({
   onRefine,
@@ -33,11 +34,12 @@ export function StartScreen({
           Where do you want to start?
         </h1>
         <p className="mx-auto mt-3 max-w-md text-balance text-sm text-ink-soft">
-          Find what is working on TikTok, or have your own idea turned into a brief you can shoot.
+          Borrow what is working on TikTok, turn a rough idea into a brief, or put your own product
+          on screen.
         </p>
       </div>
 
-      <div className="mt-9 grid gap-4 sm:grid-cols-2">
+      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           href={"/dashboard/trends" as Route}
           className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -72,6 +74,26 @@ export function StartScreen({
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
           </span>
         </button>
+
+        {/* The third way in, and the one nobody could find. Featuring a real
+            product has worked since products were added, but the only route to
+            it was knowing to attach a photo from the plus menu inside a thread. */}
+        <Link
+          href={"/dashboard/assets" as Route}
+          className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+            <Package className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
+          </span>
+          <h2 className="mt-5 text-base font-semibold text-ink">Feature a product</h2>
+          <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
+            Upload a photo of what you sell, and the video features that exact thing.
+          </p>
+          <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-ink">
+            Go to your assets
+            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+          </span>
+        </Link>
       </div>
 
       {recents.length > 0 ? (
