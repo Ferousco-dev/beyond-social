@@ -13,6 +13,7 @@ import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
 import { embedOnce } from "@/lib/memory/embed-once";
 import { describeDurations, maxSecondsFor, supportsDuration } from "@/lib/generation/model-limits";
+import { foldShots } from "@/lib/generation/shot-fold";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
 import { logger } from "@/lib/logger";
@@ -449,6 +450,15 @@ export async function runTurn(
   }
   const chosenModel = preference ?? (choice && !choice.worthConfirming ? choice.modelId : null);
 
+  /*
+   * A shot list only survives as beats on a model that cuts. On anything else
+   * it becomes direction inside one take, because the dispatcher refuses a list
+   * it cannot honour and a refused turn is worse than a truthful compromise.
+   */
+  const folded = foldShots(shots, chosenModel);
+  if (folded.addendum !== "") finalPrompt = `${finalPrompt}\n\n${folded.addendum}`;
+  if (folded.notice !== null) notice = folded.notice;
+
   // Asking for a length we cannot render is worth saying out loud. Silently
   // producing eight seconds when someone asked for thirty is the kind of thing
   // that makes a tool feel like it is not listening.
@@ -458,7 +468,10 @@ export async function runTurn(
       ? requestedDuration
       : null;
   if (requestedDuration !== null && usableDuration === null) {
-    notice = `This model makes clips of ${describeDurations(chosenModel)}, so this one is ${maxSecondsFor(chosenModel)} seconds rather than ${requestedDuration}.`;
+    const lengths = `This model makes clips of ${describeDurations(chosenModel)}, so this one is ${maxSecondsFor(chosenModel)} seconds rather than ${requestedDuration}.`;
+    // Both can be true of the same turn, and the second one silently replacing
+    // the first told the user only half of what changed about their request.
+    notice = notice === undefined ? lengths : `${notice} ${lengths}`;
   }
 
   // A question costs nothing. This is the whole point of classifying: not
@@ -506,7 +519,7 @@ export async function runTurn(
           imagePaths: attachments
             ?.filter((attachment) => attachment.kind === "photo")
             .map((attachment) => attachment.path),
-          ...(shots && shots.length > 0 ? { shots } : {}),
+          ...(folded.shots && folded.shots.length > 0 ? { shots: folded.shots } : {}),
           sourceChunks: chunkIds,
         },
       });

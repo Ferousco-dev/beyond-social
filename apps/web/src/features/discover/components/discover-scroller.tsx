@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { type Route } from "next";
 import { useCallback, useRef, useState, useTransition } from "react";
 
+import { ScriptSheet } from "@/features/script/components/script-sheet";
+import { leaveSeed } from "@/lib/composer/seed";
+import { type CompiledScript } from "@/lib/script/compile";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
@@ -92,6 +95,8 @@ export function DiscoverScroller({
   const [reading, setReading] = useState<DiscoverPost | null>(null);
   const [analysis, setAnalysis] = useState<PostAnalysis | null>(null);
   const [analysing, startAnalysis] = useTransition();
+  /** Open once the user asks for a script rather than the paragraph. */
+  const [scripting, setScripting] = useState(false);
 
   /*
    * Searches already answered, kept for the session.
@@ -188,6 +193,24 @@ export function DiscoverScroller({
   const seed = useCallback(
     (brief: string) => {
       router.push(`/dashboard/c/new?prompt=${encodeURIComponent(brief)}` as Route);
+    },
+    [router],
+  );
+
+  /**
+   * Seeds a new chat with a compiled script and its beats.
+   *
+   * Left in session storage rather than on the URL: a script is a couple of
+   * thousand characters of newlines and quoted dialogue, and the shot list is
+   * structure that a query string would have to be taught to carry.
+   */
+  const seedScript = useCallback(
+    (compiled: CompiledScript) => {
+      leaveSeed({ prompt: compiled.prompt, shots: compiled.shots });
+      setScripting(false);
+      setReading(null);
+      setAnalysis(null);
+      router.push("/dashboard/c/new" as Route);
     },
     [router],
   );
@@ -313,14 +336,24 @@ export function DiscoverScroller({
       <AnalysisSheet
         analysis={analysis}
         handle={reading?.handle ?? ""}
-        open={reading !== null && analysis !== null}
+        // Stands aside while the script is being written, so the two sheets are
+        // never stacked on top of each other.
+        open={reading !== null && analysis !== null && !scripting}
         onOpenChange={(next) => {
-          if (!next) {
+          if (!next && !scripting) {
             setReading(null);
             setAnalysis(null);
           }
         }}
         onUse={seed}
+        onWriteScript={() => setScripting(true)}
+      />
+
+      <ScriptSheet
+        analysis={analysis}
+        open={scripting}
+        onOpenChange={setScripting}
+        onUse={seedScript}
       />
     </div>
   );

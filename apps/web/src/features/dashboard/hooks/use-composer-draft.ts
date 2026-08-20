@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
+import { takeSeed } from "@/lib/composer/seed";
+
 import { type PendingPhoto } from "../components/compose-menu";
 import { type PendingFootage } from "./use-footage-upload";
 import { type PendingVoice } from "./use-voice-upload";
@@ -19,10 +21,6 @@ import { type PendingShot } from "../components/shot-list-editor";
  * than something the thread shows back, so it never becomes a message
  * attachment, and it is cleared on send like the rest.
  */
-
-/** Where a seeded prompt is left for this screen to pick up. */
-const PENDING_PROMPT_KEY = "bs:pending-prompt";
-const PENDING_PHOTOS_KEY = "bs:pending-photos";
 
 export interface ComposerDraft {
   readonly prompt: string;
@@ -64,26 +62,15 @@ export function useComposerDraft(
   useEffect(() => {
     if (projectId !== null) return;
 
-    const queryPrompt = new URLSearchParams(window.location.search).get("prompt");
-    const pending = queryPrompt ?? window.sessionStorage.getItem(PENDING_PROMPT_KEY);
-    if (!pending) return;
-    window.sessionStorage.removeItem(PENDING_PROMPT_KEY);
+    // The query string still wins, because a link into a new thread with a
+    // prompt on it is a shareable thing and storage is not.
+    const seed = takeSeed(new URLSearchParams(window.location.search).get("prompt"));
+    if (seed.prompt === null) return;
 
-    const storedPhotos = window.sessionStorage.getItem(PENDING_PHOTOS_KEY);
-    window.sessionStorage.removeItem(PENDING_PHOTOS_KEY);
-    if (storedPhotos) {
-      // Session storage is client-controlled, so a malformed or hand-edited
-      // value must not take the composer down with it.
-      try {
-        const parsed: unknown = JSON.parse(storedPhotos);
-        if (Array.isArray(parsed)) setPhotos(parsed as readonly PendingPhoto[]);
-      } catch {
-        // A seed that cannot be read is dropped: the prompt still arrives, and
-        // the picture can be attached again if it was wanted.
-      }
-    }
+    if (seed.photos) setPhotos(seed.photos);
+    if (seed.shots) setShots(seed.shots);
 
-    setPrompt(pending);
+    setPrompt(seed.prompt);
     setSeeded(true);
     // A one-shot seed. Only state setters are called, so there is nothing else
     // to depend on.

@@ -24,7 +24,12 @@ import { isPromptEngineConfigured } from "@/lib/server-env";
  * confident invented shot list is worse than an honest thin one.
  */
 
-const analysisSchema = z.object({
+/**
+ * Exported because the script writer takes an analysis back from the browser:
+ * the sheet holds it while the user reads it, and validating what comes back is
+ * the same rule every other boundary here follows.
+ */
+export const postAnalysisSchema = z.object({
   /** The repeatable pattern, named in a few words. */
   format: z
     .string()
@@ -67,7 +72,7 @@ const analysisSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]).catch("low"),
 });
 
-export type PostAnalysis = z.infer<typeof analysisSchema>;
+export type PostAnalysis = z.infer<typeof postAnalysisSchema>;
 
 export interface AnalysablePost {
   readonly handle: string;
@@ -149,7 +154,7 @@ export async function analysePost(
       json: true,
     });
 
-    const parsed = parseJsonReply(reply, analysisSchema);
+    const parsed = parseJsonReply(reply, postAnalysisSchema);
     if ("data" in parsed) return parsed.data;
 
     logger.warn("post analysis did not parse", {
