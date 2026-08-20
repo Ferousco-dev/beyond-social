@@ -1,5 +1,6 @@
 // Typed client for the kie.ai Veo video-generation API.
 // Docs: https://docs.kie.ai/veo3-api/generate-veo-3-video
+import { providerFailure } from "./kie-errors.ts";
 import { buildMarketInput, type Shot } from "./kie-models.ts";
 
 const KIE_BASE = "https://api.kie.ai/api/v1";
@@ -102,7 +103,7 @@ export async function createVideoTask(input: KieGenerateInput): Promise<string> 
   const body = await response.json().catch(() => null);
   const taskId = body?.data?.taskId;
   if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
-    throw new Error(`kie.ai generate failed: ${body?.msg ?? response.status}`);
+    throw providerFailure("generate", body?.msg, response.status);
   }
   return taskId;
 }
@@ -150,7 +151,7 @@ export async function extendVideoTask(input: KieExtendInput): Promise<string> {
   const body = await response.json().catch(() => null);
   const taskId = body?.data?.taskId;
   if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
-    throw new Error(`kie.ai extend failed: ${body?.msg ?? response.status}`);
+    throw providerFailure("extend", body?.msg, response.status);
   }
   return taskId;
 }
@@ -215,7 +216,7 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
   const body = await response.json().catch(() => null);
   const taskId = body?.data?.taskId;
   if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
-    throw new Error(`kie.ai market task failed: ${body?.msg ?? response.status}`);
+    throw providerFailure("market task", body?.msg, response.status);
   }
   return taskId;
 }
@@ -266,7 +267,7 @@ export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
   const body = await response.json().catch(() => null);
   const taskId = body?.data?.taskId;
   if (!response.ok || body?.code !== 200 || typeof taskId !== "string") {
-    throw new Error(`kie.ai avatar task failed: ${body?.msg ?? response.status}`);
+    throw providerFailure("avatar task", body?.msg, response.status);
   }
   return taskId;
 }

@@ -132,7 +132,7 @@ export async function saveBrandAsset(input: z.input<typeof saveSchema>): Promise
     return { status: "error", message: "Could not save that just now." };
   }
 
-  revalidatePath("/dashboard/settings/brand");
+  revalidatePath("/dashboard/assets");
   return { status: "ok" };
 }
 
@@ -170,6 +170,6 @@ export async function removeBrandAsset(input: z.input<typeof idSchema>): Promise
     logger.warn("brand asset object left behind", { error: storageError.message });
   }
 
-  revalidatePath("/dashboard/settings/brand");
+  revalidatePath("/dashboard/assets");
   return { status: "ok" };
 }

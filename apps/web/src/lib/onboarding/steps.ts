@@ -78,7 +78,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Save your voice",
     blurb: "Record once and have your videos speak in it, instead of a stock narrator.",
     action: "Record a sample",
-    href: "/dashboard/settings/voice" as Route,
+    href: "/dashboard/assets" as Route,
     icon: Mic,
   },
   {

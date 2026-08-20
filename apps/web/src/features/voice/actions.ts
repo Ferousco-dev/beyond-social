@@ -108,7 +108,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
 
   const url = await signVoicePath(supabase, profile.storage_path);
 
-  revalidatePath("/dashboard/settings/voice");
+  revalidatePath("/dashboard/assets");
   return {
     status: "ok",
     profile: {
@@ -184,6 +184,6 @@ export async function deleteVoiceProfile(): Promise<DeleteResult> {
     await supabase.from("voice_profiles").delete().eq("user_id", user.id);
   }
 
-  revalidatePath("/dashboard/settings/voice");
+  revalidatePath("/dashboard/assets");
   return { status: "ok" };
 }

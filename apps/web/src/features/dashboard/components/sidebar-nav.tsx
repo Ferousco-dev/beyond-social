@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   LibraryBig,
   PenSquare,
+  Shapes,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -55,6 +56,13 @@ const LINKS: readonly NavLink[] = [
     icon: LibraryBig,
     // The spine of a book tilting off the shelf as you reach for it.
     motion: "group-hover:-rotate-6",
+  },
+  {
+    href: "/dashboard/assets" as Route,
+    label: "Assets",
+    icon: Shapes,
+    // The shapes settling into place, which is what saving one of these does.
+    motion: "group-hover:scale-110 group-hover:-rotate-6",
   },
   {
     href: "/dashboard/schedule" as Route,
