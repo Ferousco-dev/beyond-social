@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { compileBrief } from "@/lib/brief/compile";
 import { type ContentBrief, type IdeaAnalysis } from "@/lib/brief/schema";
 
 import { analyseIdeaAction, buildBriefAction } from "../actions";
@@ -148,7 +149,11 @@ export function BriefFlow({
       ) : null}
 
       {stage === "brief" && brief !== null ? (
-        <ContentBriefView brief={brief} onRestart={restart} onUse={() => onUse(brief.prompt)} />
+        <ContentBriefView
+          brief={brief}
+          onRestart={restart}
+          onUse={() => onUse(compileBrief(brief))}
+        />
       ) : null}
 
       {notice ? (

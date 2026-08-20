@@ -11,7 +11,8 @@
  * than a paragraph. And a shot list must never reach a model that cannot cut,
  * because the dispatcher refuses those outright.
  */
-import { parseJsonReply } from "../src/lib/brief/schema";
+import { compileBrief } from "../src/lib/brief/compile";
+import { briefSchema, parseJsonReply } from "../src/lib/brief/schema";
 import { compileScript } from "../src/lib/script/compile";
 import { videoScriptSchema, totalSeconds } from "../src/lib/script/schema";
 import { foldShots } from "../src/lib/generation/shot-fold";
@@ -199,6 +200,51 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
 
   const none = foldShots(undefined, "veo3_fast");
   check("no beats stays no beats", none.shots === undefined && none.addendum === "");
+}
+
+{
+  const beat = (label: string, detail: string) => ({ label, timing: "0:00-0:03", detail });
+  const parsed = briefSchema.safeParse({
+    hook: "Nobody tells you this about a bakery website",
+    titles: ["The bakery website nobody warns you about"],
+    beats: [beat("Hook", "She looks up from the counter"), beat("Payoff", "The orders come in")],
+    durationSeconds: 15,
+    hashtags: ["bakery"],
+    prompt: "A short vertical video about a bakery losing orders through its website.",
+  });
+  check("a brief parses", parsed.success, parsed.success ? "" : parsed.error.issues[0]?.message);
+  if (parsed.success) {
+    const compiled = compileBrief(parsed.data);
+    check("the beats travel with the brief", compiled.includes("She looks up from the counter"));
+    check("and so does the payoff", compiled.includes("The orders come in"));
+    check("the compiled brief is sendable", compiled.length <= 2000);
+  }
+}
+
+{
+  // Beats too long to fit at all fall back to the prompt, which is always
+  // inside the limit, rather than to a brief cut off mid-beat.
+  const parsed = briefSchema.safeParse({
+    hook: "Hook",
+    titles: ["Title"],
+    beats: Array.from({ length: 6 }, () => ({
+      label: "Beat",
+      timing: "0:00-0:03",
+      detail: "d".repeat(400),
+    })),
+    durationSeconds: 15,
+    hashtags: [],
+    prompt: "p".repeat(1900),
+  });
+  check("a wordy brief parses", parsed.success);
+  if (parsed.success) {
+    const compiled = compileBrief(parsed.data);
+    check(
+      "a brief with no room for beats is still sendable",
+      compiled.length <= 2000,
+      `${compiled.length} chars`,
+    );
+  }
 }
 
 // `process.stdout` rather than `console`, matching the sibling smoke scripts
