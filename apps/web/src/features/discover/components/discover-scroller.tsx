@@ -108,10 +108,25 @@ export function DiscoverScroller({
    */
   const cache = useRef(new Map<string, readonly DiscoverPost[]>());
 
+  /*
+   * Which search is the one the screen should show.
+   *
+   * Two searches in flight at once, typing a new term before the last one
+   * answered, or flicking the platform toggle mid-search, used to race:
+   * whichever `searchSocial` call resolved last won, so a fast answer to an
+   * old term could overwrite a slow answer to the one actually on screen. The
+   * query text and the results shown would then belong to two different
+   * searches with nothing to say so. Each call claims a ticket and only
+   * applies its result while still holding the latest one.
+   */
+  const latestSearch = useRef(0);
+
   const run = useCallback(
     (term: string, on: ScrapePlatform) => {
       const text = term.trim();
       if (text.length < 2) return;
+
+      const ticket = ++latestSearch.current;
 
       setQuery(text);
       setNotice(null);
@@ -133,6 +148,10 @@ export function DiscoverScroller({
 
       startTransition(async () => {
         const result = await searchSocial({ query: text, platform: on });
+
+        // A newer search started while this one was in flight, so this
+        // answer is for a term or platform no longer on screen.
+        if (ticket !== latestSearch.current) return;
 
         if (result.status !== "ok") {
           setResults(null);
@@ -272,7 +291,15 @@ export function DiscoverScroller({
           platform={platform}
           onPlatformChange={(next) => {
             setPlatform(next);
-            if (query.trim().length >= 2) submit(query, next);
+            if (query.trim().length >= 2) {
+              submit(query, next);
+            } else {
+              // Too short to search, so nothing was submitted, but the grid
+              // was still showing the last platform's results under a toggle
+              // that had already moved on.
+              setResults(null);
+              setNotice(null);
+            }
           }}
           onSubmit={() => submit(query, platform)}
           busy={pending}
