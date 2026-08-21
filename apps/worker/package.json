@@ -11,7 +11,8 @@
     "build": "tsup",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/publish-smoke.ts"
+    "test": "tsx scripts/publish-smoke.ts",
+    "test:retry": "tsx scripts/retry-verification.ts"
   },
   "dependencies": {
     "@beyond-social/env": "workspace:*",
