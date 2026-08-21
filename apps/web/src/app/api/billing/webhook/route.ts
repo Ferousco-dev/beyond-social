@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
+import { applyCreditPackPurchase } from "@/features/billing/apply-credit-pack";
 import { PLAN_CATALOGUE, planForPrice, type PlanId } from "@/lib/billing/plans";
 import { logger } from "@/lib/logger";
 import { STRIPE_PRICES, isBillingConfigured, serverEnv } from "@/lib/server-env";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
- * Stripe webhook. Subscription state lives in Stripe; this projects it into our
- * database and grants the plan's credit allowance.
+ * Stripe webhook. Subscription and one-time purchase state live in Stripe;
+ * this projects it into our database and grants the credits it paid for.
  *
  * Two things make it safe: the signature is verified against the raw body, so
- * only Stripe can drive it, and every event id is claimed in `billing_events`
- * before credits are granted, so an at-least-once redelivery cannot pay out
- * twice.
+ * only Stripe can drive it, and every grant is idempotent (`billing_events` for
+ * subscription changes, `credit_ledger`'s `external_ref` for a pack purchase),
+ * so an at-least-once redelivery cannot pay out twice.
  */
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,12 @@ export async function POST(request: Request): Promise<NextResponse> {
           p_user: userId,
           p_customer: customerId,
         } as never);
+      }
+      // A subscription checkout is followed by `customer.subscription.created`,
+      // which is where that grant happens. A one-time purchase gets no such
+      // follow-up event, so it is granted right here.
+      if (session.mode === "payment") {
+        await applyCreditPackPurchase(session);
       }
       return NextResponse.json({ received: true });
     }
