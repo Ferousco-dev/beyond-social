@@ -163,20 +163,6 @@ export const briefSchema = z.object({
     .transform((seconds) => Math.min(180, Math.max(5, Math.round(seconds)))),
   /** Without the leading hash, which the interface adds. */
   hashtags: textList(40, 8),
-  /**
-   * The self-contained brief handed to generation.
-   *
-   * The floor is a correctness bound, not a presentation one, and is the reason
-   * this is not `text()`: every other limit here trims because forty-one
-   * characters is a wide chip, but a two-word prompt reaches the video model
-   * unedited and spends a credit that does not come back on something too thin
-   * to direct anything.
-   */
-  prompt: z
-    .string()
-    .trim()
-    .min(20)
-    .transform((value) => value.slice(0, 2000)),
 });
 
 export type ContentBrief = z.infer<typeof briefSchema>;

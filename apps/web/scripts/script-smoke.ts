@@ -217,11 +217,11 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
     beats: [beat("Hook", "She looks up from the counter"), beat("Payoff", "The orders come in")],
     durationSeconds: 15,
     hashtags: ["bakery"],
-    prompt: "A short vertical video about a bakery losing orders through its website.",
   });
   check("a brief parses", parsed.success, parsed.success ? "" : parsed.error.issues[0]?.message);
   if (parsed.success) {
     const compiled = compileBrief(parsed.data);
+    check("the hook opens the compiled brief", compiled.includes(parsed.data.hook));
     check("the beats travel with the brief", compiled.includes("She looks up from the counter"));
     check("and so does the payoff", compiled.includes("The orders come in"));
     check("the compiled brief is sendable", compiled.length <= 2000);
@@ -229,8 +229,8 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
 }
 
 {
-  // Beats too long to fit at all fall back to the prompt, which is always
-  // inside the limit, rather than to a brief cut off mid-beat.
+  // Beats too long to fit at all still compile to something sendable: the
+  // header survives and every beat gives up an equal share of its detail.
   const parsed = briefSchema.safeParse({
     hook: "Hook",
     titles: ["Title"],
@@ -241,7 +241,6 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
     })),
     durationSeconds: 15,
     hashtags: [],
-    prompt: "p".repeat(1900),
   });
   check("a wordy brief parses", parsed.success);
   if (parsed.success) {
@@ -251,6 +250,7 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
       compiled.length <= 2000,
       `${compiled.length} chars`,
     );
+    check("the header still opens it", compiled.startsWith("A 15 second"));
   }
 }
 
@@ -258,13 +258,13 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
   // Regression: lastIndexOf("}") picked up a brace from trailing prose after
   // the real JSON, breaking a reply whose JSON was fine on its own.
   const clean = parseJsonReply(
-    `{"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"}`,
+    `{"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[]}`,
     briefSchema,
   );
   check("a bare JSON reply still parses", "data" in clean);
 
   const trailingProse = parseJsonReply(
-    `Here you go: {"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"} Let me know if that fits the brief {you asked for}.`,
+    `Here you go: {"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[]} Let me know if that fits the brief {you asked for}.`,
     briefSchema,
   );
   check(
@@ -274,7 +274,7 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
   );
 
   const quotedBrace = parseJsonReply(
-    `{"hook":"a curly brace looks like this: }","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"}`,
+    `{"hook":"a curly brace looks like this: }","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[]}`,
     briefSchema,
   );
   check(

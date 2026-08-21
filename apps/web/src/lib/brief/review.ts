@@ -65,7 +65,7 @@ function buildPrompt(
     "1. A choice the creator stated that the brief ignores or contradicts.",
     "2. Beats whose timings do not add up to the stated duration.",
     "3. A hook that describes the opening instead of being the opening line.",
-    "4. A `prompt` that refers to the creator, the brief, or this conversation, when it is handed to a video generator on its own.",
+    "4. A beat vague enough that a video generator could not shoot it from the words alone.",
     "5. Anything so generic it could describe any video on the subject.",
     "",
     "List what is wrong in `issues`. If anything is, return the whole corrected brief in `revised`, keeping everything that was already right.",
