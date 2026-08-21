@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { optionalText, text, textList } from "./schema-fields";
+import { generationInstructionsSchema } from "./schema-generation";
+import { metadataSchema } from "./schema-metadata";
+
 /**
  * A shot-by-shot script, written from a post we analysed.
  *
@@ -17,29 +21,12 @@ import { z } from "zod";
  *
  * Nothing here is a copy of the source. The mechanics are a pattern, the
  * content is the user's own subject, and the lines are written fresh.
+ *
+ * Five blocks in total, split across three files so none of them balloons:
+ * what kind of video this is (`schema-metadata.ts`), why the source worked
+ * (`mechanicsSchema`, below), what this one says (`subjectSchema` and
+ * `sceneSchema`, below), and how to render it (`schema-generation.ts`).
  */
-
-/**
- * Trims rather than refuses, for the same reason the brief schema does: a line
- * a few characters over is a wide box, not a wrong answer, and rejecting the
- * whole script over one costs the user everything else in it.
- */
-function text(max: number) {
-  return z
-    .string()
-    .trim()
-    .min(1)
-    .transform((value) => value.slice(0, max));
-}
-
-/** Optional in the reply, empty string when the model leaves it out. */
-function optionalText(max: number) {
-  return z
-    .string()
-    .trim()
-    .default("")
-    .transform((value) => value.slice(0, max));
-}
 
 /**
  * The mechanics, read from the source and held fixed.
@@ -56,15 +43,7 @@ export const mechanicsSchema = z.object({
   /** Where the feeling goes, e.g. "Curiosity to concern to relief". */
   emotionalArc: text(120),
   /** What keeps someone watching: open loops, pattern interrupts, delayed payoff. */
-  retention: z
-    .array(z.unknown())
-    .default([])
-    .transform((items) =>
-      items
-        .map((item) => text(120).safeParse(item))
-        .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
-        .slice(0, 5),
-    ),
+  retention: textList(120, 5),
 });
 
 export type ScriptMechanics = z.infer<typeof mechanicsSchema>;
@@ -131,9 +110,11 @@ const scenesField = z
 
 export const videoScriptSchema = z.object({
   title: text(80),
+  metadata: metadataSchema.default({}),
   mechanics: mechanicsSchema,
   subject: subjectSchema,
   scenes: scenesField,
+  generationInstructions: generationInstructionsSchema.default({}),
 });
 
 export type VideoScript = z.infer<typeof videoScriptSchema>;

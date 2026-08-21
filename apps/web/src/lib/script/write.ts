@@ -100,8 +100,9 @@ function buildPrompt(input: WriteScriptInput): string {
     "`onScreenText` is a short caption burned over the picture, or empty when there is none.",
     "Never mention the source video, the analysis, TikTok, or that this is based on anything.",
     "Write original lines and original examples. Borrow the shape, not the words.",
+    "`generationInstructions` is how to render this, not what it says: `style` is the overall look in a few words. `cinematography` is shot language for the whole video, distinct from any one scene's `camera`. `audio` is music and sound design direction. `negativePrompts` are short, specific things the render must not contain. `modelInstructions` is any literal technical instruction the renderer needs stated outright, or empty when the rest already covers it.",
     "",
-    'Respond with JSON only: {"title":"","mechanics":{"hookType":"","pacing":"","emotionalArc":"","retention":[""]},"subject":{"topic":"","audience":"","speaker":"","product":"","cta":"","location":""},"scenes":[{"purpose":"","seconds":3,"voiceover":"","visual":"","camera":"","onScreenText":""}]}',
+    'Respond with JSON only: {"title":"","mechanics":{"hookType":"","pacing":"","emotionalArc":"","retention":[""]},"subject":{"topic":"","audience":"","speaker":"","product":"","cta":"","location":""},"scenes":[{"purpose":"","seconds":3,"voiceover":"","visual":"","camera":"","onScreenText":""}],"generationInstructions":{"style":"","cinematography":"","audio":"","negativePrompts":[""],"modelInstructions":""}}',
   ]
     .filter(Boolean)
     .join("\n");
@@ -123,10 +124,19 @@ export async function writeScript(input: WriteScriptInput): Promise<VideoScript 
 
     const parsed = parseJsonReply(reply, videoScriptSchema);
     if ("data" in parsed) {
-      // The user's own fields are authoritative on a rewrite. A model asked not
-      // to change them mostly does not, and "mostly" is not good enough for the
-      // one thing on the screen the user typed themselves.
-      return input.subject ? { ...parsed.data, subject: input.subject } : parsed.data;
+      const script = input.subject
+        ? // The user's own fields are authoritative on a rewrite. A model asked
+          // not to change them mostly does not, and "mostly" is not good enough
+          // for the one thing on the screen the user typed themselves.
+          { ...parsed.data, subject: input.subject }
+        : parsed.data;
+
+      // `category` is never asked of the model: it is the caller's own
+      // profile, not something to infer from the brief. Left empty when the
+      // creator hasn't set one, the same as `industry` is to the prompt above.
+      return input.industry === null
+        ? script
+        : { ...script, metadata: { ...script.metadata, category: input.industry } };
     }
 
     logger.warn("script did not parse", { reason: parsed.reason, reply: reply.slice(0, 400) });
