@@ -1,0 +1,86 @@
+# Scope: next 3 hours
+
+Ordered. Work top to bottom unless CTO re-prioritizes for a genuine blocker.
+Check items off as they land, and add a one-line note (PR number, or why
+skipped) so this file stays a true record, not a wishlist.
+
+## 1. Fix the production auto-deploy gap (do this first)
+
+CI's `deploy-production` job in `.github/workflows/ci.yml` is fully wired to
+run on every push to `main`, but it checks for a `VERCEL_TOKEN` secret and
+silently no-ops with a warning if it's missing. It's missing right now — the
+last several hours of merges to `main` never reached production; it had to be
+deployed by hand once this session (`vercel deploy --prod --yes
+--archive=tgz`).
+
+This needs the owner: generate a Vercel token (Vercel account settings →
+Tokens) and add it as a GitHub Actions secret named `VERCEL_TOKEN` on the
+repo. Flag it clearly and move on to the next item rather than blocking the
+whole session on it — this is exactly the kind of blocker RULES.md says not to
+work around.
+
+## 2. Re-audit docs/production-readiness.md against current main
+
+It's dated 2026-07-26 against `feature/backend-integration`, predating CI,
+tracing, rate limiting, circuit breakers, and a large fraction of the current
+codebase. Its "Critical Issues" and readiness score are very likely stale.
+Re-check each item against what actually exists on `main` today, using
+[docs/ARCHITECTURE.md](../ARCHITECTURE.md) (current, self-audited) as the
+cross-check where they disagree. Either update the doc in place or replace it;
+don't leave a stale critical-issues list sitting in the repo looking current.
+
+## 3. Close the worker trace-id gap
+
+From ARCHITECTURE.md's own open item: publishing jobs in `apps/worker` carry
+no trace id, so a failed post can't be traced back to the request that
+scheduled it. The generation pipeline already does this correctly
+(`sendMessage` → edge function via `traceparent` → stored on the generation
+row) — extend the same pattern to the publish path.
+
+## 4. Sweep for dead code and unused exports
+
+This session's own merges (particularly the multi-shot-ui branch, which
+turned out to be fully superseded by refactors already on `main`) suggest
+there may be more of this. Search for exports with no importers, especially in
+`apps/web/src/features/*` and `packages/*/src`, and remove what's genuinely
+unused. Don't remove anything still referenced from a test, a script, or a
+dynamic import.
+
+## 5. Verify the render-persistence gap (production-readiness.md's old C1)
+
+Original claim: kie.ai result URLs are temporary but were being stored as the
+source of truth instead of copied to durable storage, risking silent loss.
+Check whether this was already fixed (a lot has shipped since); if not, it's
+real and worth fixing before any real generation traffic. If it was fixed,
+say so plainly in the doc re-audit (item 2) rather than leaving a phantom
+critical issue on record.
+
+## 6. UI pass: verify the idea-refiner flow end to end in a real browser
+
+The wrapping bug reported earlier this session turned out to be a stale
+deploy, not a code bug, but it was never checked past that one component. Walk
+the full idea → refine → brief → script flow in the actual running app (not
+just reading the JSX) and screenshot anything that doesn't look right at
+mobile width, where the earlier bug would have shown up.
+
+## 7. Backlog grab-bag (pull from as time allows, in this order)
+
+- Confirm `apps/worker`'s BullMQ retry/backoff behavior against a genuinely
+  failing platform API call (simulate the failure, don't assume the config is
+  correct because it reads correctly).
+- Check the Supabase migrations directory for anything not yet applied to the
+  live project (this has happened before this session, with
+  `0075_prompt_templates.sql`).
+- Review `packages/ai-gateway`'s circuit breaker: per-process state means each
+  serverless instance learns an outage independently. Note whether this is
+  still an accepted trade at current traffic or worth a shared Redis-backed
+  breaker now.
+
+## Explicitly out of scope this session
+
+- Any real video generation (costs real, non-refundable credits — see
+  RULES.md).
+- Anything in ARCHITECTURE.md's "when to revisit" list (service extraction,
+  microservices). Nothing currently meets those conditions; don't start one
+  because 3 hours feels like enough time.
+- New third-party dependencies or services.
