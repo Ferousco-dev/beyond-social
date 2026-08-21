@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowRight, Clapperboard } from "lucide-react";
 
+import { type PendingPhoto } from "@/features/dashboard/components/compose-menu";
 import { compileScript, type CompiledScript } from "@/lib/script/compile";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
@@ -10,6 +11,12 @@ import { useScriptDraft } from "../hooks/use-script-draft";
 import { ScriptMechanicsPanel } from "./script-mechanics";
 import { ScriptScenes } from "./script-scenes";
 import { ScriptSubjectFields } from "./script-subject";
+
+export interface ScriptTake {
+  readonly compiled: CompiledScript;
+  /** The bound speaker/product photos, already settled and signed. */
+  readonly photos: readonly PendingPhoto[];
+}
 
 /**
  * The script, before a credit is spent on it.
@@ -31,7 +38,7 @@ export function ScriptSheet({
   analysis: PostAnalysis | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUse: (compiled: CompiledScript) => void;
+  onUse: (take: ScriptTake) => void;
 }) {
   const draft = useScriptDraft(open ? analysis : null);
 
@@ -60,7 +67,10 @@ export function ScriptSheet({
                   subject={draft.script.subject}
                   stale={draft.stale}
                   writing={draft.writing}
+                  bindings={draft.bindings}
                   onChange={draft.setSubjectField}
+                  onBindSpeaker={draft.bindSpeaker}
+                  onBindProduct={draft.bindProduct}
                   onRewrite={draft.rewrite}
                 />
                 <ScriptScenes scenes={draft.script.scenes} onChange={draft.setSceneField} />
@@ -81,7 +91,12 @@ export function ScriptSheet({
               type="button"
               disabled={draft.script === null || draft.writing}
               onClick={() => {
-                if (draft.script !== null) onUse(compileScript(draft.script));
+                if (draft.script === null) return;
+                const photos = [draft.bindings.speaker, draft.bindings.product]
+                  .filter((asset): asset is NonNullable<typeof asset> => asset !== null)
+                  .filter((asset): asset is typeof asset & { url: string } => asset.url !== null)
+                  .map((asset) => ({ id: asset.id, url: asset.url, path: asset.path }));
+                onUse({ compiled: compileScript(draft.script), photos });
               }}
               className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >

@@ -17,6 +17,7 @@
     "test:brief": "tsx --tsconfig scripts/tsconfig.json scripts/brief-smoke.ts",
     "test:script": "tsx --tsconfig scripts/tsconfig.json scripts/script-smoke.ts",
     "test:fence": "tsx --tsconfig scripts/tsconfig.json scripts/fence-smoke.ts",
+    "test:credit-warning": "tsx --tsconfig scripts/tsconfig.json scripts/credit-warning-smoke.ts",
     "test:hook-score": "tsx --tsconfig scripts/tsconfig.json scripts/hook-score-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
     "test:model": "tsx --tsconfig scripts/tsconfig.json scripts/model-smoke.ts",
