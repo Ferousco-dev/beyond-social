@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { questionSchema, type PickerQuestion } from "@/lib/brief/schema";
+import { fenceSafe } from "@/lib/text/fence";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
@@ -128,7 +129,7 @@ function buildPrompt(prompt: string, classification: Classification): string {
     "",
     // Fenced, so the model treats the request as the thing to reason about
     // rather than as instructions addressed to it.
-    `<request>\n${prompt.slice(0, 2000)}\n</request>`,
+    `<request>\n${fenceSafe(prompt.slice(0, 2000))}\n</request>`,
   ]
     .filter(Boolean)
     .join("\n");

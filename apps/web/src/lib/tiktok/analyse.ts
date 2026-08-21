@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { parseJsonReply } from "@/lib/brief/schema";
+import { fenceSafe } from "@/lib/text/fence";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
@@ -132,7 +133,7 @@ function buildPrompt(post: AnalysablePost, industry: string | null): string {
     "",
     // Fenced and labelled: a caption is a stranger's text and a transcript is a
     // stranger's speech, so both are data to read rather than instructions.
-    `<post>\n${evidence(post)}\n</post>`,
+    `<post>\n${fenceSafe(evidence(post))}\n</post>`,
   ]
     .filter(Boolean)
     .join("\n");
