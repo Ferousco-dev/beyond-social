@@ -32,13 +32,18 @@ import { z } from "zod";
  * These are presentation limits, not correctness ones: a 41-character option is
  * a slightly wide chip, not a wrong answer. Trimming keeps the answer and loses
  * the excess, which is the right way round.
+ *
+ * A trim that cuts mid-word with nothing to show for it reads as broken, not
+ * wide, so a truncated value ends in an ellipsis rather than stopping cold.
  */
 function text(max: number) {
   return z
     .string()
     .trim()
     .min(1)
-    .transform((value) => value.slice(0, max));
+    .transform((value) =>
+      value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`,
+    );
 }
 
 export const questionSchema = z.object({
