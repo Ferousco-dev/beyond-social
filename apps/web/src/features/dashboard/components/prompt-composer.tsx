@@ -164,6 +164,20 @@ export function PromptComposer({
         </ul>
       ) : null}
 
+      {/*
+        The exact combination that triggers avatar mode (see runAvatar in
+        conversation-thread.tsx), named before it is sent rather than
+        explained after. Avatar mode cannot cut between scenes the way a
+        generated video can, so someone who actually wanted the richer
+        multi-scene path should find out now, not after the render starts.
+      */}
+      {voice && photos.length > 0 ? (
+        <p className="px-1 pb-2 text-xs text-ink-soft">
+          Photo plus voice makes one continuous clip of you talking. For a multi-scene video,
+          start from a TikTok reference in Discover and write a script instead.
+        </p>
+      ) : null}
+
       <textarea
         ref={textareaRef}
         value={value}
