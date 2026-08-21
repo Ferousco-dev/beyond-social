@@ -254,6 +254,35 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
   }
 }
 
+{
+  // Regression: lastIndexOf("}") picked up a brace from trailing prose after
+  // the real JSON, breaking a reply whose JSON was fine on its own.
+  const clean = parseJsonReply(
+    `{"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"}`,
+    briefSchema,
+  );
+  check("a bare JSON reply still parses", "data" in clean);
+
+  const trailingProse = parseJsonReply(
+    `Here you go: {"hook":"h","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"} Let me know if that fits the brief {you asked for}.`,
+    briefSchema,
+  );
+  check(
+    "trailing prose with its own } does not break the parse",
+    "data" in trailingProse,
+    "data" in trailingProse ? "" : trailingProse.reason,
+  );
+
+  const quotedBrace = parseJsonReply(
+    `{"hook":"a curly brace looks like this: }","titles":["t"],"beats":[{"label":"Hook","timing":"0:00-0:03","detail":"d"},{"label":"Payoff","timing":"0:10-0:15","detail":"d"}],"durationSeconds":15,"hashtags":[],"prompt":"${"p".repeat(20)}"}`,
+    briefSchema,
+  );
+  check(
+    "a } inside a quoted string is not mistaken for the close",
+    "data" in quotedBrace && quotedBrace.data.hook.includes("}"),
+  );
+}
+
 // `process.stdout` rather than `console`, matching the sibling smoke scripts
 // and the lint rule that keeps `console` for warnings and errors.
 process.stdout.write(
