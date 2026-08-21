@@ -184,8 +184,21 @@ touches `video_generations` at all. This is a real gap, larger than a single
 PR (needs a sweep job mirroring the existing retention cron's pattern), noted
 for a future session rather than rushed here.
 
-One-time credit-pack checkout: in progress as a background task at the time
-of this note; status to be updated once it lands.
+**Status: done, PR #107 (merged).** Confirmed the real blocker first rather
+than inventing around it: every `CreditPack.priceUsd` is `null` by design, no
+`STRIPE_PRICE_PACK_*` env exists, so there is no real price or Stripe Price id
+to check out against yet. Shipped only what's safe without one: the
+receiving side. `applyCreditPackPurchase` grants a one-time purchase's
+credits directly inside the webhook's `checkout.session.completed` handler
+(a payment-mode checkout gets no `customer.subscription.created` follow-up
+the way a subscription does), keyed on the checkout session id through the
+existing `grant_credits` idempotency primitive. Verified against a real
+local Supabase with a locally-signed Stripe test event, no network calls to
+Stripe: 18/18 checks pass, including that redelivering the identical event
+grants nothing a second time. The checkout-initiation side (mirroring
+`startCheckout` in `mode: "payment"`) and the grid's button wiring stay
+blocked on the owner deciding real pack prices and creating real Stripe
+Price ids.
 
 ## Explicitly out of scope this session
 
