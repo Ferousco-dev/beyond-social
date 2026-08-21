@@ -6,6 +6,7 @@ import { createRedis } from "../lib/redis";
 import { createServiceClient } from "../lib/supabase";
 import { logger } from "../lib/logger";
 import { PUBLISH_QUEUE, type PublishJobData } from "../queues/publishing";
+import { reportPublishFailure } from "./publish-failure";
 
 /**
  * Publishes one scheduled post.
@@ -181,28 +182,7 @@ export function startPublishWorker(): Worker<PublishJobData> {
   );
 
   worker.on("failed", (job, error) => {
-    logger.warn("publish job failed", {
-      jobId: job?.id,
-      attempts: job?.attemptsMade,
-      error: error.message,
-    });
-    /*
-     * A revoked token or a rejected video is thrown as `UnrecoverableError`
-     * above specifically so it does not retry, and BullMQ honours that by
-     * failing the job on its first attempt regardless of how many are
-     * configured. Checking only `attemptsMade >= attempts` missed exactly that
-     * case, the one this comment used to say ends the job immediately: it left
-     * every genuinely permanent failure sitting at `status = 'publishing'`
-     * forever, no error on the row, nothing for the user to see.
-     */
-    const attempts = job?.opts.attempts ?? 1;
-    const permanent = job && (job.attemptsMade >= attempts || error instanceof UnrecoverableError);
-    if (permanent) {
-      void supabase
-        .from("scheduled_posts")
-        .update({ status: "failed", error: error.message })
-        .eq("id", job.data.scheduledPostId);
-    }
+    void reportPublishFailure(supabase, job, error);
   });
 
   return worker;
