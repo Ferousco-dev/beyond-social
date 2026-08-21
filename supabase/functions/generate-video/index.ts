@@ -10,7 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
-import { UnsupportedModelError } from "../_shared/kie-models.ts";
+import { buildMarketInput, UnsupportedModelError } from "../_shared/kie-models.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
@@ -113,6 +113,40 @@ Deno.serve(async (req) => {
   });
   if (!planned.ok) return json({ error: planned.error }, planned.status);
   const { model, duration, shots, isVeo } = planned.plan;
+
+  /*
+   * A market model's request shape is checked before anything is created, not
+   * only before it is sent.
+   *
+   * `createMarketVideoTask` already refused an unaddressable shape, missing
+   * footage for motion control, an image where a model wants a video, but
+   * only once it ran, which by then was after the row existed and the credits
+   * were already held: a request that could never have worked reserved and
+   * then immediately refunded a charge for nothing. This is the same check,
+   * run before either exists, so that request now costs a row in the table
+   * exactly as little as a `planRun` rejection does, which is none.
+   */
+  if (!isVeo) {
+    try {
+      buildMarketInput(model, {
+        prompt,
+        imageUrls: referenceUrls ?? [],
+        videoUrls: footageUrls,
+        aspectRatio,
+        duration,
+        shots,
+      });
+    } catch (error) {
+      if (error instanceof UnsupportedModelError) {
+        log("error", "refused a request with an unaddressable shape before reserving credits", {
+          traceId,
+          model,
+        });
+        return json({ error: error.message }, 400);
+      }
+      throw error;
+    }
+  }
 
   /*
    * The row is written before the provider is called, because the credits are
