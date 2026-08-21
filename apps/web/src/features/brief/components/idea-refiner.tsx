@@ -113,7 +113,12 @@ export function IdeaRefiner({
           <button
             type="button"
             onClick={onBack}
-            className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            // The same reason the idea screen's own Back is guarded: a brief is
+            // still being written in a component that outlives this screen, and
+            // leaving now would let it land on whatever the user has since
+            // navigated to instead of being cancelled.
+            disabled={pending}
+            className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ArrowLeft className="size-4" aria-hidden />
             Edit idea
