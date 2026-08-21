@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowRight, Clapperboard, Sparkles } from "lucide-react";
 
+import { HOOK_PATTERN_LABELS } from "@/lib/hooks/taxonomy";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +70,12 @@ export function AnalysisSheet({
               ) : null}
 
               <section className="mt-5">
-                <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">Hook</h3>
+                <h3 className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-ink-soft">
+                  Hook
+                  <span className="rounded-full bg-cloud px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-ink-soft">
+                    {HOOK_PATTERN_LABELS[analysis.hookPattern]}
+                  </span>
+                </h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-ink">{analysis.hook}</p>
               </section>
 

@@ -77,11 +77,11 @@ function toBytes(binary: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-async function signingKey(): Promise<CryptoKey | null> {
+function signingKey(): Promise<CryptoKey | null> {
   const raw = Deno.env.get("WEBHOOK_SECRET_KEY") ?? "";
-  if (raw === "") return null;
+  if (raw === "") return Promise.resolve(null);
   const bytes = toBytes(atob(raw));
-  if (bytes.length !== 32) return null;
+  if (bytes.length !== 32) return Promise.resolve(null);
   return crypto.subtle.importKey("raw", bytes, "AES-GCM", false, ["decrypt"]);
 }
 

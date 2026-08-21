@@ -490,6 +490,12 @@ export async function runTurn(
       notice = gate.notice;
       return;
     }
+    // Said alongside whatever else this turn already has to say, not instead
+    // of it: a shot-fold or duration notice is still true, and a low balance
+    // is a separate fact about the account rather than about this render.
+    if (gate.lowBalanceNotice) {
+      notice = notice === undefined ? gate.lowBalanceNotice : `${notice} ${gate.lowBalanceNotice}`;
+    }
 
     try {
       // Hands the trace across the process boundary. The edge function stores it

@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { parseJsonReply } from "@/lib/brief/schema";
+import { HOOK_PATTERN_DESCRIPTIONS, HOOK_PATTERNS } from "@/lib/hooks/taxonomy";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { getPromptTemplate } from "@/lib/prompts/registry";
@@ -44,6 +45,16 @@ export const postAnalysisSchema = z.object({
     .trim()
     .min(1)
     .transform((value) => value.slice(0, 200)),
+  /**
+   * The hook, named against a fixed list rather than left as free text. Two
+   * hooks that read nothing alike, "nobody tells you this" and "here's the
+   * secret nobody warns you about", are the same pattern once tagged, which is
+   * what makes "give me a curiosity gap instead" a request with a field to
+   * land in rather than a sentence someone has to re-read every hook to judge.
+   * An unclear reply falls to `other` rather than a guessed pattern, which
+   * would be worse for anything correlating outcomes against it later.
+   */
+  hookPattern: z.enum(HOOK_PATTERNS).catch("other"),
   /** The beats in order, as far as the signals support. */
   structure: z
     .array(
@@ -127,12 +138,17 @@ function buildPrompt(post: AnalysablePost, industry: string | null): string {
     "",
     "Set `confidence` honestly: high only with a transcript and a caption that agree, low when you have little more than a caption.",
     "",
+    "Classify `hookPattern` against exactly this list, picking the closest one rather than inventing your own:",
+    HOOK_PATTERNS.map((pattern) => `- ${pattern}: ${HOOK_PATTERN_DESCRIPTIONS[pattern]}`).join(
+      "\n",
+    ),
+    "",
     industry !== null
       ? `Write \`brief\` for a creator in the ${industry} industry: the same format, applied to their own subject.`
       : "Write `brief` so the same format can be applied to a different subject.",
     "`brief` is handed straight to a video generator, so it must describe what should be on screen and must not mention this post, this analysis, or TikTok.",
     "",
-    'Respond with JSON only: {"format":"","hook":"","structure":[""],"whyItWorks":"","brief":"","confidence":"low"}',
+    'Respond with JSON only: {"format":"","hook":"","hookPattern":"other","structure":[""],"whyItWorks":"","brief":"","confidence":"low"}',
     "",
     // Fenced and labelled: a caption is a stranger's text and a transcript is a
     // stranger's speech, so both are data to read rather than instructions.
