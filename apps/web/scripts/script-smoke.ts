@@ -63,6 +63,75 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
 }
 
 {
+  // Both blocks are new. A reply from before they existed, or a model that
+  // simply didn't fill them in, has to parse exactly as it always did.
+  const out = script({
+    title: "No metadata or generation instructions at all",
+    mechanics,
+    subject,
+    scenes: [scene("Hook", 3), scene("Payoff", 4)],
+  });
+  check(
+    "metadata defaults when the model never mentions it",
+    "data" in out &&
+      out.data.metadata.aspectRatio === "9:16" &&
+      out.data.metadata.platform === "" &&
+      out.data.metadata.category === "",
+  );
+  check(
+    "generation instructions default when the model never mentions them",
+    "data" in out &&
+      out.data.generationInstructions.style === "" &&
+      out.data.generationInstructions.cinematography === "" &&
+      out.data.generationInstructions.audio === "" &&
+      out.data.generationInstructions.negativePrompts.length === 0 &&
+      out.data.generationInstructions.modelInstructions === "",
+  );
+}
+
+{
+  const out = script({
+    title: "Fully specified",
+    mechanics,
+    subject,
+    scenes: [scene("Hook", 3), scene("Payoff", 4)],
+    metadata: { aspectRatio: "16:9", platform: "youtube", category: "Food and drink" },
+    generationInstructions: {
+      style: "Handheld, natural light",
+      cinematography: "Mostly static, one push in on the payoff",
+      audio: "Warm acoustic guitar under the voiceover",
+      negativePrompts: ["No stock footage", "No text-heavy slides"],
+      modelInstructions: "Keep every cut under three seconds",
+    },
+  });
+  check(
+    "a fully specified metadata and generation instructions block parses",
+    "data" in out &&
+      out.data.metadata.aspectRatio === "16:9" &&
+      out.data.metadata.category === "Food and drink" &&
+      out.data.generationInstructions.negativePrompts.length === 2,
+  );
+
+  if ("data" in out) {
+    const compiled = compileScript(out.data);
+    check("the orientation follows the aspect ratio", compiled.prompt.includes("landscape short-form"));
+    check("style reaches the compiled prompt", compiled.prompt.includes("Style: Handheld, natural light."));
+    check(
+      "cinematography and audio reach the compiled prompt",
+      compiled.prompt.includes("Cinematography: Mostly static") && compiled.prompt.includes("Audio: Warm acoustic"),
+    );
+    check(
+      "negative prompts are joined into an avoid line",
+      compiled.prompt.includes("Avoid: No stock footage; No text-heavy slides."),
+    );
+    check(
+      "model instructions reach the compiled prompt",
+      compiled.prompt.includes("Also: Keep every cut under three seconds."),
+    );
+  }
+}
+
+{
   // One malformed scene must cost its own scene, not the script.
   const out = script({
     title: "Kept",

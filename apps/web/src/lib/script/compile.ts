@@ -1,3 +1,4 @@
+import { type AspectRatio } from "./schema-metadata";
 import { totalSeconds, type ScriptScene, type VideoScript } from "./schema";
 
 /**
@@ -23,6 +24,13 @@ const PROMPT_LIMIT = 2000;
 
 /** The provider's own ceiling for one beat's prompt. */
 const SHOT_LIMIT = 500;
+
+/** How each aspect ratio reads in a sentence, e.g. "vertical short-form video". */
+const ORIENTATION: Record<AspectRatio, string> = {
+  "9:16": "vertical",
+  "16:9": "landscape",
+  "1:1": "square",
+};
 
 /**
  * How much detail each scene carries.
@@ -78,10 +86,10 @@ function sceneLines(scene: ScriptScene, at: number, detail: Detail): string[] {
 }
 
 function header(script: VideoScript, detail: Detail): string[] {
-  const { mechanics, subject } = script;
+  const { metadata, mechanics, subject, generationInstructions } = script;
 
   return [
-    `A ${totalSeconds(script.scenes)} second vertical short-form video: ${script.title}`,
+    `A ${totalSeconds(script.scenes)} second ${ORIENTATION[metadata.aspectRatio]} short-form video: ${script.title}`,
     "",
     `Speaker on camera: ${subject.speaker}`,
     `Audience: ${subject.audience}`,
@@ -91,9 +99,24 @@ function header(script: VideoScript, detail: Detail): string[] {
     `Ends on: ${subject.cta}`,
     "",
     `Hook: ${mechanics.hookType}. Pacing: ${mechanics.pacing}. Emotional arc: ${mechanics.emotionalArc}.`,
+    generationInstructions.style ? `Style: ${generationInstructions.style}.` : "",
     detail.kind === "full" && mechanics.retention.length > 0
       ? `Hold attention by: ${mechanics.retention.join("; ")}.`
       : "",
+    // Cinematography, audio and the negative list go with camera and retention:
+    // detail a model infers acceptably on its own when space is tight.
+    detail.kind === "full" && generationInstructions.cinematography
+      ? `Cinematography: ${generationInstructions.cinematography}.`
+      : "",
+    detail.kind === "full" && generationInstructions.audio
+      ? `Audio: ${generationInstructions.audio}.`
+      : "",
+    detail.kind === "full" && generationInstructions.negativePrompts.length > 0
+      ? `Avoid: ${generationInstructions.negativePrompts.join("; ")}.`
+      : "",
+    // Never dropped, unlike the above: this is a literal instruction to the
+    // render model rather than creative detail it can infer without.
+    generationInstructions.modelInstructions ? `Also: ${generationInstructions.modelInstructions}.` : "",
   ].filter(Boolean);
 }
 
