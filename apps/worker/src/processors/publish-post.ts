@@ -1,4 +1,4 @@
-import { UnrecoverableError, Worker, type Job } from "bullmq";
+import { DelayedError, UnrecoverableError, Worker, type Job } from "bullmq";
 
 import { PermanentPublishError } from "../lib/platforms";
 import { publishPost } from "../lib/publish";
@@ -64,11 +64,21 @@ export function startPublishWorker(): Worker<PublishJobData> {
 
       const running = inFlight.get(userId) ?? 0;
       if (running >= MAX_IN_FLIGHT_PER_USER) {
-        // Delayed rather than failed: this is not an error, it is a turn taken
-        // by somebody else. The wait is short because slots free constantly.
+        /*
+         * Delayed rather than failed: this is not an error, it is a turn taken
+         * by somebody else. The wait is short because slots free constantly.
+         *
+         * `moveToDelayed` only changes the job's state in Redis; it does not
+         * stop this function from returning normally afterwards, and a normal
+         * return is what BullMQ reads as "completed". Throwing `DelayedError`
+         * right after is how the worker itself is told not to do that: it is
+         * caught internally and never reaches `worker.on("failed", ...)`,
+         * which is what kept this from ever showing up as a real failure while
+         * still leaving the job in the wrong state underneath.
+         */
         await job.moveToDelayed(Date.now() + 5_000, job.token);
         logger.debug("deferred for fairness", { userId, running });
-        return;
+        throw new DelayedError();
       }
       inFlight.set(userId, running + 1);
 
@@ -101,11 +111,23 @@ export function startPublishWorker(): Worker<PublishJobData> {
 
         let videoUrl: string | null = null;
         if (post.generation_id) {
-          const { data } = await supabase
+          const { data, error: lookupError } = await supabase
             .from("video_generations")
             .select("result_path")
             .eq("id", post.generation_id)
             .single();
+
+          /*
+           * A read that failed is not the same fact as a row with nothing in
+           * it, and treating them the same used to send both down the same
+           * path: `videoUrl` stayed null either way, which `publishPost` reads
+           * as "this post genuinely has no video" and refuses permanently.
+           * A transient read here would have failed the post for good on a
+           * reason that was never true. Thrown plainly, not as
+           * `PermanentPublishError`, so it retries like any other transient
+           * failure instead of ending the job on the spot.
+           */
+          if (lookupError) throw new Error(`could not read the render for this post: ${lookupError.message}`);
 
           const path = (data?.result_path as string | null) ?? null;
           if (path) {
@@ -163,8 +185,18 @@ export function startPublishWorker(): Worker<PublishJobData> {
       attempts: job?.attemptsMade,
       error: error.message,
     });
+    /*
+     * A revoked token or a rejected video is thrown as `UnrecoverableError`
+     * above specifically so it does not retry, and BullMQ honours that by
+     * failing the job on its first attempt regardless of how many are
+     * configured. Checking only `attemptsMade >= attempts` missed exactly that
+     * case, the one this comment used to say ends the job immediately: it left
+     * every genuinely permanent failure sitting at `status = 'publishing'`
+     * forever, no error on the row, nothing for the user to see.
+     */
     const attempts = job?.opts.attempts ?? 1;
-    if (job && job.attemptsMade >= attempts) {
+    const permanent = job && (job.attemptsMade >= attempts || error instanceof UnrecoverableError);
+    if (permanent) {
       void supabase
         .from("scheduled_posts")
         .update({ status: "failed", error: error.message })
