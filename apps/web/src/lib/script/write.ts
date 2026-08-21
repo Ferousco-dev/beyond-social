@@ -1,6 +1,7 @@
 import "server-only";
 
 import { parseJsonReply } from "@/lib/brief/schema";
+import { HOOK_PATTERN_DESCRIPTIONS, HOOK_PATTERN_LABELS } from "@/lib/hooks/taxonomy";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
@@ -59,6 +60,11 @@ function buildPrompt(input: WriteScriptInput): string {
     "WHAT WORKED IN THE SOURCE, which you keep:",
     `Format: ${analysis.format}`,
     `Hook: ${analysis.hook}`,
+    // Already classified in the analysis pass, so it is stated rather than
+    // re-derived: writing `mechanics.hookType` from scratch here risked a
+    // second, differently-worded guess at the same thing the taxonomy exists
+    // to make consistent and searchable.
+    `Hook pattern: ${HOOK_PATTERN_LABELS[analysis.hookPattern]} (${HOOK_PATTERN_DESCRIPTIONS[analysis.hookPattern]})`,
     analysis.structure.length > 0 ? `Structure: ${analysis.structure.join(" -> ")}` : "",
     `Why it held attention: ${analysis.whyItWorks}`,
     "",
@@ -78,6 +84,7 @@ function buildPrompt(input: WriteScriptInput): string {
           .join("\n"),
     "",
     "RULES",
+    `\`mechanics.hookType\` should be the hook pattern named above, not a new description of it.`,
     `Between two and ${MAX_SCENES} scenes. They must add up to no more than ${MAX_TOTAL_SECONDS} seconds, because that is the longest video the renderer makes in one piece.`,
     "The first scene is the hook and lands inside its first second.",
     "`voiceover` is the exact words spoken, as a person would say them. No stage directions, no quotation marks, no narrator describing the scene.",
