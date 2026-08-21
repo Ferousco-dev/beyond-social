@@ -86,9 +86,14 @@ export function ScriptSubjectFields({
 
   return (
     <section>
-      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-        What yours is about
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+          What yours is about
+        </h3>
+        <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+          Change freely
+        </span>
+      </div>
 
       <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
         {FIELDS.map((field) => (

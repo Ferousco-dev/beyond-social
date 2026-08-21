@@ -16,9 +16,15 @@ export function ScriptMechanicsPanel({ mechanics }: { mechanics: ScriptMechanics
 
   return (
     <section className="rounded-xl bg-cloud p-4">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
-        What keeps this working
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
+          What keeps this working
+        </h3>
+        {/* Nothing below has an input next to it; this is why. */}
+        <span className="inline-flex items-center rounded-full bg-paper px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
+          Preserved
+        </span>
+      </div>
 
       <dl className="mt-2.5 grid gap-2 sm:grid-cols-3">
         {rows.map((row) => (
