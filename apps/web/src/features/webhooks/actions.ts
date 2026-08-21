@@ -132,11 +132,16 @@ export async function setWebhookActive(id: string, isActive: boolean): Promise<A
   }
   try {
     const supabase = await createClient();
-    const { error } = await supabase
+    // Selected back for the same reason `rotateWebhookSecret` above does: RLS
+    // turns a foreign or already-gone id into a match against nothing rather
+    // than an error, and without this that read as success.
+    const { data, error } = await supabase
       .from("user_webhooks")
       .update({ is_active: isActive })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return { status: "error", message: "Endpoint not found." };
     revalidatePath(PATH);
     return { status: "ok" };
   } catch {
@@ -149,8 +154,9 @@ export async function deleteWebhook(id: string): Promise<ActionResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
   try {
     const supabase = await createClient();
-    const { error } = await supabase.from("user_webhooks").delete().eq("id", id);
+    const { data, error } = await supabase.from("user_webhooks").delete().eq("id", id).select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return { status: "error", message: "Endpoint not found." };
     revalidatePath(PATH);
     return { status: "ok" };
   } catch {
