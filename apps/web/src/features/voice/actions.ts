@@ -180,7 +180,13 @@ export async function deleteVoiceProfile(): Promise<DeleteResult> {
 
   const row = data as { storage_path: string } | null;
   if (row) {
-    await supabase.storage.from("uploads").remove([row.storage_path]);
+    // The row goes regardless of whether the object does: an orphaned clip is
+    // findable and cheap, the same call `removeBrandAsset` makes for a saved
+    // picture, and it is the row that says whether this account has a voice on
+    // file. This used to drop the result silently; a failure here now at least
+    // reaches the log, matching every other action that removes storage.
+    const { error: storageError } = await supabase.storage.from("uploads").remove([row.storage_path]);
+    if (storageError) logger.warn("voice clip left behind", { error: storageError.message });
     await supabase.from("voice_profiles").delete().eq("user_id", user.id);
   }
 
