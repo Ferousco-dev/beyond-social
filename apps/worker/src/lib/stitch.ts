@@ -69,7 +69,16 @@ async function renderGraph(files: readonly string[], filterComplex: string): Pro
 
     const args: string[] = ["-hide_banner", "-loglevel", "error", "-y"];
     for (const file of files) args.push("-i", file);
-    args.push("-filter_complex", filterComplex, "-map", "[v]", "-map", "[a]", ...ENCODE_ARGS, output);
+    args.push(
+      "-filter_complex",
+      filterComplex,
+      "-map",
+      "[v]",
+      "-map",
+      "[a]",
+      ...ENCODE_ARGS,
+      output,
+    );
 
     await run(binary(), args, { maxBuffer: 1024 * 1024 * 16 });
 

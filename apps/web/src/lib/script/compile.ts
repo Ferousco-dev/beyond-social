@@ -58,8 +58,10 @@ function sceneLines(scene: ScriptScene, at: number, detail: Detail): string[] {
    * "", which took the visual line to empty on every scene in every other
    * tier, the exact field the compiler exists to protect.
    */
-  const forSpeech = detail.kind === "tight" ? Math.floor(detail.perScene / 2) : scene.voiceover.length;
-  const visual = detail.kind === "tight" ? scene.visual.slice(0, detail.perScene - forSpeech) : scene.visual;
+  const forSpeech =
+    detail.kind === "tight" ? Math.floor(detail.perScene / 2) : scene.voiceover.length;
+  const visual =
+    detail.kind === "tight" ? scene.visual.slice(0, detail.perScene - forSpeech) : scene.visual;
   const voiceover = detail.kind === "tight" ? scene.voiceover.slice(0, forSpeech) : scene.voiceover;
 
   return [

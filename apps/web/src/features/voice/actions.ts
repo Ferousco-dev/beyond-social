@@ -185,7 +185,9 @@ export async function deleteVoiceProfile(): Promise<DeleteResult> {
     // picture, and it is the row that says whether this account has a voice on
     // file. This used to drop the result silently; a failure here now at least
     // reaches the log, matching every other action that removes storage.
-    const { error: storageError } = await supabase.storage.from("uploads").remove([row.storage_path]);
+    const { error: storageError } = await supabase.storage
+      .from("uploads")
+      .remove([row.storage_path]);
     if (storageError) logger.warn("voice clip left behind", { error: storageError.message });
     await supabase.from("voice_profiles").delete().eq("user_id", user.id);
   }

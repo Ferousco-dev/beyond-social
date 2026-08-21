@@ -127,7 +127,8 @@ export function startPublishWorker(): Worker<PublishJobData> {
            * `PermanentPublishError`, so it retries like any other transient
            * failure instead of ending the job on the spot.
            */
-          if (lookupError) throw new Error(`could not read the render for this post: ${lookupError.message}`);
+          if (lookupError)
+            throw new Error(`could not read the render for this post: ${lookupError.message}`);
 
           const path = (data?.result_path as string | null) ?? null;
           if (path) {
