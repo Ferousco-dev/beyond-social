@@ -62,7 +62,23 @@ Deno.serve(async (req) => {
     const resultUrl = generation
       ? await persistRender(admin, generation.user_id, taskId, urls[0])
       : urls[0];
-    await admin.rpc("complete_generation", { p_provider_task_id: taskId, p_result_url: resultUrl });
+    const { error } = await admin.rpc("complete_generation", {
+      p_provider_task_id: taskId,
+      p_result_url: resultUrl,
+    });
+    if (error) {
+      // supabase-js does not throw on an RPC error, it returns it here. Miss
+      // this and the row is stuck at "generating" with its credit already
+      // spent, and kie.ai believes the callback succeeded because we answer
+      // 200 either way. A 5xx is the one signal that tells kie.ai to retry.
+      log("error", "complete_generation failed", {
+        traceId,
+        taskId,
+        generationId: generation?.id,
+        reason: error.message,
+      });
+      return json({ error: "Could not complete the generation" }, 500);
+    }
     log("info", "generation completed", { traceId, taskId });
     if (generation) {
       await deliverEvent(
@@ -80,7 +96,19 @@ Deno.serve(async (req) => {
     }
   } else {
     const reason = body.msg ?? "Generation failed";
-    await admin.rpc("fail_generation", { p_provider_task_id: taskId, p_error: reason });
+    const { error } = await admin.rpc("fail_generation", {
+      p_provider_task_id: taskId,
+      p_error: reason,
+    });
+    if (error) {
+      log("error", "fail_generation failed", {
+        traceId,
+        taskId,
+        generationId: generation?.id,
+        reason: error.message,
+      });
+      return json({ error: "Could not record the generation failure" }, 500);
+    }
     log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
     if (generation) {
       await deliverEvent(
