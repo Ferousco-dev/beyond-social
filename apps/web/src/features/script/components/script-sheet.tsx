@@ -62,7 +62,7 @@ export function ScriptSheet({
               <ScriptPlaceholder message={draft.failed} />
             ) : (
               <>
-                <ScriptMechanicsPanel mechanics={draft.script.mechanics} />
+                <ScriptMechanicsPanel mechanics={draft.script.mechanics} scenes={draft.script.scenes} />
                 <ScriptSubjectFields
                   subject={draft.script.subject}
                   stale={draft.stale}
@@ -73,7 +73,11 @@ export function ScriptSheet({
                   onBindProduct={draft.bindProduct}
                   onRewrite={draft.rewrite}
                 />
-                <ScriptScenes scenes={draft.script.scenes} onChange={draft.setSceneField} />
+                <ScriptScenes
+                  scenes={draft.script.scenes}
+                  baseline={draft.baseline}
+                  onChange={draft.setSceneField}
+                />
               </>
             )}
           </div>

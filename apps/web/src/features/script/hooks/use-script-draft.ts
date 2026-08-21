@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { type BrandAsset } from "@/lib/assets/brand";
+import { captureBaseline, type ScriptBaseline } from "@/lib/script/divergence";
 import { type ScriptScene, type ScriptSubject, type VideoScript } from "@/lib/script/schema";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
@@ -38,6 +39,12 @@ export interface ScriptDraft {
   readonly failed: string | null;
   /** True once the subject has been edited and the lines no longer match it. */
   readonly stale: boolean;
+  /**
+   * The scene structure as first written. Null until a script exists, and
+   * reset every time one is (re)written, since a rewrite produces a new
+   * pattern to hold live edits against rather than the old one.
+   */
+  readonly baseline: ScriptBaseline | null;
   readonly bindings: AssetBindings;
   readonly setSubjectField: (field: keyof ScriptSubject, value: string) => void;
   readonly setSceneField: (index: number, patch: Partial<ScriptScene>) => void;
@@ -54,6 +61,7 @@ export function useScriptDraft(analysis: PostAnalysis | null): ScriptDraft {
   const [script, setScript] = useState<VideoScript | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
+  const [baseline, setBaseline] = useState<ScriptBaseline | null>(null);
   const [bindings, setBindings] = useState<AssetBindings>(NO_BINDINGS);
   const [writing, startWriting] = useTransition();
 
@@ -67,6 +75,7 @@ export function useScriptDraft(analysis: PostAnalysis | null): ScriptDraft {
       if (result.status === "ok") {
         setScript(result.script);
         setStale(false);
+        setBaseline(captureBaseline(result.script.scenes));
         return;
       }
       setFailed(
@@ -83,6 +92,7 @@ export function useScriptDraft(analysis: PostAnalysis | null): ScriptDraft {
       setScript(null);
       setStale(false);
       setFailed(null);
+      setBaseline(null);
       setBindings(NO_BINDINGS);
       return;
     }
@@ -158,6 +168,7 @@ export function useScriptDraft(analysis: PostAnalysis | null): ScriptDraft {
     writing,
     failed,
     stale,
+    baseline,
     bindings,
     setSubjectField,
     setSceneField,
