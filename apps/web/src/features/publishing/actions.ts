@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { currentTrace, withActionTrace } from "@/lib/observability/trace";
+import { listConnections } from "@/lib/social/connections";
 import { isPlatformConfigured } from "@/lib/social/platforms";
 import { createClient } from "@/lib/supabase/server";
 import { isValidTimeZone } from "@/lib/time/zone";
@@ -43,7 +44,14 @@ const scheduleSchema = z.object({
       }),
     )
     .min(1)
-    .max(PLATFORMS.length),
+    .max(PLATFORMS.length)
+    // Two posts naming the same platform share the same idempotency key and
+    // the upsert below silently drops the second, which would have reported
+    // scheduling one more post than actually landed.
+    .refine(
+      (posts) => new Set(posts.map((post) => post.platform)).size === posts.length,
+      "Each platform can only be scheduled once per request",
+    ),
 });
 
 export type ScheduleResult =
@@ -117,6 +125,29 @@ async function schedule(input: z.input<typeof scheduleSchema>): Promise<Schedule
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to continue" };
+
+  /*
+   * The app having credentials for a platform is not the same fact as this
+   * account having authorised it. `isPlatformConfigured` above only answers
+   * the first, so scheduling to a platform the app supports but this person
+   * has never connected, or disconnected since, passed straight through and
+   * only failed hours or days later when the worker actually tried to
+   * publish, which is exactly the silent-until-it-fails outcome this
+   * function's own check above exists to avoid for the other case.
+   */
+  const connections = await listConnections();
+  const connected = new Set(
+    connections
+      .filter((connection) => connection.connected)
+      .map((connection) => connection.platform),
+  );
+  const disconnected = posts.filter((post) => !connected.has(post.platform));
+  if (disconnected.length > 0) {
+    return {
+      status: "error",
+      message: `Connect your account first: ${disconnected.map((post) => post.platform).join(", ")}`,
+    };
+  }
 
   // The generation has to be finished and theirs. RLS would refuse another
   // user's row anyway; this turns that into a sentence rather than a silent
