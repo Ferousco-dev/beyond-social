@@ -66,12 +66,26 @@ export type PickerQuestion = z.infer<typeof questionSchema>;
 const questionsField = z
   .array(z.unknown())
   .default([])
-  .transform((items) =>
-    items
-      .map((item) => questionSchema.safeParse(item))
-      .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
-      .slice(0, 4),
-  );
+  .transform((items) => {
+    const seen = new Set<string>();
+    return (
+      items
+        .map((item) => questionSchema.safeParse(item))
+        .flatMap((parsed) => (parsed.success ? [parsed.data] : []))
+        /*
+         * The refiner keys an answer by its question's own label, which the
+         * model writes freely with no uniqueness promised. Two questions
+         * sharing one label would answer as one: picking an option for either
+         * marks both settled, and the second's answer, if it differs from what
+         * the first's option set actually offered, is whatever the first one's
+         * label happened to be pointing at. The first occurrence wins and the
+         * rest are dropped, the same rule every other malformed item here
+         * follows: cost the one item, not the whole reply.
+         */
+        .filter((question) => (seen.has(question.label) ? false : (seen.add(question.label), true)))
+        .slice(0, 4)
+    );
+  });
 
 export const analysisSchema = z.object({
   topic: text(120),
@@ -168,6 +182,43 @@ export const answersSchema = z.record(z.string().max(32), z.string().max(40));
 export type BriefAnswers = z.infer<typeof answersSchema>;
 
 /**
+ * Finds the index of the `}` that actually closes the object opened at
+ * `start`, by depth and not by position.
+ *
+ * `lastIndexOf("}")` was what this used to do, on the assumption that the
+ * JSON is the last thing in the reply. A model that appends even a short
+ * sentence after the object, and that sentence contains its own `}` for any
+ * reason, a stray one, a code-like aside, moved the assumed end past the
+ * real one and folded that trailing text into what was then parsed as JSON,
+ * failing a reply whose JSON was perfectly fine on its own. Scanning forward
+ * from the opening brace and counting depth finds the brace that actually
+ * matches it, and skipping the contents of string literals is what keeps a
+ * `}` inside a quoted value, ordinary text, from being counted at all.
+ */
+function matchingBraceIndex(text: string, start: number): number {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i++) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === "{") depth++;
+    else if (char === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/**
  * Pulls the JSON object out of a reply that may be fenced or prefaced.
  *
  * Shared by both passes rather than duplicated: the models wrap JSON in prose
@@ -178,8 +229,8 @@ export function parseJsonReply<S extends z.ZodTypeAny>(
   schema: S,
 ): { data: z.output<S> } | { reason: string } {
   const start = reply.indexOf("{");
-  const end = reply.lastIndexOf("}");
-  if (start === -1 || end <= start) return { reason: "no JSON object in the reply" };
+  const end = start === -1 ? -1 : matchingBraceIndex(reply, start);
+  if (start === -1 || end === -1) return { reason: "no JSON object in the reply" };
 
   let json: unknown;
   try {
