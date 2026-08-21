@@ -163,6 +163,33 @@ async function main(): Promise<void> {
     `${cache.stats().hitRate.toFixed(2)} hit rate`,
   );
 
+  /*
+   * The cache's own configured ttlMs used to have no effect: the gateway
+   * always priced expiry off a module constant unless `cacheTtlMs` was also
+   * set on the gateway itself, a second place to say the same thing that
+   * nothing enforced agreement with. A cache built with a short TTL and no
+   * gateway-level override must actually expire on it.
+   */
+  let ttlClock = 0;
+  const shortLived = new MemoryResponseCache(500, 1_000, () => ttlClock);
+  const ttlCounted = flaky(0, 50);
+  const ttlGateway = new AiGateway({
+    clients: { anthropic: ttlCounted },
+    cache: shortLived,
+    now: () => ttlClock,
+  });
+  const ttlReq = { task: "generation" as const, system: "ttl", messages: [], temperature: 0 };
+  await ttlGateway.complete(ttlReq);
+  ttlClock += 999;
+  const stillWarm = await ttlGateway.complete(ttlReq);
+  ttlClock += 2;
+  const expired = await ttlGateway.complete(ttlReq);
+  check(
+    "a cache's own TTL is honoured without a matching gateway option",
+    ttlCounted.calls === 2 && stillWarm.cached === true && expired.cached === false,
+    `${ttlCounted.calls} provider call(s)`,
+  );
+
   // 8. Sampled requests are never cached: the caller asked for variety.
   const sampled = flaky(0, 10);
   const notCached = new AiGateway({ clients: { anthropic: sampled }, usage, cache });
