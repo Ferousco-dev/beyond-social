@@ -6,4 +6,4 @@
  * optimistic reply and the stored one being different words is the kind of
  * thing that only shows up as a flicker on reload.
  */
-export const AVATAR_REPLY = "Making a video of you saying that.";
+export const AVATAR_REPLY = "Making a single continuous clip of you saying that.";
