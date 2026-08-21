@@ -4,9 +4,8 @@ import { useRouter } from "next/navigation";
 import { type Route } from "next";
 import { useCallback, useRef, useState, useTransition } from "react";
 
-import { ScriptSheet } from "@/features/script/components/script-sheet";
+import { ScriptSheet, type ScriptTake } from "@/features/script/components/script-sheet";
 import { leaveSeed } from "@/lib/composer/seed";
-import { type CompiledScript } from "@/lib/script/compile";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
@@ -224,8 +223,8 @@ export function DiscoverScroller({
    * structure that a query string would have to be taught to carry.
    */
   const seedScript = useCallback(
-    (compiled: CompiledScript) => {
-      leaveSeed({ prompt: compiled.prompt, shots: compiled.shots });
+    (take: ScriptTake) => {
+      leaveSeed({ prompt: take.compiled.prompt, shots: take.compiled.shots, photos: take.photos });
       setScripting(false);
       setReading(null);
       setAnalysis(null);
