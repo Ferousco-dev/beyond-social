@@ -73,7 +73,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
 
   const { data: existing } = await supabase
     .from("voice_profiles")
-    .select("id")
+    .select("id, storage_path")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -91,6 +91,16 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
       return { status: "error", message: "Could not save that voice" };
     }
     profile = data as typeof profile;
+
+    // Only after the row has moved on to the new clip. The previous recording
+    // was never removed here: every re-enrollment left its old clip behind in
+    // storage for good, found by nothing and cleaned up by nothing.
+    if (existing.storage_path !== parsed.data.path) {
+      const { error: staleError } = await supabase.storage
+        .from("uploads")
+        .remove([existing.storage_path]);
+      if (staleError) logger.warn("old voice clip left behind", { error: staleError.message });
+    }
   } else {
     const { data, error } = await supabase
       .from("voice_profiles")
