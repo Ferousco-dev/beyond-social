@@ -49,3 +49,4 @@ dump.rdb
 # Written by `deno check`, which is only ever run by hand against the edge
 # functions. It pins nothing the deploy uses, so it is noise in the tree.
 deno.lock
+.env*
