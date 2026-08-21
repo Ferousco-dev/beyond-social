@@ -1,6 +1,7 @@
 import "server-only";
 
 import { logger } from "@/lib/logger";
+import { fenceSafe } from "@/lib/text/fence";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { categoryLabel } from "@/lib/trends/categories";
 
@@ -57,7 +58,7 @@ export async function analyseIdea(
           "",
           'Respond with JSON only: {"topic":"","audience":"","angle":"","questions":[{"label":"","question":"","options":[""]}]}',
           "",
-          `<idea>\n${idea.slice(0, 2000)}\n</idea>`,
+          `<idea>\n${fenceSafe(idea.slice(0, 2000))}\n</idea>`,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -120,7 +121,7 @@ export async function buildBrief(
           "",
           'Respond with JSON only: {"hook":"","titles":[""],"beats":[{"label":"","timing":"","detail":""}],"durationSeconds":15,"hashtags":[""],"prompt":""}',
           "",
-          `<idea>\n${idea.slice(0, 2000)}\n</idea>`,
+          `<idea>\n${fenceSafe(idea.slice(0, 2000))}\n</idea>`,
         ]
           .filter(Boolean)
           .join("\n"),

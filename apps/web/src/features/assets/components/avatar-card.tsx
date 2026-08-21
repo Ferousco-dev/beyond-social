@@ -10,6 +10,7 @@ import { type BrandAsset } from "@/lib/assets/brand";
 
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
+import { MakeVideoButton } from "./make-video-button";
 
 /**
  * The saved likeness.
@@ -46,6 +47,15 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
         setAskConsent(path);
         return;
       }
+
+      /*
+       * A save that lands after a removal has to clear it, or `shown` stays
+       * forced to null forever: `avatar` is a server prop that only refreshes
+       * on the next navigation, so removing a picture and uploading a new one
+       * in the same visit left the card showing empty with a real picture
+       * saved behind it, and no way to see it without a reload.
+       */
+      if (result.status === "ok") setRemoved(false);
       setMessage(result.status === "ok" ? null : "Could not save that picture.");
     });
   }
@@ -115,6 +125,15 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
             {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
             {shown ? "Replace photo" : "Upload a photo"}
           </button>
+
+          {shown ? (
+            <MakeVideoButton
+              asset={shown}
+              className="h-9 border border-hairline px-4 text-ink hover:bg-cloud"
+            >
+              Make a video of you
+            </MakeVideoButton>
+          ) : null}
 
           {shown ? (
             <button

@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Clapperboard, Sparkles } from "lucide-react";
 
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 import { cn } from "@/lib/utils";
@@ -30,12 +30,15 @@ export function AnalysisSheet({
   open,
   onOpenChange,
   onUse,
+  onWriteScript,
 }: {
   analysis: PostAnalysis | null;
   handle: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUse: (brief: string) => void;
+  /** Takes the same analysis further: a shot-by-shot script rather than a paragraph. */
+  onWriteScript: () => void;
 }) {
   const confidence = analysis ? CONFIDENCE[analysis.confidence] : null;
 
@@ -104,7 +107,11 @@ export function AnalysisSheet({
                 <p className="mt-1.5 text-sm leading-relaxed text-ink">{analysis.brief}</p>
               </section>
 
-              <div className="mt-6 flex justify-end gap-2">
+              {/* Two ways on, and the order is the recommendation. A script is
+                  what makes the beats, the lines and the cuts survive into the
+                  render; the paragraph is for somebody who would rather write
+                  their own direction in the composer. */}
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
                 <Dialog.Close asChild>
                   <button
                     type="button"
@@ -116,10 +123,18 @@ export function AnalysisSheet({
                 <button
                   type="button"
                   onClick={() => onUse(analysis.brief)}
-                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   <Sparkles className="size-4" aria-hidden />
-                  Use this brief
+                  Just the brief
+                </button>
+                <button
+                  type="button"
+                  onClick={onWriteScript}
+                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <Clapperboard className="size-4" aria-hidden />
+                  Write the script
                   <ArrowRight className="size-4" aria-hidden />
                 </button>
               </div>

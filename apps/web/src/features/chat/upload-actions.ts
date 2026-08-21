@@ -182,15 +182,22 @@ export async function attachUploadedPhotos(
         ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type)
         : "person";
 
-      // Recorded so a thread can be rebuilt with the photos that fed it, and so
-      // an orphaned object can be found later.
-      await supabase.from("assets").insert({
+      /*
+       * Recorded so a thread can be rebuilt with the photos that fed it, and so
+       * an orphaned object can be found later. Not fatal to the attach: the
+       * photo is already uploaded and signed, and the consent gate treats a
+       * missing row as "unknown, so ask" rather than "not a person", so a
+       * failed insert here cannot let a face through unattested. It only means
+       * this one photo cannot be found again later, which is worth a log line.
+       */
+      const { error: assetError } = await supabase.from("assets").insert({
         user_id: user.id,
         project_id: projectId !== "new" ? projectId : null,
         kind: "photo",
         storage_path: path,
         contains_person: subject === "person",
       });
+      if (assetError) logger.warn("could not record a photo asset", { error: assetError.message });
 
       photos.push({ url: data.signedUrl, path });
     }

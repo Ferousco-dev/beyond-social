@@ -73,7 +73,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
 
   const { data: existing } = await supabase
     .from("voice_profiles")
-    .select("id")
+    .select("id, storage_path")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -91,6 +91,16 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
       return { status: "error", message: "Could not save that voice" };
     }
     profile = data as typeof profile;
+
+    // Only after the row has moved on to the new clip. The previous recording
+    // was never removed here: every re-enrollment left its old clip behind in
+    // storage for good, found by nothing and cleaned up by nothing.
+    if (existing.storage_path !== parsed.data.path) {
+      const { error: staleError } = await supabase.storage
+        .from("uploads")
+        .remove([existing.storage_path]);
+      if (staleError) logger.warn("old voice clip left behind", { error: staleError.message });
+    }
   } else {
     const { data, error } = await supabase
       .from("voice_profiles")
@@ -108,7 +118,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
 
   const url = await signVoicePath(supabase, profile.storage_path);
 
-  revalidatePath("/dashboard/settings/voice");
+  revalidatePath("/dashboard/assets");
   return {
     status: "ok",
     profile: {
@@ -180,10 +190,18 @@ export async function deleteVoiceProfile(): Promise<DeleteResult> {
 
   const row = data as { storage_path: string } | null;
   if (row) {
-    await supabase.storage.from("uploads").remove([row.storage_path]);
+    // The row goes regardless of whether the object does: an orphaned clip is
+    // findable and cheap, the same call `removeBrandAsset` makes for a saved
+    // picture, and it is the row that says whether this account has a voice on
+    // file. This used to drop the result silently; a failure here now at least
+    // reaches the log, matching every other action that removes storage.
+    const { error: storageError } = await supabase.storage
+      .from("uploads")
+      .remove([row.storage_path]);
+    if (storageError) logger.warn("voice clip left behind", { error: storageError.message });
     await supabase.from("voice_profiles").delete().eq("user_id", user.id);
   }
 
-  revalidatePath("/dashboard/settings/voice");
+  revalidatePath("/dashboard/assets");
   return { status: "ok" };
 }

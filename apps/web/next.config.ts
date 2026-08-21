@@ -94,6 +94,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
+  /**
+   * The pictures and the voice moved out of settings and onto the assets page.
+   * Permanent, because they are not coming back: these were linked from the
+   * onboarding checklist and are the kind of page someone bookmarks.
+   */
+  async redirects() {
+    return [
+      { source: "/dashboard/settings/brand", destination: "/dashboard/assets", permanent: true },
+      { source: "/dashboard/settings/voice", destination: "/dashboard/assets", permanent: true },
+    ];
+  },
   // Pin file tracing to the monorepo root; otherwise Next can infer the wrong
   // root when other lockfiles exist elsewhere on the machine.
   outputFileTracingRoot: monorepoRoot,

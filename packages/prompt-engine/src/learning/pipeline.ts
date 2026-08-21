@@ -145,6 +145,41 @@ export class LearningPipeline {
   }
 
   private async promoteCandidate(candidate: LearningCandidate): Promise<void> {
+    /*
+     * A merge candidate's body and version were computed once, against
+     * whatever the target chunk looked like at ingest time. Nothing repeats
+     * that check here, so a candidate held for review, that is the whole
+     * point of the status this method exists to move a candidate out of,
+     * promotes against a target that may have moved on since: another
+     * candidate targeting the same chunk, resolved and promoted while this
+     * one waited. Promoting anyway would upsert a body merged against a stale
+     * snapshot under a version number that silently discards whatever that
+     * other promotion wrote.
+     *
+     * Checked by re-running the same search `resolveAgainstCorpus` used
+     * rather than adding a get-by-id to the store port for one caller: if the
+     * target chunk still comes back at the version this candidate was
+     * resolved against, nothing has changed underneath it.
+     */
+    if (candidate.targetChunkId) {
+      const [probeEmbedding] = await this.deps.embedder.embed([candidate.draft.body]);
+      const results = probeEmbedding
+        ? await this.deps.store.search({
+            embedding: probeEmbedding,
+            text: candidate.draft.body,
+            limit: 5,
+            minSimilarity: 0,
+          })
+        : [];
+      const target = results.find((result) => result.chunk.id === candidate.targetChunkId);
+      const expectedVersion = candidate.draft.version - 1;
+      if (!target || target.chunk.version !== expectedVersion) {
+        throw new Error(
+          `Candidate ${candidate.id} targets chunk ${candidate.targetChunkId} at version ${expectedVersion}, but it has since changed. Re-resolve before promoting.`,
+        );
+      }
+    }
+
     const chunk = this.buildChunk(candidate.draft);
     const [embedding] = await this.deps.embedder.embed([
       embeddingInput(chunk.contextualHeader, chunk.body),

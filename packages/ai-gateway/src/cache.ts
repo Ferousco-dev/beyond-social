@@ -24,6 +24,8 @@ export interface CacheEntry {
 export interface ResponseCache {
   get(key: string): CacheEntry | undefined | Promise<CacheEntry | undefined>;
   set(key: string, entry: CacheEntry): void | Promise<void>;
+  /** How long an entry lives when the caller does not say otherwise. */
+  readonly defaultTtlMs: number;
 }
 
 /**

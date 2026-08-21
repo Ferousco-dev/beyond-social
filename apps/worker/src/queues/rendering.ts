@@ -14,6 +14,13 @@ export interface RenderJobData {
    * cut: this is the one thing about the job the user actually authored.
    */
   clipPaths: string[];
+  /**
+   * The cut itself: trims and levels, in order. `unknown` because this is
+   * `jsonb` off the claim RPC, unvalidated until the processor parses it;
+   * null means join `clipPaths` whole, which is also what an unparseable value
+   * falls back to.
+   */
+  spec: unknown;
 }
 
 export function createRenderQueue() {

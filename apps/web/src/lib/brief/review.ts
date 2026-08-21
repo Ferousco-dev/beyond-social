@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
+import { fenceSafe } from "@/lib/text/fence";
 
 import { briefSchema, parseJsonReply, type ContentBrief, type IdeaAnalysis } from "./schema";
 
@@ -72,13 +73,15 @@ function buildPrompt(
     "",
     'Respond with JSON only: {"issues":[""],"revised":null}',
     "",
-    `<request>\n${idea.slice(0, 1500)}\n</request>`,
+    `<request>\n${fenceSafe(idea.slice(0, 1500))}\n</request>`,
     "",
-    `<understood>\nTopic: ${analysis.topic}\nAudience: ${analysis.audience}\nAngle: ${analysis.angle}\n</understood>`,
+    `<understood>\nTopic: ${fenceSafe(analysis.topic)}\nAudience: ${fenceSafe(analysis.audience)}\nAngle: ${fenceSafe(analysis.angle)}\n</understood>`,
     "",
-    stated === "" ? "<choices>They stated none.</choices>" : `<choices>\n${stated}\n</choices>`,
+    stated === ""
+      ? "<choices>They stated none.</choices>"
+      : `<choices>\n${fenceSafe(stated)}\n</choices>`,
     "",
-    `<brief>\n${JSON.stringify(brief)}\n</brief>`,
+    `<brief>\n${fenceSafe(JSON.stringify(brief))}\n</brief>`,
   ].join("\n");
 }
 

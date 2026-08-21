@@ -57,14 +57,22 @@ export async function revokeApiKey(id: string): Promise<{ status: "ok" | "error"
   if (!isSupabaseConfigured) return { status: "error" };
   try {
     const supabase = await createClient();
-    const { error } = await supabase
+    // Selected back the same way createApiKey's own insert is checked: RLS
+    // turns a foreign or already-revoked id into a match against nothing
+    // rather than an error, and without this that read as success.
+    const { data, error } = await supabase
       .from("api_keys")
       .update({ revoked_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return { status: "error" };
     revalidatePath("/dashboard/settings/api-keys");
     return { status: "ok" };
-  } catch {
+  } catch (error) {
+    logger.warn("failed to revoke api key", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { status: "error" };
   }
 }

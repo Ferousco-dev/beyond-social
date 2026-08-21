@@ -28,7 +28,7 @@ export interface BreakerOptions {
   now?: () => number;
 }
 
-type State = { failures: number; openedAt: number | null };
+type State = { failures: number; openedAt: number | null; halfOpen: boolean };
 
 const DEFAULTS: Pick<BreakerOptions, "threshold" | "cooldownMs"> = {
   threshold: 5,
@@ -52,6 +52,14 @@ export class CircuitBreaker {
    * is the half-open trial: a success closes the circuit, a failure re-opens it
    * for another cooldown rather than letting a dead provider back in all at
    * once.
+   *
+   * The trial is tracked with its own flag rather than by clearing `openedAt`,
+   * which is what this used to do. Clearing it made the circuit indistinguishable
+   * from closed: every call after the cooldown was let through, not just one,
+   * and a failed trial only counted as the first of a fresh run at the
+   * threshold rather than reopening anything. A provider that was still down
+   * got most of a retry schedule's worth of calls every cooldown instead of the
+   * one hop this is supposed to cost.
    */
   allows(key: string): boolean {
     const state = this.states.get(key);
@@ -60,8 +68,11 @@ export class CircuitBreaker {
     // only shows up under an injected clock, which is to say in a test and not
     // in production.
     if (state?.openedAt == null) return true;
+    // A trial already went out and has not resolved yet; nothing else passes
+    // until `recordSuccess` or `recordFailure` says what happened to it.
+    if (state.halfOpen) return false;
     if (this.now() - state.openedAt < this.cooldownMs) return false;
-    state.openedAt = null;
+    state.halfOpen = true;
     return true;
   }
 
@@ -77,7 +88,16 @@ export class CircuitBreaker {
    * one request.
    */
   recordFailure(key: string): void {
-    const state = this.states.get(key) ?? { failures: 0, openedAt: null };
+    const state = this.states.get(key) ?? { failures: 0, openedAt: null, halfOpen: false };
+
+    // The trial itself failed: the provider is still down, so this reopens on
+    // its own report rather than waiting for the ordinary threshold to run up
+    // again from zero.
+    if (state.halfOpen) {
+      this.states.set(key, { failures: 0, openedAt: this.now(), halfOpen: false });
+      return;
+    }
+
     state.failures += 1;
     if (state.failures >= this.threshold) {
       state.openedAt = this.now();

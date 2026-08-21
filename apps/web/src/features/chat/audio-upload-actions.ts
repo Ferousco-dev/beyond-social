@@ -130,12 +130,16 @@ export async function attachUploadedAudio(
     return { status: "error", message: "Could not attach that clip" };
   }
 
-  await supabase.from("assets").insert({
+  // Not fatal to the attach: the clip is already uploaded and signed, and
+  // nothing downstream gates on an audio asset row the way it does on a
+  // photo's. Worth a log line so a failure here does not vanish entirely.
+  const { error: assetError } = await supabase.from("assets").insert({
     user_id: user.id,
     project_id: parsed.data.projectId !== "new" ? parsed.data.projectId : null,
     kind: "audio",
     storage_path: parsed.data.path,
   });
+  if (assetError) logger.warn("could not record an audio asset", { error: assetError.message });
 
   return { status: "ok", url: data.signedUrl, path: parsed.data.path };
 }

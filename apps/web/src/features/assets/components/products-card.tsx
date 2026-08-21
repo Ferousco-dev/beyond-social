@@ -8,6 +8,7 @@ import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
+import { MakeVideoButton } from "./make-video-button";
 
 /**
  * The product shelf.
@@ -61,7 +62,8 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
       <h2 className="text-sm font-semibold text-ink">Your products</h2>
       <p className="mt-1.5 text-sm text-ink-soft">
         Pictures of what you sell, so a video can feature the real thing instead of something the
-        model imagined.
+        model imagined. Start one straight from a picture, or attach it from the plus button in the
+        message box.
       </p>
 
       <ul className="mt-5 flex flex-wrap gap-3">
@@ -105,6 +107,10 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             {product.label ? (
               <p className="mt-1.5 w-24 truncate text-xs text-ink-soft">{product.label}</p>
             ) : null}
+
+            <MakeVideoButton asset={product} className="mt-1 text-ink-soft hover:text-ink">
+              Make a video
+            </MakeVideoButton>
           </li>
         ))}
 

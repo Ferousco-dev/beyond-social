@@ -13,7 +13,7 @@ import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { UnsupportedModelError } from "../_shared/kie-models.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
-import { abandonRun, adminClient, reserveCredits } from "./credits.ts";
+import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { handFootageOver, handStillsOver } from "./inputs.ts";
 import { planRun } from "./plan.ts";
 

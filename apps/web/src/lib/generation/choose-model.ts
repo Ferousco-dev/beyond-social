@@ -25,14 +25,25 @@ export async function chooseModel(
   hasFaceAndVoice: boolean,
 ): Promise<ModelChoice | null> {
   try {
-    const [{ data: profile }, { data: models }] = await Promise.all([
-      supabase.from("profiles").select("plan").eq("id", userId).maybeSingle(),
-      supabase
-        .from("model_catalog")
-        .select("id, credit_cost, min_plan, capabilities, is_active")
-        .eq("family", "video")
-        .eq("is_active", true),
-    ]);
+    const [{ data: profile, error: profileError }, { data: models, error: modelsError }] =
+      await Promise.all([
+        supabase.from("profiles").select("plan").eq("id", userId).maybeSingle(),
+        supabase
+          .from("model_catalog")
+          .select("id, credit_cost, min_plan, capabilities, is_active")
+          .eq("family", "video")
+          .eq("is_active", true),
+      ]);
+
+    // Neither error is fatal, the catch below already covers a thrown one and
+    // the empty-catalogue check after this covers an empty result, but a
+    // failed read used to look identical to an empty answer with nothing in
+    // the log to say the whole account base silently reverted to the edge
+    // function's default model for every request while it lasted.
+    if (profileError)
+      logger.warn("could not read the plan for model choice", { error: profileError.message });
+    if (modelsError)
+      logger.warn("could not read the model catalog", { error: modelsError.message });
 
     const rows = (models ?? []) as {
       id: string;

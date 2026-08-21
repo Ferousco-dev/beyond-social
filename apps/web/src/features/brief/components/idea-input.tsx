@@ -50,7 +50,13 @@ export function IdeaInput({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          // The analysis this screen started is still in flight, and this
+          // state lives one level up in a component that never unmounts
+          // across the flow: leaving now does not cancel it, so its answer
+          // would arrive after the user had gone somewhere else and pull
+          // them back into a screen they had already left.
+          disabled={pending}
+          className="inline-flex cursor-pointer items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back

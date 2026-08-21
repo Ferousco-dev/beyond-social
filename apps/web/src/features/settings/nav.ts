@@ -2,9 +2,7 @@ import {
   Brain,
   CreditCard,
   Gauge,
-  Image,
   KeyRound,
-  Mic,
   Palette,
   Share2,
   UserRound,
@@ -19,9 +17,11 @@ import { type PlanId } from "@/lib/billing/plans";
  * The settings sections. One list, used by both the hub cards and the section
  * tabs, so a new section cannot appear in one place and not the other.
  *
- * Ordered by what the reader came for, not alphabetically: who you are and what
- * the app makes videos out of, then where those videos go, then preferences,
- * then money, then the administrative tail most people never open.
+ * Ordered by what the reader came for, not alphabetically: who you are, then
+ * where the videos go, then preferences, then money, then the administrative
+ * tail most people never open. What the videos are made out of is not here: a
+ * face, a product shelf and a voice are material rather than preferences, and
+ * they live on the assets page.
  *
  * Every description says what is on the page in one sentence, in the same voice.
  * They are the only thing distinguishing twelve rows of icon and label on the
@@ -48,20 +48,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Account",
     description: "Your name, industry, email, and password.",
     icon: UserRound,
-  },
-  {
-    href: "/dashboard/settings/brand",
-    // "You and your products" was three times the length of every other label
-    // and wrapped on a phone. The description carries the detail.
-    label: "Your pictures",
-    description: "A photo of you, and pictures of what you sell.",
-    icon: Image,
-  },
-  {
-    href: "/dashboard/settings/voice",
-    label: "Voice",
-    description: "Record once, then have your videos speak in it.",
-    icon: Mic,
   },
   {
     href: "/dashboard/settings/memory",
