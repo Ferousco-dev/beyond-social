@@ -59,7 +59,10 @@ const REQUEST = {
 async function main(): Promise<void> {
   // Retry classification. Getting this wrong means either five pointless
   // retries against a revoked token, or giving up on a transient blip.
-  check("400 is permanent", isPermanentStatus(400));
+  // Facebook and Instagram's Graph API returns 400 for both a rejected
+  // parameter and a transient rate limit or in-progress upload, with nothing
+  // in the status alone to tell them apart, so it is no longer assumed fatal.
+  check("400 is retryable", !isPermanentStatus(400));
   check("401 is permanent", isPermanentStatus(401));
   check("403 is permanent", isPermanentStatus(403));
   check("422 is permanent", isPermanentStatus(422));
@@ -82,13 +85,20 @@ async function main(): Promise<void> {
   }
   {
     const s = stub([() => json({ error: { code: "spam_risk", message: "no" } })]);
+    let failed = false;
     let permanent = false;
     try {
       await new TikTokPublisher(s.fetch).publish(REQUEST);
     } catch (error) {
+      failed = true;
       permanent = error instanceof PermanentPublishError;
     }
-    check("tiktok treats a 200-with-error as a failure", permanent);
+    check("tiktok treats a 200-with-error as a failure", failed);
+    // Not permanent: TikTok's business-rule codes mix ordinary, retryable
+    // conditions in with real ones, and there is no HTTP status here to tell
+    // them apart by, so an unrecognised code is retried rather than given up
+    // on outright.
+    check("an unrecognised business-rule code retries rather than gives up", !permanent);
   }
   {
     const s = stub([() => json({ error: "nope" }, 401)]);
