@@ -41,10 +41,25 @@ export class TikTokPublisher implements PlatformPublisher {
     if (!response.ok) await raise(this.platform, response);
 
     const body = (await response.json().catch(() => null)) as InitResponse | null;
-    // TikTok returns 200 with an error object for business-rule failures, so a
-    // successful status is not on its own a successful post.
+    /*
+     * TikTok returns 200 with an error object for business-rule failures, so a
+     * successful status is not on its own a successful post.
+     *
+     * This used to synthesize a 400 and hand it to `raise`, which treats every
+     * 400 as permanent. That is right for a token TikTok has rejected outright,
+     * but TikTok's own business-rule codes include ones that are ordinary and
+     * retryable, a transient rate limit, a pull-from-URL that has not caught up
+     * with the render yet, and there is no reliable HTTP status here to tell
+     * them apart by: they are all 200 with a different string in `error.code`.
+     * Treating an unrecognised code as permanent risks giving up on something
+     * that would have succeeded on the next attempt, which costs the user a
+     * post that never goes out; treating it as retryable costs, at most, the
+     * few minutes BullMQ takes to exhaust its retries before failing anyway.
+     * That is the safer side to be wrong on, so an unrecognised code retries.
+     */
     if (body?.error?.code && body.error.code !== "ok") {
-      await raise(this.platform, new Response(JSON.stringify(body.error), { status: 400 }));
+      const { code, message } = body.error;
+      throw new Error(`tiktok rejected the post (${code}): ${message ?? "no detail given"}`);
     }
 
     const publishId = body?.data?.publish_id;
