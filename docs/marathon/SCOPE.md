@@ -261,11 +261,24 @@ recommendation. Visually verified via a temporary preview route: lengthening
 the hook scene past its threshold correctly surfaced the duration-drift
 warning and reactively recalculated the scene-change impact badge.
 
-**Not started, flagged for a future session:** point 4's brief-flow
-reconciliation and point 7's full Metadata/Generation-Instructions schema
-split. Both are real gaps, both touch more surface than a single PR (two
-flows to reconcile, or a schema migration), correctly identified by the
-audit as bigger than what this marathon slot should rush.
+**Status: done, PR #115 (merged).** Point 4: the brief flow (typed-idea
+path) asked the model for both a structured script and a separate
+free-text prompt meant to reach the generator unedited, the two were free
+to disagree and did. `compileBrief()` now builds the prompt from duration,
+hook, and beats, the same fields already on screen; `prompt` is gone from
+`briefSchema` entirely. Confirmed by tracing every consumer that this was
+genuinely self-contained, not the larger flow-unification the audit
+originally worried it might be.
+
+**Status: done, PR #116 (merged).** Point 7: added `metadataSchema`
+(aspect ratio, platform, category) and `generationInstructionsSchema`
+(style, cinematography, audio, negative prompts, model instructions),
+wired into `compile.ts`. Corrected the audit's own imprecise language in
+the process: `VideoScript` is never persisted (confirmed by tracing every
+consumer), so this was a schema-only change, no SQL migration needed.
+
+All 8 points from the owner's product feedback document are now closed:
+3 were already done, 5 were built or fixed this session.
 
 ## Explicitly out of scope this session
 
