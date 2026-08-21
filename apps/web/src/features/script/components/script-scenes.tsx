@@ -2,6 +2,7 @@
 
 import { Minus, Plus } from "lucide-react";
 
+import { HookScoreBadge } from "@/components/ui/hook-score-badge";
 import { MAX_TOTAL_SECONDS, totalSeconds, type ScriptScene } from "@/lib/script/schema";
 
 /**
@@ -88,6 +89,9 @@ export function ScriptScenes({
                 placeholder="The line, word for word"
                 onChange={(value) => onChange(index, { voiceover: value })}
               />
+              {/* Only the opening scene: this is a floor on the hook, and the
+                  other scenes are not trying to be one. */}
+              {index === 0 ? <HookScoreBadge text={scene.voiceover} /> : null}
               <SceneField
                 label="On screen"
                 value={scene.visual}

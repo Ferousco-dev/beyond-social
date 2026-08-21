@@ -2,6 +2,7 @@
 
 import { Check, Clock, RotateCcw, Sparkles, Zap } from "lucide-react";
 
+import { HookScoreBadge } from "@/components/ui/hook-score-badge";
 import { type ContentBrief } from "@/lib/brief/schema";
 
 /**
@@ -47,6 +48,7 @@ export function ContentBriefView({
           Hook
         </h2>
         <p className="mt-2.5 text-lg font-semibold leading-snug text-ink">{brief.hook}</p>
+        <HookScoreBadge text={brief.hook} />
       </section>
 
       <section className="mt-4 rounded-2xl border border-hairline bg-paper p-5">
