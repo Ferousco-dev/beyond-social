@@ -55,7 +55,7 @@ export async function cheapestRunCost(): Promise<number | null> {
  * the composer can offer the right remedy: upgrade, or top up.
  */
 export async function canRunModel(modelId: string): Promise<RunCheck> {
-  const denied = (reason: "unknown_model" | "not_authenticated"): RunCheck => ({
+  const denied = (reason: "check_failed" | "not_authenticated"): RunCheck => ({
     allowed: false,
     reason,
     creditCost: 0,
@@ -66,10 +66,13 @@ export async function canRunModel(modelId: string): Promise<RunCheck> {
 
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("can_run_model", { p_model: modelId });
-  if (error !== null) return denied("unknown_model");
+  // The check itself failing, not a model it looked for and did not find. A
+  // real "no such model" answer is one row with `reason: 'unknown_model'`,
+  // parsed below; this is the RPC never producing that row at all.
+  if (error !== null) return denied("check_failed");
 
   const parsed = runCheckSchema.array().nonempty().safeParse(data);
-  if (!parsed.success) return denied("unknown_model");
+  if (!parsed.success) return denied("check_failed");
 
   const row = parsed.data[0];
   return row.allowed && row.reason === "ok"

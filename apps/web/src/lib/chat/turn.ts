@@ -17,6 +17,7 @@ import { foldShots } from "@/lib/generation/shot-fold";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
 import { logger } from "@/lib/logger";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import {
   applyAnswers,
   buildClarification,
@@ -529,7 +530,16 @@ export async function runTurn(
           sourceChunks: chunkIds,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        // `error.message` is a library-hardcoded string, the same for every
+        // failure. The reason worth showing is in the response body, which
+        // this reads back off `error.context`, a `FunctionsHttpError` only.
+        const detail = await edgeFunctionErrorMessage(error);
+        logger.warn("generation could not start", { error: error.message, detail });
+        notice =
+          detail ?? "Could not start the video just now. Your message was saved, so try again.";
+        return;
+      }
       generationId = (data as { generationId?: string } | null)?.generationId ?? null;
       if (!generationId) notice = "The video service did not accept that. Nothing was charged.";
     } catch (error) {
