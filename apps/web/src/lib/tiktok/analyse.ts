@@ -9,6 +9,7 @@ import { getJudge } from "@/lib/prompt-engine/providers";
 import { getPromptTemplate } from "@/lib/prompts/registry";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { fenceSafe } from "@/lib/text/fence";
+import { STRUCTURE_BEAT_PROMPTS, postStructureSchema } from "@/lib/tiktok/structure";
 
 /**
  * Working out why a post worked, so a new video can borrow the reason.
@@ -55,17 +56,8 @@ export const postAnalysisSchema = z.object({
    * would be worse for anything correlating outcomes against it later.
    */
   hookPattern: z.enum(HOOK_PATTERNS).catch("other"),
-  /** The beats in order, as far as the signals support. */
-  structure: z
-    .array(
-      z
-        .string()
-        .trim()
-        .min(1)
-        .transform((value) => value.slice(0, 160)),
-    )
-    .default([])
-    .transform((beats) => beats.slice(0, 6)),
+  /** The five named beats, as far as the signals support. */
+  structure: postStructureSchema,
   /** Why this earned attention, grounded in what we were given. */
   whyItWorks: z
     .string()
@@ -143,12 +135,16 @@ function buildPrompt(post: AnalysablePost, industry: string | null): string {
       "\n",
     ),
     "",
+    "Break `structure` into what happens in each beat, one sentence each, not why it works:",
+    ...STRUCTURE_BEAT_PROMPTS,
+    "Leave a beat `null` rather than inventing one: plenty of posts have no escalation and never ask for anything.",
+    "",
     industry !== null
       ? `Write \`brief\` for a creator in the ${industry} industry: the same format, applied to their own subject.`
       : "Write `brief` so the same format can be applied to a different subject.",
     "`brief` is handed straight to a video generator, so it must describe what should be on screen and must not mention this post, this analysis, or TikTok.",
     "",
-    'Respond with JSON only: {"format":"","hook":"","hookPattern":"other","structure":[""],"whyItWorks":"","brief":"","confidence":"low"}',
+    'Respond with JSON only: {"format":"","hook":"","hookPattern":"other","structure":{"hook":"","problem":null,"escalation":null,"payoff":null,"cta":null},"whyItWorks":"","brief":"","confidence":"low"}',
     "",
     // Fenced and labelled: a caption is a stranger's text and a transcript is a
     // stranger's speech, so both are data to read rather than instructions.

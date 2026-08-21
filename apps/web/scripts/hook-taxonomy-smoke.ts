@@ -26,7 +26,13 @@ function check(name: string, passed: boolean, detail = ""): void {
 const base = {
   format: "Curiosity-driven product reveal",
   hook: "Nobody tells you this",
-  structure: [],
+  structure: {
+    hook: "Nobody tells you this",
+    problem: null,
+    escalation: null,
+    payoff: null,
+    cta: null,
+  },
   whyItWorks: "Opens a gap and closes it late",
   brief: "A short vertical video about a product nobody expected to work this well.",
   confidence: "low" as const,
