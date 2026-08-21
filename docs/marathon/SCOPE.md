@@ -250,8 +250,16 @@ did not add "Brand Style" or "Audio" controls the source document
 mentions, since `videoScriptSchema` has no backing field for either and a
 control with nothing behind it would be decorative.
 
-**Status: [to be filled once PR lands].** Point 6, the AI Suggestions
-layer, was in progress at the time of this note.
+**Status: done, PR #113 (merged).** Point 6, the AI Suggestions layer:
+impact badges (High/Medium/Low) on hook, pacing, scene changes, and CTA,
+computed from real numbers on the script where the data exists (retention-
+technique count, cuts per second) rather than decorative, and a
+`computeDivergence` warning that fires when a live edit drifts from the
+pattern the script was written with (fewer scenes, >20% duration drift, or
+a hook stretched past double its length), each with a concrete
+recommendation. Visually verified via a temporary preview route: lengthening
+the hook scene past its threshold correctly surfaced the duration-drift
+warning and reactively recalculated the scene-change impact badge.
 
 **Not started, flagged for a future session:** point 4's brief-flow
 reconciliation and point 7's full Metadata/Generation-Instructions schema
