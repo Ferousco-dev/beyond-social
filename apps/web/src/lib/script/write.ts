@@ -7,6 +7,7 @@ import { getJudge } from "@/lib/prompt-engine/providers";
 import { getPromptTemplate } from "@/lib/prompts/registry";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
+import { structureBeats } from "@/lib/tiktok/structure";
 
 import {
   MAX_SCENES,
@@ -68,7 +69,11 @@ function buildPrompt(input: WriteScriptInput): string {
     // second, differently-worded guess at the same thing the taxonomy exists
     // to make consistent and searchable.
     `Hook pattern: ${HOOK_PATTERN_LABELS[analysis.hookPattern]} (${HOOK_PATTERN_DESCRIPTIONS[analysis.hookPattern]})`,
-    analysis.structure.length > 0 ? `Structure: ${analysis.structure.join(" -> ")}` : "",
+    // Only the beats the source actually had: a skipped escalation should not
+    // read as a gap in the script the model is about to write.
+    `Structure: ${structureBeats(analysis.structure)
+      .map(({ label, detail }) => `${label} (${detail})`)
+      .join(" -> ")}`,
     `Why it held attention: ${analysis.whyItWorks}`,
     "",
     subject

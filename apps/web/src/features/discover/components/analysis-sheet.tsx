@@ -5,6 +5,7 @@ import { ArrowRight, Clapperboard, Sparkles } from "lucide-react";
 
 import { HOOK_PATTERN_LABELS } from "@/lib/hooks/taxonomy";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
+import { structureBeats } from "@/lib/tiktok/structure";
 import { cn } from "@/lib/utils";
 
 /**
@@ -42,6 +43,7 @@ export function AnalysisSheet({
   onWriteScript: () => void;
 }) {
   const confidence = analysis ? CONFIDENCE[analysis.confidence] : null;
+  const beats = analysis ? structureBeats(analysis.structure) : [];
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -79,18 +81,18 @@ export function AnalysisSheet({
                 <p className="mt-1.5 text-sm leading-relaxed text-ink">{analysis.hook}</p>
               </section>
 
-              {analysis.structure.length > 0 ? (
+              {beats.length > 0 ? (
                 <section className="mt-4">
                   <h3 className="text-xs font-medium uppercase tracking-wide text-ink-soft">
                     How it runs
                   </h3>
                   <ol className="mt-2 space-y-2">
-                    {analysis.structure.map((beat, index) => (
-                      <li key={beat} className="flex gap-3 text-sm text-ink">
-                        <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-cloud text-xs tabular-nums text-ink-soft">
-                          {index + 1}
+                    {beats.map(({ label, detail }) => (
+                      <li key={label} className="flex gap-3 text-sm text-ink">
+                        <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-cloud px-2 text-[11px] font-medium text-ink-soft">
+                          {label}
                         </span>
-                        {beat}
+                        {detail}
                       </li>
                     ))}
                   </ol>
