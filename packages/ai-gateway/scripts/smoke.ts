@@ -418,6 +418,21 @@ async function main(): Promise<void> {
     `${downCalls - callsBeforeOpen} trial call(s)`,
   );
 
+  /*
+   * The trial above failed (the provider is still `down`), which has to
+   * reopen the circuit on its own rather than counting as the first of a
+   * fresh run at the threshold. Two more calls, still well inside the
+   * cooldown, must not reach the provider at all.
+   */
+  const callsAfterFailedTrial = downCalls;
+  await ask();
+  await ask();
+  check(
+    "a failed trial reopens the circuit immediately, not after the threshold again",
+    downCalls === callsAfterFailedTrial,
+    `${downCalls - callsAfterFailedTrial} call(s) reached the provider`,
+  );
+
   // A shared limiter is asynchronous by nature, and the tier in front of it is
   // not. Both have to compose, or the durable limit cannot be added without
   // rewriting every call site.
