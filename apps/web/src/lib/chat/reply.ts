@@ -1,5 +1,6 @@
 import "server-only";
 
+import { logger } from "@/lib/logger";
 import { getChat } from "@/lib/prompt-engine/providers";
 import { fenceSafe } from "@/lib/text/fence";
 import { isPromptEngineConfigured } from "@/lib/server-env";
@@ -268,7 +269,13 @@ export async function* streamReply(context: ReplyContext): AsyncGenerator<string
       emitted = true;
       yield piece;
     }
-  } catch {
+  } catch (error) {
+    // Swallowed with no trace before this: a broken chat provider looked
+    // identical to a working one that happened to answer with the fallback
+    // line, and nothing in the log said the difference between them.
+    logger.warn("reply stream failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     if (!emitted) yield fallbackFor(context);
     return;
   }
@@ -341,7 +348,10 @@ export async function writeReply(context: ReplyContext): Promise<string> {
     const trimmed = reply.trim();
     if (trimmed !== "") return trimmed;
     return quietFallback(chatting, asking, name);
-  } catch {
+  } catch (error) {
+    logger.warn("reply write failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return quietFallback(chatting, asking, name);
   }
 }
