@@ -494,8 +494,17 @@ export class AiGateway {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    /*
+     * `addEventListener("abort", ...)` on a signal that is already aborted
+     * never fires: the event marks the transition into that state, and a
+     * signal aborted before this ran has already made it. A caller passing an
+     * already-cancelled signal, which is exactly the shape a request cancelled
+     * while it was still queued takes, would have this reach the provider
+     * anyway, uncancelled, only to be thrown away on a response nobody wanted.
+     */
     const abortFromCaller = (): void => controller.abort();
-    request.signal?.addEventListener("abort", abortFromCaller);
+    if (request.signal?.aborted) abortFromCaller();
+    else request.signal?.addEventListener("abort", abortFromCaller);
 
     try {
       return await client.complete(spec, { ...request, signal: controller.signal });
