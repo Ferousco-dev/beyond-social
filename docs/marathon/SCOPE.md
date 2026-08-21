@@ -101,18 +101,44 @@ the full idea → refine → brief → script flow in the actual running app (no
 just reading the JSX) and screenshot anything that doesn't look right at
 mobile width, where the earlier bug would have shown up.
 
+**Status: done, PR #102.** Walked the full flow against a local Supabase
+stack, desktop and mobile (375px), no wrapping regressions. Found and fixed a
+real bug along the way: the idea-refiner's clarifying-question options were
+silently hard-truncated at 40 characters with no ellipsis, so a long option
+cut off mid-word ("...the textures a"). Broader UI sweep of dashboard,
+library, assets, schedule, discover, settings, dark mode, and the command
+palette turned up nothing else.
+
 ## 7. Backlog grab-bag (pull from as time allows, in this order)
 
 - Confirm `apps/worker`'s BullMQ retry/backoff behavior against a genuinely
   failing platform API call (simulate the failure, don't assume the config is
   correct because it reads correctly).
+
+  **Status: done, PR #103.** Genuinely simulated, not read-through: a real
+  BullMQ Queue/Worker against local Redis confirmed a 500 retries all 5
+  configured attempts on the real exponential(5s) backoff (5/10/20/40s), and
+  a 401 ends the job on attempt 1 via `UnrecoverableError` with no retry
+  scheduled. No gap found, config behaves as declared.
+
 - Check the Supabase migrations directory for anything not yet applied to the
   live project (this has happened before this session, with
   `0075_prompt_templates.sql`).
+
+  **Status: checked, still real.** `supabase migration list --linked`
+  confirms `0075_prompt_templates.sql` is still local-only, not applied to
+  the live project. Not applied this session: pushing a schema change to a
+  live database needs the owner per RULES.md, not a mid-session call.
+
 - Review `packages/ai-gateway`'s circuit breaker: per-process state means each
   serverless instance learns an outage independently. Note whether this is
   still an accepted trade at current traffic or worth a shared Redis-backed
   breaker now.
+
+  **Status: reviewed, no change needed.** Per-instance relearning costs a few
+  wasted round-trips per outage, not correctness (each failed call still
+  falls over to the next model). Current traffic is below even the Launch
+  tier in running-costs.md. Revisit at Launch/Scale tier, not now.
 
 ## Explicitly out of scope this session
 
