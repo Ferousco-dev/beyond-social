@@ -280,6 +280,60 @@ consumer), so this was a schema-only change, no SQL migration needed.
 All 8 points from the owner's product feedback document are now closed:
 3 were already done, 5 were built or fixed this session.
 
+## 10. Live client feedback (four reported issues)
+
+The end client reported four issues directly. Audited each against real code
+and the live production database rather than guessing, per this session's
+standing practice.
+
+**Issue: "Video is still not generating, is this due to credits?"** —
+confirmed via direct production database inspection: two recent attempts
+both failed with kie.ai reporting its own account balance too low to
+process the request. Not an app bug, a render-provider top-up, already
+flagged to the owner. But auditing it surfaced a real bug: the specific
+reason (correctly detected and rewritten into clear copy server-side) never
+reached the user in three places, because `supabase.functions.invoke`
+replaces the real response body with a library-hardcoded generic string on
+every `FunctionsHttpError`.
+
+**Status: done, PR #119 (merged).** Added `edgeFunctionErrorMessage`,
+which reads the real error back off `error.context` (the raw `Response`
+`FunctionsHttpError` still carries) instead of the hardcoded `.message`.
+Wired into the three places a generation starts. Also fixed a related bug
+in the credit gate: an RPC/parse failure was reported identically to a
+genuine "unknown model" answer, so a real user with a real balance could
+see a misleading "not in the catalogue" for what was actually an
+infrastructure hiccup. Verified with a 7/7 smoke test constructing real
+`FunctionsHttpError`/`FunctionsFetchError`/`FunctionsRelayError` instances,
+not mocks. A fourth instance of the same pattern (`regenerateGeneration`)
+was found and flagged, left unfixed as out of scope.
+
+**Issue: "There should be a page specifically for user to upload images and
+voice to create assets."** — audited and confirmed already done: the
+Assets page has a photo section, a product-photo shelf, and a voice
+recorder, all separate from the chat compose flow. No fix needed.
+
+**Issue: "For human-led videos, the app should use the creative brief from
+trending videos to come up with a full script, not just a few sentences."**
+— audited and found the real cause: two separate features were being
+confused. Attaching a photo and a voice clip together triggers "avatar"
+mode (a single continuous lip-synced clip, which cannot cut between scenes
+by design); the actual multi-scene path already exists behind Discover's
+"write a script" flow and already supports binding a real photo as
+speaker.
+
+**Status: done, PR #118 (merged).** Added a note in the composer, shown
+under exactly the condition that triggers avatar mode, naming what's
+about to happen before the render starts and pointing at the richer path.
+Not a Coachmark (that's for one-time discovery, dismissed permanently);
+this is contextual state that should reappear every time the trigger
+condition is true.
+
+**Issue: "For product videos, users should be able to upload images of
+their product."** — audited and confirmed already working end to end: a
+product photo bound in the composer genuinely reaches the generator as a
+real image, not a text description of it. No fix needed.
+
 ## Explicitly out of scope this session
 
 - Any real video generation (costs real, non-refundable credits — see
