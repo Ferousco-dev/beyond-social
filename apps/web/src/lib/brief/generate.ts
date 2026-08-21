@@ -1,8 +1,9 @@
 import "server-only";
 
 import { logger } from "@/lib/logger";
-import { fenceSafe } from "@/lib/text/fence";
 import { getJudge } from "@/lib/prompt-engine/providers";
+import { getPromptTemplate } from "@/lib/prompts/registry";
+import { fenceSafe } from "@/lib/text/fence";
 import { categoryLabel } from "@/lib/trends/categories";
 
 import {
@@ -26,9 +27,12 @@ import {
  * model reading it as instructions is the obvious way this goes wrong.
  */
 
+/** Overridable via prompt_templates under these keys; these are the fallbacks. */
+const ANALYSIS_SYSTEM_KEY = "brief.analysis.system";
 const ANALYSIS_SYSTEM =
   "You plan short-form vertical video. You read a creator's rough idea, say plainly what it is, and ask only the questions whose answers would change what gets made. You never invent facts about their business.";
 
+const BRIEF_SYSTEM_KEY = "brief.write.system";
 const BRIEF_SYSTEM =
   "You write briefs for short-form vertical video. You are specific and concrete: a brief that could describe any video is useless. You never promise a result, a view count, or an outcome.";
 
@@ -43,8 +47,9 @@ export async function analyseIdea(
   idea: string,
   industry: string | null,
 ): Promise<IdeaAnalysis | null> {
+  const system = await getPromptTemplate(ANALYSIS_SYSTEM_KEY, ANALYSIS_SYSTEM);
   const reply = await getJudge().complete({
-    system: ANALYSIS_SYSTEM,
+    system,
     messages: [
       {
         role: "user",
@@ -96,8 +101,9 @@ export async function buildBrief(
     .map(([label, value]) => `${label}: ${value}`)
     .join("\n");
 
+  const system = await getPromptTemplate(BRIEF_SYSTEM_KEY, BRIEF_SYSTEM);
   const reply = await getJudge().complete({
-    system: BRIEF_SYSTEM,
+    system,
     messages: [
       {
         role: "user",

@@ -20,6 +20,7 @@
     "test:credit-warning": "tsx --tsconfig scripts/tsconfig.json scripts/credit-warning-smoke.ts",
     "test:hook-score": "tsx --tsconfig scripts/tsconfig.json scripts/hook-score-smoke.ts",
     "test:hook-taxonomy": "tsx --tsconfig scripts/tsconfig.json scripts/hook-taxonomy-smoke.ts",
+    "test:prompt-registry": "tsx --tsconfig scripts/tsconfig.json scripts/prompt-registry-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
     "test:model": "tsx --tsconfig scripts/tsconfig.json scripts/model-smoke.ts",
     "test:followup": "tsx --tsconfig scripts/tsconfig.json scripts/followup-smoke.ts",

@@ -4,6 +4,7 @@ import { parseJsonReply } from "@/lib/brief/schema";
 import { HOOK_PATTERN_DESCRIPTIONS, HOOK_PATTERN_LABELS } from "@/lib/hooks/taxonomy";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
+import { getPromptTemplate } from "@/lib/prompts/registry";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
@@ -27,6 +28,8 @@ import {
  * so a rewrite cannot quietly drift off the structure it was supposed to keep.
  */
 
+/** Overridable via prompt_templates under this key; this is the fallback. */
+const SYSTEM_KEY = "script.write.system";
 const SYSTEM =
   "You write short-form video scripts. You are given the mechanics of a video that worked and a subject that has nothing to do with it, and you write a new script that keeps the mechanics and is entirely about the subject. You write lines people actually say out loud, not descriptions of lines.";
 
@@ -103,8 +106,9 @@ export async function writeScript(input: WriteScriptInput): Promise<VideoScript 
   if (!isPromptEngineConfigured) return null;
 
   try {
+    const system = await getPromptTemplate(SYSTEM_KEY, SYSTEM);
     const reply = await getJudge().complete({
-      system: SYSTEM,
+      system,
       messages: [{ role: "user", content: buildPrompt(input) }],
       // Higher than the analysis pass, which is reading. This is writing, and a
       // script at zero temperature reads like a template.
