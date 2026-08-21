@@ -1260,6 +1260,39 @@ export type Database = {
           },
         ];
       };
+      prompt_templates: {
+        Row: {
+          content: string;
+          created_at: string;
+          created_by: string | null;
+          id: string;
+          is_active: boolean;
+          key: string;
+          note: string;
+          version: number;
+        };
+        Insert: {
+          content: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          key: string;
+          note?: string;
+          version: number;
+        };
+        Update: {
+          content?: string;
+          created_at?: string;
+          created_by?: string | null;
+          id?: string;
+          is_active?: boolean;
+          key?: string;
+          note?: string;
+          version?: number;
+        };
+        Relationships: [];
+      };
       rate_limits: {
         Row: {
           count: number;

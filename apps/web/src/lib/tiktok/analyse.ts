@@ -3,10 +3,11 @@ import "server-only";
 import { z } from "zod";
 
 import { parseJsonReply } from "@/lib/brief/schema";
-import { fenceSafe } from "@/lib/text/fence";
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
+import { getPromptTemplate } from "@/lib/prompts/registry";
 import { isPromptEngineConfigured } from "@/lib/server-env";
+import { fenceSafe } from "@/lib/text/fence";
 
 /**
  * Working out why a post worked, so a new video can borrow the reason.
@@ -87,6 +88,8 @@ export interface AnalysablePost {
   readonly transcript: string | null;
 }
 
+/** Overridable via prompt_templates under this key; this is the fallback. */
+const SYSTEM_KEY = "discover.analysis.system";
 const SYSTEM =
   "You work out the repeatable format behind a short-form video from the little that is measurable about it. You are rigorous about the line between what you were told and what you are guessing, and you never describe footage you have not seen.";
 
@@ -146,8 +149,9 @@ export async function analysePost(
   if (!isPromptEngineConfigured) return null;
 
   try {
+    const system = await getPromptTemplate(SYSTEM_KEY, SYSTEM);
     const reply = await getJudge().complete({
-      system: SYSTEM,
+      system,
       messages: [{ role: "user", content: buildPrompt(post, industry) }],
       // Low but not zero: this is analysis, and the brief still has to read like
       // something a person would want to shoot.
