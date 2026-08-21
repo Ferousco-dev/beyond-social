@@ -4,7 +4,17 @@ Ordered. Work top to bottom unless CTO re-prioritizes for a genuine blocker.
 Check items off as they land, and add a one-line note (PR number, or why
 skipped) so this file stays a true record, not a wishlist.
 
-## 1. Fix the production auto-deploy gap (do this first)
+## 0. UI is a marathon priority, not a leftover
+
+Explicit instruction from the owner: the UI matters, work on it seriously
+this session, not just as cleanup between backend tasks. Designer/UX Expert
+should treat this as standing scope for the full 3 hours, not a single
+checklist item — walk the real app (item 6 is a starting point, not the
+ceiling), find what looks unfinished, generic, or inconsistent with
+[docs/ui.md](../ui.md), and fix it. If nothing else on this list needs
+Designer/UX at a given moment, default to UI work rather than sitting idle.
+
+## 1. Fix the production auto-deploy gap (do this first for backend work)
 
 CI's `deploy-production` job in `.github/workflows/ci.yml` is fully wired to
 run on every push to `main`, but it checks for a `VERCEL_TOKEN` secret and
