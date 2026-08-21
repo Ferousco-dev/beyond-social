@@ -3,6 +3,7 @@
 // theirs. Records the task the same way a video generation is recorded.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
 import { handToProvider } from "../_shared/reference.ts";
@@ -96,8 +97,8 @@ Deno.serve(async (req) => {
   if (!consent) return json({ error: "Likeness consent is required", code: "consent" }, 403);
 
   /*
-   * The model has to be live and affordable before anything is dispatched: the
-   * provider charges on submission and cannot cancel.
+   * The model has to be live before anything is dispatched: the provider
+   * charges on submission and cannot cancel.
    *
    * The requested id is looked up rather than trusted. Constraining the query
    * to the avatar family is what stops a caller naming a video model here and
@@ -107,20 +108,49 @@ Deno.serve(async (req) => {
   const requested = body.model ?? DEFAULT_MODEL;
   const { data: model } = await supabase
     .from("model_catalog")
-    .select("id, credit_cost, is_active")
+    .select("id, is_active")
     .eq("id", requested)
     .eq("family", "avatar")
     .maybeSingle();
   if (!model?.is_active) return json({ error: "That avatar model is not available" }, 503);
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits_total, credits_used")
-    .eq("id", user.id)
+  /*
+   * The row is written before the provider is called, because the credits are
+   * taken before the provider is called and the reservation needs something to
+   * hang off. The same ordering `generate-video` uses, and for the same
+   * reason: this used to read `profiles.credits_used` against
+   * `credits_total`, a cache with no lock on it, so two avatar renders started
+   * together could both read the same balance, both pass, and both dispatch.
+   * That was the exact race credit reservation was built to close, just never
+   * closed here.
+   */
+  const { data: generation, error: insertError } = await supabase
+    .from("video_generations")
+    .insert({
+      project_id: body.projectId,
+      user_id: user.id,
+      prompt,
+      aspect_ratio: "9:16",
+      image_urls: [body.imageUrl],
+      status: "queued",
+      model: model.id,
+      trace_id: traceId,
+    })
+    .select("id")
     .single();
-  const cost = model.credit_cost ?? 1;
-  if (profile && profile.credits_used + cost > profile.credits_total) {
-    return json({ error: "Not enough credits for an avatar render" }, 402);
+
+  if (insertError || !generation) {
+    log("error", "could not record the avatar generation", { traceId });
+    return json({ error: "Could not record the generation" }, 500);
+  }
+
+  // Nothing is dispatched until the credits are actually held.
+  const admin = adminClient();
+  const reservation = await reserveCredits(admin, generation.id);
+  if (!reservation.held) {
+    log("error", "avatar credit reservation refused", { traceId, generationId: generation.id });
+    await abandonRun(admin, generation.id, reservation.reason);
+    return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
   const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
@@ -129,8 +159,7 @@ Deno.serve(async (req) => {
   /*
    * Both inputs are handed to the provider as bytes rather than as links to
    * our own storage, for the reason set out in `handToProvider`: a signed link
-   * is unreachable in local development and expires in production. This path
-   * had never dispatched successfully, and this was why.
+   * is unreachable in local development and expires in production.
    */
   let imageUrl: string;
   let audioUrl: string;
@@ -143,10 +172,9 @@ Deno.serve(async (req) => {
       : (body.audioUrl as string);
   } catch (error) {
     log("error", "could not hand the avatar inputs to the provider", { traceId });
-    return json(
-      { error: error instanceof Error ? error.message : "Could not prepare the inputs" },
-      502,
-    );
+    const message = error instanceof Error ? error.message : "Could not prepare the inputs";
+    await abandonRun(admin, generation.id, message);
+    return json({ error: message, generationId: generation.id }, 502);
   }
 
   let taskId: string;
@@ -161,30 +189,23 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     log("error", "avatar task failed", { traceId });
-    return json({ error: error instanceof Error ? error.message : "Generation failed" }, 502);
+    const message = error instanceof Error ? error.message : "Generation failed";
+    await abandonRun(admin, generation.id, message);
+    return json({ error: message, generationId: generation.id }, 502);
   }
 
-  const { data: generation, error: insertError } = await supabase
+  const { error: dispatchError } = await admin
     .from("video_generations")
-    .insert({
-      project_id: body.projectId,
-      user_id: user.id,
-      prompt,
-      aspect_ratio: "9:16",
-      image_urls: [body.imageUrl],
-      status: "generating",
-      provider_task_id: taskId,
-      // Recorded so completion prices this against the avatar rate rather than
-      // the video one, and so polling knows which status endpoint to ask.
-      model: model.id,
-      trace_id: traceId,
-    })
-    .select("id")
-    .single();
+    .update({ status: "generating", provider_task_id: taskId })
+    .eq("id", generation.id);
 
-  if (insertError || !generation) {
-    log("error", "could not record the avatar generation", { traceId, taskId });
-    return json({ error: "Could not record the generation" }, 500);
+  if (dispatchError) {
+    // The render is running and we cannot follow it, so it can only be settled
+    // as failed. Refunding is the right side to err on: we cannot show a
+    // result we have lost the handle to.
+    log("error", "could not record the dispatched avatar task", { traceId, taskId });
+    await abandonRun(admin, generation.id, "Could not follow this render");
+    return json({ error: "Could not record the generation", generationId: generation.id }, 500);
   }
 
   log("info", "avatar submitted", { traceId, taskId, generationId: generation.id });

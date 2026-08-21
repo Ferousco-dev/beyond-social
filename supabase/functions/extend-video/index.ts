@@ -13,10 +13,11 @@
 //    chain as many as they want.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { createMarketVideoTask, extendVideoTask } from "../_shared/kie.ts";
-import { capabilityOf, resolveDuration } from "../_shared/video-capabilities.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
+import { capabilityOf, resolveDuration } from "../_shared/video-capabilities.ts";
 
 interface ExtendBody {
   generationId?: string;
@@ -56,15 +57,8 @@ Deno.serve(async (req) => {
     return json({ error: "generationId and prompt are required" }, 400);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("credits_total, credits_used")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (profile && profile.credits_used >= profile.credits_total) {
-    return json({ error: "No video credits remaining" }, 402);
-  }
-
+  // RLS scopes this to the caller's own rows, so a generation id that belongs
+  // to someone else reads as one that does not exist.
   const { data: source } = await supabase
     .from("video_generations")
     .select("id, project_id, model, status, provider_task_id, resolution, aspect_ratio, duration")
@@ -82,14 +76,7 @@ Deno.serve(async (req) => {
     return json({ error: "A motion-control clip cannot be continued" }, 400);
   }
 
-  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const callBackUrl = callbackSecret
-    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`
-    : undefined;
-
   const continuation = capabilityOf(source.model).continuation;
-  let taskId: string;
-  let duration: number = source.duration ?? 8;
 
   if (continuation === "native-extend") {
     if (!source.provider_task_id) {
@@ -98,33 +85,22 @@ Deno.serve(async (req) => {
     if (source.resolution === "1080p" || source.resolution === "4k") {
       return json({ error: "Videos rendered above 720p cannot be continued" }, 409);
     }
-    try {
-      taskId = await extendVideoTask({
-        taskId: source.provider_task_id,
-        prompt,
-        callBackUrl,
-      });
-    } catch (error) {
-      return json({ error: error instanceof Error ? error.message : "Could not continue" }, 502);
-    }
-  } else {
-    duration = resolveDuration(source.model, body.duration ?? source.duration);
-    try {
-      taskId = await createMarketVideoTask({
-        model: source.model,
-        prompt,
-        imageUrls: [],
-        videoUrls: [],
-        aspectRatio: source.aspect_ratio ?? "9:16",
-        duration,
-        shots: [],
-        callBackUrl,
-      });
-    } catch (error) {
-      return json({ error: error instanceof Error ? error.message : "Could not continue" }, 502);
-    }
   }
 
+  const duration =
+    continuation === "native-extend"
+      ? (source.duration ?? 8)
+      : resolveDuration(source.model, body.duration ?? source.duration);
+
+  /*
+   * The row is written, and the credits reserved, before the provider is
+   * called. This used to read `profiles.credits_used` against
+   * `credits_total`, a cache with no lock on it, checked before dispatch and
+   * never touched again until the callback settled the row minutes later. Two
+   * continuations started together could both read the same balance, both
+   * pass, and both dispatch: the exact race credit reservation exists to
+   * close, just never wired in here. The same ordering `generate-video` uses.
+   */
   const { data: generation, error: insertError } = await supabase
     .from("video_generations")
     .insert({
@@ -133,9 +109,8 @@ Deno.serve(async (req) => {
       prompt,
       duration,
       aspect_ratio: source.aspect_ratio,
-      status: "generating",
+      status: "queued",
       model: source.model,
-      provider_task_id: taskId,
       extended_from: source.id,
       trace_id: traceId,
     })
@@ -143,8 +118,63 @@ Deno.serve(async (req) => {
     .single();
 
   if (insertError || !generation) {
-    log("error", "could not record the extension", { traceId, taskId });
+    log("error", "could not record the extension", { traceId });
     return json({ error: "Could not record the extension" }, 500);
+  }
+
+  // Nothing is dispatched until the credits are actually held.
+  const admin = adminClient();
+  const reservation = await reserveCredits(admin, generation.id);
+  if (!reservation.held) {
+    log("error", "extension credit reservation refused", { traceId, generationId: generation.id });
+    await abandonRun(admin, generation.id, reservation.reason);
+    return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
+  }
+
+  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
+  const callBackUrl = callbackSecret
+    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`
+    : undefined;
+
+  let taskId: string;
+  try {
+    taskId =
+      continuation === "native-extend"
+        ? await extendVideoTask({
+            // Checked above: this branch does not run without a source task id.
+            taskId: source.provider_task_id as string,
+            prompt,
+            callBackUrl,
+          })
+        : await createMarketVideoTask({
+            model: source.model,
+            prompt,
+            imageUrls: [],
+            videoUrls: [],
+            aspectRatio: source.aspect_ratio ?? "9:16",
+            duration,
+            shots: [],
+            callBackUrl,
+          });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not continue";
+    // Nothing rendered, so the reservation is given back on the way out.
+    await abandonRun(admin, generation.id, message);
+    return json({ error: message, generationId: generation.id }, 502);
+  }
+
+  const { error: dispatchError } = await admin
+    .from("video_generations")
+    .update({ status: "generating", provider_task_id: taskId })
+    .eq("id", generation.id);
+
+  if (dispatchError) {
+    // The render is running and we cannot follow it, so it can only be settled
+    // as failed. Refunding is the right side to err on: we cannot show a
+    // result we have lost the handle to.
+    log("error", "could not record the dispatched extension task", { traceId, taskId });
+    await abandonRun(admin, generation.id, "Could not follow this render");
+    return json({ error: "Could not record the extension", generationId: generation.id }, 500);
   }
 
   log("info", "extension submitted", { traceId, taskId, generationId: generation.id });
