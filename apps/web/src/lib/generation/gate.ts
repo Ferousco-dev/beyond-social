@@ -1,6 +1,6 @@
 import "server-only";
 
-import { canRunModel } from "@/lib/credits/queries";
+import { canRunModel, cheapestRunCost } from "@/lib/credits/queries";
 import { DENIAL_COPY } from "@/lib/credits/types";
 
 /**
@@ -25,7 +25,31 @@ import { DENIAL_COPY } from "@/lib/credits/types";
 export const DEFAULT_VIDEO_MODEL_ID = "veo3_fast";
 
 export type RunGate =
-  { readonly allowed: true } | { readonly allowed: false; readonly notice: string };
+  | {
+      readonly allowed: true;
+      /**
+       * Said even though the run goes ahead: the balance this run leaves
+       * behind cannot cover another one, so the moment to mention it is now,
+       * while the account is still here to read it, not the next time they
+       * try and find the gate refuses them cold.
+       */
+      readonly lowBalanceNotice: string | null;
+    }
+  | { readonly allowed: false; readonly notice: string };
+
+/**
+ * What to say about a balance that will not cover another run, or nothing.
+ *
+ * Pure so the threshold can be tested without a database: `remaining` is what
+ * this run leaves behind and `floor` is the cheapest run left on any plan.
+ * Below it there is no cheaper model to fall back to, on any tier, so that is
+ * the one number that means the same "cliff" for every account.
+ */
+export function lowBalanceMessage(remaining: number, floor: number | null): string | null {
+  if (floor === null || remaining >= floor) return null;
+  const left = remaining <= 0 ? "credits" : `${remaining} credit${remaining === 1 ? "" : "s"}`;
+  return `This uses your last ${left} for now. Top up to keep making videos.`;
+}
 
 /**
  * Denials name the dial that stopped the run, so the reply can offer the right
@@ -39,5 +63,15 @@ export type RunGate =
  */
 export async function checkVideoRun(modelId: string = DEFAULT_VIDEO_MODEL_ID): Promise<RunGate> {
   const check = await canRunModel(modelId);
-  return check.allowed ? { allowed: true } : { allowed: false, notice: DENIAL_COPY[check.reason] };
+  if (!check.allowed) return { allowed: false, notice: DENIAL_COPY[check.reason] };
+
+  /*
+   * The only warning this account ever got was a hard refusal at the exact
+   * moment a run could no longer be afforded, which is the latest possible
+   * point to say so and the one time saying so cannot also offer a way to
+   * avoid it.
+   */
+  const remaining = check.balance - check.creditCost;
+  const floor = await cheapestRunCost();
+  return { allowed: true, lowBalanceNotice: lowBalanceMessage(remaining, floor) };
 }
