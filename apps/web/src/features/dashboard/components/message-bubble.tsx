@@ -44,8 +44,10 @@ export function MessageBubble({
       {message.content ? (
         <>
           <p className="whitespace-pre-wrap leading-7">{message.content}</p>
-          {/* Revealed on hover so the thread stays quiet while reading. */}
-          <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100">
+          {/* Revealed on hover so the thread stays quiet while reading, and shown
+              outright where there is no hover, because otherwise a phone has no way
+              to copy a reply. */}
+          <div className="mt-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover/message:opacity-100 pointer-coarse:opacity-100">
             <CopyButton value={message.content} label="Copy reply" />
           </div>
         </>
@@ -69,12 +71,20 @@ export function MessageBubble({
           regenerating={regeneratingId === message.draft.generationId}
         />
       ) : null}
-      {/* A failed draft says so. It used to be indistinguishable from a reply
-          with no video, which read as though nothing had been attempted. */}
+      {/* A failed draft says so, and says why when the reason was recorded. It
+          used to be indistinguishable from a reply with no video, which read as
+          though nothing had been attempted. */}
       {message.draft?.status === "failed" ? (
-        <p className="mt-3 rounded-xl border border-hairline bg-paper px-3 py-2 text-xs text-ink-soft">
-          This draft did not finish rendering. Send the message again to retry.
-        </p>
+        <div className="mt-3 rounded-xl border border-hairline bg-paper px-3 py-2 text-xs">
+          {/* The reason leads, because it is the part that answers the
+              question. Absent on rows that failed before anything wrote one. */}
+          {message.draft.error?.trim() ? (
+            <p className="text-ink">{message.draft.error.trim()}</p>
+          ) : null}
+          <p className="mt-1 text-ink-soft first:mt-0">
+            This draft did not finish rendering. Send the message again to retry.
+          </p>
+        </div>
       ) : null}
     </div>
   );

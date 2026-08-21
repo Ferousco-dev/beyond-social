@@ -1,10 +1,20 @@
 "use client";
 
-import { ArrowUp, Loader2, X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { Loader2, Square, X } from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type KeyboardEvent,
+  type SetStateAction,
+} from "react";
 
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
+import { SendButton } from "@/components/ui/send-button";
+import { cn } from "@/lib/utils";
+
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
 import { FootageChip } from "./footage-chip";
 import { RecordButton } from "./record-button";
@@ -17,7 +27,8 @@ interface PromptComposerProps {
   onSubmit: () => void;
   projectId: string;
   photos: readonly PendingPhoto[];
-  onPhotosChange: (photos: readonly PendingPhoto[]) => void;
+  /** React's updater signature, so the menu can settle a preview in place. */
+  onPhotosChange: Dispatch<SetStateAction<readonly PendingPhoto[]>>;
   busy: boolean;
   /** Sets or clears the attached clip. Null is how the chip removes it. */
   onVoice: (voice: PendingVoice | null) => void;
@@ -30,6 +41,16 @@ interface PromptComposerProps {
   /** The shot list for multi-shot generation. Null when not using shots. */
   shots: readonly PendingShot[] | null;
   onShotsChange: (shots: readonly PendingShot[] | null) => void;
+  /**
+   * What a video costs and what is left. Null when there is no backend to ask,
+   * in which case nothing is claimed about price.
+   */
+  credits: { readonly cost: number; readonly balance: number } | null;
+  /**
+   * Stops reading the turn in flight. Absent where there is nothing to stop,
+   * which is the dashboard composer: it navigates before a turn begins.
+   */
+  onStop?: () => void;
 }
 
 export function PromptComposer({
@@ -46,11 +67,29 @@ export function PromptComposer({
   footage,
   shots,
   onShotsChange,
+  credits,
+  onStop,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSubmit = value.trim().length > 0 && !busy && !uploading;
+  /*
+   * Why the button is off, rather than only that it is.
+   *
+   * It was labelled "Send" in all four states, so a greyed-out button during a
+   * render read as broken rather than busy, and there was nothing on the page
+   * saying to wait. The reason is both the accessible name and the tooltip,
+   * because a pointer user gets no announcement and a screen reader user gets
+   * no hover.
+   */
+  const sendReason = uploading
+    ? "Wait for the upload to finish"
+    : busy
+      ? "Wait for the current video to finish"
+      : value.trim() === ""
+        ? "Describe a video first"
+        : "Send";
 
   /*
    * Keyed on the value rather than done in the change handler, so it responds
@@ -89,18 +128,32 @@ export function PromptComposer({
       {photos.length > 0 ? (
         <ul className="flex flex-wrap gap-2 px-1 pb-2">
           {photos.map((photo) => (
-            <li key={photo.path} className="relative">
+            <li key={photo.id} className="relative">
               {/* Plain img: these are signed, short-lived URLs on an arbitrary
-                  host, which the image optimiser cannot be configured for. */}
+                  host, which the image optimiser cannot be configured for, and
+                  a local blob before that. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.url}
                 alt=""
-                className="size-14 rounded-lg border border-hairline object-cover"
+                className={cn(
+                  "size-14 rounded-lg border border-hairline object-cover transition-opacity",
+                  // Dimmed while the server is still classifying and signing it.
+                  // The picture is right; only its link is provisional.
+                  photo.pending && "opacity-60",
+                )}
               />
+              {photo.pending ? (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="size-4 animate-spin text-paper drop-shadow" aria-hidden />
+                  <span className="sr-only">Uploading</span>
+                </span>
+              ) : null}
               <button
                 type="button"
-                onClick={() => onPhotosChange(photos.filter((item) => item.path !== photo.path))}
+                onClick={() =>
+                  onPhotosChange((current) => current.filter((item) => item.id !== photo.id))
+                }
                 aria-label="Remove photo"
                 className="absolute -right-1.5 -top-1.5 inline-flex size-5 items-center justify-center rounded-full border border-hairline bg-paper text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
@@ -129,12 +182,15 @@ export function PromptComposer({
           onFootage={onFootage}
           onShots={() => {
             if (shots === null || shots.length === 0) {
-              onShotsChange([{ prompt: "", duration: 5 }, { prompt: "", duration: 5 }]);
+              onShotsChange([
+                { prompt: "", duration: 5 },
+                { prompt: "", duration: 5 },
+              ]);
             }
           }}
-          onPhotos={(next) => {
+          onPhotos={(update) => {
             setError(null);
-            onPhotosChange([...photos, ...next]);
+            onPhotosChange(update);
           }}
           onError={setError}
           onBusyChange={setUploading}
@@ -146,25 +202,56 @@ export function PromptComposer({
             onError={setError}
             onBusyChange={setUploading}
           />
-          <button
-            type="button"
-            onClick={() => canSubmit && onSubmit()}
-            disabled={!canSubmit}
-            aria-label="Send"
-            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            {busy || uploading ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <ArrowUp className="size-4" />
-            )}
-          </button>
+          {/*
+            One button, two jobs. While a turn is running the only useful thing
+            here is to stop it, and a spinner that cannot be pressed was the
+            product asking somebody to wait with no way out.
+          */}
+          {busy && onStop ? (
+            <button
+              type="button"
+              onClick={onStop}
+              aria-label="Stop"
+              title="Stop"
+              className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full bg-ink text-paper transition-opacity hover:opacity-90"
+            >
+              <Square className="size-3 fill-current" aria-hidden />
+            </button>
+          ) : (
+            <SendButton
+              onClick={() => canSubmit && onSubmit()}
+              disabled={!canSubmit}
+              busy={uploading}
+              hint={sendReason}
+            />
+          )}
         </div>
       </div>
 
       {error ? (
-        <p role="status" className="px-3 pt-1 text-xs text-destructive">
+        <p role="alert" className="px-3 pt-1 text-xs text-destructive">
           {error}
+        </p>
+      ) : null}
+
+      {/*
+        The price, next to the button that pays it.
+        
+        The balance was on the billing page and the overview tile and nowhere
+        near here, so the way to find out the account was empty was to write a
+        brief, send it, and be refused. Stated quietly: this is a fact worth
+        having, not a warning, right up until there is not enough for one video.
+      */}
+      {credits !== null ? (
+        <p
+          className={cn(
+            "px-3 pt-1 text-xs",
+            credits.balance < credits.cost ? "text-destructive" : "text-ink-soft",
+          )}
+        >
+          {credits.balance < credits.cost
+            ? `A video costs ${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} and you have ${credits.balance}. Top up to keep generating.`
+            : `${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} a video · ${credits.balance} left`}
         </p>
       ) : null}
     </div>

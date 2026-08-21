@@ -40,7 +40,7 @@ const valueClass = "text-xs leading-relaxed text-ink-soft";
 /** How to verify a delivery. Written so a receiver can be implemented from it. */
 export function SignatureDoc() {
   return (
-    <section className="rounded-2xl border border-hairline bg-paper p-5">
+    <section className="rounded-xl border border-hairline bg-paper p-5">
       <h2 className="text-sm font-semibold text-ink">Verifying a delivery</h2>
       <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">
         Every request we send carries a signature made with your endpoint&apos;s secret. Check it

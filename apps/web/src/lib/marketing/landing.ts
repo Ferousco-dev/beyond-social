@@ -17,6 +17,14 @@ export interface Feature {
   readonly icon: LucideIcon;
   readonly title: string;
   readonly description: string;
+  /**
+   * A screen peeking in from the card's right edge.
+   *
+   * Only on the cards wide enough to carry one. Decoration rather than
+   * documentation: it is clipped, faded and rotated, and is there to suggest a
+   * real product behind the claim rather than to be read.
+   */
+  readonly peek?: { readonly src: string; readonly alt: string };
 }
 
 export interface Step {
@@ -56,6 +64,7 @@ export const FEATURES: readonly Feature[] = [
     title: "Prompt intelligence",
     description:
       "Every prompt is grounded in a knowledge base of cinematography, lighting, and retention craft, then rewritten into a director-grade shot description.",
+    peek: { src: "/app/compose.png", alt: "" },
   },
   {
     icon: Clapperboard,
@@ -74,12 +83,14 @@ export const FEATURES: readonly Feature[] = [
     title: "Schedule once, publish everywhere",
     description:
       "Queue a week of content and let it publish itself to TikTok, Instagram, YouTube, and Facebook at the right moment.",
+    peek: { src: "/app/library.png", alt: "" },
   },
   {
     icon: BarChart3,
     title: "Performance that feeds back",
     description:
       "Views and reach flow back into the engine, so the system learns which creative choices actually earned attention.",
+    peek: { src: "/app/overview.png", alt: "" },
   },
   {
     icon: Sparkles,
@@ -110,30 +121,50 @@ export const STEPS: readonly Step[] = [
   },
 ];
 
+/**
+ * Sample output.
+ *
+ * ============================ PLACEHOLDER ============================
+ * Every tile below is a stock photograph, and the section labels them as
+ * things this product made: "Fragrance launch, product video, 9:16".
+ * A visitor reads four finished videos. There are none.
+ *
+ * That is the same claim a fabricated testimonial makes, and it is worse
+ * for being the thing they came to judge: nobody buys a video tool
+ * without looking at its output. Replace these with real renders, with
+ * the briefs that produced them, and set the flag below to false.
+ *
+ * `SHOWCASE_IS_PLACEHOLDER` is read by the component, which refuses to
+ * render the section while it is true. The page is shorter without it,
+ * which is the honest length.
+ * =====================================================================
+ */
+export const SHOWCASE_IS_PLACEHOLDER = true;
+
 export const SHOWCASE: readonly ShowcaseItem[] = [
   {
-    title: "Fragrance launch",
-    meta: "Product video · 9:16",
+    title: "Replace me",
+    meta: "Real render · 9:16",
     image: unsplash("photo-1666621630026-862eea07236c", 600, 900),
-    alt: "Perfume bottle on a minimal surface",
+    alt: "Placeholder, not product output",
   },
   {
-    title: "Skincare drop",
-    meta: "UGC ad · 9:16",
+    title: "Replace me",
+    meta: "Real render · 9:16",
     image: unsplash("photo-1611930022073-b7a4ba5fcccd", 600, 900),
-    alt: "Two minimal skincare bottles",
+    alt: "Placeholder, not product output",
   },
   {
-    title: "Eyewear campaign",
-    meta: "Brand film · 9:16",
+    title: "Replace me",
+    meta: "Real render · 9:16",
     image: unsplash("photo-1711564354308-77285d9fe3c7", 600, 900),
-    alt: "Pair of glasses on a bright table",
+    alt: "Placeholder, not product output",
   },
   {
-    title: "Studio session",
-    meta: "Behind the scenes · 9:16",
+    title: "Replace me",
+    meta: "Real render · 9:16",
     image: unsplash("photo-1632187981988-40f3cbaeef5e", 600, 900),
-    alt: "Film crew around a camera setup",
+    alt: "Placeholder, not product output",
   },
 ];
 

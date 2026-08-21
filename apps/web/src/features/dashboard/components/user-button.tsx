@@ -9,6 +9,7 @@ import { type ReactNode, useState, useTransition } from "react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { signOutAction } from "@/features/auth/actions";
 import { ThemeToggle } from "@/features/settings/components/theme-toggle";
+import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 import { type DashboardUser } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
@@ -21,9 +22,13 @@ import { cn } from "@/lib/utils";
  * you are, where the account lives, the one preference worth changing without
  * leaving, and the way out.
  *
- * Every row leads somewhere real. There is no credits row, because the product
- * does not meter credits, and no referral or feedback row, because there is
- * nothing behind either.
+ * Every row leads somewhere real, and there is no referral or feedback row
+ * because there is nothing behind either.
+ *
+ * No credits row, but not because credits are not metered: they are, and every
+ * run passes `checkVideoRun`. The balance is stated under the composer that
+ * spends it, which is where somebody actually needs the number, and repeating
+ * it here would be a second place to keep in step for no extra answer.
  */
 
 const ROW =
@@ -85,7 +90,12 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-ink">{user.name}</span>
-                <span className="block truncate text-xs text-ink-soft">Free plan</span>
+                {/* The real plan. This said "Free plan" to everyone, including
+                    people paying for Studio, in the one piece of chrome that is
+                    on screen the whole time. */}
+                <span className="block truncate text-xs text-ink-soft">
+                  {PLAN_CATALOGUE[user.plan].name} plan
+                </span>
               </span>
               <ChevronsUpDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
             </>

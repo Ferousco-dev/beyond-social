@@ -72,6 +72,15 @@ export interface LlmCompleteParams {
 export interface Llm {
   readonly model: string;
   complete(params: LlmCompleteParams): Promise<string>;
+  /**
+   * The same completion, delivered as it is written.
+   *
+   * Optional so an implementation is free to offer only `complete`; callers
+   * that need text as it arrives check for it and fall back to waiting for the
+   * whole string. Yields the pieces to append, nothing else: token counts and
+   * cost are the gateway's business, not the caller's.
+   */
+  stream?(params: LlmCompleteParams): AsyncIterable<string>;
 }
 
 /**

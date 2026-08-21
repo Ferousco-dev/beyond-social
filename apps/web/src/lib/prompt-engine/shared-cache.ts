@@ -65,6 +65,14 @@ export class SupabaseEmbeddingCache implements EmbeddingCache {
  * reporting on what the cache avoided, not for re-billing a hit.
  */
 export class SupabaseResponseCache implements ResponseCache {
+  /**
+   * This store persists whatever `expiresAt` a caller's entry already carries
+   * rather than dictating one of its own, so this is only the fallback the
+   * gateway reaches for when nothing more specific was asked for: one hour,
+   * matching what every call here has used since this cache was written.
+   */
+  readonly defaultTtlMs = 60 * 60 * 1000;
+
   async get(key: string): Promise<CacheEntry | undefined> {
     try {
       const { data, error } = await createServiceClient().rpc("response_cache_get", {

@@ -12,7 +12,12 @@ import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
 import { estimateTokens } from "./tokens";
 import { CircuitBreaker, type BreakerOptions } from "./breaker";
 import { isRetryable, withRetry, type RetryOptions } from "./retry";
-import { type CompletionRequest, type CompletionResult, type ProviderClient } from "./providers";
+import {
+  type CompletionRequest,
+  type CompletionResult,
+  type ProviderClient,
+  type StreamEvent,
+} from "./providers";
 import {
   InjectionError,
   ModerationError,
@@ -100,7 +105,6 @@ export class ProviderTimeoutError extends Error {
     this.name = "ProviderTimeoutError";
   }
 }
-const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
 
 /**
  * The AI gateway: one entry point for every model call.
@@ -113,6 +117,15 @@ const DEFAULT_CACHE_TTL_MS = 60 * 60 * 1000;
  * Callers name a *task*, not a model. That indirection is the point: routing,
  * pricing, and fallbacks change here without touching call sites.
  */
+/** Wraps a non-streaming completion as the two events a stream would emit. */
+async function* singleChunk(result: CompletionResult): AsyncGenerator<StreamEvent> {
+  yield { type: "chunk", text: result.text };
+  yield {
+    type: "done",
+    usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens },
+  };
+}
+
 export class AiGateway {
   private readonly limiter: RateLimiter;
   private readonly usage: UsageSink;
@@ -268,10 +281,19 @@ export class AiGateway {
         );
 
         if (key !== null && this.options.cache) {
+          /*
+           * The gateway's own `cacheTtlMs` is an explicit override and wins
+           * when set. Otherwise this asks the cache instance for its own
+           * default rather than falling back to a module constant here: a
+           * `MemoryResponseCache` built with a non-default `ttlMs` had that
+           * value silently ignored, because nothing ever read it back, and
+           * every entry lived for whatever this constant said regardless of
+           * what the cache itself was configured with.
+           */
           void this.options.cache.set(key, {
             result,
             model: spec.id,
-            expiresAt: this.now() + (this.options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS),
+            expiresAt: this.now() + (this.options.cacheTtlMs ?? this.options.cache.defaultTtlMs),
           });
         }
 
@@ -303,6 +325,137 @@ export class AiGateway {
             error: error instanceof Error ? error.message : String(error),
           }),
         );
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error(`All models failed for task "${request.task}"`);
+  }
+
+  /**
+   * The same call, delivered as it is written.
+   *
+   * Routing, screening, rate limiting and cost accounting are the same as
+   * `complete`. Two things are deliberately different.
+   *
+   * Fallback stops at the first token. Moving to another model mid-reply would
+   * splice two different answers together in front of the user, so a failure
+   * after text has been emitted is terminal even when the same failure would be
+   * retried by `complete`. Before the first token nothing has been shown and
+   * the chain moves on as usual.
+   *
+   * There is no retry inside a candidate for the same reason: a retry restarts
+   * the stream, and the caller has already rendered what the first attempt
+   * said.
+   *
+   * A provider with no `stream` is completed in full and emitted as one chunk,
+   * so no caller has to ask which providers can stream.
+   */
+  async *stream(request: GatewayRequest): AsyncGenerator<StreamEvent> {
+    const requestId = this.newId();
+    const startedAt = this.now();
+    const candidates = this.chain(request.task);
+
+    this.screenInput(request);
+
+    if (candidates.length === 0) {
+      throw new Error(
+        `No model available for task "${request.task}". Configure a provider client.`,
+      );
+    }
+
+    const promptTokens = estimateTokens(
+      request.system + request.messages.map((message) => message.content).join(" "),
+    );
+    const decision = await this.limiter.take(
+      request.userId ?? "anonymous",
+      Math.max(1, promptTokens),
+    );
+    if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
+
+    let lastError: unknown;
+
+    for (const [index, spec] of candidates.entries()) {
+      const client = this.options.clients[spec.provider];
+      if (!client) continue;
+
+      const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
+      const budget = Math.ceil(promptTokens * ESTIMATE_MARGIN) + reservedOutput;
+      if (budget > spec.contextWindow) {
+        lastError = new Error(
+          `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
+        );
+        continue;
+      }
+
+      if (!this.breaker.allows(spec.provider)) {
+        lastError = new Error(`${spec.provider} circuit is open`);
+        continue;
+      }
+
+      let emitted = false;
+      let text = "";
+      let usage = { inputTokens: 0, outputTokens: 0 };
+
+      try {
+        const events = client.stream
+          ? client.stream(spec, request)
+          : singleChunk(await client.complete(spec, request));
+
+        for await (const event of events) {
+          if (event.type === "chunk" && event.text) {
+            emitted = true;
+            text += event.text;
+            yield event;
+          } else if (event.type === "done" && event.usage) {
+            usage = event.usage;
+          }
+        }
+
+        this.breaker.recordSuccess(spec.provider);
+        // Screened at the end rather than per chunk: a rule about the whole
+        // answer cannot be evaluated against a fragment of it. The caller is
+        // told to discard what it has if this throws.
+        this.screenOutput(text);
+
+        const latencyMs = this.now() - startedAt;
+        const result = { text, ...usage };
+        const cost = costUsd(spec, usage.inputTokens, usage.outputTokens);
+        void this.usage.record(
+          this.buildRecord(requestId, request, spec, {
+            result,
+            cost,
+            latencyMs,
+            fallbacks: index,
+            attempts: 1,
+            ok: true,
+            error: null,
+          }),
+        );
+
+        yield { type: "done", usage };
+        return;
+      } catch (error) {
+        lastError = error;
+        if (isRetryable(error) || error instanceof ProviderTimeoutError) {
+          this.breaker.recordFailure(spec.provider);
+        }
+        void this.usage.record(
+          this.buildRecord(requestId, request, spec, {
+            result: { text, ...usage },
+            cost: 0,
+            latencyMs: this.now() - startedAt,
+            fallbacks: index,
+            attempts: 1,
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+
+        // Past the first token there is no clean recovery: the user is already
+        // reading the failed model's words.
+        if (emitted) throw error;
       }
     }
 
@@ -349,8 +502,17 @@ export class AiGateway {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+    /*
+     * `addEventListener("abort", ...)` on a signal that is already aborted
+     * never fires: the event marks the transition into that state, and a
+     * signal aborted before this ran has already made it. A caller passing an
+     * already-cancelled signal, which is exactly the shape a request cancelled
+     * while it was still queued takes, would have this reach the provider
+     * anyway, uncancelled, only to be thrown away on a response nobody wanted.
+     */
     const abortFromCaller = (): void => controller.abort();
-    request.signal?.addEventListener("abort", abortFromCaller);
+    if (request.signal?.aborted) abortFromCaller();
+    else request.signal?.addEventListener("abort", abortFromCaller);
 
     try {
       return await client.complete(spec, { ...request, signal: controller.signal });

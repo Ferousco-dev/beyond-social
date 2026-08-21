@@ -31,8 +31,8 @@ enable_signup = true
 
 [auth.email]
 enable_signup = true
-enable_confirmations = true
-double_confirm_changes = true
+enable_confirmations = false
+double_confirm_changes = false
 
 [auth.mfa]
 max_enrolled_factors = 10
@@ -71,6 +71,13 @@ verify_jwt = false
 # Checks likeness consent, the model's availability and the balance before
 # dispatching, because the provider charges on submission.
 [functions.generate-avatar]
+verify_jwt = false
+
+# Authenticated: continues a clip the caller already made. Listed for the same
+# reason its siblings are, and left off for the same one: it resolves the caller
+# itself and refuses anything it cannot identify, so the platform gate would be
+# a second lock on a door this function already holds shut.
+[functions.extend-video]
 verify_jwt = false
 
 # Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.

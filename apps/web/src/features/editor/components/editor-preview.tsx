@@ -39,6 +39,7 @@ export function EditorPreview({ playback, editor }: { playback: Playback; editor
 
   const clip = activeItem<VideoItem>(editor, "video", isVideo as never, playback.currentMs);
   const caption = activeItem<TextItem>(editor, "text", isText as never, playback.currentMs);
+  const videoMuted = editor.project.tracks.find((track) => track.kind === "video")?.muted ?? false;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -54,6 +55,9 @@ export function EditorPreview({ playback, editor }: { playback: Playback; editor
           currentMs={playback.currentMs}
           durationMs={playback.durationMs}
           showSafeAreas={showSafeAreas}
+          isPlaying={playback.isPlaying}
+          muted={videoMuted}
+          seekNonce={playback.seekNonce}
         />
       </div>
 

@@ -59,7 +59,7 @@ export function TrendRow({
         onClick={onToggleSave}
         aria-pressed={saved}
         aria-label={saved ? `Remove ${trend.title} from saved` : `Save ${trend.title}`}
-        className="relative z-10 inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-hairline hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="relative z-10 inline-flex size-8 shrink-0 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-hairline hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Bookmark className={cn("size-4", saved && "fill-current text-ink")} aria-hidden />
       </button>

@@ -21,7 +21,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => setCopied(true));
       }}
-      className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      className="inline-flex size-7 cursor-pointer pointer-coarse:size-11 items-center justify-center rounded-md text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       {copied ? (
         <Check className="size-3.5 text-success" aria-hidden />

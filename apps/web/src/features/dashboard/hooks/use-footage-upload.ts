@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 
-import { createVideoUploadTicket, VIDEO_ACCEPT } from "@/features/chat/video-upload-actions";
+import { createVideoUploadTicket } from "@/features/chat/video-upload-actions";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 
 /**
@@ -24,7 +24,7 @@ export interface PendingFootage {
   readonly name: string;
 }
 
-export { VIDEO_ACCEPT };
+export const VIDEO_ACCEPT = "video/mp4,video/quicktime";
 
 interface Options {
   onFootage: (footage: PendingFootage) => void;

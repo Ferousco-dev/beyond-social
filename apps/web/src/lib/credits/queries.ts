@@ -24,6 +24,33 @@ export async function getCreditBalance(): Promise<number> {
 }
 
 /**
+ * The cheapest run any account can afford, regardless of plan.
+ *
+ * A `min_plan = 'free'` model is reachable from every tier, since a plan can
+ * only run models at or below its own rank, never above. That makes the
+ * cheapest active one a floor that means the same thing for everyone: below
+ * it, the next video is not a question of which model, there simply isn't one
+ * left to run.
+ */
+export async function cheapestRunCost(): Promise<number | null> {
+  if (!isSupabaseConfigured) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("model_catalog")
+    .select("credit_cost")
+    .eq("family", "video")
+    .eq("is_active", true)
+    .eq("min_plan", "free")
+    .order("credit_cost", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error !== null || data === null) return null;
+  return data.credit_cost;
+}
+
+/**
  * Both dials, checked server-side. A denial always names which one failed, so
  * the composer can offer the right remedy: upgrade, or top up.
  */

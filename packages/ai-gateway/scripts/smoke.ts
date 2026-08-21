@@ -9,7 +9,7 @@
 import { MemoryResponseCache, cacheKey, isCacheable } from "../src/cache";
 import { AiGateway } from "../src/gateway";
 import { z } from "zod";
-import { type CompletionResult, type ProviderClient } from "../src/providers";
+import { type CompletionResult, type ProviderClient, type StreamEvent } from "../src/providers";
 import { TieredLimiter, TokenBucketLimiter, RateLimitedError } from "../src/rate-limit";
 import { ProviderError } from "../src/retry";
 import {
@@ -48,6 +48,37 @@ const broken: ProviderClient = {
     throw new ProviderError("server error", 500);
   },
 };
+
+/** Streams `pieces`, then fails, to test what happens mid-reply. */
+function streamer(pieces: readonly string[], failAfter = -1): ProviderClient {
+  return {
+    async complete(): Promise<CompletionResult> {
+      return { text: pieces.join(""), inputTokens: 10, outputTokens: 10 };
+    },
+    async *stream(): AsyncIterable<StreamEvent> {
+      for (const [index, text] of pieces.entries()) {
+        if (index === failAfter) throw new ProviderError("died mid-stream", 500);
+        yield { type: "chunk", text };
+      }
+      yield { type: "done", usage: { inputTokens: 10, outputTokens: 10 } };
+    },
+  };
+}
+
+/** Cannot stream at all, so the gateway must complete and emit one chunk. */
+const completeOnly: ProviderClient = {
+  async complete(): Promise<CompletionResult> {
+    return { text: "whole answer", inputTokens: 4, outputTokens: 4 };
+  },
+};
+
+async function collect(events: AsyncIterable<StreamEvent>): Promise<string[]> {
+  const chunks: string[] = [];
+  for await (const event of events) {
+    if (event.type === "chunk" && event.text) chunks.push(event.text);
+  }
+  return chunks;
+}
 
 async function main(): Promise<void> {
   // 1. Retries a transient failure rather than surfacing it.
@@ -130,6 +161,33 @@ async function main(): Promise<void> {
     "cache reports hit rate",
     cache.stats().hits === 1,
     `${cache.stats().hitRate.toFixed(2)} hit rate`,
+  );
+
+  /*
+   * The cache's own configured ttlMs used to have no effect: the gateway
+   * always priced expiry off a module constant unless `cacheTtlMs` was also
+   * set on the gateway itself, a second place to say the same thing that
+   * nothing enforced agreement with. A cache built with a short TTL and no
+   * gateway-level override must actually expire on it.
+   */
+  let ttlClock = 0;
+  const shortLived = new MemoryResponseCache(500, 1_000, () => ttlClock);
+  const ttlCounted = flaky(0, 50);
+  const ttlGateway = new AiGateway({
+    clients: { anthropic: ttlCounted },
+    cache: shortLived,
+    now: () => ttlClock,
+  });
+  const ttlReq = { task: "generation" as const, system: "ttl", messages: [], temperature: 0 };
+  await ttlGateway.complete(ttlReq);
+  ttlClock += 999;
+  const stillWarm = await ttlGateway.complete(ttlReq);
+  ttlClock += 2;
+  const expired = await ttlGateway.complete(ttlReq);
+  check(
+    "a cache's own TTL is honoured without a matching gateway option",
+    ttlCounted.calls === 2 && stillWarm.cached === true && expired.cached === false,
+    `${ttlCounted.calls} provider call(s)`,
   );
 
   // 8. Sampled requests are never cached: the caller asked for variety.
@@ -387,6 +445,21 @@ async function main(): Promise<void> {
     `${downCalls - callsBeforeOpen} trial call(s)`,
   );
 
+  /*
+   * The trial above failed (the provider is still `down`), which has to
+   * reopen the circuit on its own rather than counting as the first of a
+   * fresh run at the threshold. Two more calls, still well inside the
+   * cooldown, must not reach the provider at all.
+   */
+  const callsAfterFailedTrial = downCalls;
+  await ask();
+  await ask();
+  check(
+    "a failed trial reopens the circuit immediately, not after the threshold again",
+    downCalls === callsAfterFailedTrial,
+    `${downCalls - callsAfterFailedTrial} call(s) reached the provider`,
+  );
+
   // A shared limiter is asynchronous by nature, and the tier in front of it is
   // not. Both have to compose, or the durable limit cannot be added without
   // rewriting every call site.
@@ -447,6 +520,92 @@ async function main(): Promise<void> {
     windowError.includes("reserved for output"),
     windowError.slice(0, 70),
   );
+
+  // Streaming: text arrives in pieces rather than one block.
+  {
+    const streamGateway = new AiGateway({ clients: { anthropic: streamer(["a", "b", "c"]) } });
+    const chunks = await collect(
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
+    );
+    check(
+      "a stream arrives in pieces",
+      chunks.join("") === "abc" && chunks.length === 3,
+      chunks.join("|"),
+    );
+  }
+
+  // A provider with no `stream` still works, as one chunk.
+  {
+    const streamGateway = new AiGateway({ clients: { anthropic: completeOnly } });
+    const chunks = await collect(
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
+    );
+    check(
+      "a provider that cannot stream is completed and emitted whole",
+      chunks.length === 1 && chunks[0] === "whole answer",
+      chunks.join("|"),
+    );
+  }
+
+  // Failing before the first token is a normal fallback: nothing was shown.
+  {
+    const streamGateway = new AiGateway({
+      // Fails at index 0, so it throws before yielding anything at all.
+      clients: { anthropic: streamer(["never seen"], 0), openai: streamer(["from the second"]) },
+    });
+    const chunks = await collect(
+      streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      }),
+    );
+    check(
+      "a failure before the first token falls back to the next model",
+      chunks.join("") === "from the second",
+      chunks.join("|"),
+    );
+  }
+
+  /*
+   * Failing after the first token is terminal. Switching models here would
+   * splice a second answer onto the half of the first one already on screen,
+   * which is worse than an error the caller can handle.
+   */
+  {
+    const streamGateway = new AiGateway({
+      clients: {
+        anthropic: streamer(["half ", "way"], 1),
+        openai: streamer(["a whole other answer"]),
+      },
+    });
+    let threw = false;
+    const chunks: string[] = [];
+    try {
+      for await (const event of streamGateway.stream({
+        task: "chat",
+        system: "s",
+        messages: [{ role: "user", content: "x" }],
+      })) {
+        if (event.type === "chunk" && event.text) chunks.push(event.text);
+      }
+    } catch {
+      threw = true;
+    }
+    check(
+      "a failure after the first token does not splice in another model",
+      threw && chunks.join("") === "half ",
+      `threw=${threw} got="${chunks.join("")}"`,
+    );
+  }
 
   process.stdout.write(`${results.join("\n")}\n`);
   process.stdout.write(

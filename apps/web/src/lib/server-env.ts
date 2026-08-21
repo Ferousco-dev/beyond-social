@@ -27,7 +27,22 @@ const serverEnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().default(""),
   GOOGLE_CLIENT_SECRET: z.string().default(""),
   FIRECRAWL_API_KEY: z.string().default(""),
+  /**
+   * Apify, which is how trending TikTok and Instagram content is actually
+   * reached. The actor ids are configuration because they are third-party code
+   * that gets deprecated and replaced; empty falls back to a documented default.
+   */
+  APIFY_TOKEN: z.string().default(""),
+  APIFY_TIKTOK_ACTOR: z.string().default(""),
+  APIFY_INSTAGRAM_ACTOR: z.string().default(""),
   CRON_SECRET: z.string().default(""),
+  /**
+   * Encrypts webhook signing secrets at rest, 32 bytes base64. Shared with the
+   * edge function that sends deliveries, which needs the same key to sign with.
+   * Empty means endpoints cannot be registered, which the page says out loud
+   * rather than storing something it cannot use.
+   */
+  WEBHOOK_SECRET_KEY: z.string().default(""),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -47,7 +62,11 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
   FIRECRAWL_API_KEY: process.env.FIRECRAWL_API_KEY,
+  APIFY_TOKEN: process.env.APIFY_TOKEN,
+  APIFY_TIKTOK_ACTOR: process.env.APIFY_TIKTOK_ACTOR,
+  APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
+  WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
 });
 
 /**

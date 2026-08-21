@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 
 import { logger } from "@/lib/logger";
 import { getEmbedder } from "@/lib/prompt-engine/providers";
+
+import { type LazyEmbedding } from "./embed-once";
 import { createClient } from "@/lib/supabase/server";
 
 import { type ExtractedMemory } from "./extract";
@@ -36,11 +38,28 @@ function factHash(fact: string): string {
 }
 
 /**
+ * How close a new claim has to be before it counts as a new version of an old
+ * one rather than a separate fact.
+ *
+ * High on purpose. Two memories about the same subject are common and both
+ * worth keeping ("makes videos for restaurants", "films in the kitchen at
+ * closing time"), so this has to catch restatement and reversal without
+ * swallowing everything in a topic. Below it, both rows live.
+ */
+const SUPERSEDE_SIMILARITY = 0.9;
+
+/**
  * Stores what an exchange revealed.
  *
- * On conflict the existing row wins rather than being overwritten: the first
- * time something was said is the more honest `created_at`, and the fact is
- * identical by definition of the hash.
+ * Exact repeats are still dropped by the hash: the first time something was said
+ * is the more honest `created_at`, and the fact is identical by definition.
+ *
+ * A near-match is the interesting case, and it is why this is not a plain
+ * upsert. "I shoot vertical" and "I've moved to landscape" hash differently and
+ * mean opposite things about the same slot, so storing both left retrieval to
+ * pick between two contradictions on similarity alone. The older row is retired
+ * instead, and kept: when the product starts behaving differently, the previous
+ * value and the moment it changed are the only record of why.
  */
 export async function rememberFacts(
   memories: readonly ExtractedMemory[],
@@ -57,27 +76,64 @@ export async function rememberFacts(
 
     const vectors = await getEmbedder().embed(memories.map((memory) => memory.fact));
 
-    const rows = memories.map((memory, index) => ({
-      user_id: user.id,
-      fact: memory.fact,
-      kind: memory.kind,
-      importance: memory.importance,
-      embedding: vectors[index] ?? null,
-      source_project: projectId,
-      fact_hash: factHash(memory.fact),
-    }));
+    for (const [index, memory] of memories.entries()) {
+      const vector = vectors[index];
 
-    const { error } = await supabase
-      .from("user_memories")
-      .upsert(rows as never, { onConflict: "user_id,fact_hash", ignoreDuplicates: true });
-    if (error) throw new Error(error.message);
+      // Looked up before the insert, so the id being retired is the one that
+      // existed before this claim rather than the claim itself.
+      const replaced = vector ? await findNearest(supabase, vector) : null;
 
-    logger.info("memories stored", { count: rows.length });
+      const { data: inserted, error } = await supabase
+        .from("user_memories")
+        .upsert(
+          {
+            user_id: user.id,
+            fact: memory.fact,
+            kind: memory.kind,
+            importance: memory.importance,
+            embedding: vector ?? null,
+            source_project: projectId,
+            fact_hash: factHash(memory.fact),
+          } as never,
+          { onConflict: "user_id,fact_hash", ignoreDuplicates: true },
+        )
+        .select("id")
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+
+      // Null when the hash already existed, which means nothing new was said and
+      // there is nothing to retire.
+      const insertedId = (inserted as { id?: string } | null)?.id;
+      if (!insertedId || !replaced) continue;
+
+      await supabase
+        .from("user_memories")
+        .update({ superseded_at: new Date().toISOString(), superseded_by: insertedId } as never)
+        .eq("id", replaced.id);
+
+      logger.info("memory superseded", { was: replaced.fact, now: memory.fact });
+    }
+
+    logger.info("memories stored", { count: memories.length });
   } catch (error) {
     logger.warn("could not store memories", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+/** The live memory this claim is a new version of, if there is one. */
+async function findNearest(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  embedding: readonly number[],
+): Promise<{ id: string; fact: string } | null> {
+  const { data } = await supabase.rpc("nearest_user_memory", {
+    p_embedding: embedding as never,
+    p_min_similarity: SUPERSEDE_SIMILARITY,
+  });
+
+  const [nearest] = (data ?? []) as { id: string; fact: string }[];
+  return nearest ?? null;
 }
 
 /**
@@ -87,13 +143,55 @@ export async function rememberFacts(
  * uses embeddings: "make it taller" should recall a preference recorded as
  * "prefers vertical 9:16 framing" even though they share no words.
  */
-export async function recallFacts(query: string, limit = 5): Promise<readonly Memory[]> {
+export async function recallFacts(
+  query: string,
+  limit = 5,
+  /**
+   * The query embedded, asked for only if this actually needs it.
+   *
+   * Passed as a getter rather than a value so the common case never pays for
+   * one. See the fetch below: when somebody has few enough memories that they
+   * would all be returned anyway, ranking them by relevance is an expensive way
+   * to arrive at the same list.
+   */
+  getVector?: LazyEmbedding,
+): Promise<readonly Memory[]> {
   if (query.trim() === "") return [];
 
   try {
     const supabase = await createClient();
-    const [vector] = await getEmbedder().embed([query]);
-    if (!vector) return [];
+
+    /*
+     * The cheap path first: everything they have, best first.
+     *
+     * One indexed read, no embedding, no vector search. `limit + 1` is the
+     * test: fewer rows than that means this is the whole set, and the whole set
+     * is what a relevance search would have returned anyway, so there is
+     * nothing left to decide.
+     */
+    const { data: all, error: allError } = await supabase
+      .from("user_memories")
+      .select("id, fact, kind, importance")
+      .is("superseded_at", null)
+      .order("importance", { ascending: false })
+      .limit(limit + 1);
+    if (allError) throw new Error(allError.message);
+
+    const rows = (all ?? []) as Omit<Memory, "similarity">[];
+    if (rows.length <= limit) {
+      // Similarity is not measured on this path and is not claimed: 1 would be
+      // a lie about relevance, and the callers only render the fact.
+      return rows.map((row) => ({ ...row, similarity: 0 }));
+    }
+
+    // Past that there is more than fits, so which ones matter has to be
+    // answered properly, and that is what the embedding is for.
+    const vector = await getVector?.();
+    if (!vector) {
+      // No embedder, or it failed. The most important memories are a worse
+      // answer than the most relevant ones, and a much better answer than none.
+      return rows.slice(0, limit).map((row) => ({ ...row, similarity: 0 }));
+    }
 
     const { data, error } = await supabase.rpc("match_user_memories", {
       p_embedding: vector as never,

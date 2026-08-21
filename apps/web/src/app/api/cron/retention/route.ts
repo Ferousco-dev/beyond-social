@@ -10,8 +10,9 @@ import { createServiceClient } from "@/lib/supabase/service";
 /**
  * Retention.
  *
- * Embeddings older than a year are dropped, and AI usage detail older than
- * ninety days is rolled into daily totals. Messages and generations are never
+ * Embeddings older than a year are dropped, AI usage detail older than ninety
+ * days is rolled into daily totals, and long-retired or never-recalled memories
+ * are removed. Messages and generations are never
  * touched: they are the record of work someone paid for.
  *
  * DRY RUN BY DEFAULT. This endpoint reports what it would remove and removes
@@ -38,7 +39,9 @@ export const GET = withTrace("GET /api/cron/retention", async (request) => {
   const apply = new URL(request.url).searchParams.get("apply") === "1";
   const supabase = createServiceClient();
 
-  const run = async (fn: "retention_prune_embeddings" | "retention_rollup_ai_usage") => {
+  const run = async (
+    fn: "retention_prune_embeddings" | "retention_rollup_ai_usage" | "retention_prune_memories",
+  ) => {
     const { data, error } = await supabase.rpc(fn, { p_dry_run: !apply });
     if (error) throw new Error(`${fn}: ${error.message}`);
     const row = (data as RetentionResult[] | null)?.[0];
@@ -63,15 +66,20 @@ export const GET = withTrace("GET /api/cron/retention", async (request) => {
     const embeddings = await run("retention_prune_embeddings");
     const usage = await run("retention_rollup_ai_usage");
     const mail = await runMail();
+    // Retired claims and ones nobody ever recalled. Memories a person still
+    // uses are never touched by age: a preference stated in January is not less
+    // true in August.
+    const memories = await run("retention_prune_memories");
 
     logger.info(apply ? "retention applied" : "retention dry run", {
       embeddingsAffected: embeddings.affected,
       usageAffected: usage.affected,
       mailPayloadsCleared: mail.payloadsCleared,
       mailRowsDeleted: mail.rowsDeleted,
+      memoriesAffected: memories.affected,
     });
 
-    return NextResponse.json({ ok: true, applied: apply, embeddings, usage, mail });
+    return NextResponse.json({ ok: true, applied: apply, embeddings, usage, mail, memories });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error("retention failed", { error: message });

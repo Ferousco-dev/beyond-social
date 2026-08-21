@@ -3,15 +3,23 @@
 import { Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 
+import { cn } from "@/lib/utils";
+
 import { updatePassword } from "../actions";
 
 const FIELD =
   "mt-1.5 w-full rounded-lg border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
+/** Referenced by both fields, so the outcome is announced with either of them. */
+const MESSAGE_ID = "password-form-message";
+
 export function PasswordForm() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  // Kept apart from the message, because "your password was changed" and "those
+  // do not match" were both rendered identically and announced identically.
+  const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -19,9 +27,11 @@ export function PasswordForm() {
       onSubmit={(event) => {
         event.preventDefault();
         setMessage(null);
+        setFailed(false);
         startTransition(async () => {
           const result = await updatePassword({ password, confirm });
           setMessage(result.message);
+          setFailed(result.status !== "ok");
           if (result.status === "ok") {
             setPassword("");
             setConfirm("");
@@ -47,6 +57,11 @@ export function PasswordForm() {
           autoComplete="new-password"
           minLength={8}
           required
+          // Both fields point at the same message, because the failure is about
+          // the pair: too short, or the two not matching. A screen reader hears
+          // why rather than a bare "Change password" that did nothing.
+          aria-invalid={failed || undefined}
+          aria-describedby={message ? MESSAGE_ID : undefined}
           className={FIELD}
         />
       </div>
@@ -62,6 +77,8 @@ export function PasswordForm() {
           onChange={(event) => setConfirm(event.target.value)}
           autoComplete="new-password"
           required
+          aria-invalid={failed || undefined}
+          aria-describedby={message ? MESSAGE_ID : undefined}
           className={FIELD}
         />
       </div>
@@ -76,7 +93,14 @@ export function PasswordForm() {
           Change password
         </button>
         {message ? (
-          <p role="status" className="text-xs text-ink-soft">
+          <p
+            id={MESSAGE_ID}
+            // `alert` for a failure so it interrupts, `status` for a success so
+            // it does not. Both were `status`, so a rejected password change
+            // was announced as politely as a successful one.
+            role={failed ? "alert" : "status"}
+            className={cn("text-xs", failed ? "text-destructive" : "text-ink-soft")}
+          >
             {message}
           </p>
         ) : null}

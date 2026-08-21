@@ -59,6 +59,15 @@ export function useEditorShortcuts(playback: Playback, editor: EditorState): voi
         case "ArrowRight":
           playback.seek(playback.currentMs + SEEK_STEP_MS);
           break;
+        // The timeline handled these already, so they worked only while it had
+        // focus, while the arrows beside them worked anywhere. Nothing about
+        // "jump to the start" wants that distinction.
+        case "Home":
+          playback.seek(0);
+          break;
+        case "End":
+          playback.seek(playback.durationMs);
+          break;
         default:
           return;
       }

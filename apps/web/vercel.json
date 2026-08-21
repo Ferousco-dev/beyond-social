@@ -1,10 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["arn1"],
   "crons": [
-    {
-      "path": "/api/cron/discover-trends",
-      "schedule": "0 6 * * *"
-    },
     {
       "path": "/api/cron/prune-caches",
       "schedule": "30 6 * * *"

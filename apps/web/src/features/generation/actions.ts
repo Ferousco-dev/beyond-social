@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -63,7 +64,9 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   if (error || !generationId) return { status: "error", message: "Could not start generation" };
 
   // Best-effort: let the system learn from the original prompt in the background.
-  void learnFromPrompt(prompt, enhanced?.text);
+  // `after` rather than a floating promise: this runs once the response is on
+  // its way, and on serverless a floating one can be torn down before it does.
+  after(() => learnFromPrompt(prompt, enhanced?.text));
 
   return { status: "ok", generationId, sourceChunks: enhanced?.chunkIds ?? [] };
 }
@@ -214,10 +217,27 @@ const outcomeSchema = z.object({
  * Records what the user did with a generation, attributing the outcome to the
  * knowledge chunks that produced it. This is the closed learning loop from the
  * UI: accepting an output strengthens the chunks behind it, rejecting weakens
- * them. Safe to call unconditionally; no-ops when the engine is unconfigured.
+ * them.
+ *
+ * Signed in only. This had no check at all, and unlike every other mutating
+ * action here the thing it authorizes is not a row the caller owns but the
+ * shared knowledge base every account's generations are enhanced against: an
+ * anonymous caller could send arbitrary chunk ids marked `rejected` and weaken
+ * chunks that had nothing to do with anything they made. Requiring a session
+ * does not verify the ids came from a generation this account actually ran,
+ * because nothing here persists which chunks fed which generation to check
+ * that against, but it does turn an anonymous, unlimited attack into one an
+ * accountable, individually-blockable account has to be signed into.
  */
 export async function recordGenerationOutcome(input: z.input<typeof outcomeSchema>): Promise<void> {
   const parsed = outcomeSchema.safeParse(input);
   if (!parsed.success) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
   await recordChunkOutcome(parsed.data.chunkIds, parsed.data.outcome, parsed.data.editDistance);
 }

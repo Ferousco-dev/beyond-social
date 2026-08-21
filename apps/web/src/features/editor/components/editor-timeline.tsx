@@ -73,6 +73,11 @@ export function EditorTimeline({ playback, editor }: { playback: Playback; edito
     ),
   );
 
+  // Four empty lanes and a ruler look like an editor that failed to load. They
+  // are the correct state for a project that has rendered nothing, but only if
+  // it says so.
+  const isEmpty = project.tracks.every((track) => track.items.length === 0);
+
   return (
     <div className="flex shrink-0 flex-col border-t border-hairline bg-paper">
       <TimelineToolbar
@@ -159,6 +164,17 @@ export function EditorTimeline({ playback, editor }: { playback: Playback; edito
                   ))}
                 </div>
               ))}
+
+              {/* Centred over the lanes rather than replacing them: the tracks
+                  are still the thing being explained, and hiding them would
+                  make the timeline arrive from nowhere on the first render. */}
+              {isEmpty ? (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <p className="rounded-lg bg-canvas/80 px-4 py-2 text-center text-xs text-ink-soft">
+                    Nothing to cut yet. Videos you generate in the chat land here as clips.
+                  </p>
+                </div>
+              ) : null}
 
               <div
                 aria-hidden

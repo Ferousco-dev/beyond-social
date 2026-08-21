@@ -10,16 +10,30 @@ export interface Playback {
   readonly durationMs: number;
   readonly toggle: () => void;
   readonly seek: (ms: number) => void;
+  /**
+   * Bumped only when somebody actually seeks.
+   *
+   * The clock moves constantly while playing, so "currentMs changed" says
+   * nothing about whether the media element needs moving. This distinguishes a
+   * jump the user asked for from the clock simply advancing, which is what lets
+   * the video play without being corrected sixty times a second.
+   */
+  readonly seekNonce: number;
 }
 
 /**
- * Drives the editor clock. There is no media element yet, so the transport runs
- * off requestAnimationFrame; swapping in a real <video> later means replacing
- * this hook rather than every consumer.
+ * Drives the editor clock.
+ *
+ * The clock is deliberately not the media element. A timeline is longer than
+ * any one clip and has to keep running across gaps, captions and the end of the
+ * last cut, none of which a `<video>` knows about. So the transport runs off
+ * `requestAnimationFrame` and the preview's element follows it; see
+ * `use-clip-sync`.
  */
 export function usePlayback(durationMs: number): Playback {
   const [currentMs, setCurrentMs] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [seekNonce, setSeekNonce] = useState(0);
   const frameRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -51,6 +65,7 @@ export function usePlayback(durationMs: number): Playback {
   const seek = useCallback(
     (ms: number) => {
       setCurrentMs(clamp(ms, 0, durationMs));
+      setSeekNonce((nonce) => nonce + 1);
     },
     [durationMs],
   );
@@ -58,10 +73,14 @@ export function usePlayback(durationMs: number): Playback {
   const toggle = useCallback(() => {
     setIsPlaying((playing) => {
       // Restarting from the end is friendlier than a dead play button.
-      if (!playing && currentMs >= durationMs) setCurrentMs(0);
+      if (!playing && currentMs >= durationMs) {
+        setCurrentMs(0);
+        // A restart moves the playhead, so the element has to be told.
+        setSeekNonce((nonce) => nonce + 1);
+      }
       return !playing;
     });
   }, [currentMs, durationMs]);
 
-  return { currentMs, isPlaying, durationMs, toggle, seek };
+  return { currentMs, isPlaying, durationMs, toggle, seek, seekNonce };
 }

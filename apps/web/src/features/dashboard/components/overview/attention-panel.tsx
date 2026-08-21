@@ -16,9 +16,6 @@ const SOURCE_LABEL: Readonly<Record<AttentionItem["source"], string>> = {
   post: "Publish failed",
 };
 
-/** The failure log is where a failed publish is actually diagnosed. */
-const PUBLISH_LOG = "/dashboard/settings/logs?kind=publish" as Route;
-
 /** What broke and still needs a person. Nothing else earns a place this high. */
 export function AttentionPanel({ attention }: { readonly attention: Capped<AttentionItem> }) {
   return (
@@ -33,18 +30,21 @@ export function AttentionPanel({ attention }: { readonly attention: Capped<Atten
           <PanelList>
             {attention.items.map((item) => (
               <PanelRow key={`${item.source}-${item.id}`}>
-                <Link
-                  href={item.projectId ? (`/dashboard/c/${item.projectId}` as Route) : PUBLISH_LOG}
-                  className={ROW}
-                >
-                  <span className="flex items-baseline gap-2">
-                    <span className="shrink-0 text-xs font-medium text-destructive">
-                      {SOURCE_LABEL[item.source]}
-                    </span>
-                    <span className="truncate text-sm text-ink">{item.title}</span>
+                {/*
+                  A failure with a project behind it links to that conversation,
+                  which is where it can be retried. One without is now plain
+                  text: it used to point at the activity log, and that page is
+                  gone, so a link would have been a link to nowhere.
+                */}
+                {item.projectId ? (
+                  <Link href={`/dashboard/c/${item.projectId}` as Route} className={ROW}>
+                    <FailureLine item={item} />
+                  </Link>
+                ) : (
+                  <span className={ROW}>
+                    <FailureLine item={item} />
                   </span>
-                  <Reason reason={item.reason} at={item.at} />
-                </Link>
+                )}
               </PanelRow>
             ))}
           </PanelList>
@@ -52,6 +52,21 @@ export function AttentionPanel({ attention }: { readonly attention: Capped<Atten
         </>
       )}
     </Panel>
+  );
+}
+
+/** The row's contents, shared by the linked and unlinked forms. */
+function FailureLine({ item }: { readonly item: AttentionItem }) {
+  return (
+    <>
+      <span className="flex items-baseline gap-2">
+        <span className="shrink-0 text-xs font-medium text-destructive">
+          {SOURCE_LABEL[item.source]}
+        </span>
+        <span className="truncate text-sm text-ink">{item.title}</span>
+      </span>
+      <Reason reason={item.reason} at={item.at} />
+    </>
   );
 }
 

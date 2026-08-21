@@ -3,7 +3,6 @@
 import Stripe from "stripe";
 import { z } from "zod";
 
-import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { STRIPE_PRICES, isBillingConfigured, serverEnv } from "@/lib/server-env";
@@ -41,11 +40,32 @@ export async function startCheckout(
     } = await supabase.auth.getUser();
     if (!user?.email) return { status: "error", message: "Sign in to upgrade" };
 
+    /*
+     * The existing Stripe customer, if this account has one from a previous
+     * checkout. `billing_link_customer` upserts on this account's own row on
+     * every successful checkout, so passing `customer_email` unconditionally
+     * had Stripe create a fresh customer every time somebody checked out again
+     * after cancelling, and the webhook then overwrote the stored id with the
+     * new one. The old customer, and anything Stripe held against it, saved
+     * cards, invoice history, tax details, was simply abandoned. Reusing the
+     * id here is what `openBillingPortal` already assumes exists.
+     */
+    const service = createServiceClient();
+    const { data: existing } = await service
+      .from("billing_customers")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const customerId = (existing as { stripe_customer_id?: string } | null)?.stripe_customer_id;
+
     const stripe = new Stripe(serverEnv.STRIPE_SECRET_KEY);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
-      customer_email: user.email,
+      // Stripe rejects a session that sets both, so a returning customer is
+      // addressed by id and a first-time one by the email Checkout will make
+      // an account from.
+      ...(customerId ? { customer: customerId } : { customer_email: user.email }),
       // Carried through the webhook so the subscription lands on the right
       // account even though Stripe knows nothing about our user ids.
       client_reference_id: user.id,
@@ -97,5 +117,3 @@ export async function openBillingPortal(): Promise<CheckoutResult> {
     return { status: "error", message: "Could not open billing portal" };
   }
 }
-
-export { PLAN_CATALOGUE };

@@ -2,6 +2,8 @@ import "server-only";
 
 import { logger } from "@/lib/logger";
 import { getEmbedder } from "@/lib/prompt-engine/providers";
+
+import { type LazyEmbedding } from "./embed-once";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -86,12 +88,18 @@ export async function findRelatedConversations(
   query: string,
   currentProjectId: string | null,
   limit = 2,
+  /**
+   * The query embedded, asked for only here. Unlike recall there is no cheap
+   * path: the question is which earlier conversation resembles this one, and
+   * nothing but a comparison answers it.
+   */
+  getVector?: LazyEmbedding,
 ): Promise<readonly RelatedConversation[]> {
   if (query.trim().length < MIN_INDEXABLE_LENGTH) return [];
 
   try {
     const supabase = await createClient();
-    const [vector] = await getEmbedder().embed([query]);
+    const vector = getVector ? await getVector() : (await getEmbedder().embed([query]))[0];
     if (!vector) return [];
 
     const { data, error } = await supabase.rpc("match_conversations", {

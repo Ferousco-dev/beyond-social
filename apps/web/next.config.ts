@@ -32,6 +32,16 @@ const csp = [
   `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${
     isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : ""
   }`,
+  /*
+   * The one iframe in the product is the Discover player, and there was no
+   * frame-src at all, so it fell back to `default-src 'self'` and the browser
+   * blocked every embed. The feed rendered its posters and then nothing
+   * happened on a tap, which reads as a broken player rather than a policy.
+   *
+   * Named hosts rather than a wildcard: these are the two platforms the
+   * scrapers cover, and the embed URLs are composed from validated ids.
+   */
+  "frame-src 'self' https://www.tiktok.com https://www.instagram.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -83,6 +93,17 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
+  },
+  /**
+   * The pictures and the voice moved out of settings and onto the assets page.
+   * Permanent, because they are not coming back: these were linked from the
+   * onboarding checklist and are the kind of page someone bookmarks.
+   */
+  async redirects() {
+    return [
+      { source: "/dashboard/settings/brand", destination: "/dashboard/assets", permanent: true },
+      { source: "/dashboard/settings/voice", destination: "/dashboard/assets", permanent: true },
+    ];
   },
   // Pin file tracing to the monorepo root; otherwise Next can infer the wrong
   // root when other lockfiles exist elsewhere on the machine.

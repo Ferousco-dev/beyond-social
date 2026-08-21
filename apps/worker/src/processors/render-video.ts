@@ -6,7 +6,8 @@ import { UnrecoverableError, Worker, type Job } from "bullmq";
 
 import { logger } from "../lib/logger";
 import { createRedis } from "../lib/redis";
-import { stitchClips, writeClip } from "../lib/stitch";
+import { parseRenderSpec } from "../lib/render-spec";
+import { stitchClips, stitchTrimmedClips, writeClip } from "../lib/stitch";
 import { createServiceClient } from "../lib/supabase";
 import { RENDER_QUEUE, type RenderJobData } from "../queues/rendering";
 
@@ -41,12 +42,24 @@ async function process(job: Job<RenderJobData>): Promise<void> {
   const supabase = createServiceClient();
 
   /*
+   * The spec is what the editor actually authored: trims and levels, not just
+   * an order. Null on an old row, and on anything that fails to parse, which
+   * falls back to `clipPaths` exactly as a spec-less render always has, rather
+   * than failing a job the previous shape of this worker would have handled.
+   */
+  const spec = parseRenderSpec(job.data.spec);
+
+  // Whichever source is authoritative for this job, same as `clipPaths` below.
+  const paths = spec ? spec.clips.map((clip) => clip.path) : clipPaths;
+
+  /*
    * Every path is checked against the owner's own prefix before anything is
    * read. The job data comes from a row a client inserted, and the worker holds
-   * the service role, so without this a crafted `clip_paths` would have it
-   * fetch and republish somebody else's render under the caller's account.
+   * the service role, so without this a crafted `clip_paths` (or a crafted
+   * `spec`) would have it fetch and republish somebody else's render under the
+   * caller's account.
    */
-  const foreign = clipPaths.filter((path) => !path.startsWith(`${userId}/`));
+  const foreign = paths.filter((path) => !path.startsWith(`${userId}/`));
   if (foreign.length > 0) {
     await settle(supabase, renderId, { status: "failed", error: "Those clips are not yours" });
     // Unrecoverable: retrying cannot make the paths belong to this user, and a
@@ -57,13 +70,29 @@ async function process(job: Job<RenderJobData>): Promise<void> {
   const workspace = await mkdtemp(join(tmpdir(), "bs-render-"));
   try {
     const files: string[] = [];
-    for (const [index, path] of clipPaths.entries()) {
+    for (const [index, path] of paths.entries()) {
       const { data, error } = await supabase.storage.from(BUCKET).download(path);
       if (error || !data) throw new Error(`could not read ${path}: ${error?.message ?? "missing"}`);
       files.push(await writeClip(workspace, index, Buffer.from(await data.arrayBuffer())));
     }
 
-    const { bytes, durationSeconds } = await stitchClips(files);
+    /*
+     * The cut the user authored, if there is one. This is the fix for a render
+     * that used to join every clip whole, silently dropping every trim and
+     * every volume change the editor had recorded: the spec existed on the row
+     * since it was added, and nothing between the scheduler and the stitcher
+     * ever carried it through.
+     */
+    const { bytes, durationSeconds } = spec
+      ? await stitchTrimmedClips(
+          spec.clips.map((clip, index) => ({
+            file: files[index] as string,
+            startSeconds: clip.startSeconds,
+            endSeconds: clip.endSeconds,
+            volume: clip.volume,
+          })),
+        )
+      : await stitchClips(files);
 
     const path = outputPath(userId, renderId);
     const { error: uploadError } = await supabase.storage
@@ -80,7 +109,7 @@ async function process(job: Job<RenderJobData>): Promise<void> {
 
     logger.info("render finished", {
       renderId,
-      clips: clipPaths.length,
+      clips: paths.length,
       seconds: Math.round(durationSeconds),
       bytes: bytes.length,
     });

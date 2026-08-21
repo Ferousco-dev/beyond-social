@@ -26,8 +26,62 @@ export interface CompletionResult {
   outputTokens: number;
 }
 
+/**
+ * A streamed completion.
+ *
+ * Text arrives in pieces and the totals arrive at the end, because the token
+ * counts are only known once the provider has finished. Callers that want the
+ * whole string wait for `done`; callers that want to show it as it lands read
+ * the chunks.
+ */
+export interface StreamEvent {
+  readonly type: "chunk" | "done";
+  /** Present on `chunk`: the text to append. */
+  readonly text?: string;
+  /** Present on `done`: what the call actually cost. */
+  readonly usage?: { inputTokens: number; outputTokens: number };
+}
+
 export interface ProviderClient {
   complete(spec: ModelSpec, request: CompletionRequest): Promise<CompletionResult>;
+  /**
+   * Optional. A provider without one still works everywhere `complete` is used,
+   * and the gateway falls back to completing in full and emitting it as a
+   * single chunk, so a caller never has to ask which providers can stream.
+   */
+  stream?(spec: ModelSpec, request: CompletionRequest): AsyncIterable<StreamEvent>;
+}
+
+/**
+ * Reads an SSE body as lines.
+ *
+ * Both providers speak text/event-stream, and both can split a JSON payload
+ * across two network chunks, so the buffer is held across reads rather than
+ * parsed per chunk. Getting this wrong shows up as an occasional dropped token
+ * under load and never in development.
+ */
+async function* sseLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      // The last piece may be half a line, so it stays in the buffer.
+      buffer = lines.pop() ?? "";
+      for (const line of lines) yield line.trim();
+    }
+    if (buffer.trim() !== "") yield buffer.trim();
+  } finally {
+    // Releases the connection when a caller stops reading early, which is what
+    // a cancelled turn does.
+    reader.cancel().catch(() => undefined);
+  }
 }
 
 /** Turns a non-2xx response into a classified error the retry policy understands. */
@@ -45,6 +99,15 @@ async function toProviderError(response: Response): Promise<ProviderError> {
 interface AnthropicResponse {
   content: { type: string; text?: string }[];
   usage?: { input_tokens?: number; output_tokens?: number };
+}
+
+/** Only the fields the stream reader actually reads. */
+interface AnthropicStreamEvent {
+  type: string;
+  delta?: { text?: string };
+  message?: { usage?: { input_tokens?: number } };
+  usage?: { output_tokens?: number };
+  error?: { message?: string };
 }
 
 export class AnthropicClient implements ProviderClient {
@@ -84,6 +147,70 @@ export class AnthropicClient implements ProviderClient {
       inputTokens: data.usage?.input_tokens ?? 0,
       outputTokens: data.usage?.output_tokens ?? 0,
     };
+  }
+
+  /**
+   * The same call with `stream: true`.
+   *
+   * Only two event types matter here. `content_block_delta` carries the text,
+   * and `message_delta` carries the output token count, which Anthropic reports
+   * at the end rather than per chunk. Input tokens come with `message_start`.
+   * Everything else in the protocol is structure this does not need.
+   */
+  async *stream(spec: ModelSpec, request: CompletionRequest): AsyncIterable<StreamEvent> {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": this.apiKey,
+        "anthropic-version": this.version,
+      },
+      body: JSON.stringify({
+        model: spec.id,
+        max_tokens: Math.min(request.maxTokens ?? 4096, spec.maxOutput),
+        temperature: request.temperature ?? 1,
+        system: request.system,
+        messages: request.messages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        stream: true,
+      }),
+      ...(request.signal ? { signal: request.signal } : {}),
+    });
+
+    if (!response.ok) throw await toProviderError(response);
+    if (!response.body) throw new ProviderError("stream had no body", 502, null);
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const line of sseLines(response.body)) {
+      if (!line.startsWith("data:")) continue;
+
+      const payload = line.slice(5).trim();
+      if (payload === "" || payload === "[DONE]") continue;
+
+      let event: AnthropicStreamEvent;
+      try {
+        event = JSON.parse(payload) as AnthropicStreamEvent;
+      } catch {
+        // A payload that will not parse is one event lost, not a failed reply.
+        continue;
+      }
+
+      if (event.type === "message_start") {
+        inputTokens = event.message?.usage?.input_tokens ?? 0;
+      } else if (event.type === "content_block_delta" && event.delta?.text) {
+        yield { type: "chunk", text: event.delta.text };
+      } else if (event.type === "message_delta") {
+        outputTokens = event.usage?.output_tokens ?? outputTokens;
+      } else if (event.type === "error") {
+        throw new ProviderError(event.error?.message ?? "stream error", 502, null);
+      }
+    }
+
+    yield { type: "done", usage: { inputTokens, outputTokens } };
   }
 }
 
@@ -229,5 +356,104 @@ export class GeminiClient implements ProviderClient {
         (data.usageMetadata?.candidatesTokenCount ?? 0) +
         (data.usageMetadata?.thoughtsTokenCount ?? 0),
     };
+  }
+
+  /**
+   * The same call against `streamGenerateContent`.
+   *
+   * `alt=sse` matters: without it Gemini streams a JSON array in fragments,
+   * which cannot be parsed incrementally without assembling the whole thing
+   * first, defeating the point.
+   *
+   * The safety and empty-answer failures `complete` guards against apply here
+   * too, but only once the stream ends: a candidate with no text so far is
+   * normal mid-stream and only a failure if nothing ever arrives.
+   */
+  async *stream(spec: ModelSpec, request: CompletionRequest): AsyncIterable<StreamEvent> {
+    const response = await fetch(
+      `${this.baseUrl}/models/${spec.id}:streamGenerateContent?alt=sse`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": this.apiKey,
+        },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.system }] },
+          contents: request.messages.map((message) => ({
+            role: message.role === "assistant" ? "model" : "user",
+            parts: [{ text: message.content }],
+          })),
+          generationConfig: {
+            temperature: request.temperature ?? 1,
+            maxOutputTokens: Math.min(
+              (request.maxTokens ?? 4096) + (spec.minThinkingTokens ?? 0),
+              spec.maxOutput,
+            ),
+            ...(spec.minThinkingTokens === undefined
+              ? {}
+              : { thinkingConfig: { thinkingBudget: spec.minThinkingTokens } }),
+            ...(request.json && spec.jsonMode ? { responseMimeType: "application/json" } : {}),
+          },
+        }),
+        ...(request.signal ? { signal: request.signal } : {}),
+      },
+    );
+
+    if (!response.ok) throw await toProviderError(response);
+    if (!response.body) throw new ProviderError("stream had no body", 502, null);
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let emitted = false;
+    let finishReason: string | undefined;
+
+    for await (const line of sseLines(response.body)) {
+      if (!line.startsWith("data:")) continue;
+
+      const payload = line.slice(5).trim();
+      if (payload === "" || payload === "[DONE]") continue;
+
+      let data: GeminiResponse;
+      try {
+        data = JSON.parse(payload) as GeminiResponse;
+      } catch {
+        continue;
+      }
+
+      if (data.error)
+        throw new ProviderError(`gemini: ${data.error.message ?? "error"}`, 502, null);
+
+      const candidate = data.candidates?.[0];
+      finishReason = candidate?.finishReason ?? finishReason;
+
+      const text = (candidate?.content?.parts ?? []).map((part) => part.text ?? "").join("");
+      if (text !== "") {
+        emitted = true;
+        yield { type: "chunk", text };
+      }
+
+      // Usage is repeated on every event and only final on the last, so the
+      // latest value wins rather than the first.
+      if (data.usageMetadata) {
+        inputTokens = data.usageMetadata.promptTokenCount ?? inputTokens;
+        outputTokens =
+          (data.usageMetadata.candidatesTokenCount ?? 0) +
+          (data.usageMetadata.thoughtsTokenCount ?? 0);
+      }
+    }
+
+    // An answer that never produced a word is a failure, exactly as in
+    // `complete`. Truncation may pass on a retry with a different budget; a
+    // refusal will not.
+    if (!emitted) {
+      throw new ProviderError(
+        `gemini streamed no text (finishReason: ${finishReason ?? "unknown"})`,
+        finishReason === "MAX_TOKENS" ? 503 : 400,
+        null,
+      );
+    }
+
+    yield { type: "done", usage: { inputTokens, outputTokens } };
   }
 }

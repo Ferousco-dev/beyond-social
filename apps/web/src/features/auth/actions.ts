@@ -112,12 +112,11 @@ export async function signUpAction(input: SignupInput): Promise<AuthResult> {
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/auth/callback`,
     },
   });
 
   if (error) return { status: "error", message: GENERIC_ERROR };
-  return { status: "success", redirectTo: "/verify" };
+  return { status: "success", redirectTo: "/dashboard" };
 }
 
 export async function requestPasswordResetAction(input: ForgotPasswordInput): Promise<AuthResult> {

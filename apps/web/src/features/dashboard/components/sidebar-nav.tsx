@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  Boxes,
   CalendarClock,
   LayoutDashboard,
   LibraryBig,
   PenSquare,
+  Shapes,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -58,6 +58,13 @@ const LINKS: readonly NavLink[] = [
     motion: "group-hover:-rotate-6",
   },
   {
+    href: "/dashboard/assets" as Route,
+    label: "Assets",
+    icon: Shapes,
+    // The shapes settling into place, which is what saving one of these does.
+    motion: "group-hover:scale-110 group-hover:-rotate-6",
+  },
+  {
     href: "/dashboard/schedule" as Route,
     label: "Schedule",
     icon: CalendarClock,
@@ -66,15 +73,9 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/trends" as Route,
-    label: "Trends",
+    label: "Discover",
     icon: TrendingUp,
     motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
-  },
-  {
-    href: "/dashboard/models" as Route,
-    label: "Models",
-    icon: Boxes,
-    motion: "group-hover:-translate-y-px",
   },
 ];
 
@@ -98,6 +99,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               href={link.href}
               onClick={onNavigate}
+              data-tip-anchor={`nav-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
               aria-current={active ? "page" : undefined}
               className={cn(
                 ITEM,

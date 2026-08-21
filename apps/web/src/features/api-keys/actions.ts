@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { generateApiKey } from "@/lib/api/keys";
+import { callerHasIntegrations, INTEGRATIONS_DENIAL } from "@/lib/billing/integration-gate";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,9 @@ export async function createApiKey(input: z.input<typeof createSchema>): Promise
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Give the key a name" };
   if (!isSupabaseConfigured) return { status: "error", message: "Not connected yet" };
+  // The panel is hidden below the plan, but a server action is a public
+  // endpoint: this is the check that actually decides.
+  if (!(await callerHasIntegrations())) return { status: "error", message: INTEGRATIONS_DENIAL };
 
   try {
     const supabase = await createClient();
@@ -53,14 +57,22 @@ export async function revokeApiKey(id: string): Promise<{ status: "ok" | "error"
   if (!isSupabaseConfigured) return { status: "error" };
   try {
     const supabase = await createClient();
-    const { error } = await supabase
+    // Selected back the same way createApiKey's own insert is checked: RLS
+    // turns a foreign or already-revoked id into a match against nothing
+    // rather than an error, and without this that read as success.
+    const { data, error } = await supabase
       .from("api_keys")
       .update({ revoked_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     if (error) throw new Error(error.message);
+    if (!data || data.length === 0) return { status: "error" };
     revalidatePath("/dashboard/settings/api-keys");
     return { status: "ok" };
-  } catch {
+  } catch (error) {
+    logger.warn("failed to revoke api key", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { status: "error" };
   }
 }

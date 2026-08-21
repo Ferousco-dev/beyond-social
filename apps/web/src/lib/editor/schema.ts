@@ -63,6 +63,9 @@ const videoItemSchema = z.object({
   transitionMs: z.number().finite().min(0).max(10_000),
   sourceUrl: z.string().max(2000).optional(),
   generationId: z.string().max(120).optional(),
+  // Optional rather than defaulted: a document saved before trims were tracked
+  // has no offset, and absent already means zero everywhere it is read.
+  sourceStartMs: z.number().finite().min(0).optional(),
 });
 
 const textItemSchema = z.object({

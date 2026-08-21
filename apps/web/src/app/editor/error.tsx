@@ -8,13 +8,13 @@ import { errorReference } from "@/lib/errors";
 /**
  * Route boundary for the editor.
  *
- * This is the one screen in the product where a crash can cost work, so the
- * copy is specific about it instead of reassuring. The claim it makes matches
- * `useAutosave`: edits are written about a second after they settle and are held
- * in memory until then, with no local draft to fall back on. So the honest
- * statement is that saved work is intact and the last moment of editing may not
- * be, which is exactly what the user needs to know before deciding whether to
- * redo anything.
+ * The heaviest route in the product: it reads a thread, a saved timeline and
+ * every finished render, and signs a URL for each clip. Any of those can fail,
+ * and until now all of them produced a bare error page.
+ *
+ * The reassurance is specific because the fear is specific. Someone whose editor
+ * has just failed assumes their cut is gone, and it is not: the timeline is
+ * autosaved server-side and reloading reads it back.
  */
 export default function EditorError({
   error,
@@ -28,25 +28,18 @@ export default function EditorError({
   }, [error]);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-16">
-      <ErrorState
-        title="The editor stopped before it finished"
-        impact={
-          <>
-            <span className="block">
-              Your timeline saves on its own about a second after each change, so everything up to
-              your last edit is on our side and nothing already saved was overwritten.
-            </span>
-            <span className="mt-3 block font-medium text-ink">
-              Any change you made in the moment before this happened may not have been saved. Check
-              your most recent edit when the editor reopens.
-            </span>
-          </>
-        }
-        action={{ label: "Reopen the editor", onClick: reset }}
-        secondary={{ label: "Back to dashboard", href: "/dashboard" }}
-        reference={errorReference(error)}
-      />
+    // Dark-scoped like the editor itself, so a failure does not flash a white
+    // page in the middle of a dark workspace.
+    <div className="dark flex min-h-dvh items-center justify-center bg-canvas px-6">
+      <div className="w-full max-w-2xl">
+        <ErrorState
+          title="The editor did not load"
+          impact="Your cut is safe. The timeline is saved as you work, so nothing you edited was lost; this screen failed to open it."
+          action={{ label: "Try again", onClick: reset }}
+          secondary={{ label: "Back to your projects", href: "/dashboard" }}
+          reference={errorReference(error)}
+        />
+      </div>
     </div>
   );
 }

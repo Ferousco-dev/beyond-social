@@ -1,17 +1,28 @@
 import {
   Briefcase,
-  Coffee,
+  Cpu,
   Dumbbell,
   Film,
+  GraduationCap,
   Plane,
+  ShoppingBag,
+  Shirt,
   Sparkles,
-  Wand2,
+  UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
 
 /**
- * The niches discovery sweeps. Shared by the discovery run and the feed filter,
- * so a category cannot exist in one and not the other.
+ * The niches discovery sweeps, and the industries a user can say they work in.
+ *
+ * Deliberately one list. A user picks an industry so the product can show them
+ * what is working in it, and that only holds if the thing they picked is the
+ * same thing discovery files trends under. Two vocabularies that had to be kept
+ * in step would drift, and the failure would be silent: a user in an industry
+ * no trend is ever filed under just sees an empty feed.
+ *
+ * Ids are permanent. They are stored on `profiles.industry` and on every trend
+ * row, so an id may be added but never renamed.
  */
 
 export interface TrendCategory {
@@ -27,13 +38,16 @@ export const TREND_CATEGORIES: readonly TrendCategory[] = [
    * happened to surface it is how "Educational How-To Guides" ended up
    * categorised as beauty.
    */
-  { id: "general", label: "Any niche", icon: Film },
-  { id: "fashion", label: "Fashion", icon: Sparkles },
-  { id: "tech", label: "Technology", icon: Briefcase },
-  { id: "food", label: "Food and drink", icon: Coffee },
-  { id: "fitness", label: "Fitness", icon: Dumbbell },
-  { id: "beauty", label: "Beauty", icon: Wand2 },
-  { id: "travel", label: "Travel", icon: Plane },
+  { id: "general", label: "Any industry", icon: Film },
+  { id: "fashion", label: "Fashion and apparel", icon: Shirt },
+  { id: "beauty", label: "Beauty and skincare", icon: Sparkles },
+  { id: "food", label: "Food and drink", icon: UtensilsCrossed },
+  { id: "fitness", label: "Fitness and wellness", icon: Dumbbell },
+  { id: "tech", label: "Technology and software", icon: Cpu },
+  { id: "ecommerce", label: "Ecommerce and retail", icon: ShoppingBag },
+  { id: "business", label: "Business and services", icon: Briefcase },
+  { id: "education", label: "Education and coaching", icon: GraduationCap },
+  { id: "travel", label: "Travel and hospitality", icon: Plane },
 ];
 
 export function categoryLabel(id: string): string {
@@ -50,6 +64,12 @@ export const TREND_CATEGORY_IDS = TREND_CATEGORIES.map((category) => category.id
 export function isTrendCategory(value: string): boolean {
   return TREND_CATEGORY_IDS.includes(value);
 }
+
+/**
+ * What a user may say they work in. `general` is offered here as "no particular
+ * industry", which is a real answer and better than leaving the question blank.
+ */
+export const INDUSTRY_CATEGORIES = TREND_CATEGORIES;
 
 /** The niches discovery searches. `general` is an outcome, never a query. */
 export const SEARCHABLE_CATEGORIES = TREND_CATEGORIES.filter(

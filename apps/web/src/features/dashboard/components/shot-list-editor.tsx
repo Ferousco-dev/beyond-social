@@ -48,7 +48,9 @@ export function ShotListEditor({ shots, onChange, onRemoveAll }: ShotListEditorP
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs font-medium text-ink-soft">
           <Scissors className="size-3.5" aria-hidden />
-          <span>Shots ({shots.length}/{MAX_SHOTS})</span>
+          <span>
+            Shots ({shots.length}/{MAX_SHOTS})
+          </span>
         </div>
         <button
           type="button"

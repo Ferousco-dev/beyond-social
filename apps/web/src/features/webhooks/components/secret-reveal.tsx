@@ -8,9 +8,12 @@ import { CopyButton } from "./copy-button";
  * The one moment the signing secret exists in the interface.
  *
  * The wording is deliberately blunt and sits above the value rather than below
- * it. We store only a SHA-256 digest, so this is not a policy we could relax
- * later by adding a "show secret" button: the plaintext is genuinely gone once
- * this unmounts, and the only way back is rotation.
+ * it. The secret is stored encrypted, not hashed: a delivery has to sign with
+ * it, which a one-way digest cannot do, so the server can decrypt it. Nothing
+ * in this app exposes that back to a browser, though, and the query the
+ * settings page reads from explicitly excludes the column, so from here the
+ * plaintext is genuinely gone once this unmounts and the only way back is
+ * rotation.
  */
 export function SecretReveal({
   secret,
@@ -30,8 +33,8 @@ export function SecretReveal({
             Copy this signing secret now. It will not be shown again.
           </p>
           <p className="mt-1 text-xs leading-relaxed text-ink-soft">
-            We store only a hash of it, so we cannot show it to you a second time or recover it if
-            you lose it. If that happens, rotate the secret to get a new one.
+            It is stored encrypted, and there is no way to show it to you again from here. If you
+            lose it, rotate the secret to get a new one.
             {rotated ? " The previous secret stopped working the moment this one was created." : ""}
           </p>
         </div>

@@ -1,11 +1,14 @@
-import { type SaveState } from "../hooks/use-autosave";
-import { SaveIndicator } from "./save-indicator";
 import { ArrowLeft, PanelLeft } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { type Project } from "@/lib/editor/types";
+
+import { type SaveState } from "../hooks/use-autosave";
+import { ExportButton } from "./export-button";
 import { PublishDialog } from "./publish-dialog";
+import { SaveIndicator } from "./save-indicator";
 
 export function EditorTopBar({
   backHref,
@@ -14,6 +17,9 @@ export function EditorTopBar({
   onTogglePanel,
   saveState,
   onRetrySave,
+  canSave,
+  conversationId,
+  project,
   generationId,
   availablePlatforms,
 }: {
@@ -23,6 +29,12 @@ export function EditorTopBar({
   onTogglePanel: () => void;
   saveState: SaveState;
   onRetrySave: () => void;
+  /** False when there is no project behind this timeline, so nothing is kept. */
+  canSave: boolean;
+  /** The project id, which the export is filed against. */
+  conversationId: string;
+  /** The live timeline, which may be ahead of the last autosave. */
+  project: Project;
   /** The finished render to publish, or null while none is ready. */
   generationId: string | null;
   availablePlatforms: readonly string[];
@@ -50,7 +62,8 @@ export function EditorTopBar({
         <span className="truncate text-sm font-medium">{title}</span>
       </div>
       <div className="flex items-center gap-2">
-        <SaveIndicator state={saveState} onRetry={onRetrySave} />
+        <SaveIndicator state={saveState} onRetry={onRetrySave} canSave={canSave} />
+        <ExportButton projectId={conversationId} project={project} disabled={!canSave} />
         <PublishDialog
           videoTitle={title}
           generationId={generationId}

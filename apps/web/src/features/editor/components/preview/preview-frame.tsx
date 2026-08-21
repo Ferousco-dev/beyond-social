@@ -2,6 +2,7 @@ import { toPercent } from "@/lib/editor/timeline";
 import { type TextItem, type VideoItem } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
 
+import { useClipSync } from "../../hooks/use-clip-sync";
 import { PreviewSafeAreas } from "./preview-safe-areas";
 
 /** Feed captions are read against moving footage, so they carry their own outline. */
@@ -33,6 +34,9 @@ export function PreviewFrame({
   currentMs,
   durationMs,
   showSafeAreas,
+  isPlaying,
+  muted,
+  seekNonce,
 }: {
   frameClassName: string;
   clip: VideoItem | undefined;
@@ -40,8 +44,14 @@ export function PreviewFrame({
   currentMs: number;
   durationMs: number;
   showSafeAreas: boolean;
+  isPlaying: boolean;
+  /** The video track's own mute, which outranks the clip's volume. */
+  muted: boolean;
+  /** Bumped when the user seeks, the only reason to move the element itself. */
+  seekNonce: number;
 }) {
   const style = caption?.style;
+  const media = useClipSync({ clip, currentMs, isPlaying, muted, seekNonce });
 
   return (
     <div
@@ -55,11 +65,14 @@ export function PreviewFrame({
           visibly do something either way. */}
       {clip?.sourceUrl ? (
         <video
+          ref={media.ref}
+          onError={media.onError}
           key={clip.sourceUrl}
           src={clip.sourceUrl}
-          muted
           playsInline
-          preload="metadata"
+          // The transport seeks this element when the user moves the playhead,
+          // so the frames have to be there to seek to, not just the metadata.
+          preload="auto"
           style={{
             opacity: clip.opacity,
             filter: filterCss(clip),
@@ -79,6 +92,19 @@ export function PreviewFrame({
         >
           {clip.label}
         </div>
+      ) : null}
+
+      {/* Over the clip rather than instead of it: the transform and grade
+          controls still work on a clip that will not play, and replacing the
+          frame would make the whole panel look broken. A silent black rectangle
+          is indistinguishable from a bug in us. */}
+      {media.error ? (
+        <p
+          role="status"
+          className="absolute inset-x-4 top-4 rounded-lg bg-black/75 px-3 py-2 text-center text-xs leading-relaxed text-white"
+        >
+          {media.error}
+        </p>
       ) : null}
 
       {showSafeAreas ? <PreviewSafeAreas /> : null}

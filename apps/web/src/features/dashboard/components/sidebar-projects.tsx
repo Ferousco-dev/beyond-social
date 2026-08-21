@@ -73,7 +73,10 @@ export function SidebarProjects({
             if (event.key === "Escape") setEditingId(null);
           }}
           aria-label="Rename project"
-          className="w-full rounded-[10px] border border-primary bg-paper px-3 py-2 text-sm text-ink focus:outline-none"
+          // The border alone is not a focus state: it is painted whether or not
+          // the field has focus, so removing the outline left keyboard users
+          // with nothing. The ring is the focus state; the border is the shape.
+          className="w-full rounded-[10px] border border-primary bg-paper px-3 py-2 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
         />
       );
     }
@@ -95,7 +98,12 @@ export function SidebarProjects({
             <button
               type="button"
               aria-label="Project options"
-              className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-ink-soft opacity-0 transition-opacity hover:bg-hairline hover:text-ink group-hover/item:opacity-100 data-[state=open]:opacity-100"
+              // Revealed on hover, which is a pointer a phone does not have: this was
+              // the only way to rename or delete a project, and on a touch screen it
+              // was invisible. `pointer-coarse` shows it wherever hovering is not a
+              // thing, and `focus-visible` gets a keyboard to it. The target grows to
+              // 44px there too, which is the smallest thing a finger can reliably hit.
+              className="absolute right-1.5 top-1/2 inline-flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-ink-soft opacity-0 transition-opacity hover:bg-hairline hover:text-ink focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-hover/item:opacity-100 pointer-coarse:size-11 pointer-coarse:opacity-100 data-[state=open]:opacity-100"
             >
               <MoreHorizontal className="size-4" />
             </button>
@@ -152,7 +160,7 @@ export function SidebarProjects({
       {/* A rollback on its own looks like the app ignoring the click, so the
           reason is stated where the change appeared to happen. */}
       {error ? (
-        <p role="status" className="px-3 pb-2 text-xs text-destructive">
+        <p role="alert" className="px-3 pb-2 text-xs text-destructive">
           {error}
         </p>
       ) : null}

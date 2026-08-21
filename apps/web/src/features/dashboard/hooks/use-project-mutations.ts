@@ -90,13 +90,19 @@ export function useProjectMutations(initialItems: readonly SidebarProject[]) {
       const index = items.findIndex((entry) => entry.id === item.id);
       setItems((prev) => prev.filter((entry) => entry.id !== item.id));
 
+      /*
+       * Navigation happens now, not after the server answers.
+       *
+       * The row is already gone, so a user sitting on the conversation they just
+       * deleted is looking at a page that no longer has a sidebar entry. Waiting
+       * for the round trip before moving them leaves them there, staring at
+       * something they thought they had deleted. If the delete then fails, the
+       * row comes back and they can open it again.
+       */
+      if (pathname.includes(item.id)) router.push("/dashboard" as Route);
+
       const result = await deleteProject({ projectId: item.id });
-      if (result.status === "ok") {
-        // The open conversation may be the one just deleted, and its page would
-        // now be a dead route.
-        if (pathname.includes(item.id)) router.push("/dashboard" as Route);
-        return;
-      }
+      if (result.status === "ok") return;
 
       setItems((prev) => {
         const restored = [...prev];

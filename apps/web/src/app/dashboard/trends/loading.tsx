@@ -1,25 +1,20 @@
-import { type ReactNode } from "react";
-
-import { Skeleton } from "@/components/ui/skeleton";
-
-/** Trends list placeholder. */
-export default function TrendsLoading(): ReactNode {
+/**
+ * Discover while it loads.
+ *
+ * Only the search bar and the suggestion chips, because that is all this page
+ * has before anyone searches. A grid of shimmering video cards would promise
+ * results that do not exist yet and have never been asked for.
+ */
+export default function DiscoverLoading() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <Skeleton className="h-7 w-32" />
-      <Skeleton className="mt-2 h-4 w-64" />
-      <div className="mt-6 space-y-2">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center justify-between rounded-xl border border-hairline bg-paper p-4"
-          >
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-8 rounded-lg" />
-              <Skeleton className="h-4 w-48" />
-            </div>
-            <Skeleton className="h-4 w-16" />
-          </div>
+    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-4 py-6 sm:px-6" aria-busy>
+      <span className="sr-only">Loading Discover</span>
+
+      <div className="h-12 w-full animate-pulse rounded-full bg-cloud" />
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        {[0, 1, 2, 3, 4].map((chip) => (
+          <div key={chip} className="h-10 w-32 animate-pulse rounded-full bg-cloud" />
         ))}
       </div>
     </div>

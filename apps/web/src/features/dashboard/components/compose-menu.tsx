@@ -4,28 +4,44 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
   Clapperboard,
   ImagePlus,
+  Images,
   Mic,
-  Music,
   Plus,
   Scissors,
-  Sparkles,
   TrendingUp,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
+import { PicturePicker } from "@/features/assets/components/picture-picker";
+import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { attachUploadedPhotos, createUploadTickets } from "@/features/chat/upload-actions";
+import { useSavedVoice } from "@/features/voice/use-saved-voice";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 
 import { useFootageUpload, VIDEO_ACCEPT, type PendingFootage } from "../hooks/use-footage-upload";
 import { useVoiceUpload, VOICE_ACCEPT, type PendingVoice } from "../hooks/use-voice-upload";
 
-/** A photo already uploaded and waiting to be attached to the next message. */
+/**
+ * A photo waiting to be attached to the next message.
+ *
+ * Shown from the moment it is chosen, not from the moment the server is done
+ * with it. Attaching used to wait on the whole round trip: the browser uploads
+ * to storage, then the server downloads the object back, runs the likeness
+ * classifier over it, records the asset and signs a link. That is seconds of a
+ * blank composer for something the browser already had in its hand.
+ */
 export interface PendingPhoto {
+  /** Stable across the swap from local preview to signed URL. */
+  readonly id: string;
+  /** A local blob while pending, the signed link once the server answers. */
   readonly url: string;
+  /** Empty until the upload lands. Sending is blocked while any photo is. */
   readonly path: string;
+  readonly pending?: boolean;
 }
 
 interface MenuItem {
@@ -34,17 +50,19 @@ interface MenuItem {
   hint: string;
   upload?: boolean;
   voice?: boolean;
+  savedVoice?: boolean;
   footage?: boolean;
   shots?: boolean;
+  saved?: boolean;
   navigate?: string;
 }
 
-const ITEMS: readonly MenuItem[] = [
+const BASE_ITEMS: readonly MenuItem[] = [
   { icon: ImagePlus, label: "Add photos", hint: "They become the footage", upload: true },
   {
     icon: TrendingUp,
-    label: "Browse trends",
-    hint: "Find a format to remix",
+    label: "Search TikTok",
+    hint: "Find a post to build from",
     navigate: "/dashboard/trends",
   },
   { icon: Mic, label: "Add your voice", hint: "Speak, and the photo speaks it", voice: true },
@@ -60,9 +78,24 @@ const ITEMS: readonly MenuItem[] = [
     hint: "Cut between scenes in one call",
     shots: true,
   },
-  { icon: Music, label: "Music library", hint: "Add a track in the editor" },
-  { icon: Sparkles, label: "Templates", hint: "Start from a preset" },
 ];
+
+const SAVED_VOICE_ITEM: MenuItem = {
+  icon: UserRound,
+  label: "Use saved voice",
+  hint: "Type what you want said in your voice",
+  savedVoice: true,
+};
+
+/** Long enough for the swap to paint before the blob goes away. */
+const REVOKE_DELAY_MS = 1000;
+
+const SAVED_PICTURES_ITEM: MenuItem = {
+  icon: Images,
+  label: "Use your pictures",
+  hint: "You and your products, already saved",
+  saved: true,
+};
 
 /**
  * The composer's attachment menu.
@@ -80,7 +113,11 @@ export function ComposeMenu({
   onBusyChange,
 }: {
   projectId: string;
-  onPhotos: (photos: readonly PendingPhoto[]) => void;
+  /**
+   * React's own updater signature, so the menu can append a preview now and
+   * swap it for the signed version later rather than only ever appending.
+   */
+  onPhotos: Dispatch<SetStateAction<readonly PendingPhoto[]>>;
   onVoice: (voice: PendingVoice) => void;
   onFootage: (footage: PendingFootage) => void;
   onShots: () => void;
@@ -92,6 +129,17 @@ export function ComposeMenu({
   const [uploading, setUploading] = useState(false);
   const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
   const footage = useFootageUpload({ onFootage, onError, onBusyChange });
+  const savedVoice = useSavedVoice();
+  const saved = useBrandLibrary();
+  const [picking, setPicking] = useState(false);
+
+  const withVoice = savedVoice.profile
+    ? [BASE_ITEMS[0]!, BASE_ITEMS[1]!, SAVED_VOICE_ITEM, BASE_ITEMS[2]!, ...BASE_ITEMS.slice(3)]
+    : BASE_ITEMS;
+
+  // Offered only when there is something saved. An entry that opens an empty
+  // picker teaches the user that the menu lies about what it can do.
+  const items = saved.has ? [SAVED_PICTURES_ITEM, ...withVoice] : withVoice;
 
   return (
     <>
@@ -109,6 +157,31 @@ export function ComposeMenu({
 
           setUploading(true);
           onBusyChange(true);
+
+          /*
+           * Shown before anything leaves the browser. The round trip behind this
+           * is not short: the object is uploaded, downloaded again by the
+           * server, put through the likeness classifier, recorded, and signed.
+           * Waiting for all of that before showing a picture the browser is
+           * already holding made attaching feel broken.
+           *
+           * `path` stays empty until the real one arrives, and the composer
+           * blocks sending while anything is pending, so an empty path cannot
+           * reach a message.
+           */
+          const previews: PendingPhoto[] = files.map((file) => ({
+            id: crypto.randomUUID(),
+            url: URL.createObjectURL(file),
+            path: "",
+            pending: true,
+          }));
+          onPhotos((current) => [...current, ...previews]);
+
+          const drop = () => {
+            onPhotos((current) => current.filter((p) => !previews.some((v) => v.id === p.id)));
+            previews.forEach((preview) => URL.revokeObjectURL(preview.url));
+          };
+
           void (async () => {
             try {
               // The server only issues tickets. Sending the files themselves
@@ -118,6 +191,7 @@ export function ComposeMenu({
                 files: files.map((file) => ({ type: file.type, size: file.size })),
               });
               if (ticketed.status !== "ok") {
+                drop();
                 onError(
                   ticketed.status === "unconfigured"
                     ? "Uploads need the backend connected."
@@ -147,15 +221,35 @@ export function ComposeMenu({
                 paths: ticketed.tickets.map((ticket) => ticket.path),
               });
               if (attached.status === "ok") {
-                onPhotos(attached.photos);
+                // Matched by position: the tickets, the uploads and the results
+                // are all in the order the files were chosen.
+                onPhotos((current) =>
+                  current.map((photo) => {
+                    const index = previews.findIndex((preview) => preview.id === photo.id);
+                    const settled = index === -1 ? undefined : attached.photos[index];
+                    return settled ? { id: photo.id, url: settled.url, path: settled.path } : photo;
+                  }),
+                );
+
+                /*
+                 * Revoked a beat later, not immediately. The element is still
+                 * showing the blob at the moment state changes, and pulling it
+                 * out from under the swap flashes a broken image.
+                 */
+                window.setTimeout(
+                  () => previews.forEach((preview) => URL.revokeObjectURL(preview.url)),
+                  REVOKE_DELAY_MS,
+                );
                 return;
               }
+              drop();
               onError(
                 attached.status === "unconfigured"
                   ? "Uploads need the backend connected."
                   : attached.message,
               );
             } catch (error) {
+              drop();
               onError(error instanceof Error ? error.message : "Could not upload that photo");
             } finally {
               setUploading(false);
@@ -182,6 +276,7 @@ export function ComposeMenu({
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
+            data-tip-anchor="compose-plus"
             aria-label="Add photos and more"
             disabled={uploading || voice.uploading || footage.uploading}
             className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
@@ -195,12 +290,17 @@ export function ComposeMenu({
             sideOffset={8}
             className="z-50 w-72 rounded-2xl border border-hairline bg-paper p-1.5 text-ink shadow-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
           >
-            {ITEMS.map((item) => (
+            {items.map((item) => (
               <DropdownMenu.Item
                 key={item.label}
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
+                  } else if (item.saved) {
+                    setPicking(true);
+                  } else if (item.savedVoice) {
+                    const pending = savedVoice.toPendingVoice();
+                    if (pending) onVoice(pending);
                   } else if (item.voice) {
                     voice.open();
                   } else if (item.footage) {
@@ -224,6 +324,23 @@ export function ComposeMenu({
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+
+      <PicturePicker
+        library={saved.library}
+        open={picking}
+        onOpenChange={setPicking}
+        // Already in storage and already signed, so a saved picture is attached
+        // without a round trip: it is the same shape a fresh upload ends up as.
+        onPick={(assets) =>
+          onPhotos((current) => [
+            ...current,
+            // Already in storage and already signed, so these arrive settled.
+            ...assets
+              .filter((asset): asset is typeof asset & { url: string } => asset.url !== null)
+              .map((asset) => ({ id: asset.id, url: asset.url, path: asset.path })),
+          ])
+        }
+      />
     </>
   );
 }

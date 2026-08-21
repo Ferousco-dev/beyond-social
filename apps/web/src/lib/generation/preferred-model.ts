@@ -5,11 +5,10 @@ import { type createClient } from "@/lib/supabase/server";
 /**
  * The model this user chose for a family.
  *
- * The models page has let people pick a default since it was built, and the
- * generator never read it: the preference was written, displayed back, and
- * ignored, so the picker was decoration. It only became wireable once the
- * dispatch learned to route by model rather than always calling the veo
- * endpoint.
+ * Nothing sets this any more. Choosing a model was a page of its own, and it
+ * asked people to have an opinion about a decision they had no way to make well;
+ * the platform picks now. The stored preferences of anyone who did choose are
+ * still honoured, which is why this is read rather than deleted.
  *
  * Returns null when there is no preference, when the row points at a model that
  * has since been deactivated, or when the lookup fails. The caller falls back

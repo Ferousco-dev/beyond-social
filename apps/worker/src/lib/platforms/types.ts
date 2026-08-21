@@ -39,9 +39,20 @@ export class PermanentPublishError extends Error {
   }
 }
 
-/** HTTP statuses that mean "this will not work no matter how often you ask". */
+/**
+ * HTTP statuses that mean "this will not work no matter how often you ask".
+ *
+ * 400 used to be one of them, on the assumption that a bad request is always
+ * a request that will stay bad. Facebook and Instagram's Graph API does not
+ * honour that assumption: it returns 400 for a rejected parameter and just as
+ * often for a rate limit or a video still being processed, both of which
+ * succeed if asked again a moment later. There is no reliable way to tell
+ * those apart from the status alone, so 400 no longer assumes the worst;
+ * 401, 403, 404 and 422 are unambiguous enough across every platform this
+ * talks to that they still do.
+ */
 export function isPermanentStatus(status: number): boolean {
-  return status === 400 || status === 401 || status === 403 || status === 404 || status === 422;
+  return status === 401 || status === 403 || status === 404 || status === 422;
 }
 
 export async function readError(response: Response): Promise<string> {

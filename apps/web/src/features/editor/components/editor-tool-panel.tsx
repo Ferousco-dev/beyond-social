@@ -19,8 +19,6 @@ import { type EditorState } from "../hooks/use-editor-state";
 import { type Playback } from "../hooks/use-playback";
 import { AudioPanel } from "./tools/audio-panel";
 import { FiltersPanel } from "./tools/filters-panel";
-import { STOCK_LIBRARIES_ARE_REAL } from "@/lib/editor/project";
-
 import { MediaPanel } from "./tools/media-panel";
 import { MusicPanel } from "./tools/music-panel";
 import { SpeedPanel } from "./tools/speed-panel";
@@ -30,22 +28,25 @@ import { TransformPanel } from "./tools/transform-panel";
 type TabId = "media" | "transform" | "speed" | "filters" | "text" | "audio" | "music";
 
 /*
- * Media and Music are held back until their libraries point at real files.
- * Both are listed here rather than deleted, so turning them on is one flag
- * rather than an archaeology exercise, and filtered rather than commented out,
- * so they keep being typechecked, linted and refactored with everything else.
+ * Media and Music are visible again, and no longer gated.
+ *
+ * They were hidden behind a flag because their libraries were four invented
+ * titles apiece with no files behind them. The invented data is gone and both
+ * panels now say what the editor can actually do: Media reports what is on the
+ * timeline and where clips come from, Music explains that a soundtrack cannot be
+ * added yet. A panel that states a limit is worth showing; one that pretends
+ * past it is not, and a flag guarding the second was only ever a stay of
+ * execution.
  */
-const ALL_TABS: ReadonlyArray<{ id: TabId; label: string; icon: LucideIcon; stock?: true }> = [
-  { id: "media", label: "Media", icon: Library, stock: true },
+const TABS: ReadonlyArray<{ id: TabId; label: string; icon: LucideIcon }> = [
+  { id: "media", label: "Media", icon: Library },
   { id: "transform", label: "Adjust", icon: Scissors },
   { id: "speed", label: "Speed", icon: Gauge },
   { id: "filters", label: "Filters", icon: Palette },
   { id: "text", label: "Text", icon: Type },
   { id: "audio", label: "Audio", icon: Sparkles },
-  { id: "music", label: "Music", icon: Music, stock: true },
+  { id: "music", label: "Music", icon: Music },
 ];
-
-const TABS = ALL_TABS.filter((tab) => STOCK_LIBRARIES_ARE_REAL || tab.stock !== true);
 
 export function EditorToolPanel({
   className,
@@ -98,9 +99,7 @@ export function EditorToolPanel({
       </nav>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {tab === "media" && STOCK_LIBRARIES_ARE_REAL ? (
-          <MediaPanel editor={editor} playback={playback} />
-        ) : null}
+        {tab === "media" ? <MediaPanel editor={editor} /> : null}
         {tab === "transform" ? <TransformPanel item={video} editor={editor} /> : null}
         {tab === "speed" ? <SpeedPanel item={video} editor={editor} /> : null}
         {tab === "filters" ? <FiltersPanel item={video} editor={editor} /> : null}
@@ -108,7 +107,7 @@ export function EditorToolPanel({
         {tab === "audio" ? (
           <AudioPanel item={selected && isAudio(selected) ? selected : null} editor={editor} />
         ) : null}
-        {tab === "music" && STOCK_LIBRARIES_ARE_REAL ? <MusicPanel editor={editor} /> : null}
+        {tab === "music" ? <MusicPanel editor={editor} /> : null}
       </div>
     </div>
   );

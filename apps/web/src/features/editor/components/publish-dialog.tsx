@@ -6,6 +6,7 @@ import { useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { writeCaptions } from "@/features/optimization/actions";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { schedulePosts } from "@/features/publishing/actions";
 import { suggestPostingTimes } from "@/lib/optimization/posting-times";
 import { PLATFORMS } from "@/lib/publish/data";
@@ -38,12 +39,33 @@ export function PublishDialog({
    * carries the same key. Generating it per click would defeat the point: the
    * case being protected against is the second click.
    */
+  const { confirm, dialog } = useConfirm();
   const [idempotencyKey] = useState(
     () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
   );
 
-  function submit() {
+  async function submit() {
     if (!generationId) return;
+
+    /*
+     * The last thing before it is public, and the one action here that cannot
+     * be taken back by us: once a platform accepts a post, deleting it is
+     * something the user does on the platform, not something this app can undo.
+     *
+     * Named rather than counted. "Publish to 3 platforms" is a number; the
+     * platform names are what someone checks against what they meant.
+     */
+    const agreed = await confirm({
+      title: active.length === 1 ? `Schedule to ${active[0]?.name}?` : "Schedule these posts?",
+      description: `This goes out publicly to ${active
+        .map((platform) => platform.name)
+        .join(
+          ", ",
+        )} at the times you set. Once a platform has published it, taking it down has to be done there.`,
+      confirmLabel: active.length > 1 ? "Schedule all" : "Schedule it",
+    });
+    if (!agreed) return;
+
     setResult(null);
     startScheduling(async () => {
       const response = await schedulePosts({
@@ -134,6 +156,21 @@ export function PublishDialog({
   const everyTimeSet = active.every(
     (platform) => (schedules[platform.id]?.scheduledTime ?? "") !== "",
   );
+  /*
+   * The single reason the button is off, in the order somebody hits them.
+   *
+   * Four separate conditions greyed this out and none of them said anything,
+   * so the common case (a platform picked with no time on it) looked like the
+   * dialog was broken. Null means it is ready to press.
+   */
+  const blocking =
+    generationId === null
+      ? "This video is still rendering"
+      : active.length === 0
+        ? "Pick at least one platform"
+        : !everyTimeSet
+          ? "Set a time for every platform"
+          : null;
 
   return (
     <Dialog.Root>
@@ -141,6 +178,9 @@ export function PublishDialog({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex h-[600px] max-h-[85vh] w-[calc(100vw-2rem)] max-w-4xl -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-hairline bg-paper text-ink shadow-card focus:outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95">
+          {/* Mounted inside this dialog so it stacks above it rather than
+              behind, which is where a portal at the page root would land. */}
+          {dialog}
           <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
             <div>
               <Dialog.Title className="text-base font-semibold">Publish video</Dialog.Title>
@@ -232,7 +272,7 @@ export function PublishDialog({
                   </div>
 
                   {captionError ? (
-                    <p role="status" className="text-xs text-destructive">
+                    <p role="alert" className="text-xs text-destructive">
                       {captionError}
                     </p>
                   ) : null}
@@ -267,8 +307,9 @@ export function PublishDialog({
                 <Button variant="outline">Cancel</Button>
               </Dialog.Close>
               <Button
-                onClick={submit}
-                disabled={active.length === 0 || scheduling || !generationId || !everyTimeSet}
+                onClick={() => void submit()}
+                disabled={blocking !== null || scheduling}
+                title={blocking ?? undefined}
               >
                 {scheduling ? (
                   <>
