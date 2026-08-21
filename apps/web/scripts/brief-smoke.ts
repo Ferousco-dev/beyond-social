@@ -108,7 +108,6 @@ const goodBrief = {
   beats,
   durationSeconds: 15,
   hashtags: [],
-  prompt: "x".repeat(50),
 };
 
 {
@@ -120,7 +119,6 @@ const goodBrief = {
       // Models return this as a string about as often as a number.
       durationSeconds: "15",
       hashtags: ["superman"],
-      prompt: "x".repeat(50),
     }),
     briefSchema,
   );
@@ -139,7 +137,6 @@ const goodBrief = {
       beats,
       durationSeconds: 900,
       hashtags: [],
-      prompt: "x".repeat(50),
     }),
     briefSchema,
   );
@@ -159,7 +156,6 @@ const goodBrief = {
       beats: [beats[0]],
       durationSeconds: 15,
       hashtags: [],
-      prompt: "x".repeat(50),
     }),
     briefSchema,
   );
@@ -188,17 +184,6 @@ const goodBrief = {
   const out = parseJsonReply(JSON.stringify({ ...goodBrief, titles: [""] }), briefSchema);
   check(
     "a brief with no usable title is still refused",
-    !("data" in out),
-    "data" in out ? "accepted" : out.reason,
-  );
-}
-
-{
-  // The one length bound that is correctness rather than presentation: this
-  // string reaches the video model unedited and spends a credit.
-  const out = parseJsonReply(JSON.stringify({ ...goodBrief, prompt: "a video" }), briefSchema);
-  check(
-    "a prompt too thin to direct anything is refused",
     !("data" in out),
     "data" in out ? "accepted" : out.reason,
   );

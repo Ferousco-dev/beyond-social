@@ -121,11 +121,10 @@ export async function buildBrief(
           chosen,
           "",
           "Write a hook that is the actual first line of the video, not a description of one.",
-          "Give three title variations, and a script broken into beats with the seconds each one occupies. The beats must add up to the duration they asked for.",
-          "Set `prompt` to a complete, self-contained brief for a video generator: what is on screen, shot by shot. It is used unedited, so it must not refer to this conversation.",
+          "Give three title variations, and a script broken into beats with the seconds each one occupies. Each beat's detail is what is on screen and said in it, specific enough that a video generator could shoot it from those words alone. The beats must add up to the duration they asked for.",
           "Hashtags without the leading hash. No more than five, and only ones a real person would search.",
           "",
-          'Respond with JSON only: {"hook":"","titles":[""],"beats":[{"label":"","timing":"","detail":""}],"durationSeconds":15,"hashtags":[""],"prompt":""}',
+          'Respond with JSON only: {"hook":"","titles":[""],"beats":[{"label":"","timing":"","detail":""}],"durationSeconds":15,"hashtags":[""]}',
           "",
           `<idea>\n${fenceSafe(idea.slice(0, 2000))}\n</idea>`,
         ]
