@@ -16,9 +16,9 @@ function toEvents(raw: readonly string[]): WebhookEvent[] {
 /**
  * The caller's endpoints, newest first. RLS restricts this to their own rows.
  *
- * Columns are named explicitly because they have to be: `secret_hash` is
+ * Columns are named explicitly because they have to be: `secret_encrypted` is
  * revoked from `authenticated` at the column level, so `select *` fails outright
- * for a signed-in user rather than quietly returning the digest.
+ * for a signed-in user rather than quietly returning the ciphertext.
  */
 export async function getWebhooks(): Promise<WebhookSummary[]> {
   if (!isSupabaseConfigured) return [];
