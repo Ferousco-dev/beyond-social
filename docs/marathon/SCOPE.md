@@ -140,6 +140,53 @@ palette turned up nothing else.
   falls over to the next model). Current traffic is below even the Launch
   tier in running-costs.md. Revisit at Launch/Scale tier, not now.
 
+## 8. Generation pipeline, billing, and credit system (owner-redirected)
+
+CI is blocked on the owner's GitHub Actions billing (item 1), and the owner is
+out of real funds for this session, so no live kie.ai calls, no real Stripe
+checkout, no new dependencies. Owner redirected the remaining time to
+code-level work on the generative pipeline, billing, and credit system, with
+PRs merged manually since CI cannot gate them.
+
+**Billing/Stripe audit: done.** Subscription checkout (`startCheckout`,
+`mode: "subscription"`) is fully built and wired end to end, off only because
+`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_*` are unset — not a
+code gap. The credit refund-on-failure promise in the Usage page copy is
+backed by real code: `reserve_generation_credits` reserves atomically before
+dispatch, `fail_generation_by_id`/`fail_generation` refund by reading the
+actual debit row rather than assuming one. Genuinely missing: one-time
+credit-pack checkout (every pack's `priceUsd` is `null` by design, no price
+decided yet, so nothing to check out against).
+
+**Generation pipeline audit: done.** Traced the full path (chat action to
+kie.ai dispatch to kie-callback/poll-generation to persistRender). Found the
+most severe bug of the marathon: neither `kie-callback` nor `poll-generation`
+checked the `error` supabase-js returns from `complete_generation`/
+`fail_generation` RPC calls, so a failed RPC left a generation stuck at
+`generating` with its credit already spent, silently, forever.
+
+**Status: fixed, PR #104 (merged).** Both call sites now check the RPC error;
+`kie-callback` returns 500 so kie.ai retries its webhook (verified
+`complete_generation` is idempotent past `ready`/`cancelled`, so a retry after
+a transient failure is safe), `poll-generation` surfaces the same failure as
+an error status the client already handles.
+
+**Status: fixed, PR #105 (merged).** `persistRender`'s silent fallback to the
+temporary kie.ai URL (flagged in the item 2 doc re-audit as a soft spot) now
+logs loudly and distinctly on every failure branch, filterable by a typed
+reason, instead of two branches logging nothing and three logging
+inconsistently.
+
+**Still open, not started this session:** no server-side reconciliation exists
+for a generation that never settles (webhook lost, tab closed before the poll
+backstop's 8-minute window) — confirmed via a repo-wide search that no cron
+touches `video_generations` at all. This is a real gap, larger than a single
+PR (needs a sweep job mirroring the existing retention cron's pattern), noted
+for a future session rather than rushed here.
+
+One-time credit-pack checkout: in progress as a background task at the time
+of this note; status to be updated once it lands.
+
 ## Explicitly out of scope this session
 
 - Any real video generation (costs real, non-refundable credits — see
