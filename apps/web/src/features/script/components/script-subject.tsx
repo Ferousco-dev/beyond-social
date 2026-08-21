@@ -2,8 +2,10 @@
 
 import { Check, RefreshCw } from "lucide-react";
 
+import { ImpactBadge } from "@/components/ui/impact-badge";
 import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { type BrandAsset } from "@/lib/assets/brand";
+import { CTA_IMPACT } from "@/lib/script/impact";
 import { type ScriptSubject } from "@/lib/script/schema";
 import { cn } from "@/lib/utils";
 
@@ -98,7 +100,10 @@ export function ScriptSubjectFields({
       <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
         {FIELDS.map((field) => (
           <label key={field.key} className="block">
-            <span className="text-[11px] uppercase tracking-wide text-ink-soft">{field.label}</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-soft">
+              {field.label}
+              {field.key === "cta" ? <ImpactBadge level={CTA_IMPACT} /> : null}
+            </span>
             <input
               type="text"
               value={subject[field.key]}

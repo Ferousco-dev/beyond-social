@@ -1,9 +1,13 @@
 "use client";
 
 import { Minus, Plus } from "lucide-react";
+import { useMemo } from "react";
 
 import { HookScoreBadge } from "@/components/ui/hook-score-badge";
+import { computeDivergence, type ScriptBaseline } from "@/lib/script/divergence";
 import { MAX_TOTAL_SECONDS, totalSeconds, type ScriptScene } from "@/lib/script/schema";
+
+import { ScriptDivergenceWarning } from "./script-divergence-warning";
 
 /**
  * The script itself, scene by scene, every line editable.
@@ -21,12 +25,19 @@ const MAX_SECONDS = 12;
 
 export function ScriptScenes({
   scenes,
+  baseline,
   onChange,
 }: {
   scenes: readonly ScriptScene[];
+  /** The scene structure as first written; null while nothing has loaded yet. */
+  baseline: ScriptBaseline | null;
   onChange: (index: number, patch: Partial<ScriptScene>) => void;
 }) {
   const total = totalSeconds(scenes);
+  const divergence = useMemo(
+    () => (baseline ? computeDivergence(baseline, scenes) : null),
+    [baseline, scenes],
+  );
   let at = 0;
 
   return (
@@ -40,6 +51,8 @@ export function ScriptScenes({
             : ""}
         </p>
       </div>
+
+      {divergence ? <ScriptDivergenceWarning warning={divergence} /> : null}
 
       <ol className="mt-2.5 space-y-2.5">
         {scenes.map((scene, index) => {
