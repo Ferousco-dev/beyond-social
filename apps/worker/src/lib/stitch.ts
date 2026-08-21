@@ -35,62 +35,41 @@ export interface StitchResult {
   readonly durationSeconds: number;
 }
 
-/**
- * Concatenates clips in order and returns the finished mp4.
- *
- * Deliberately re-encodes rather than stream-copying. Copying is far faster and
- * works only when every input shares a codec, resolution, frame rate and time
- * base; clips from different models, or the same model at different settings,
- * silently produce a file that plays the first clip and then stalls. Paying the
- * encode is what makes the output play everywhere.
- */
-export async function stitchClips(files: readonly string[]): Promise<StitchResult> {
-  if (files.length === 0) throw new Error("nothing to stitch");
-  if (files.length > MAX_CLIPS) throw new Error(`too many clips: ${files.length} > ${MAX_CLIPS}`);
+/** Settings a browser and every publishing platform will accept, shared by every render. */
+const ENCODE_ARGS: readonly string[] = [
+  "-c:v",
+  "libx264",
+  "-preset",
+  "veryfast",
+  "-crf",
+  "20",
+  "-pix_fmt",
+  "yuv420p",
+  "-c:a",
+  "aac",
+  "-b:a",
+  "128k",
+  // Interleaves the header at the front so the result starts playing before it
+  // has fully downloaded, which matters for a preview in the thread.
+  "-movflags",
+  "+faststart",
+];
 
+/**
+ * Runs one filter graph to completion and returns the finished mp4.
+ *
+ * Shared by the whole-clip join and the trimmed one below: both build a
+ * `[v][a]` pair from a `-filter_complex` and differ only in how that pair is
+ * produced, not in how it is encoded or read back.
+ */
+async function renderGraph(files: readonly string[], filterComplex: string): Promise<StitchResult> {
   const workspace = await mkdtemp(join(tmpdir(), "bs-stitch-"));
   try {
     const output = join(workspace, "output.mp4");
 
-    /*
-     * The filter graph, rather than the concat demuxer.
-     *
-     * The demuxer needs a list file and still refuses inputs whose parameters
-     * differ. `concat` as a filter decodes each input first, so mismatched
-     * sources are resolved by the scaler instead of failing. Audio is included
-     * per input, and a clip that has none would break the graph, so silence is
-     * generated for every input and mixed in.
-     */
     const args: string[] = ["-hide_banner", "-loglevel", "error", "-y"];
     for (const file of files) args.push("-i", file);
-
-    const parts = files.map((_, index) => `[${index}:v:0][${index}:a:0]`).join("");
-    args.push(
-      "-filter_complex",
-      `${parts}concat=n=${files.length}:v=1:a=1[v][a]`,
-      "-map",
-      "[v]",
-      "-map",
-      "[a]",
-      // Baseline settings a browser and every platform will accept.
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "20",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      // Interleaves the header at the front so the result starts playing before
-      // it has fully downloaded, which matters for a preview in the thread.
-      "-movflags",
-      "+faststart",
-      output,
-    );
+    args.push("-filter_complex", filterComplex, "-map", "[v]", "-map", "[a]", ...ENCODE_ARGS, output);
 
     await run(binary(), args, { maxBuffer: 1024 * 1024 * 16 });
 
@@ -102,6 +81,70 @@ export async function stitchClips(files: readonly string[]): Promise<StitchResul
     // disk of a long-running worker rather than merely littering.
     await rm(workspace, { recursive: true, force: true });
   }
+}
+
+/**
+ * Concatenates clips whole, in order, and returns the finished mp4.
+ *
+ * Deliberately re-encodes rather than stream-copying. Copying is far faster and
+ * works only when every input shares a codec, resolution, frame rate and time
+ * base; clips from different models, or the same model at different settings,
+ * silently produce a file that plays the first clip and then stalls. Paying the
+ * encode is what makes the output play everywhere.
+ *
+ * The fallback for a render with no cut of its own: a spec-less job, or a spec
+ * old enough to predate this column, joins its clips exactly as it always did.
+ */
+export async function stitchClips(files: readonly string[]): Promise<StitchResult> {
+  if (files.length === 0) throw new Error("nothing to stitch");
+  if (files.length > MAX_CLIPS) throw new Error(`too many clips: ${files.length} > ${MAX_CLIPS}`);
+
+  /*
+   * The filter graph, rather than the concat demuxer.
+   *
+   * The demuxer needs a list file and still refuses inputs whose parameters
+   * differ. `concat` as a filter decodes each input first, so mismatched
+   * sources are resolved by the scaler instead of failing.
+   */
+  const parts = files.map((_, index) => `[${index}:v:0][${index}:a:0]`).join("");
+  return renderGraph(files, `${parts}concat=n=${files.length}:v=1:a=1[v][a]`);
+}
+
+export interface TrimmedClip {
+  readonly file: string;
+  /** Where the cut starts inside this file, in seconds. */
+  readonly startSeconds: number;
+  /** Where it ends. Always greater than `startSeconds`. */
+  readonly endSeconds: number;
+  /** 0 to 1. Zero is silence, which is a normal thing to want. */
+  readonly volume: number;
+}
+
+/**
+ * Concatenates the trims and levels the user actually authored, and returns
+ * the finished mp4.
+ *
+ * `stitchClips` joins whatever was rendered; this joins what the editor's
+ * timeline says should play, which is not the same file once anything has
+ * been trimmed or a track muted. Each input is cut to its own span and set to
+ * its own level before the same concat this whole module already used, so a
+ * mismatched source is resolved the same way an untrimmed one is.
+ */
+export async function stitchTrimmedClips(clips: readonly TrimmedClip[]): Promise<StitchResult> {
+  if (clips.length === 0) throw new Error("nothing to stitch");
+  if (clips.length > MAX_CLIPS) throw new Error(`too many clips: ${clips.length} > ${MAX_CLIPS}`);
+
+  const files = clips.map((clip) => clip.file);
+  const graph = clips
+    .map((clip, index) => {
+      const trim = `trim=start=${clip.startSeconds}:end=${clip.endSeconds},setpts=PTS-STARTPTS`;
+      const atrim = `atrim=start=${clip.startSeconds}:end=${clip.endSeconds},asetpts=PTS-STARTPTS,volume=${clip.volume}`;
+      return `[${index}:v:0]${trim}[v${index}];[${index}:a:0]${atrim}[a${index}];`;
+    })
+    .join("");
+  const parts = clips.map((_, index) => `[v${index}][a${index}]`).join("");
+
+  return renderGraph(files, `${graph}${parts}concat=n=${clips.length}:v=1:a=1[v][a]`);
 }
 
 /** Reads the finished duration back, rather than trusting the sum of the inputs. */

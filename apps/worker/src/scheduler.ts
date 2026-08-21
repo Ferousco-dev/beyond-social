@@ -65,6 +65,8 @@ interface QueuedRender {
   id: string;
   user_id: string;
   clip_paths: string[];
+  /** The cut: trims and levels, in order. Null joins `clip_paths` whole. */
+  spec: unknown;
 }
 
 /**
@@ -98,7 +100,12 @@ export function startRenderScheduler(queue: RenderQueue): () => void {
     for (const render of renders) {
       await queue.add(
         "render",
-        { renderId: render.id, userId: render.user_id, clipPaths: render.clip_paths },
+        {
+          renderId: render.id,
+          userId: render.user_id,
+          clipPaths: render.clip_paths,
+          spec: render.spec,
+        },
         { jobId: `render-${render.id}` },
       );
     }
