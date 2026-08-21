@@ -16,18 +16,21 @@ Designer/UX at a given moment, default to UI work rather than sitting idle.
 
 ## 1. Fix the production auto-deploy gap (do this first for backend work)
 
-CI's `deploy-production` job in `.github/workflows/ci.yml` is fully wired to
-run on every push to `main`, but it checks for a `VERCEL_TOKEN` secret and
-silently no-ops with a warning if it's missing. It's missing right now — the
-last several hours of merges to `main` never reached production; it had to be
-deployed by hand once this session (`vercel deploy --prod --yes
---archive=tgz`).
+**Correction, checked directly against a real run (32517433834):** this is not
+a missing `VERCEL_TOKEN`. That secret has been set on the repo since
+2026-07-30. The actual cause is that every CI run's `Verify` job fails
+instantly with: "The job was not started because recent account payments have
+failed or your spending limit needs to be increased." `deploy-production`
+needs `Verify` to pass, so it's skipped every time regardless of the token.
+This is the same GitHub Actions billing issue seen earlier this session on
+PR #87, never actually resolved.
 
-This needs the owner: generate a Vercel token (Vercel account settings →
-Tokens) and add it as a GitHub Actions secret named `VERCEL_TOKEN` on the
-repo. Flag it clearly and move on to the next item rather than blocking the
-whole session on it — this is exactly the kind of blocker RULES.md says not to
-work around.
+This needs the owner: fix the payment method or raise the Actions spending
+limit under GitHub → Settings → Billing & plans on the account/org that owns
+this repo. Once `Verify` can run, confirm one push to `main` actually reaches
+production before considering this closed — don't assume it's fixed just
+because the billing page looks fixed. Flag and move to the next item rather
+than blocking the whole session on it, per RULES.md.
 
 ## 2. Re-audit docs/production-readiness.md against current main
 

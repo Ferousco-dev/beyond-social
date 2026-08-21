@@ -29,6 +29,8 @@ Also load, before touching code:
   1078 chunks (merged as PR #94).
 - Production (`beyond-social-rust.vercel.app`) was manually redeployed once
   this session via `vercel deploy --prod --yes --archive=tgz`, because CI's
-  auto-deploy-on-merge is wired but silently no-ops (see SCOPE.md, item 1).
+  auto-deploy-on-merge is wired but every CI run fails before `Verify` even
+  starts, due to a GitHub Actions billing issue on the account (see SCOPE.md,
+  item 1 — this needs the owner, and is not a missing secret).
 - No generation credits were spent testing video output this session; the
   standing rule (never start a test render without asking) still applies.
