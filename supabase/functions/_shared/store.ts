@@ -1,7 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
 // Copies a finished render from the (temporary) provider URL into the durable
 // `renders` bucket and returns the permanent public URL. Falls back to the
-// source URL if the copy fails, so a storage hiccup never loses the result.
+// source URL if the copy fails, so a storage hiccup never loses the result;
+// every fallback is logged loudly, since the source URL expires and a
+// generation whose durable copy silently failed looks fine until it does.
 import { isSafeRenderUrl, readBounded, MAX_RENDER_BYTES } from "./fetch-guard.ts";
 import { log } from "./trace.ts";
 
@@ -12,6 +14,42 @@ const ALLOWED_CONTENT_TYPES = [
   "video/webm",
   "application/octet-stream",
 ];
+
+/**
+ * Every way the copy into durable storage can come up short. Kept distinct
+ * from the log message itself so an alert can filter on `reason` alone
+ * without parsing free text.
+ */
+type PersistFailureReason =
+  | "unsafe_url"
+  | "fetch_failed"
+  | "invalid_content_type"
+  | "oversized"
+  | "upload_error";
+
+/**
+ * The one place every persistence failure funnels through.
+ *
+ * `complete_generation` (0055_private_renders.sql) already infers a failed
+ * copy from `result_path` coming back null, but nothing surfaces that at the
+ * time it happens: the generation still completes and looks fine until the
+ * temporary kie.ai URL it fell back to expires. This is what makes that
+ * moment loud and greppable, distinct from every other warn/error line this
+ * function might otherwise blend into.
+ */
+function logPersistFailure(
+  taskId: string,
+  userId: string,
+  reason: PersistFailureReason,
+  details: Record<string, unknown> = {},
+): void {
+  log("error", "render persistence failed, falling back to temporary source url", {
+    taskId,
+    userId,
+    reason,
+    ...details,
+  });
+}
 
 export async function persistRender(
   admin: any,
@@ -26,12 +64,15 @@ export async function persistRender(
    * back is uploaded to a public bucket under our own domain.
    */
   if (!isSafeRenderUrl(sourceUrl)) {
-    log("warn", "refused to fetch an unsafe render url", { taskId });
+    logPersistFailure(taskId, userId, "unsafe_url");
     return sourceUrl;
   }
 
   const response = await fetch(sourceUrl);
-  if (!response.ok) return sourceUrl;
+  if (!response.ok) {
+    logPersistFailure(taskId, userId, "fetch_failed", { status: response.status });
+    return sourceUrl;
+  }
 
   // A response that is not a video is not a render, whatever the URL claimed.
   const contentType = (response.headers.get("content-type") ?? "")
@@ -39,13 +80,13 @@ export async function persistRender(
     .trim()
     .toLowerCase();
   if (contentType !== "" && !ALLOWED_CONTENT_TYPES.includes(contentType)) {
-    log("warn", "refused a render with an unexpected content type", { taskId, contentType });
+    logPersistFailure(taskId, userId, "invalid_content_type", { contentType });
     return sourceUrl;
   }
 
   const bytes = await readBounded(response, MAX_RENDER_BYTES);
   if (!bytes) {
-    log("warn", "render exceeded the size limit", { taskId });
+    logPersistFailure(taskId, userId, "oversized");
     return sourceUrl;
   }
 
@@ -54,7 +95,10 @@ export async function persistRender(
   const { error } = await admin.storage
     .from("renders")
     .upload(path, bytes, { contentType: "video/mp4", upsert: true });
-  if (error) return sourceUrl;
+  if (error) {
+    logPersistFailure(taskId, userId, "upload_error", { message: error.message });
+    return sourceUrl;
+  }
 
   const { data } = admin.storage.from("renders").getPublicUrl(path);
   return data?.publicUrl ? toBrowserOrigin(data.publicUrl) : sourceUrl;
