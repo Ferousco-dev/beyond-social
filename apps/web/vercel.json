@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/retention",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-generations",
+      "schedule": "45 6 * * *"
     }
   ],
   "git": {

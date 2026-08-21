@@ -43,13 +43,17 @@ the migrations and functions that already live in the repo.
 2. Deploy:
 
    ```bash
-   supabase functions deploy generate-video poll-generation kie-callback
+   supabase functions deploy generate-video poll-generation kie-callback reconcile-generations
    ```
 
    `generate-video` and `poll-generation` verify the caller's JWT;
    `kie-callback` is public and authenticates the shared secret in constant time.
    The callback URL is derived as
    `${SUPABASE_URL}/functions/v1/kie-callback?token=${KIE_CALLBACK_SECRET}`.
+   `reconcile-generations` is triggered by `/api/cron/reconcile-generations`
+   (Vercel Cron, see `apps/web/vercel.json`) and authenticates the request by
+   comparing its Authorization header against `SUPABASE_SERVICE_ROLE_KEY`,
+   which both sides already have; no separate secret to set.
 
 3. **Check the JWT setting after every deploy.** This has been wrong once
    already: all three functions were deployed with `--no-verify-jwt`, which left
@@ -62,8 +66,8 @@ the migrations and functions that already live in the repo.
    ```
 
    Expected: `generate-video` and `poll-generation` verify JWTs,
-   `kie-callback` does not. The intended state is declared in
-   `supabase/config.toml`, so that file is the answer, not memory.
+   `kie-callback` and `reconcile-generations` do not. The intended state is
+   declared in `supabase/config.toml`, so that file is the answer, not memory.
 
 4. For local development without a public webhook, run
    `supabase functions serve --env-file supabase/functions/.env` and rely on

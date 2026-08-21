@@ -84,6 +84,12 @@ verify_jwt = false
 [functions.kie-callback]
 verify_jwt = false
 
+# Cron-triggered, not user-facing: no JWT to verify. Guarded by comparing the
+# Authorization header against SUPABASE_SERVICE_ROLE_KEY itself, the one
+# secret the triggering cron route and this function already both hold.
+[functions.reconcile-generations]
+verify_jwt = false
+
 # The analytics container mounts the host Docker socket, which a Colima or
 # Lima-backed daemon cannot provide. It powers the local log explorer in Studio
 # and nothing the application depends on, so local development turns it off.
