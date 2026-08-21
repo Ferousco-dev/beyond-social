@@ -8,6 +8,7 @@ import { ATTACHMENT_KINDS } from "@/lib/chat/attachments";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 
 import { AVATAR_REPLY } from "./avatar-copy";
 import { CONSENT_VERSION } from "./consent";
@@ -135,8 +136,12 @@ export async function startAvatarGeneration(
   const { data, error } = await supabase.functions.invoke("generate-avatar", { body });
 
   if (error) {
-    logger.warn("avatar generation could not start", { error: error.message });
-    return { status: "error", message: "Could not start that avatar just now" };
+    // `error.message` is a library-hardcoded string, the same for every
+    // failure. The reason worth showing is in the response body, which this
+    // reads back off `error.context`, a `FunctionsHttpError` only.
+    const detail = await edgeFunctionErrorMessage(error);
+    logger.warn("avatar generation could not start", { error: error.message, detail });
+    return { status: "error", message: detail ?? "Could not start that avatar just now" };
   }
 
   const result = data as { generationId?: string; code?: string } | null;

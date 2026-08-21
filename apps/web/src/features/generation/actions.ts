@@ -13,6 +13,7 @@ import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { type GenerationStatus } from "@/lib/supabase/types";
 
 const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
@@ -61,7 +62,12 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   });
 
   const generationId = (data as { generationId?: string } | null)?.generationId;
-  if (error || !generationId) return { status: "error", message: "Could not start generation" };
+  if (error || !generationId) {
+    // The edge function's actual reason, when the failure was an HTTP
+    // response and not a fetch that never reached it.
+    const detail = error ? await edgeFunctionErrorMessage(error) : null;
+    return { status: "error", message: detail ?? "Could not start generation" };
+  }
 
   // Best-effort: let the system learn from the original prompt in the background.
   // `after` rather than a floating promise: this runs once the response is on

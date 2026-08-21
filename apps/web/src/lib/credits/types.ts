@@ -13,6 +13,12 @@ export const DENIAL_REASONS = [
   "plan_tier",
   /** The plan allows it; the balance does not cover it. */
   "insufficient_credits",
+  /**
+   * The database never answered, so nothing about the model or the balance is
+   * known. Distinct from `unknown_model`: that one means the check ran and
+   * found no such model, this one means the check itself did not run.
+   */
+  "check_failed",
 ] as const;
 export type DenialReason = (typeof DENIAL_REASONS)[number];
 
@@ -39,4 +45,5 @@ export const DENIAL_COPY: Readonly<Record<DenialReason, string>> = {
   model_inactive: "That model is not available right now.",
   plan_tier: "This model is on a higher plan. Upgrade to unlock it.",
   insufficient_credits: "Not enough credits for this run. Top up to continue.",
+  check_failed: "Could not check your credits. Try again in a moment.",
 };
