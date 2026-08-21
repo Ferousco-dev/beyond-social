@@ -134,6 +134,13 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
       "the spoken line is quoted as speech",
       compiled.prompt.includes('Spoken aloud, in shot: "'),
     );
+    // Regression: `Infinity - Infinity` is `NaN`, and `.slice(0, NaN)` silently
+    // returns "", which took the visual line to empty on every scene outside
+    // the one tier meant to shorten it.
+    check(
+      "the visual survives compilation, not just the voiceover",
+      compiled.prompt.includes("The baker looks up from a laptop on the counter"),
+    );
     check("one beat per scene", compiled.shots.length === parsed.data.scenes.length);
     check(
       "no beat exceeds the provider's limit",

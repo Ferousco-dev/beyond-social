@@ -52,20 +52,25 @@ function timecode(seconds: number): string {
 }
 
 function sceneLines(scene: ScriptScene, at: number, detail: Detail): string[] {
-  const room = detail.kind === "tight" ? detail.perScene : Number.POSITIVE_INFINITY;
-  // Split between the two fields that carry the scene. The line goes first
-  // because it is what makes the person on screen speak.
-  const forSpeech = Math.floor(room / 2);
+  /*
+   * Untouched outside "tight". The room is only ever finite in that one tier;
+   * `Infinity - Infinity` is `NaN`, and `str.slice(0, NaN)` silently returns
+   * "", which took the visual line to empty on every scene in every other
+   * tier, the exact field the compiler exists to protect.
+   */
+  const forSpeech = detail.kind === "tight" ? Math.floor(detail.perScene / 2) : scene.voiceover.length;
+  const visual = detail.kind === "tight" ? scene.visual.slice(0, detail.perScene - forSpeech) : scene.visual;
+  const voiceover = detail.kind === "tight" ? scene.voiceover.slice(0, forSpeech) : scene.voiceover;
 
   return [
     `SCENE ${scene.purpose.toUpperCase()} (${timecode(at)}-${timecode(at + scene.seconds)})`,
-    `Visual: ${scene.visual.slice(0, room - forSpeech)}`,
+    `Visual: ${visual}`,
     detail.kind === "full" && scene.camera ? `Camera: ${scene.camera}` : "",
     // Quoted, and labelled as speech rather than as narration. A video model
     // given a line in quotes has the person on screen say it; given the same
     // words unquoted it tends to produce a voiceover over B-roll, which is the
     // opposite of the human-led videos this path exists for.
-    scene.voiceover ? `Spoken aloud, in shot: "${scene.voiceover.slice(0, forSpeech)}"` : "",
+    voiceover ? `Spoken aloud, in shot: "${voiceover}"` : "",
     scene.onScreenText ? `On-screen text: "${scene.onScreenText}"` : "",
   ].filter(Boolean);
 }
