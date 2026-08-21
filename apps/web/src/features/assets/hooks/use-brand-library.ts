@@ -21,11 +21,22 @@ export function useBrandLibrary() {
 
   useEffect(() => {
     let cancelled = false;
-    void loadBrandLibrary().then((result) => {
-      if (cancelled) return;
-      setLibrary(result);
-      setLoading(false);
-    });
+    void loadBrandLibrary()
+      .then((result) => {
+        if (cancelled) return;
+        setLibrary(result);
+      })
+      .catch(() => {
+        // An unexpected server error rejects rather than resolving to EMPTY the
+        // way every anticipated case already does. With no catch this left
+        // `loading` stuck true forever: the menu that reads it never learns the
+        // fetch is over, and the plus button's saved-pictures entry never
+        // appears or disappears, it just never decides.
+        if (!cancelled) setLibrary(EMPTY);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
