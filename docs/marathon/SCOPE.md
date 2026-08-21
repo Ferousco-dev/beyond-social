@@ -177,12 +177,16 @@ logs loudly and distinctly on every failure branch, filterable by a typed
 reason, instead of two branches logging nothing and three logging
 inconsistently.
 
-**Still open, not started this session:** no server-side reconciliation exists
-for a generation that never settles (webhook lost, tab closed before the poll
-backstop's 8-minute window) — confirmed via a repo-wide search that no cron
-touches `video_generations` at all. This is a real gap, larger than a single
-PR (needs a sweep job mirroring the existing retention cron's pattern), noted
-for a future session rather than rushed here.
+**Status: done, PR #109 (merged).** Built `reconcile-generations` (edge
+function) as a sweep for rows stuck at `generating` past 30 minutes (4x the
+client poll's own 8-minute timeout, wide enough to never race an ordinary
+slow completion), triggered daily by `/api/cron/reconcile-generations`
+(dry run by default, matching the retention cron's own safety pattern).
+Deliberately does not call kie.ai to check whether a stuck task actually
+finished first: kie.ai's docs never state whether a read-only status check
+is billed separately from task creation, and this session has no real money
+to risk guessing wrong. A stuck row is force-failed through
+`fail_generation_by_id`, the same refund path a real failure takes.
 
 **Status: done, PR #107 (merged).** Confirmed the real blocker first rather
 than inventing around it: every `CreditPack.priceUsd` is `null` by design, no
@@ -199,6 +203,61 @@ grants nothing a second time. The checkout-initiation side (mirroring
 `startCheckout` in `mode: "payment"`) and the grid's button wiring stay
 blocked on the owner deciding real pack prices and creating real Stripe
 Price ids.
+
+## 9. Owner-shared product feedback: TikTok-analysis pipeline (8-point checklist)
+
+Owner shared a product feedback document proposing 8 improvements to the
+"paste TikTok URL -> analyze -> edit -> generate" flow. Audited every point
+against real code (not doc claims) before touching anything.
+
+**Audit result: 3 already done, 3 partial, 2 missing.**
+
+1. Rich extraction schema (hook, structure, scenes, voiceover, on-screen
+   text, pacing, visual style, editing, emotion, audio, CTA, retention
+   mechanics) — **was partial**, only hook/hookPattern/generic structure/
+   whyItWorks/brief were extracted; scene-level detail is generated fresh at
+   script-write time, not extracted from the source.
+2. Every element editable as a structured blueprint — **done already**
+   (`ScriptSubjectFields`, `ScriptScenes`).
+3. Viral DNA (locked) vs. Creative Content (editable), kept distinct —
+   **done already** (`mechanicsSchema` vs `subjectSchema` in
+   `lib/script/schema.ts`, split is the file's own stated design intent).
+4. Final prompt generated only after the user edits the blueprint —
+   **done in the script flow**, `compileScript()` only runs on "Take this
+   script"; the separate brief flow (typed-idea path) bypasses this and
+   still authors the final prompt directly. Not reconciled this session,
+   the two flows are different enough surfaces to need a dedicated pass.
+5. Explicit per-element "Preserve/Change" controls — **was partial**, the
+   state machine existed but nothing labeled it.
+6. "AI Suggestions" impact/similarity-warning layer — **was missing
+   entirely**.
+7. Canonical backend video schema (Metadata / Viral DNA / Script / Scenes /
+   Generation Instructions) — **partial**, `videoScriptSchema` covers Viral
+   DNA + Script + Scenes already; no explicit Metadata or Generation
+   Instructions block. Real gap, bigger than a session slot, not started.
+8. Avoid literal copying, describe mechanics instead — **done already**,
+   both extraction and script-writing prompts explicitly forbid mentioning
+   the source video.
+
+**Status: done, PR #111 (merged).** Point 1's structure field: named beats
+(hook/problem/escalation/payoff/cta, each nullable) replacing a generic
+array, with a real smoke test (7/7) proving the old shape correctly no
+longer parses.
+
+**Status: done, PR #110 (merged).** Point 5: "Preserved"/"Change freely"
+badges making the existing mechanics/subject split visible. Deliberately
+did not add "Brand Style" or "Audio" controls the source document
+mentions, since `videoScriptSchema` has no backing field for either and a
+control with nothing behind it would be decorative.
+
+**Status: [to be filled once PR lands].** Point 6, the AI Suggestions
+layer, was in progress at the time of this note.
+
+**Not started, flagged for a future session:** point 4's brief-flow
+reconciliation and point 7's full Metadata/Generation-Instructions schema
+split. Both are real gaps, both touch more surface than a single PR (two
+flows to reconcile, or a schema migration), correctly identified by the
+audit as bigger than what this marathon slot should rush.
 
 ## Explicitly out of scope this session
 
