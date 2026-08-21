@@ -1,12 +1,12 @@
-import { z } from "zod";
+import type { z } from "zod";
 
 /**
  * Tool definitions and dispatch.
  *
- * A tool is a typed function the model may call. The schema is the contract in
- * both directions: it is sent to the provider so the model knows the shape, and
- * it validates arguments on the way back, because a model's arguments are
- * untrusted input like any other.
+ * A tool is a typed function the model may call. The schema describes the
+ * tool to the model as prose (see `toolInstructions` in ./agent) rather than a
+ * provider-native tool-call spec, and validates arguments on the way back,
+ * because a model's arguments are untrusted input like any other.
  */
 
 export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
@@ -14,13 +14,6 @@ export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
   readonly description: string;
   readonly schema: z.ZodType<TInput>;
   readonly execute: (input: TInput) => Promise<TOutput> | TOutput;
-}
-
-/** Wire format the providers expect. */
-export interface ToolSpec {
-  name: string;
-  description: string;
-  input_schema: Record<string, unknown>;
 }
 
 export interface ToolCall {
@@ -41,48 +34,6 @@ export function defineTool<TInput, TOutput>(
   definition: ToolDefinition<TInput, TOutput>,
 ): ToolDefinition<TInput, TOutput> {
   return definition;
-}
-
-/**
- * Minimal JSON Schema for a Zod object, enough for the providers' tool APIs.
- * Deliberately small: richer conversion belongs in a dedicated library, and
- * guessing at unsupported constructs would produce schemas the model misreads.
- */
-export function toJsonSchema(schema: z.ZodType<unknown>): Record<string, unknown> {
-  if (!(schema instanceof z.ZodObject)) {
-    return { type: "object", properties: {}, additionalProperties: true };
-  }
-
-  const shape = schema.shape as Record<string, z.ZodTypeAny>;
-  const properties: Record<string, unknown> = {};
-  const required: string[] = [];
-
-  for (const [key, value] of Object.entries(shape)) {
-    const unwrapped = value instanceof z.ZodOptional ? value.unwrap() : value;
-    const description = value.description;
-
-    let property: Record<string, unknown>;
-    if (unwrapped instanceof z.ZodNumber) property = { type: "number" };
-    else if (unwrapped instanceof z.ZodBoolean) property = { type: "boolean" };
-    else if (unwrapped instanceof z.ZodEnum) {
-      property = { type: "string", enum: unwrapped.options as string[] };
-    } else if (unwrapped instanceof z.ZodArray) property = { type: "array", items: {} };
-    else property = { type: "string" };
-
-    if (description) property.description = description;
-    properties[key] = property;
-    if (!(value instanceof z.ZodOptional)) required.push(key);
-  }
-
-  return { type: "object", properties, required, additionalProperties: false };
-}
-
-export function toToolSpecs(tools: readonly ToolDefinition<never, unknown>[]): ToolSpec[] {
-  return tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: toJsonSchema(tool.schema as z.ZodType<unknown>),
-  }));
 }
 
 /**
