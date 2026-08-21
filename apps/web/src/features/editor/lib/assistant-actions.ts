@@ -90,7 +90,33 @@ export const ASSISTANT_ACTIONS: readonly AssistantAction[] = [
       );
       if (!hero) return "There is no footage on the timeline yet.";
       const sourceMs = hero.durationMs * hero.speed;
-      editor.update<VideoItem>(hero.id, { speed: 0.5, durationMs: Math.round(sourceMs / 0.5) });
+      const newDurationMs = Math.round(sourceMs / 0.5);
+      const growth = newDurationMs - hero.durationMs;
+      const heroEndMs = hero.startMs + hero.durationMs;
+
+      editor.update<VideoItem>(
+        hero.id,
+        { speed: 0.5, durationMs: newDurationMs },
+        "assistant:slowmo",
+      );
+
+      /*
+       * Halving the speed doubles how long the hero shot occupies the
+       * timeline, and nothing else moves on its own: `editor.update` is a
+       * plain patch, not a resize, so the clip that used to start right after
+       * it now overlaps however much longer this one runs. Every later item
+       * on the same track shifts forward by the same amount to keep the cut
+       * order the timeline had before this ran.
+       */
+      const track = editor.project.tracks.find((candidate) =>
+        candidate.items.some((item) => item.id === hero.id),
+      );
+      track?.items
+        .filter((item) => item.id !== hero.id && item.startMs >= heroEndMs)
+        .forEach((item) =>
+          editor.update(item.id, { startMs: item.startMs + growth }, "assistant:slowmo"),
+        );
+
       return `Halved the speed on "${hero.label}", the longest shot, so it now runs ${(sourceMs / 0.5 / 1000).toFixed(1)}s.`;
     },
   },
