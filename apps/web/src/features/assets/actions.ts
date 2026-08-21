@@ -93,29 +93,49 @@ export async function saveBrandAsset(input: z.input<typeof saveSchema>): Promise
   }
 
   /*
-   * The avatar is replaced rather than upserted.
+   * The avatar is updated in place rather than replaced by a delete and an
+   * insert.
    *
    * Its uniqueness is a partial index, `where kind = 'avatar'`, which no
-   * `on conflict` target can name: PostgREST cannot express the predicate, so an
-   * upsert would look for a plain unique index on `user_id`, find none, and
-   * fail. Clearing first is also what makes the old object removable, which an
-   * upsert would have silently orphaned.
+   * `on conflict` target can name: PostgREST cannot express the predicate, so
+   * an upsert would look for a plain unique index on `user_id`, find none, and
+   * fail. Deleting first used to be how that was worked around, but it meant a
+   * new avatar that failed to insert, a transient error, a dropped connection,
+   * left the account with neither the old picture nor the new one: the delete
+   * had already committed. The update this replaced it with is one statement,
+   * so it either lands whole or the old avatar is exactly as it was.
    */
   if (kind === "avatar") {
     const { data: previous } = await supabase
       .from("brand_assets")
-      .select("storage_path")
+      .select("id, storage_path")
       .eq("user_id", user.id)
       .eq("kind", "avatar")
       .maybeSingle();
 
-    await supabase.from("brand_assets").delete().eq("user_id", user.id).eq("kind", "avatar");
+    if (previous !== null) {
+      const { error: updateError } = await supabase
+        .from("brand_assets")
+        .update({ storage_path: path, label, consent_version: CONSENT_VERSION })
+        .eq("id", previous.id);
 
-    if (previous !== null && previous.storage_path !== path) {
-      const { error: staleError } = await supabase.storage
-        .from("uploads")
-        .remove([previous.storage_path]);
-      if (staleError) logger.warn("old avatar left behind", { error: staleError.message });
+      if (updateError) {
+        logger.error("could not update the avatar", { error: updateError.message });
+        return { status: "error", message: "Could not save that just now." };
+      }
+
+      // Only once the row that pointed at it has moved on. An object cleaned
+      // up before the row was rewritten would strand the row itself the
+      // moment the update failed, which is the exact case this now avoids.
+      if (previous.storage_path !== path) {
+        const { error: staleError } = await supabase.storage
+          .from("uploads")
+          .remove([previous.storage_path]);
+        if (staleError) logger.warn("old avatar left behind", { error: staleError.message });
+      }
+
+      revalidatePath("/dashboard/assets");
+      return { status: "ok" };
     }
   }
 

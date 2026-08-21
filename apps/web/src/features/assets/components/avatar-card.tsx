@@ -47,6 +47,15 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
         setAskConsent(path);
         return;
       }
+
+      /*
+       * A save that lands after a removal has to clear it, or `shown` stays
+       * forced to null forever: `avatar` is a server prop that only refreshes
+       * on the next navigation, so removing a picture and uploading a new one
+       * in the same visit left the card showing empty with a real picture
+       * saved behind it, and no way to see it without a reload.
+       */
+      if (result.status === "ok") setRemoved(false);
       setMessage(result.status === "ok" ? null : "Could not save that picture.");
     });
   }
