@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders, json } from "../_shared/http.ts";
 import { getJobInfo, getRecordInfo } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
+import { log } from "../_shared/trace.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -76,17 +77,37 @@ Deno.serve(async (req) => {
       generation.provider_task_id,
       info.resultUrls[0],
     );
-    await admin.rpc("complete_generation", {
+    const { error } = await admin.rpc("complete_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_result_url: resultUrl,
     });
+    if (error) {
+      // supabase-js returns RPC errors instead of throwing. Missing this would
+      // tell the client the render is "ready" while the row is still stuck at
+      // "generating", which is worse than the honest "still processing" this
+      // is meant to replace.
+      log("error", "complete_generation failed", {
+        taskId: generation.provider_task_id,
+        generationId: generation.id,
+        reason: error.message,
+      });
+      return json({ error: "Could not sync this generation" }, 500);
+    }
     return json({ status: "ready", resultUrl });
   }
   if (info.successFlag === 2 || info.successFlag === 3) {
-    await admin.rpc("fail_generation", {
+    const { error } = await admin.rpc("fail_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_error: "Generation failed",
     });
+    if (error) {
+      log("error", "fail_generation failed", {
+        taskId: generation.provider_task_id,
+        generationId: generation.id,
+        reason: error.message,
+      });
+      return json({ error: "Could not sync this generation" }, 500);
+    }
     return json({ status: "failed", resultUrl: null });
   }
 
