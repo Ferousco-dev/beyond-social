@@ -122,15 +122,41 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   default work when nothing else is queued: walk the real app, find what
   looks unfinished or generic, fix it. The 2026-08-21 session did a first
   pass and found the app already at a high bar; this is genuinely
-  open-ended, not a sign anything is broken. Attempted again 2026-08-22
-  (second session): the Claude Browser preview tools did work against the
-  local dev stack (`pnpm dev web`, already running), and the landing page
-  rendered correctly after a stale-asset reload. But the browser pane
-  became unresponsive (30s timeouts) partway through scrolling the
-  landing page, before reaching the dashboard, composer, or settings
-  screens behind auth, so no real walkthrough happened and no changes
-  were made. Needs a session with more stable browser/preview access to
-  actually complete the walkthrough.
+  open-ended, not a sign anything is broken. Attempted again twice on
+  2026-08-22 and both got stopped early by an unresponsive browser pane
+  before reaching the authenticated screens. Attempted a third time,
+  2026-08-22 (this session): found a stray `next dev --port 3010` process
+  left running against a stale, half-broken worktree
+  (`.claude/worktrees/agent-ac15a79bdd2444cbd`, missing `@swc/helpers`,
+  throwing on every request), killed it, and started a clean
+  `./dev.sh --no-infra web` on port 3000 against the current `main`
+  worktree instead (Supabase's Postgres/Auth/Storage containers were
+  already up from a prior session, just not the API gateway containers,
+  which weren't needed). Signed up a fresh local test account
+  (`ui-audit@local.test`, confirmed through Mailpit per
+  `docs/local-stack.md`) and walked, with screenshots at each step: the
+  landing page, signup, login, dashboard ("Where do you want to start?"),
+  Library (empty state), Assets (photo/product upload state), Schedule
+  (calendar), Discover, the composer ("Describe a video to create"),
+  and Settings (Account, Connections, Appearance including a live
+  light/dark toggle, Billing, API keys). One `computer scroll` call on
+  the Assets page hit the same pane-unresponsive failure the last two
+  sessions reported, but a single retry (a plain screenshot) recovered
+  it immediately and the walkthrough continued without further issue,
+  so the tooling itself is not the blocker it looked like before, just
+  occasionally flaky on the `scroll` action specifically.
+  Result: nothing concretely unfinished, generic, or inconsistent
+  found. Every locked/gated feature seen (Studio-only API keys and
+  webhooks, not-yet-approved platform connections) explains itself
+  inline with real copy and an upgrade path rather than sitting there
+  unexplained. Empty states (Library, Assets) are specific to the
+  product, not generic placeholder text. Dark mode was checked directly
+  against the dashboard and renders consistently. No PR opened this
+  session; nothing to fix means nothing to ship. Dev server stopped
+  cleanly at the end of the session. Next session: this list has been
+  walked thoroughly enough now that it's worth leaving alone for a
+  while unless the owner points at something specific; pick up CSP
+  nonce or billing/growth upsell surfaces instead.
 - **Billing/growth upsell surfaces.** Not started. First real task for the
   Billing/Growth Designer role: find natural, honest moments to prompt a
   free-tier user toward upgrading (a plan limit hit, a locked feature),
@@ -175,3 +201,16 @@ Nothing. Session below finished cleanly with everything merged.
   session: pick up the UI/UX standing pass with a fresh browser session,
   or take the CSP nonce item if someone wants to spend a full session on
   it with real-browser verification across every route.
+- **2026-08-22, third scheduled session.** Completed the UI/UX standing
+  pass that the two prior sessions couldn't finish. Found and cleaned up
+  a stray dev server on port 3010 pointed at a stale, broken worktree;
+  started a clean one on port 3000 against `main`. Signed up a real local
+  test account and walked landing, signup, login, dashboard, Library,
+  Assets, Schedule, Discover, the composer, and Settings (Account,
+  Connections, Appearance/dark mode, Billing, API keys), with screenshots
+  at each step. Found nothing concretely unfinished, generic, or
+  inconsistent: locked features explain themselves, empty states are
+  product-specific, dark mode is consistent. No PR opened; see the
+  "UI/UX standing pass" entry above for full detail. Dev server stopped
+  cleanly at session end. Next session: CSP nonce or billing/growth
+  upsell surfaces are the best-scoped open items.
