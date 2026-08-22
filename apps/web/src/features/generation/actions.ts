@@ -186,8 +186,10 @@ export async function regenerateGeneration(
 
   const generationId = (started as { generationId?: string } | null)?.generationId;
   if (startError || !generationId) {
-    logger.warn("could not regenerate", { error: startError?.message });
-    return { status: "error", message: "Could not start that render just now" };
+    // The edge function's actual reason, when the failure was an HTTP
+    // response and not a fetch that never reached it.
+    const detail = startError ? await edgeFunctionErrorMessage(startError) : null;
+    return { status: "error", message: detail ?? "Could not start that render just now" };
   }
 
   /*
