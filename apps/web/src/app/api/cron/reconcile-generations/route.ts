@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { withTrace } from "@/lib/observability/http";
 import { serverEnv } from "@/lib/server-env";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -55,7 +56,10 @@ export const GET = withTrace("GET /api/cron/reconcile-generations", async (reque
   });
 
   if (error) {
-    logger.error("reconcile-generations failed", { error: error.message });
+    // The edge function's actual reason, when the failure was an HTTP
+    // response and not a fetch that never reached it.
+    const detail = await edgeFunctionErrorMessage(error);
+    logger.error("reconcile-generations failed", { error: detail ?? error.message });
     return NextResponse.json({ error: "reconcile_failed" }, { status: 500 });
   }
 
