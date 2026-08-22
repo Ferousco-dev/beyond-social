@@ -25,6 +25,23 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 - **Live Stripe credentials.** Subscription checkout is fully built and
   tested; needs real `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/
   `STRIPE_PRICE_*` values to accept real payments.
+- **kie-callback webhook secret in a query string.**
+  `supabase/functions/kie-callback/index.ts` carries a shared secret in
+  the callback URL's query string rather than a header. Investigated
+  2026-08-22: kie.ai's callback API only accepts a `callBackUrl` string,
+  with no mechanism to attach custom headers, so the query-string secret
+  is likely the only delivery mechanism kie.ai actually supports. This is
+  also an auth/security-boundary change per `RULES.md`, which needs a
+  second look from the owner even when a diff looks correct. Owner should
+  either confirm the current approach is acceptable, or point to concrete
+  evidence that kie.ai supports header-based webhook auth.
+- **Storage lifecycle rules (retention policy).** Supabase Storage has no
+  built-in object TTL; a real fix means a new scheduled job that deletes
+  objects past some age, and how long to keep avatars, generated videos,
+  and uploads before deleting them is a product decision, not an
+  engineering one. Also destructive (deletes real user files) per
+  `RULES.md`. Needs the owner to set the actual retention windows before
+  any code gets written here.
 
 ## Open, safe to work
 
@@ -33,19 +50,67 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   single largest remaining gap on that audit. Adding one likely needs a new
   dependency (Sentry or similar), which needs the owner's confirmation
   first per `RULES.md`; flag it and ask rather than adding it silently.
+  Still not started this session, correctly left alone per the
+  new-dependency rule.
 - **Rate limiting.** Not yet distributed (would need Upstash or similar,
-  same new-dependency caveat as above).
-- **CSP nonce, webhook secret in a header instead of a query string,
-  response caching/pagination on a couple of endpoints, storage lifecycle
-  rules, end-to-end test coverage.** All from the same re-audit
-  (`docs/production-readiness.md`), all smaller than the two above, all
-  worth picking off individually.
-- **`regenerateGeneration` swallows the real error message**, same pattern
-  already fixed elsewhere in `apps/web/src/lib/chat/turn.ts`,
-  `features/generation/actions.ts`, and `avatar-actions.ts` on
-  2026-08-21 (PR #119). Found and explicitly flagged as out of scope for
-  that PR; same fix, same `edgeFunctionErrorMessage` helper already exists
-  to reuse.
+  same new-dependency caveat as above). Still not started this session,
+  correctly left alone.
+- **CSP nonce.** Investigated this session. `apps/web/next.config.ts`
+  currently ships `script-src 'self' 'unsafe-inline'` with a comment
+  explaining why: the App Router injects inline bootstrap scripts with no
+  nonce today. A real fix needs per-request nonce generation in
+  `apps/web/src/middleware.ts`, threading that nonce through the root
+  layout via `next/headers`, and confirming no inline script on any route
+  breaks under the tightened policy. That is a genuine behavior change to
+  a security header touching every page, not a small isolated diff, so it
+  was not attempted unattended this session. Next session: implement
+  behind a careful manual pass through the app in a real browser before
+  merging, or flag to the owner if the App Router's own inline scripts
+  turn out not to support nonces cleanly.
+- **Response caching/pagination on a couple of endpoints.** Checked this
+  session: the `video_generations`/`scheduled_posts`/`projects` reads in
+  `apps/web/src/features/library/queries.ts`,
+  `apps/web/src/app/dashboard/overview/queries.ts`,
+  `apps/web/src/app/dashboard/overview/aggregates.ts`,
+  `apps/web/src/lib/api/resources.ts`, and `apps/web/src/lib/generation/
+  history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
+  requests, or single-row `eq` lookups). Did not find an actual unbounded
+  list endpoint to fix. Leaving this open in case a specific endpoint
+  surfaces later, but it may already be done; re-audit before assuming
+  there is real work here.
+- **Storage lifecycle rules.** Looked at this session. Supabase Storage has
+  no built-in object-lifecycle/TTL feature (unlike S3), so this would mean
+  writing a new scheduled cleanup job that deletes objects past some
+  retention window. Two problems: what counts as "expired" for avatars,
+  generated videos, and uploads is a product/retention decision, not an
+  engineering one, and a cleanup job that deletes real user files is
+  exactly the kind of destructive, hard-to-reverse action `RULES.md` says
+  needs the owner. Moving this to "Needs the owner" below rather than
+  guessing a retention policy.
+- **Webhook secret in a header instead of a query string**
+  (`supabase/functions/kie-callback/index.ts`). Investigated by the
+  orchestrating session: kie.ai's callback API only accepts a
+  `callBackUrl` string, no custom headers, so the query-string secret is
+  likely the only viable delivery mechanism kie.ai supports. This also
+  touches an auth/security boundary per `RULES.md`. Moving this to "Needs
+  the owner" below: either confirm the query-string approach is accepted
+  as-is, or provide evidence kie.ai supports a header-based alternative.
+- **`regenerateGeneration` swallowed the real error message.** Fixed and
+  shipped 2026-08-22, PR #123 (merged to main).
+- **`extendGeneration` swallowed the real error message.** Found during
+  this session's own sweep for the same pattern: it read
+  `error.context.error` directly on a `FunctionsHttpError`, but `.context`
+  is the raw `Response` object, not parsed JSON, so that field never
+  existed and every failure fell through to a generic message. Fixed and
+  shipped 2026-08-22, PR #124 (merged to main), reusing the existing
+  `edgeFunctionErrorMessage` helper. Swept the rest of the codebase for
+  the same `supabase.functions.invoke` pattern; the only other caller is
+  `apps/web/src/app/api/cron/reconcile-generations/route.ts`, which logs
+  `error.message` (the same hardcoded "non-2xx" string, not the real
+  reason) rather than surfacing anything to a user. Lower priority since
+  it is an internal cron log, not a user-facing message, but worth the
+  same `edgeFunctionErrorMessage` treatment in a future session for
+  better on-call visibility.
 - **Brief flow and script flow are two separate systems** that could
   eventually be unified (typed-idea path vs. TikTok-reference path). Not a
   bug, just duplication. Worth a design pass before touching, not a quick
@@ -66,11 +131,27 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 
 ## In flight
 
-Nothing yet. This section fills in mid-session and should be empty at the
-start of a fresh run; if it is not, the previous session ended mid-unit and
-that needs investigating before starting new work.
+Nothing. Session below finished cleanly with everything merged.
 
 ## Session log
 
 - **2026-08-22, setup.** This file created alongside `TEAM.md`, `RULES.md`,
   `START_HERE.md`. No engineering session run yet under this system.
+- **2026-08-22, first scheduled session.** Shipped PR #123
+  (`regenerateGeneration` real-error fix) and PR #124 (`extendGeneration`
+  real-error fix, found during this session's own sweep for the same
+  pattern), both merged to `main`. Investigated CSP nonce, response
+  caching/pagination, and storage lifecycle rules from the "Open, safe to
+  work" list; pagination turned out to already be handled everywhere
+  checked, CSP nonce is real but too broad a behavior change to do
+  unattended without a real-browser pass across every route, and storage
+  lifecycle needs a retention-policy decision from the owner before any
+  code makes sense, so it moved to "Needs the owner". Also moved the
+  kie-callback webhook-secret item to "Needs the owner", per the
+  orchestrating session's own investigation that kie.ai's callback API
+  does not support custom headers. Observability and rate limiting
+  correctly left untouched (new-dependency rule). Next session: CSP nonce
+  is the best-scoped remaining item if someone wants to spend a full
+  session on it with real-browser verification; otherwise another pass
+  through "UI/UX standing pass" or "Billing/growth upsell surfaces" is
+  open-ended and safe to pick up any time.
