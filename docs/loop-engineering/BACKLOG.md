@@ -105,12 +105,12 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   shipped 2026-08-22, PR #124 (merged to main), reusing the existing
   `edgeFunctionErrorMessage` helper. Swept the rest of the codebase for
   the same `supabase.functions.invoke` pattern; the only other caller is
-  `apps/web/src/app/api/cron/reconcile-generations/route.ts`, which logs
+  `apps/web/src/app/api/cron/reconcile-generations/route.ts`, which logged
   `error.message` (the same hardcoded "non-2xx" string, not the real
-  reason) rather than surfacing anything to a user. Lower priority since
-  it is an internal cron log, not a user-facing message, but worth the
-  same `edgeFunctionErrorMessage` treatment in a future session for
-  better on-call visibility.
+  reason) rather than the actual failure. Fixed and shipped 2026-08-22,
+  PR #125 (merged to main), reusing the same `edgeFunctionErrorMessage`
+  helper. The `supabase.functions.invoke` sweep is now complete: every
+  caller surfaces the real edge function error.
 - **Brief flow and script flow are two separate systems** that could
   eventually be unified (typed-idea path vs. TikTok-reference path). Not a
   bug, just duplication. Worth a design pass before touching, not a quick
@@ -122,7 +122,15 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   default work when nothing else is queued: walk the real app, find what
   looks unfinished or generic, fix it. The 2026-08-21 session did a first
   pass and found the app already at a high bar; this is genuinely
-  open-ended, not a sign anything is broken.
+  open-ended, not a sign anything is broken. Attempted again 2026-08-22
+  (second session): the Claude Browser preview tools did work against the
+  local dev stack (`pnpm dev web`, already running), and the landing page
+  rendered correctly after a stale-asset reload. But the browser pane
+  became unresponsive (30s timeouts) partway through scrolling the
+  landing page, before reaching the dashboard, composer, or settings
+  screens behind auth, so no real walkthrough happened and no changes
+  were made. Needs a session with more stable browser/preview access to
+  actually complete the walkthrough.
 - **Billing/growth upsell surfaces.** Not started. First real task for the
   Billing/Growth Designer role: find natural, honest moments to prompt a
   free-tier user toward upgrading (a plan limit hit, a locked feature),
@@ -155,3 +163,15 @@ Nothing. Session below finished cleanly with everything merged.
   session on it with real-browser verification; otherwise another pass
   through "UI/UX standing pass" or "Billing/growth upsell surfaces" is
   open-ended and safe to pick up any time.
+- **2026-08-22, second scheduled session.** Shipped PR #125
+  (`reconcile-generations` cron now logs the real edge function error via
+  `edgeFunctionErrorMessage`, same fix pattern as #123/#124), merged to
+  `main`. That completes the `supabase.functions.invoke` sweep started
+  last session. Attempted the UI/UX standing pass: got the local dev
+  stack and Claude Browser preview working against `http://localhost:3000`,
+  confirmed the landing page renders correctly, but the browser pane
+  became unresponsive before a real walkthrough of dashboard, composer,
+  or settings could happen. No UI changes made this session. Next
+  session: pick up the UI/UX standing pass with a fresh browser session,
+  or take the CSP nonce item if someone wants to spend a full session on
+  it with real-browser verification across every route.
