@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
 import { checkVideoRun } from "@/lib/generation/gate";
+import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -75,10 +76,8 @@ export async function extendGeneration(input: z.input<typeof extendSchema>): Pro
      * rendered above 720p. Those arrive as a message worth showing rather than
      * a generic failure.
      */
-    const message =
-      (error as { context?: { error?: string } } | null)?.context?.error ??
-      "Could not continue that video";
-    return { status: "denied", message };
+    const detail = error ? await edgeFunctionErrorMessage(error) : null;
+    return { status: "denied", message: detail ?? "Could not continue that video" };
   }
 
   revalidatePath("/dashboard");
