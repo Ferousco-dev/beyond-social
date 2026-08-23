@@ -16,9 +16,6 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 - **kie.ai account balance.** Confirmed root cause of "videos not
   generating": the render provider's own account balance ran too low.
   Needs a real top-up.
-- **GitHub Actions billing.** CI's `Verify` job fails instantly on every
-  run, account-side. Until fixed, the PR Checker role stands in (see
-  `RULES.md`).
 - **Credit pack pricing.** The one-time top-up purchase backend is built
   and tested; needs the owner to decide real prices before the checkout
   button can be wired up.
@@ -157,11 +154,21 @@ history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
   walked thoroughly enough now that it's worth leaving alone for a
   while unless the owner points at something specific; pick up CSP
   nonce or billing/growth upsell surfaces instead.
-- **Billing/growth upsell surfaces.** Not started. First real task for the
-  Billing/Growth Designer role: find natural, honest moments to prompt a
-  free-tier user toward upgrading (a plan limit hit, a locked feature),
-  matching `docs/ui.md`'s restraint-over-decoration standard. Every claim
-  in the copy must describe something actually live today.
+- **Billing/growth upsell surfaces.** First unit shipped 2026-08-23, PR
+  #126 (merged): the chat, regenerate, and continue-clip flows already
+  told a free-tier user why a video run was refused, but a denial an
+  upgrade would actually fix (plan tier too low, credits empty) had no way
+  to act on it. Those now carry an inline Upgrade link to the billing
+  page, reusing the credit tile's existing link styling; a denial an
+  upgrade cannot fix (not signed in, an unknown model, a database hiccup)
+  stays plain text. Not real-browser-verified: no computer-use/browser
+  tool was available in this session, and reaching an actual denied state
+  needs a free-tier account seeded against the local Supabase stack, which
+  the session budget did not cover. Worth a manual pass in a real browser
+  next time someone has the local stack running with a seeded low-credit
+  account. Other upsell moments (a locked feature with no upgrade link,
+  a plan-limit hit outside the video-generation gate) are still open if
+  anyone finds one.
 
 ## In flight
 
@@ -214,3 +221,44 @@ Nothing. Session below finished cleanly with everything merged.
   "UI/UX standing pass" entry above for full detail. Dev server stopped
   cleanly at session end. Next session: CSP nonce or billing/growth
   upsell surfaces are the best-scoped open items.
+- **2026-08-23, fourth scheduled session.** Two important process
+  findings, both read this before anything else:
+  - **CI is no longer blocked.** The GitHub Actions billing block
+    (previously listed under "Needs the owner") is resolved. `Verify` ran
+    end to end on both PRs this session (PR #127 confirmed it green
+    directly: `format:check`, `lint`, `typecheck`, `build`, and all 6 test
+    suites all passed in CI, not just locally). Per `RULES.md`'s own
+    instruction ("the day CI comes back, merges should require it green
+    again"), treat CI as the real gate from here on rather than falling
+    back to the PR Checker's own re-verification as the primary signal;
+    the independent-verification discipline itself does not go away, it
+    now has CI's confirmation alongside it instead of standing alone.
+  - **GitHub write access was completely blocked, then fixed, mid-session.**
+    Both `git push` and every GitHub MCP write call (`create_branch`,
+    `push_files`) returned 403 for roughly the first half of this session,
+    read-only tools worked fine. The finished first unit of work
+    (upgrade-link-on-plan-denials) was preserved as a local commit and
+    handed to the user directly as a patch file rather than lost, and the
+    session paused for the user to fix the GitHub App's permissions.
+    Once fixed, `git push` started working immediately but the MCP
+    GitHub server's own session stayed stale ("invalid session" on every
+    call) for the rest of the session; PR creation and merging were done
+    via direct GitHub REST API calls with `$GITHUB_TOKEN` instead
+    (`subscribe_pr_activity`/`unsubscribe_pr_activity` kept working
+    throughout, they are a separate subsystem from the read/write API
+    tools). This is resolved, not an ongoing blocker, but a future
+    session hitting "invalid session" on `mcp__github__*` tools while
+    `git push` and `get_me` disagree should know the fallback: raw REST
+    calls with `$GITHUB_TOKEN` work even when the MCP connector session
+    itself is stuck.
+
+  Shipped PR #126 (billing/growth upsell link on plan and credit
+  denials, see the "Billing/growth upsell surfaces" entry above for
+  detail) and PR #127 (repo-wide `prettier --write`, 22 files, pure
+  whitespace, needed because CI actually running again surfaced real
+  formatting drift that had accumulated while `format:check` could not
+  run at all). Both merged to `main`. Session ran long (past the ~2 hour
+  budget) because of the GitHub-access troubleshooting in the middle;
+  stopped cleanly here rather than starting a new unit. Next session: CSP
+  nonce is still the best-scoped substantial open item; otherwise more
+  upsell surfaces or another UI/UX pass.
