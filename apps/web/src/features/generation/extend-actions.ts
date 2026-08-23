@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
+import { isUpgradeReason } from "@/lib/credits/types";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { createClient } from "@/lib/supabase/server";
@@ -32,7 +33,7 @@ export type ExtendResult =
   | { status: "ok"; generationId: string }
   | { status: "unconfigured" }
   /** The plan, the balance, or the clip itself refused. Nothing was spent. */
-  | { status: "denied"; message: string }
+  | { status: "denied"; message: string; upgrade: boolean }
   | { status: "error"; message: string };
 
 export async function extendGeneration(input: z.input<typeof extendSchema>): Promise<ExtendResult> {
@@ -43,7 +44,8 @@ export async function extendGeneration(input: z.input<typeof extendSchema>): Pro
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
   const gate = await checkVideoRun();
-  if (!gate.allowed) return { status: "denied", message: gate.notice };
+  if (!gate.allowed)
+    return { status: "denied", message: gate.notice, upgrade: isUpgradeReason(gate.reason) };
 
   const supabase = await createClient();
 
@@ -77,7 +79,7 @@ export async function extendGeneration(input: z.input<typeof extendSchema>): Pro
      * a generic failure.
      */
     const detail = error ? await edgeFunctionErrorMessage(error) : null;
-    return { status: "denied", message: detail ?? "Could not continue that video" };
+    return { status: "denied", message: detail ?? "Could not continue that video", upgrade: false };
   }
 
   revalidatePath("/dashboard");

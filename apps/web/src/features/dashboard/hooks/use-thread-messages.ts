@@ -42,7 +42,7 @@ export interface ThreadMessages {
 export function useThreadMessages(
   thread: Thread,
   confirm: Parameters<typeof useRegenerateDraft>[0]["confirm"],
-  onNotice: (notice: string | null) => void,
+  onNotice: (notice: string, upgrade?: boolean) => void,
 ): ThreadMessages {
   const [messages, setMessages] = useState<readonly ChatMessage[]>(thread.messages);
   const counter = useRef(0);

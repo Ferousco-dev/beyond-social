@@ -47,3 +47,10 @@ export const DENIAL_COPY: Readonly<Record<DenialReason, string>> = {
   insufficient_credits: "Not enough credits for this run. Top up to continue.",
   check_failed: "Could not check your credits. Try again in a moment.",
 };
+
+/** Denials an upgrade actually fixes, as opposed to signing in again or retrying. */
+const UPGRADE_REASONS: ReadonlySet<DenialReason> = new Set(["plan_tier", "insufficient_credits"]);
+
+export function isUpgradeReason(reason: DenialReason): boolean {
+  return UPGRADE_REASONS.has(reason);
+}

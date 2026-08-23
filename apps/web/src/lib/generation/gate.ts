@@ -1,7 +1,7 @@
 import "server-only";
 
 import { canRunModel, cheapestRunCost } from "@/lib/credits/queries";
-import { DENIAL_COPY } from "@/lib/credits/types";
+import { DENIAL_COPY, type DenialReason } from "@/lib/credits/types";
 
 /**
  * The gate every video run passes through before the provider is called.
@@ -35,7 +35,7 @@ export type RunGate =
        */
       readonly lowBalanceNotice: string | null;
     }
-  | { readonly allowed: false; readonly notice: string };
+  | { readonly allowed: false; readonly notice: string; readonly reason: DenialReason };
 
 /**
  * What to say about a balance that will not cover another run, or nothing.
@@ -63,7 +63,8 @@ export function lowBalanceMessage(remaining: number, floor: number | null): stri
  */
 export async function checkVideoRun(modelId: string = DEFAULT_VIDEO_MODEL_ID): Promise<RunGate> {
   const check = await canRunModel(modelId);
-  if (!check.allowed) return { allowed: false, notice: DENIAL_COPY[check.reason] };
+  if (!check.allowed)
+    return { allowed: false, notice: DENIAL_COPY[check.reason], reason: check.reason };
 
   /*
    * The only warning this account ever got was a hard refusal at the exact

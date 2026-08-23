@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { REGENERATE_REPLY } from "./regenerate-copy";
 import { isSupabaseConfigured } from "@/lib/env";
+import { isUpgradeReason } from "@/lib/credits/types";
 import { checkVideoRun } from "@/lib/generation/gate";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { recordChunkOutcome } from "@/lib/prompt-engine/feedback";
@@ -32,7 +33,7 @@ export type StartResult =
   | { status: "ok"; generationId: string; sourceChunks: string[] }
   | { status: "unconfigured" }
   /** The plan or the balance refused the run. Nothing was sent to the provider. */
-  | { status: "denied"; message: string }
+  | { status: "denied"; message: string; upgrade: boolean }
   | { status: "error"; message: string };
 
 // Kicks off a kie.ai video generation through the edge function. Returns
@@ -48,7 +49,8 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
 
   // Tier and balance first, before any work is done or any money is spent.
   const gate = await checkVideoRun();
-  if (!gate.allowed) return { status: "denied", message: gate.notice };
+  if (!gate.allowed)
+    return { status: "denied", message: gate.notice, upgrade: isUpgradeReason(gate.reason) };
 
   // Ground the prompt in the knowledge base when the engine is configured; falls
   // back to the raw prompt otherwise, so the engine improves output but is never
@@ -132,7 +134,7 @@ export type RegenerateResult =
   | { status: "ok"; generationId: string }
   | { status: "unconfigured" }
   /** The plan or the balance refused the run. Nothing was sent to the provider. */
-  | { status: "denied"; message: string }
+  | { status: "denied"; message: string; upgrade: boolean }
   | { status: "error"; message: string };
 
 /**
@@ -171,7 +173,8 @@ export async function regenerateGeneration(
   }
 
   const gate = await checkVideoRun();
-  if (!gate.allowed) return { status: "denied", message: gate.notice };
+  if (!gate.allowed)
+    return { status: "denied", message: gate.notice, upgrade: isUpgradeReason(gate.reason) };
 
   const { data: started, error: startError } = await supabase.functions.invoke("generate-video", {
     body: {
