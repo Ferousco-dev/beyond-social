@@ -85,7 +85,9 @@ function deliver(eventType: string, object: Record<string, unknown>): Request {
   });
 }
 
-function checkoutSession(overrides: Partial<Record<string, unknown>> = {}): Record<string, unknown> {
+function checkoutSession(
+  overrides: Partial<Record<string, unknown>> = {},
+): Record<string, unknown> {
   return {
     id: `cs_test_${randomUUID()}`,
     object: "checkout.session",
@@ -156,7 +158,10 @@ try {
 
   // D: unknown pack id is ignored, not guessed at.
   const unknownRes = await POST(
-    deliver("checkout.session.completed", checkoutSession({ metadata: { packId: "not-a-real-pack" } })),
+    deliver(
+      "checkout.session.completed",
+      checkoutSession({ metadata: { packId: "not-a-real-pack" } }),
+    ),
   );
   check("unknown pack id is accepted (still 200)", unknownRes.status === 200);
   check("unknown pack id grants nothing", (await grantRows()).length === 0);
@@ -197,7 +202,11 @@ try {
   const secondRes = await POST(deliver("checkout.session.completed", session));
   check("redelivery is still accepted", secondRes.status === 200);
   const afterSecond = await grantRows();
-  check("redelivery adds no second grant row", afterSecond.length === 1, `rows=${afterSecond.length}`);
+  check(
+    "redelivery adds no second grant row",
+    afterSecond.length === 1,
+    `rows=${afterSecond.length}`,
+  );
   const balanceAfterSecond = await creditsTotal();
   check(
     "redelivery leaves the balance unchanged",

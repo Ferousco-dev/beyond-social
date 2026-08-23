@@ -37,13 +37,13 @@ correct outcome, not a failure to route around.
   #107 did.
 - **Deploying to production manually.** No `vercel deploy --prod`, no
   `supabase functions deploy` against the live project, no `supabase db
-  push` against the live project. Merging to `main` is allowed under the PR
+push` against the live project. Merging to `main` is allowed under the PR
   Checker's discipline above; pushing that merged code to the live app,
   the live edge functions, or the live database is a separate, owner-only
   action. Note this explicitly in `BACKLOG.md` as "merged, not deployed"
   so the owner knows exactly what is waiting for them.
 - **Anything destructive or hard to reverse.** Force-push, `git reset
-  --hard` on a branch with real work, deleting a branch, dropping or
+--hard` on a branch with real work, deleting a branch, dropping or
   altering a live database table, rewriting shared history.
 - **New dependencies or new third-party services.** Confirm before adding
   anything not already in the locked stack.

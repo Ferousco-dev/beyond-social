@@ -116,7 +116,9 @@ function header(script: VideoScript, detail: Detail): string[] {
       : "",
     // Never dropped, unlike the above: this is a literal instruction to the
     // render model rather than creative detail it can infer without.
-    generationInstructions.modelInstructions ? `Also: ${generationInstructions.modelInstructions}.` : "",
+    generationInstructions.modelInstructions
+      ? `Also: ${generationInstructions.modelInstructions}.`
+      : "",
   ].filter(Boolean);
 }
 

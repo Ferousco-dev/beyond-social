@@ -35,9 +35,9 @@ Outcome-named items let each checked box double as proof the product works,
 which is what actually drives the user to the next step, rather than a sense
 of administrative completion.
 
-Example: "1. Generate your first video  2. Connect your TikTok  3. Schedule
+Example: "1. Generate your first video 2. Connect your TikTok 3. Schedule
 your first post"
-Counter-example: "1. Complete profile  2. Set preferences  3. Configure
+Counter-example: "1. Complete profile 2. Set preferences 3. Configure
 integrations." This describes internal configuration state and never a
 user-visible result, so completing it feels like paperwork rather than
 progress toward a finished video.

@@ -114,11 +114,18 @@ const script = (payload: unknown) => parseJsonReply(JSON.stringify(payload), vid
 
   if ("data" in out) {
     const compiled = compileScript(out.data);
-    check("the orientation follows the aspect ratio", compiled.prompt.includes("landscape short-form"));
-    check("style reaches the compiled prompt", compiled.prompt.includes("Style: Handheld, natural light."));
+    check(
+      "the orientation follows the aspect ratio",
+      compiled.prompt.includes("landscape short-form"),
+    );
+    check(
+      "style reaches the compiled prompt",
+      compiled.prompt.includes("Style: Handheld, natural light."),
+    );
     check(
       "cinematography and audio reach the compiled prompt",
-      compiled.prompt.includes("Cinematography: Mostly static") && compiled.prompt.includes("Audio: Warm acoustic"),
+      compiled.prompt.includes("Cinematography: Mostly static") &&
+        compiled.prompt.includes("Audio: Warm acoustic"),
     );
     check(
       "negative prompts are joined into an avoid line",

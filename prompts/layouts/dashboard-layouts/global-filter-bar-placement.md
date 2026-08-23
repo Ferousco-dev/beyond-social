@@ -40,7 +40,7 @@ individually to know what period it reflects, and dashboards that do this get
 misread constantly, especially when a "last 7 days" card sits beside a
 "last 30 days" card with no visual distinction.
 
-Example: a sticky bar reading "Workspace: Acme  |  Range: Last 30 days  |
+Example: a sticky bar reading "Workspace: Acme | Range: Last 30 days |
 compared to previous 30 days" positioned directly below the page's H1.
 Counter-example: each of six widgets carrying its own small date-picker icon
 in its corner, each defaulting independently, so two cards silently show

@@ -183,13 +183,13 @@ not CPU. With C2 downgraded to not-applicable, the real bottlenecks are
 PostgREST's pool, the cache layer, and provider cost, not a self-managed
 connection pooler.
 
-| Users | What breaks                                                             | Fix                                                                                                                     | Monthly cost signal                        |
-| ----- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| 10    | Nothing                                                                 | Supabase Free + Vercel Hobby                                                                                            | ~$0 + kie.ai usage                         |
-| 1k    | In-memory rate limit inconsistent across instances                      | Upstash rate limit (H1)                                                                                                  | Supabase Pro $25 + Vercel Pro $20 + kie.ai |
-| 100k  | Read contention on dashboard/trends; PostgREST pool pressure; storage egress | Redis cache (M1); PostgREST plan tier bump; renders already on CDN-backed storage (C1 closed)                          | Low hundreds + kie.ai (dominant)           |
-| 1M    | Single primary write ceiling; publish worker throughput; cache stampede | Horizontal workers (already fairness-scheduled per user); queue durability (QStash/SQS); request coalescing; partition hot tables | Low thousands + kie.ai |
-| 10M   | Regional latency; single-region DB; cost of egress and generation       | Multi-region read replicas + edge cache; shard by `user_id`; commit-heavy tables partitioned; negotiated kie.ai pricing | Dominated by kie.ai + egress                |
+| Users | What breaks                                                                  | Fix                                                                                                                               | Monthly cost signal                        |
+| ----- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| 10    | Nothing                                                                      | Supabase Free + Vercel Hobby                                                                                                      | ~$0 + kie.ai usage                         |
+| 1k    | In-memory rate limit inconsistent across instances                           | Upstash rate limit (H1)                                                                                                           | Supabase Pro $25 + Vercel Pro $20 + kie.ai |
+| 100k  | Read contention on dashboard/trends; PostgREST pool pressure; storage egress | Redis cache (M1); PostgREST plan tier bump; renders already on CDN-backed storage (C1 closed)                                     | Low hundreds + kie.ai (dominant)           |
+| 1M    | Single primary write ceiling; publish worker throughput; cache stampede      | Horizontal workers (already fairness-scheduled per user); queue durability (QStash/SQS); request coalescing; partition hot tables | Low thousands + kie.ai                     |
+| 10M   | Regional latency; single-region DB; cost of egress and generation            | Multi-region read replicas + edge cache; shard by `user_id`; commit-heavy tables partitioned; negotiated kie.ai pricing           | Dominated by kie.ai + egress               |
 
 **Strategy, in order of value:** render durability (done) → observability →
 distributed cache and rate limiting → CSP hardening → durable queue + horizontal
@@ -310,7 +310,7 @@ schema, on every PR touching migrations.
   Deno-side checks that did not exist before. `security.yml` adds secret and
   dependency scanning.
   **Caveat:** per the team's own recent history (`Correct the CI blocker
-  diagnosis: it's a billing issue, not a missing VERCEL_TOKEN`), the pipeline's
+diagnosis: it's a billing issue, not a missing VERCEL_TOKEN`), the pipeline's
   production deploy step has been blocked by a Vercel billing issue, not a
   pipeline defect. The workflow itself is sound; whether it is currently
   green depends on that account issue being resolved, which is outside this
@@ -374,18 +374,18 @@ Each step is independently shippable and reversible.
 
 ## Production Readiness Score (/100)
 
-| Area                      | Score      | Notes                                                          |
-| -------------------------- | ---------- | --------------------------------------------------------------- |
-| Architecture & modularity | 9/10       | Clean separation; async generation; unchanged from last review |
-| Data model & RLS          | 9/10       | Indexed, owner-scoped, idempotent functions; ledger corrected  |
-| Security                  | 7/10       | RLS solid, secret/dependency scanning added; CSP + rate limit + webhook still to harden |
-| Reliability               | 9/10       | Render durability, credit race, and publish worker all fixed  |
-| Scalability               | 7/10       | Connection pooling concern retired as inapplicable; still needs cache and rate limiting |
-| Performance               | 6/10       | Good foundation; unproven under real load; unchanged           |
-| Observability             | 2/10       | Tracing exists end to end; still nothing ingests it            |
+| Area                      | Score      | Notes                                                                                              |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| Architecture & modularity | 9/10       | Clean separation; async generation; unchanged from last review                                     |
+| Data model & RLS          | 9/10       | Indexed, owner-scoped, idempotent functions; ledger corrected                                      |
+| Security                  | 7/10       | RLS solid, secret/dependency scanning added; CSP + rate limit + webhook still to harden            |
+| Reliability               | 9/10       | Render durability, credit race, and publish worker all fixed                                       |
+| Scalability               | 7/10       | Connection pooling concern retired as inapplicable; still needs cache and rate limiting            |
+| Performance               | 6/10       | Good foundation; unproven under real load; unchanged                                               |
+| Observability             | 2/10       | Tracing exists end to end; still nothing ingests it                                                |
 | DevOps / CI-CD            | 8/10       | Full pipeline now exists; production deploy currently blocked by a billing issue, not the pipeline |
-| Cost control               | 8/10       | Charge-on-completion confirmed; storage egress now a real, managed cost |
-| **Total**                 | **78/100** | Up from 64; the structural gaps closed, observability is what's left |
+| Cost control              | 8/10       | Charge-on-completion confirmed; storage egress now a real, managed cost                            |
+| **Total**                 | **78/100** | Up from 64; the structural gaps closed, observability is what's left                               |
 
 ## Next Recommended Task
 

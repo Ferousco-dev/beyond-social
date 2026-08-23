@@ -12,7 +12,7 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 
 - **Vercel production deploy.** Everything merged through 2026-08-21 is on
   `main` but not yet live. Owner runs `cd apps/web && vercel deploy --prod
-  --yes --archive=tgz` themselves; this system does not deploy.
+--yes --archive=tgz` themselves; this system does not deploy.
 - **kie.ai account balance.** Confirmed root cause of "videos not
   generating": the render provider's own account balance ran too low.
   Needs a real top-up.
@@ -73,7 +73,7 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   `apps/web/src/app/dashboard/overview/queries.ts`,
   `apps/web/src/app/dashboard/overview/aggregates.ts`,
   `apps/web/src/lib/api/resources.ts`, and `apps/web/src/lib/generation/
-  history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
+history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
   requests, or single-row `eq` lookups). Did not find an actual unbounded
   list endpoint to fix. Leaving this open in case a specific endpoint
   surfaces later, but it may already be done; re-audit before assuming

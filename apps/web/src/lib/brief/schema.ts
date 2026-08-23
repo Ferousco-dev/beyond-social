@@ -41,9 +41,7 @@ function text(max: number) {
     .string()
     .trim()
     .min(1)
-    .transform((value) =>
-      value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`,
-    );
+    .transform((value) => (value.length <= max ? value : `${value.slice(0, max - 1).trimEnd()}…`));
 }
 
 export const questionSchema = z.object({

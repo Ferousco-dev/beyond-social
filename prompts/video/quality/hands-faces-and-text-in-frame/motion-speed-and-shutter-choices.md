@@ -28,7 +28,7 @@ How to apply it:
 - Reserve fully crisp, no-blur motion for slow or static beats only; ask for
   blur specifically on any beat with hand or head movement above a gentle pace.
 - Combine slowed motion with a locked or slow, deliberate camera move (rather
-    than a fast pan or shake) since compounding camera motion with subject motion
+  than a fast pan or shake) since compounding camera motion with subject motion
   is what most often causes hands and faces to smear or duplicate.
 - On any beat that's purely a transition or connective moment, lean into motion
   blur and let the shot go soft; the eye only needs it to bridge two clean holds,

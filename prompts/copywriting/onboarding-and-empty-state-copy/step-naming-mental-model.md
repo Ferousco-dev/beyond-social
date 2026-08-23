@@ -39,8 +39,8 @@ vocabulary give the user a map they can reuse immediately after onboarding
 ends, while generic or inconsistent names have to be relearned inside the
 actual product.
 
-Example: "1. Brand  2. Avatar  3. Voice  4. First script," each step
+Example: "1. Brand 2. Avatar 3. Voice 4. First script," each step
 subtitled by what it configures.
-Counter-example: "1. Getting Started  2. Personalization  3. Preferences  4.
+Counter-example: "1. Getting Started 2. Personalization 3. Preferences 4.
 Finish," generic wizard-framework labels that map to nothing the user will see
 again by name inside the product.

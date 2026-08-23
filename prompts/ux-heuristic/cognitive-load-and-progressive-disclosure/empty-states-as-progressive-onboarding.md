@@ -25,7 +25,7 @@ The recipe:
 - Show exactly one primary call to action per empty state, not a menu of every
   possible thing the user could do here — that belongs in the populated view's
   toolbar, once there's content to act on.
-- Use the empty state's illustration or copy to hint at the *kind* of content
+- Use the empty state's illustration or copy to hint at the _kind_ of content
   that will appear there, so the first real item doesn't feel like a surprise
   or an error.
 - Retire the teaching copy the moment real content exists — an empty-state

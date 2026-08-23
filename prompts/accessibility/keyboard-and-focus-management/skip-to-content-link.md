@@ -23,7 +23,7 @@ tab-through of every nav item on every single page load.
   it with a visible, high-contrast style on `:focus` — it must be readable,
   not just present, when a sighted keyboard user tabs to it.
 - Point it at a real, focusable target: `<main id="main-content"
-  tabindex="-1">`, and move focus there on activation so subsequent Tab
+tabindex="-1">`, and move focus there on activation so subsequent Tab
   presses continue from inside main content, not from the top of the page.
 - Add more than one skip target on pages with several major regions (skip to
   search, skip to results) rather than forcing one giant nav past.

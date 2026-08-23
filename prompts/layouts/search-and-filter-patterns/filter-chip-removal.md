@@ -35,7 +35,7 @@ the time they want to change their mind, so making them reopen that panel just
 to remove one value adds friction to the single most common recovery action in
 a filtered search: "actually, not that one."
 
-Example: a chip row reading "Red ×  Under $50 ×  4+ stars ×  Clear all" sitting
+Example: a chip row reading "Red × Under $50 × 4+ stars × Clear all" sitting
 directly above "128 results."
 Counter-example: a single "Filters (3)" chip that opens a modal to see and
 remove individual values, turning a one-click undo into a three-click detour.

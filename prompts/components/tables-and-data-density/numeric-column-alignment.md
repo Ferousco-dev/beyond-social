@@ -40,7 +40,7 @@ digits and left-alignment both defeat that by making the ones place land in a
 different horizontal position on every row.
 
 Example: a "Revenue" column using `font-variant-numeric: tabular-nums;
-text-align: right` rendering "$1,204.00" directly above "$  84.50" with both
+text-align: right` rendering "$1,204.00" directly above "$ 84.50" with both
 decimal points vertically aligned.
 
 Counter-example: left-aligning a currency column so "$1,204.00" and "$84.50"
