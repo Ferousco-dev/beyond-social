@@ -8,6 +8,7 @@
  * run early and not a run late.
  */
 import { lowBalanceMessage } from "../src/lib/generation/gate";
+import { isUpgradeReason } from "../src/lib/credits/types";
 
 const results: string[] = [];
 let failures = 0;
@@ -30,6 +31,16 @@ check(
 );
 check("singular credit at exactly one", lowBalanceMessage(1, 6)?.includes("1 credit ") ?? false);
 check("plural credits above one", lowBalanceMessage(3, 6)?.includes("3 credits ") ?? false);
+
+// The notice's upgrade link only belongs on a denial an upgrade actually
+// fixes. Showing it on a sign-in or a database hiccup would send someone to
+// the billing page for a problem money cannot solve.
+check("a low plan can be upgraded past", isUpgradeReason("plan_tier"));
+check("a low balance can be upgraded past", isUpgradeReason("insufficient_credits"));
+check("not being signed in has no upgrade fix", !isUpgradeReason("not_authenticated"));
+check("an unknown model has no upgrade fix", !isUpgradeReason("unknown_model"));
+check("an inactive model has no upgrade fix", !isUpgradeReason("model_inactive"));
+check("a failed check has no upgrade fix", !isUpgradeReason("check_failed"));
 
 // `process.stdout` rather than `console`, matching the sibling smoke scripts
 // and the lint rule that keeps `console` for warnings and errors.

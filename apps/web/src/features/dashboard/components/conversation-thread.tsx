@@ -23,7 +23,7 @@ import { useStreamedTurn } from "../hooks/use-streamed-turn";
 import { useThreadMessages } from "../hooks/use-thread-messages";
 import { type PendingPhoto } from "./compose-menu";
 import { turnAttachments } from "../lib/turn-attachments";
-import { ThreadTranscript } from "./thread-transcript";
+import { ThreadTranscript, type Notice } from "./thread-transcript";
 
 /** Optimistic ids are prefixed so a server id can never collide with one. */
 
@@ -36,7 +36,8 @@ type AttachmentRef = { kind: AttachmentKind; path: string };
 
 export function ConversationThread({ thread }: { thread: Thread }) {
   const router = useRouter();
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
   const [sending, setSending] = useState(false);
 
   const { confirm, dialog } = useConfirm();
@@ -56,7 +57,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     regenerate,
     extend,
     regeneratingId,
-  } = useThreadMessages(thread, confirm, setNotice);
+  } = useThreadMessages(thread, confirm, notify);
 
   // What is in the composer and not yet sent. Cleared as a whole on send.
   const draft = useComposerDraft(thread.projectId);
@@ -128,7 +129,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       attachments: AttachmentRef[],
     ): Promise<boolean> => {
       if (projectId === "new") {
-        setNotice("Send a message first, then attach a photo and a voice clip.");
+        notify("Send a message first, then attach a photo and a voice clip.");
         return false;
       }
 
@@ -143,12 +144,12 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           confirmLabel: "I confirm",
         });
         if (!agreed) {
-          setNotice("An avatar needs that confirmation before it can be made.");
+          notify("An avatar needs that confirmation before it can be made.");
           return false;
         }
         const recorded = await recordLikenessConsent();
         if (recorded.status !== "ok") {
-          setNotice("Could not record that confirmation. Try again.");
+          notify("Could not record that confirmation. Try again.");
           return false;
         }
         result = await attempt();
@@ -156,7 +157,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
       if (result.status !== "ok") {
         setMessages((current) => current.filter((message) => message.id !== optimisticId));
-        setNotice(
+        notify(
           result.status === "unconfigured"
             ? "The backend is not connected yet."
             : result.status === "consent"
@@ -182,7 +183,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       ]);
       return true;
     },
-    [projectId, confirm, nextId, setMessages],
+    [projectId, confirm, nextId, setMessages, notify],
   );
 
   /**
@@ -206,18 +207,16 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         setSending(false);
 
         if (result.status !== "ok") {
-          setNotice(
-            result.status === "error" ? result.message : "That could not be sent. Try again.",
-          );
+          notify(result.status === "error" ? result.message : "That could not be sent. Try again.");
           return;
         }
 
-        if (result.notice) setNotice(result.notice);
+        if (result.notice) notify(result.notice, result.noticeUpgrade);
         router.refresh();
         if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
       })();
     },
-    [projectId, router],
+    [projectId, router, notify],
   );
 
   const clarify = useClarification(proceed);
@@ -352,7 +351,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           // imply the turn was recorded when it was not.
           setMessages((current) => current.filter((message) => message.id !== optimisticId));
           setDraftPrompt(trimmed);
-          setNotice(
+          notify(
             result.status === "unconfigured"
               ? "The backend is not connected yet, so nothing can be generated."
               : // Still asking after the attestation was recorded means the
@@ -365,7 +364,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           return;
         }
 
-        if (result.notice) setNotice(result.notice);
+        if (result.notice) notify(result.notice, result.noticeUpgrade);
 
         /**
          * The reply is appended from what the action already returned rather
@@ -424,6 +423,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       setMessages,
       clearDraft,
       setDraftPrompt,
+      notify,
     ],
   );
 

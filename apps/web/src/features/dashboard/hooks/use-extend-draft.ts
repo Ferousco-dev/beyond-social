@@ -30,7 +30,7 @@ export function useExtendDraft({
     confirmLabel: string;
   }) => Promise<boolean>;
   onMessage: (message: ChatMessage) => void;
-  onNotice: (notice: string) => void;
+  onNotice: (notice: string, upgrade?: boolean) => void;
   /** Called with the new generation id so the caller can poll it. */
   onStarted: (generationId: string) => void;
 }) {
@@ -55,6 +55,7 @@ export function useExtendDraft({
           result.status === "unconfigured"
             ? "The backend is not connected yet, so nothing can be generated."
             : result.message,
+          result.status === "denied" ? result.upgrade : undefined,
         );
         return;
       }

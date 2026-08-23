@@ -1,6 +1,7 @@
 "use client";
 
 import { type Route } from "next";
+import Link from "next/link";
 
 import { type ChatMessage } from "@/lib/chat/thread";
 import { type FollowUp } from "@/lib/generation/follow-ups";
@@ -11,6 +12,9 @@ import { FollowUpChips } from "./follow-up-chips";
 import { MessageBubble } from "./message-bubble";
 import { ThinkingIndicator } from "./thinking-indicator";
 import { ThreadIntro } from "./thread-intro";
+
+/** A notice with `upgrade` says the account can fix this by upgrading its plan. */
+export type Notice = { readonly text: string; readonly upgrade: boolean };
 
 /**
  * Everything above the composer: the turns, what is happening now, and what to
@@ -48,7 +52,7 @@ export function ThreadTranscript({
   /** The reply so far, empty until the first piece arrives. */
   partial: string;
   stage: TurnStage | null;
-  notice: string | null;
+  notice: Notice | null;
   followUps: readonly FollowUp[];
   regeneratingId: string | null;
   onPickFollowUp: (prompt: string) => void;
@@ -105,7 +109,18 @@ export function ThreadTranscript({
 
       {notice ? (
         <p role="status" className="text-center text-xs text-ink-soft">
-          {notice}
+          {notice.text}
+          {notice.upgrade ? (
+            <>
+              {" "}
+              <Link
+                href={"/dashboard/settings/billing" as Route}
+                className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Upgrade
+              </Link>
+            </>
+          ) : null}
         </p>
       ) : null}
 

@@ -9,6 +9,7 @@ import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/cons
 import { preferredModel } from "@/lib/generation/preferred-model";
 import { chooseModel } from "@/lib/generation/choose-model";
 import { checkVideoRun } from "@/lib/generation/gate";
+import { isUpgradeReason } from "@/lib/credits/types";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
 import { embedOnce } from "@/lib/memory/embed-once";
@@ -173,6 +174,8 @@ export type SendResult =
       intent: "create" | "adjust" | "ask" | "chat";
       /** Present when the video pipeline refused, so the UI can say why. */
       notice?: string;
+      /** True when `notice` is a denial an upgrade would fix. */
+      noticeUpgrade: boolean;
     }
   /**
    * The request was not specific enough to spend a credit on. Nothing was
@@ -415,6 +418,7 @@ export async function runTurn(
 
   let generationId: string | null = null;
   let notice: string | undefined;
+  let noticeUpgrade = false;
 
   /*
    * Which model runs decides how long a clip can be, so it has to be known
@@ -489,6 +493,7 @@ export async function runTurn(
     const gate = await checkVideoRun(chosenModel ?? undefined);
     if (!gate.allowed) {
       notice = gate.notice;
+      noticeUpgrade = isUpgradeReason(gate.reason);
       return;
     }
     // Said alongside whatever else this turn already has to say, not instead
@@ -660,5 +665,13 @@ export async function runTurn(
   // full reload. Every turn bumps the project's updated_at and reorders that
   // list too, so this is not only a first-message concern.
   revalidatePath("/dashboard", "layout");
-  return { status: "ok", projectId, generationId, reply, intent: intent.intent, notice };
+  return {
+    status: "ok",
+    projectId,
+    generationId,
+    reply,
+    intent: intent.intent,
+    notice,
+    noticeUpgrade,
+  };
 }
