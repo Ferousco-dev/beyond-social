@@ -62,7 +62,10 @@ export function ScriptSheet({
               <ScriptPlaceholder message={draft.failed} />
             ) : (
               <>
-                <ScriptMechanicsPanel mechanics={draft.script.mechanics} scenes={draft.script.scenes} />
+                <ScriptMechanicsPanel
+                  mechanics={draft.script.mechanics}
+                  scenes={draft.script.scenes}
+                />
                 <ScriptSubjectFields
                   subject={draft.script.subject}
                   stale={draft.stale}

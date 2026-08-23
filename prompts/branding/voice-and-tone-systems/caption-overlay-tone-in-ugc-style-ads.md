@@ -44,6 +44,6 @@ Example: "not me buying this after one video 💀" over a product reveal frame
 — fragment, lowercase, plausible as something a real person typed fast.
 
 Counter-example: "Discover why thousands of customers love this
-game-changing product!" as a caption over the same UGC-style footage — 
+game-changing product!" as a caption over the same UGC-style footage —
 grammatically complete, brand-voiced copy that instantly signals the video
 is an ad regardless of how authentic the footage itself looks.

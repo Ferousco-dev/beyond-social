@@ -21,11 +21,7 @@ const ALLOWED_CONTENT_TYPES = [
  * without parsing free text.
  */
 type PersistFailureReason =
-  | "unsafe_url"
-  | "fetch_failed"
-  | "invalid_content_type"
-  | "oversized"
-  | "upload_error";
+  "unsafe_url" | "fetch_failed" | "invalid_content_type" | "oversized" | "upload_error";
 
 /**
  * The one place every persistence failure funnels through.

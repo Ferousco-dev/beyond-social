@@ -19,7 +19,7 @@ silently cutting text with no way to recover it.
 
 - Set explicit `min-width` and `max-width` per column (derived from realistic
   content, not the longest string in a 5-row mock) with `text-overflow: ellipsis;
-  white-space: nowrap; overflow: hidden`.
+white-space: nowrap; overflow: hidden`.
 - Attach a tooltip only to cells that are actually truncated, not to every cell in
   the column — measure `scrollWidth > clientWidth` at render and conditionally
   wire the tooltip, since a tooltip on already-short text is just extra motion

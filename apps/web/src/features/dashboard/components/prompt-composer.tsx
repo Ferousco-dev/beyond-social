@@ -173,8 +173,8 @@ export function PromptComposer({
       */}
       {voice && photos.length > 0 ? (
         <p className="px-1 pb-2 text-xs text-ink-soft">
-          Photo plus voice makes one continuous clip of you talking. For a multi-scene video,
-          start from a TikTok reference in Discover and write a script instead.
+          Photo plus voice makes one continuous clip of you talking. For a multi-scene video, start
+          from a TikTok reference in Discover and write a script instead.
         </p>
       ) : null}
 

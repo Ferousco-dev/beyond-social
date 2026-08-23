@@ -79,7 +79,11 @@ export function computeDivergence(
   }
 
   const hook = scenes[0];
-  if (hook && baseline.hookSeconds > 0 && hook.seconds >= baseline.hookSeconds * HOOK_STRETCH_FACTOR) {
+  if (
+    hook &&
+    baseline.hookSeconds > 0 &&
+    hook.seconds >= baseline.hookSeconds * HOOK_STRETCH_FACTOR
+  ) {
     return {
       message: `This change may reduce the video's similarity to the original retention structure: the hook now runs ${hook.seconds}s, well past the ${baseline.hookSeconds}s it opened with.`,
       recommendation: `Trim the hook back toward ${baseline.hookSeconds}s so it still lands fast.`,
