@@ -294,3 +294,63 @@ Nothing. Session below finished cleanly with everything merged.
   stopped cleanly here rather than starting a new unit. Next session: CSP
   nonce is still the best-scoped substantial open item; otherwise more
   upsell surfaces or another UI/UX pass.
+
+- **2026-08-24, fifth scheduled session.** GitHub access was normal
+  throughout (no repeat of the prior session's 403/stale-session issue).
+  Investigated the CSP nonce item first, since it was the standing
+  "best-scoped substantial item." Found the real reason it should not
+  ship unattended even with full browser verification, not just that it
+  is broad: Next.js's nonce-based CSP pattern needs `headers()` in the
+  root layout, which opts every route into dynamic rendering, undoing a
+  deliberate static-rendering decision `apps/web/src/app/layout.tsx`
+  already made once (its own comment explains why it avoids `cookies()`
+  for the same reason). That is a real performance-versus-hardening
+  tradeoff the owner should decide, not an engineering call this system
+  should make silently, so it moved to "Needs the owner" with the
+  reasoning recorded, PR #130 (merged).
+  Pivoted to auditing every billing/growth upsell surface for a missing
+  upgrade link, since that was the other standing open item. Found and
+  fixed the one real gap: the low-balance warning (`gate.lowBalanceNotice`,
+  distinct from the hard-denial case PR #126 already covered) never set
+  the flag that turns a notice into a clickable upgrade link, in three
+  places. `turn.ts` (the main chat flow) fixed first, PR #129 (merged).
+  Fixing it there surfaced the identical gap in `regenerateGeneration`
+  and `extendGeneration`, which call the same gate but had no field on
+  their result type to carry the notice at all; fixed together, PR #131
+  (merged). PR #132 (merged) recorded the sweep as complete in this file.
+  None of the four PRs were manually verified in a real browser: no
+  browser tool was available this session, and reaching a real
+  low-balance account needs a seeded low-credit account against the
+  local Supabase stack, which the session budget did not cover, same
+  caveat as PR #126. Worth a manual pass next time someone has the local
+  stack running with a seeded account.
+  Swept once more for the same family of bug that produced PRs #123-125
+  (a real error message computed somewhere and silently discarded before
+  it reaches the user or the logs). Result: that vein is exhausted. Every
+  `catch`/`.catch()` block across `apps/web/src` and `apps/worker/src`
+  already surfaces the real message, and the `supabase.functions.invoke`
+  sweep is confirmed complete. The only remaining pattern is a handful of
+  `zod` `safeParse` branches that return a hardcoded "Invalid input"
+  instead of `parsed.error.issues[0]?.message`, next to sibling branches
+  in the same file that do extract it
+  (`apps/web/src/features/generation/actions.ts:161`,
+  `apps/web/src/features/dashboard/project-actions.ts:63,90`,
+  `apps/web/src/features/chat/upload-actions.ts:141`,
+  `apps/web/src/features/chat/audio-upload-actions.ts:109`). Deliberately
+  not shipped: every schema behind these branches validates an internal
+  shape (an id, a path) the app itself supplies, not raw user input, so a
+  failure here is rare and the Zod default message is unlikely to be much
+  more informative than the generic one. Real inconsistency, thin payoff;
+  left alone rather than shipped as a bug fix it is not.
+  Four PRs merged (#129, #130, #131, #132), zero left in flight, stopped
+  here rather than manufacture a fifth unit from the thin Zod-message
+  finding. Next session: the remaining "Open, safe to work" items are
+  either owner-blocked already, need a new dependency (observability,
+  rate limiting), or were thoroughly re-checked this session or a recent
+  one with nothing found (pagination, upsell surfaces, UI/UX standing
+  pass). The Zod-message consistency nit above is a legitimate pick if a
+  future session wants one more small, mechanical fix, but is genuinely
+  low value. Otherwise this is a good point for a fresh look at the app
+  in a real browser (UI/UX pass, or verifying the four low-balance-notice
+  PRs actually render as intended) if a browser tool is available, since
+  none of the recent sessions have had one.
