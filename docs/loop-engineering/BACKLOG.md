@@ -39,6 +39,37 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   engineering one. Also destructive (deletes real user files) per
   `RULES.md`. Needs the owner to set the actual retention windows before
   any code gets written here.
+- **CSP nonce.** Investigated again this session, moved here from "Open,
+  safe to work": it is a real product tradeoff, not just an engineering
+  task, so it should not ship unattended even with full browser
+  verification. Next.js's own documented pattern for a nonce-based CSP
+  (App Router) is: generate the nonce in middleware, set it as `x-nonce`
+  on the response headers, and read it in the root layout via `headers()`
+  from `next/headers` so it can be applied to Next's own injected inline
+  scripts. The problem is that calling `headers()` anywhere in a layout
+  opts that entire route into dynamic rendering, because a nonce is
+  per-request and cannot exist at build time. `apps/web/src/app/layout.tsx`
+  currently reads neither `cookies()` nor `headers()`, and says exactly why
+  not: "Deliberately not read with `cookies()`: that would make every page
+  in the app dynamic." A nonce in the root layout means every route in the
+  app, including the marketing/landing pages that are static today,
+  becomes dynamically rendered on every request. That is the same cost the
+  code already explicitly chose to avoid for cookies, now paid anyway for
+  the CSP header. Separately, `apps/web/src/middleware.ts`'s matcher is
+  also deliberately narrow (see its own comment) specifically to avoid
+  paying a Supabase `getUser()` round trip on marketing pages; a nonce
+  needs the matcher broadened to run on every route, though that half is
+  cheap since nonce generation itself does not need to call
+  `updateSession`. `docs/production-readiness.md`'s H3 currently calls
+  this "independently shippable and reversible," which undersells the real
+  cost; worth a note there too next time that doc gets a pass. This is a
+  genuine security-hardening-versus-performance tradeoff on a decision the
+  codebase already made once, so it belongs with the owner: confirm
+  whether losing static rendering site-wide is worth closing the
+  inline-script gap (which `object-src 'none'`, `base-uri 'self'`, and
+  `frame-ancestors 'none'` already narrow significantly), or whether a
+  scoped alternative (nonce only on the handful of routes that actually
+  need it, static elsewhere) is preferred instead.
 
 ## Open, safe to work
 
@@ -52,18 +83,6 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 - **Rate limiting.** Not yet distributed (would need Upstash or similar,
   same new-dependency caveat as above). Still not started this session,
   correctly left alone.
-- **CSP nonce.** Investigated this session. `apps/web/next.config.ts`
-  currently ships `script-src 'self' 'unsafe-inline'` with a comment
-  explaining why: the App Router injects inline bootstrap scripts with no
-  nonce today. A real fix needs per-request nonce generation in
-  `apps/web/src/middleware.ts`, threading that nonce through the root
-  layout via `next/headers`, and confirming no inline script on any route
-  breaks under the tightened policy. That is a genuine behavior change to
-  a security header touching every page, not a small isolated diff, so it
-  was not attempted unattended this session. Next session: implement
-  behind a careful manual pass through the app in a real browser before
-  merging, or flag to the owner if the App Router's own inline scripts
-  turn out not to support nonces cleanly.
 - **Response caching/pagination on a couple of endpoints.** Checked this
   session: the `video_generations`/`scheduled_posts`/`projects` reads in
   `apps/web/src/features/library/queries.ts`,
