@@ -188,6 +188,19 @@ history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
   account. Other upsell moments (a locked feature with no upgrade link,
   a plan-limit hit outside the video-generation gate) are still open if
   anyone finds one.
+  Audited fully 2026-08-24: every other plan/credit wall in the app
+  already has an upgrade link (integrations lock screen, dashboard header
+  upgrade button). One real gap found and fixed, PR #129 (merged): the
+  low-balance warning shown alongside a run that still went through
+  (`gate.lowBalanceNotice`, distinct from the hard-denial case #126
+  covered) never set the flag that turns it into a link in the main chat
+  flow. Fixing that surfaced the same gap two more places, `regenerateGeneration`
+  and `extendGeneration`, which call the same gate but had no field on
+  their result type to carry the notice at all; fixed and shipped
+  together, PR #131 (merged). Not real-browser-verified for the same
+  reason as #126: no browser tool this session, and a real low-balance
+  state needs a seeded low-credit account. This closes the upsell-surface
+  sweep; nothing else found without a browser pass to look for it.
 
 ## In flight
 
