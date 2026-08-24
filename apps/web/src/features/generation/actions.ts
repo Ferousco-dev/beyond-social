@@ -131,7 +131,13 @@ export async function cancelGeneration(generationId: string): Promise<void> {
 const regenerateSchema = z.object({ generationId: z.string().min(1) });
 
 export type RegenerateResult =
-  | { status: "ok"; generationId: string }
+  | {
+      status: "ok";
+      generationId: string;
+      /** Said even though the run went ahead: the balance it leaves behind
+       * cannot cover another one. */
+      lowBalanceNotice: string | null;
+    }
   | { status: "unconfigured" }
   /** The plan or the balance refused the run. Nothing was sent to the provider. */
   | { status: "denied"; message: string; upgrade: boolean }
@@ -215,7 +221,7 @@ export async function regenerateGeneration(
 
   revalidatePath(`/dashboard/c/${data.project_id}`);
   revalidatePath("/dashboard", "layout");
-  return { status: "ok", generationId };
+  return { status: "ok", generationId, lowBalanceNotice: gate.lowBalanceNotice };
 }
 
 const outcomeSchema = z.object({
