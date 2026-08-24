@@ -64,6 +64,8 @@ export function useRegenerateDraft({
         return;
       }
 
+      if (result.lowBalanceNotice) onNotice(result.lowBalanceNotice, true);
+
       onMessage({
         id: `pending:regen-${result.generationId}`,
         role: "assistant",

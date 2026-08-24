@@ -30,7 +30,13 @@ const extendSchema = z.object({
 });
 
 export type ExtendResult =
-  | { status: "ok"; generationId: string }
+  | {
+      status: "ok";
+      generationId: string;
+      /** Said even though the run went ahead: the balance it leaves behind
+       * cannot cover another one. */
+      lowBalanceNotice: string | null;
+    }
   | { status: "unconfigured" }
   /** The plan, the balance, or the clip itself refused. Nothing was spent. */
   | { status: "denied"; message: string; upgrade: boolean }
@@ -83,5 +89,5 @@ export async function extendGeneration(input: z.input<typeof extendSchema>): Pro
   }
 
   revalidatePath("/dashboard");
-  return { status: "ok", generationId };
+  return { status: "ok", generationId, lowBalanceNotice: gate.lowBalanceNotice };
 }

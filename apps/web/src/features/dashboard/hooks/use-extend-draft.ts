@@ -60,6 +60,8 @@ export function useExtendDraft({
         return;
       }
 
+      if (result.lowBalanceNotice) onNotice(result.lowBalanceNotice, true);
+
       onMessage({
         id: `pending:extend-${result.generationId}`,
         role: "assistant",
