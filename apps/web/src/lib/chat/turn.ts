@@ -501,6 +501,9 @@ export async function runTurn(
     // is a separate fact about the account rather than about this render.
     if (gate.lowBalanceNotice) {
       notice = notice === undefined ? gate.lowBalanceNotice : `${notice} ${gate.lowBalanceNotice}`;
+      // A cliff is still a cliff even though this run went ahead; the same
+      // upgrade link the hard denial offers belongs here too.
+      noticeUpgrade = true;
     }
 
     try {
