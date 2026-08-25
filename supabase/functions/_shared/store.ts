@@ -1,9 +1,9 @@
-// deno-lint-ignore-file no-explicit-any
 // Copies a finished render from the (temporary) provider URL into the durable
 // `renders` bucket and returns the permanent public URL. Falls back to the
 // source URL if the copy fails, so a storage hiccup never loses the result;
 // every fallback is logged loudly, since the source URL expires and a
 // generation whose durable copy silently failed looks fine until it does.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isSafeRenderUrl, readBounded, MAX_RENDER_BYTES } from "./fetch-guard.ts";
 import { log } from "./trace.ts";
 
@@ -52,7 +52,7 @@ function logPersistFailure(
 }
 
 export async function persistRender(
-  admin: any,
+  admin: SupabaseClient,
   userId: string,
   taskId: string,
   sourceUrl: string,
