@@ -49,28 +49,35 @@ export async function extendGeneration(input: z.input<typeof extendSchema>): Pro
   }
   if (!isSupabaseConfigured) return { status: "unconfigured" };
 
-  const gate = await checkVideoRun();
-  if (!gate.allowed)
-    return { status: "denied", message: gate.notice, upgrade: isUpgradeReason(gate.reason) };
-
   const supabase = await createClient();
 
   /*
-   * The clip's own prompt stands in when the caller did not write one. Read
-   * through the user's client, so a generation belonging to somebody else is
-   * simply not found rather than being refused by a check written here.
+   * Read first, gate second: the edge function always continues on the source
+   * clip's own model (`supabase/functions/extend-video/index.ts` inserts
+   * `model: source.model`), so that is the price this run is actually charged
+   * against, not the gate's `veo3_fast` default. Checking the default here
+   * gated a Kling-priced continuation against a Veo-priced check, the same
+   * class of bug `checkVideoRun`'s own doc warns about for a caller that
+   * forgets to pass the real model.
+   *
+   * Read through the user's client, so a generation belonging to somebody
+   * else is simply not found rather than being refused by a check written
+   * here. The clip's own prompt stands in when the caller did not write one.
    */
-  let prompt = parsed.data.prompt;
-  if (prompt === undefined || prompt === "") {
-    const { data } = await supabase
-      .from("video_generations")
-      .select("prompt")
-      .eq("id", parsed.data.generationId)
-      .maybeSingle();
-    const source = (data as { prompt?: string } | null)?.prompt?.trim();
-    if (!source) return { status: "error", message: "That video could not be found" };
-    prompt = source;
-  }
+  const { data: sourceRow } = await supabase
+    .from("video_generations")
+    .select("prompt, model")
+    .eq("id", parsed.data.generationId)
+    .maybeSingle();
+  const source = sourceRow as { prompt?: string; model?: string } | null;
+  if (!source) return { status: "error", message: "That video could not be found" };
+
+  const prompt = parsed.data.prompt || source.prompt?.trim();
+  if (!prompt) return { status: "error", message: "That video could not be found" };
+
+  const gate = await checkVideoRun(source.model);
+  if (!gate.allowed)
+    return { status: "denied", message: gate.notice, upgrade: isUpgradeReason(gate.reason) };
 
   const { data, error } = await supabase.functions.invoke("extend-video", {
     body: { generationId: parsed.data.generationId, prompt },
