@@ -17,16 +17,21 @@ import { isVideo, type Project } from "./types";
  * discovered by watching them vanish from the finished file.
  */
 
-export const renderClipSchema = z.object({
-  /** Object path in the `renders` bucket. Never a signed URL: those expire. */
-  path: z.string().min(1),
-  /** Where the cut starts inside the source file. */
-  startSeconds: z.number().min(0),
-  /** Where it ends. Always greater than `startSeconds`. */
-  endSeconds: z.number().positive(),
-  /** 0 to 1. Zero is a muted clip, which is a normal thing to want. */
-  volume: z.number().min(0).max(1),
-});
+export const renderClipSchema = z
+  .object({
+    /** Object path in the `renders` bucket. Never a signed URL: those expire. */
+    path: z.string().min(1),
+    /** Where the cut starts inside the source file. */
+    startSeconds: z.number().min(0),
+    /** Where it ends. Always greater than `startSeconds`. */
+    endSeconds: z.number().positive(),
+    /** 0 to 1. Zero is a muted clip, which is a normal thing to want. */
+    volume: z.number().min(0).max(1),
+  })
+  .refine((clip) => clip.endSeconds > clip.startSeconds, {
+    message: "endSeconds must be greater than startSeconds",
+    path: ["endSeconds"],
+  });
 
 export const renderSpecSchema = z.object({
   version: z.literal(1),
