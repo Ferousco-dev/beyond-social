@@ -144,7 +144,10 @@ export async function setWebhookActive(id: string, isActive: boolean): Promise<A
     if (!data || data.length === 0) return { status: "error", message: "Endpoint not found." };
     revalidatePath(PATH);
     return { status: "ok" };
-  } catch {
+  } catch (error) {
+    logger.warn("failed to update webhook", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { status: "error", message: "Could not update the endpoint." };
   }
 }
@@ -159,7 +162,10 @@ export async function deleteWebhook(id: string): Promise<ActionResult> {
     if (!data || data.length === 0) return { status: "error", message: "Endpoint not found." };
     revalidatePath(PATH);
     return { status: "ok" };
-  } catch {
+  } catch (error) {
+    logger.warn("failed to delete webhook", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { status: "error", message: "Could not delete the endpoint." };
   }
 }
