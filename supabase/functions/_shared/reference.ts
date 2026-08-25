@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
 // Handing user-supplied files to the provider.
 //
 // Everything a render takes as input, a photo to animate or a voice clip to
@@ -11,6 +10,7 @@
 //
 // So the bytes are read here, over the platform's internal network, and pushed
 // to the provider. Our storage never has to be reachable from outside.
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { uploadFile } from "./kie.ts";
 import { log } from "./trace.ts";
 
@@ -21,7 +21,7 @@ import { log } from "./trace.ts";
  * a signed URL is a fact that expires, and a path is not.
  */
 export async function handToProvider(
-  supabase: any,
+  supabase: SupabaseClient,
   bucket: string,
   path: string,
   /** Nullable, not optional: `traceIdFrom` returns null when there is no header. */
