@@ -6,9 +6,8 @@ import { z } from "zod";
 import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { isValidTimeZone } from "@/lib/time/zone";
+import { isValidTimeZone, toInstant } from "@/lib/time/zone";
 
-import { toInstant } from "./lib/instant";
 import { isMutable, POST_STATUSES, type PostStatus } from "./lib/types";
 
 /**
