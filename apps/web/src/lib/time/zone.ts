@@ -29,6 +29,45 @@ export function isValidTimeZone(value: string): boolean {
   }
 }
 
+/**
+ * Converts a local wall clock in a named zone to the instant it refers to.
+ *
+ * Done by asking the formatter what a candidate instant looks like in the zone
+ * and correcting by the difference, because there is no built-in inverse. Two
+ * passes because the offset itself depends on the date, which is the whole
+ * reason a zone is stored rather than an offset.
+ */
+export function toInstant(local: string, timeZone: string): Date | null {
+  const asUtc = new Date(`${local}:00Z`);
+  if (Number.isNaN(asUtc.getTime())) return null;
+
+  const offsetAt = (date: Date): number => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(date);
+    const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "0";
+    const shifted = Date.UTC(
+      Number(get("year")),
+      Number(get("month")) - 1,
+      Number(get("day")),
+      Number(get("hour")) % 24,
+      Number(get("minute")),
+      Number(get("second")),
+    );
+    return shifted - date.getTime();
+  };
+
+  const firstGuess = new Date(asUtc.getTime() - offsetAt(asUtc));
+  return new Date(asUtc.getTime() - offsetAt(firstGuess));
+}
+
 /** The zone the browser is in, e.g. `Africa/Lagos`. Client only. */
 export function detectTimeZone(): string {
   try {

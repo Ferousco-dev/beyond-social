@@ -8,7 +8,7 @@ import { currentTrace, withActionTrace } from "@/lib/observability/trace";
 import { listConnections } from "@/lib/social/connections";
 import { isPlatformConfigured } from "@/lib/social/platforms";
 import { createClient } from "@/lib/supabase/server";
-import { isValidTimeZone } from "@/lib/time/zone";
+import { isValidTimeZone, toInstant } from "@/lib/time/zone";
 
 /**
  * Scheduling a video for publishing.
@@ -56,45 +56,6 @@ const scheduleSchema = z.object({
 
 export type ScheduleResult =
   { status: "ok"; scheduled: number } | { status: "error"; message: string };
-
-/**
- * Converts a local wall clock in a named zone to the instant it refers to.
- *
- * Done by asking the formatter what that instant looks like in the zone and
- * correcting by the difference, because there is no built-in inverse. Two passes
- * because the offset itself depends on the date, which is the whole reason an
- * offset cannot be stored instead of a zone.
- */
-function toInstant(local: string, timeZone: string): Date | null {
-  const asUtc = new Date(`${local}:00Z`);
-  if (Number.isNaN(asUtc.getTime())) return null;
-
-  const offsetAt = (date: Date): number => {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone,
-      hour12: false,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    }).formatToParts(date);
-    const get = (type: string): string => parts.find((part) => part.type === type)?.value ?? "0";
-    const shifted = Date.UTC(
-      Number(get("year")),
-      Number(get("month")) - 1,
-      Number(get("day")),
-      Number(get("hour")) % 24,
-      Number(get("minute")),
-      Number(get("second")),
-    );
-    return shifted - date.getTime();
-  };
-
-  const firstGuess = new Date(asUtc.getTime() - offsetAt(asUtc));
-  return new Date(asUtc.getTime() - offsetAt(firstGuess));
-}
 
 export async function schedulePosts(
   input: z.input<typeof scheduleSchema>,
