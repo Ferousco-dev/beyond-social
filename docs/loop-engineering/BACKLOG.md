@@ -113,6 +113,52 @@ history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
   as-is, or provide evidence kie.ai supports a header-based alternative.
 - **`regenerateGeneration` swallowed the real error message.** Fixed and
   shipped 2026-08-22, PR #123 (merged to main).
+- **Type-safety and correctness sweep, 2026-08-25.** Five small, independent
+  fixes, each its own PR:
+  - `handToProvider`/`persistRender` in `supabase/functions/_shared/{reference,store}.ts`
+    took their Supabase client parameter as `any`, disabling type checking at
+    every call site. Typed as `SupabaseClient`, matching every caller. PR
+    #134 (merged). Confirmed this was the only `any` usage left anywhere in
+    the repo.
+  - `setWebhookActive` and `deleteWebhook` in
+    `apps/web/src/features/webhooks/actions.ts` had bare `catch {}` blocks
+    with nothing logged, unlike their siblings two functions above
+    (`createWebhook`, `rotateWebhookSecret`) in the same file. PR #135
+    (merged). Every other bare `catch {}` in the repo was confirmed to be a
+    deliberate, commented localStorage-convenience case, not a bug.
+  - `toInstant` (the local-wall-clock-to-UTC-instant conversion) was
+    byte-identical and duplicated between
+    `apps/web/src/features/publishing/actions.ts` and
+    `apps/web/src/features/schedule/lib/instant.ts`, with the second copy's
+    own comment already flagging it as a deliberate, temporary duplicate
+    that belonged in `lib/time`. Moved into
+    `apps/web/src/lib/time/zone.ts`, both call sites updated. PR #136
+    (merged).
+  - `renderClipSchema` (mirrored in `apps/worker/src/lib/render-spec.ts` and
+    `apps/web/src/lib/editor/render-spec.ts`) documented `endSeconds` as
+    "always greater than `startSeconds`" but never checked it: a clip
+    violating that invariant passed validation at the trust boundary meant
+    to catch it and would have built an invalid ffmpeg trim filter deep in
+    `stitchTrimmedClips`. Added the missing `.refine()` to both copies. PR
+    #137 (merged). Not reachable through the current editor UI
+    (`specFromProject` already filters `end <= start`), so this is a
+    defense-in-depth fix for any other producer of a `project_renders.spec`
+    row, not a live user-facing bug today.
+  - `extendGeneration` called `checkVideoRun()` with no model argument, so
+    the pre-flight credit gate always checked the `veo3_fast` default price
+    while `supabase/functions/extend-video/index.ts` always reserves
+    credits against the source clip's own model. A continuation on a
+    cheaper model than `veo3_fast` could be wrongly refused by the gate
+    before ever reaching the edge function. This is the exact bug class
+    `checkVideoRun`'s own doc comment already warns about; `startGeneration`
+    was fixed for it, `extendGeneration` was missed. Now reads the source
+    generation's model before gating. PR #138 (merged). Checked
+    `regenerateGeneration` for the same bug: it also omits the model, but
+    its `generate-video` invoke never passes one either, so gate and
+    dispatch agree there; left untouched. None of the five PRs needed a
+    browser to verify: type-only, logging-only, a verbatim move, and two
+    schema/logic fixes traced by hand and, where practical, checked with a
+    throwaway `tsx` script against the real function.
 - **`extendGeneration` swallowed the real error message.** Found during
   this session's own sweep for the same pattern: it read
   `error.context.error` directly on a `FunctionsHttpError`, but `.context`
@@ -131,6 +177,26 @@ history.ts` are already bounded (`.limit(...)`, `count: "exact"` head
   eventually be unified (typed-idea path vs. TikTok-reference path). Not a
   bug, just duplication. Worth a design pass before touching, not a quick
   refactor.
+- **Idempotency key on `generate-video`'s start path.** `production-
+readiness.md`'s M4 notes this as the one remaining gap after scheduling
+  (`supabase/migrations/0028_publishing_idempotency.sql`) got the same
+  treatment. Considered 2026-08-25 and set aside as too large for one
+  unattended unit, not because it isn't real: a genuine fix needs a
+  migration (an `idempotency_key` column plus a user-scoped unique index on
+  `video_generations`, mirroring 0028's pattern), edge-function dedup logic
+  in `generate-video/index.ts` before the row is inserted and credits
+  reserved, and client-side wiring across three call sites that each submit
+  differently (`lib/chat/turn.ts`'s full chat flow, and
+  `regenerateGeneration`/`extendGeneration` in
+  `features/generation/{actions,extend-actions}.ts`). Unlike scheduling,
+  where a duplicate submission is unambiguously wrong, a video generation
+  gate has to distinguish "the same click's network request retried" from
+  "the user deliberately clicked regenerate twice," which needs a fresh
+  client-generated key per gesture, not a key derived from stored data —
+  and verifying the UI doesn't already prevent double-submission via a
+  disabled-while-pending button needs a real browser, which no recent
+  session has had. Worth a full session once a browser tool is available,
+  not a partial fix guessed at blind on the credit-charging path.
 - **Circuit breaker for AI provider calls is per-process, not shared.**
   Reviewed 2026-08-21, still an acceptable trade at current traffic.
   Revisit once real usage data exists, not on a timer.
@@ -354,3 +420,58 @@ Nothing. Session below finished cleanly with everything merged.
   in a real browser (UI/UX pass, or verifying the four low-balance-notice
   PRs actually render as intended) if a browser tool is available, since
   none of the recent sessions have had one.
+
+- **2026-08-25, sixth scheduled session.** No browser or computer-use tool
+  available again this session; checked whether that could be worked around
+  since the environment has Playwright and Chromium pre-installed (`/opt
+/pw-browsers`), but there is no Docker daemon reachable here
+  (`docker ps` fails to connect), so the local Supabase stack (and with it
+  any authenticated UI walkthrough) is not reachable from this environment
+  at all this time, not merely a missing tool. Worth checking again fresh
+  each session rather than assuming, since prior sessions reported this
+  differently (a working `computer`/browser pane, then an unresponsive one,
+  then none at all): whatever provides it seems to vary session to session,
+  not something this repo controls.
+
+  Also installed Deno v2.4.0 locally (matching CI's `deno-version: v2.x`)
+  specifically so `deno check`/`deno lint` against
+  `supabase/functions/*/index.ts` could be run and independently verified
+  before every push this session, the same commands
+  `.github/workflows/edge-functions.yml` runs, rather than relying on CI
+  alone to catch a Deno-side type error. Worth a future session doing the
+  same rather than skipping local edge-function verification for lack of
+  the toolchain; the install is a two-line `curl | sh` and took under a
+  minute.
+
+  With UI work off the table again, worked a code-quality and correctness
+  sweep instead: three rounds of a background research agent searching
+  progressively more obscure corners of the codebase for genuine,
+  mechanically-verifiable bugs (not UI-shaped, not needing a new dependency,
+  not touching auth/RLS/pricing), each finding verified by hand before
+  shipping. Five PRs, all merged same-session after CI went green on each:
+  #134, #135, #136, #137, #138 — full detail in the "Type-safety and
+  correctness sweep, 2026-08-25" entry above. The last scan (a third,
+  deliberately-deeper pass covering `packages/mail`, every `api/cron` and
+  `api/v1` route, worker queue config, and `extend-video`/`generate-avatar`
+  compared line-by-line against `generate-video`) found one real bug (the
+  extend-gate model mismatch, PR #138) and then reported the rest of the
+  codebase as "solid, deliberately defensive, and consistent" with nothing
+  further worth shipping — a strong, credible signal that this particular
+  vein (silent bugs findable by reading, no UI needed) is now close to
+  exhausted, not merely unlucky on one pass.
+
+  Zero PRs left in flight; stopped here rather than run a fourth scan
+  chasing diminishing returns. Next session: the remaining "Open, safe to
+  work" items are unchanged from the fifth session's assessment (owner-
+  blocked, need a new dependency, or already thoroughly re-checked); the
+  Zod-message consistency nit is still open and still low value. The best
+  use of a future session is either (a) a real browser/UI pass, the moment
+  a session actually has one, to walk the app fresh and specifically to
+  verify the low-balance-notice PRs (#126, #129, #131) render as intended,
+  since none of the last four sessions have had a working browser tool, or
+  (b) accepting that the easy mechanical-bug vein is thin now and shifting
+  to a genuinely designed unit of work (CSP nonce, if the owner has since
+  weighed in; brief/script flow unification; or a scoped idempotency-key
+  design for `generate-video`'s start path, flagged this session as too
+  large to build blind in one unattended unit since it touches the
+  credit-charging path across three call sites and needs a migration).
