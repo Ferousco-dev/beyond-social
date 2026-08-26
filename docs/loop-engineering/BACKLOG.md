@@ -274,6 +274,78 @@ Nothing. Session below finished cleanly with everything merged.
 
 ## Session log
 
+- **2026-08-26, seventh scheduled session.** No browser/computer-use tool and
+  no Docker daemon again this session (`docker ps` fails to connect, same as
+  the sixth session), so the local Supabase stack and any authenticated UI
+  walkthrough stayed unreachable. With UI work off the table, ran three
+  rounds of a background research agent, each scoped to a different, not-yet-
+  swept corner of the codebase, specifically hunting for genuine,
+  mechanically-verifiable bugs rather than repeating prior sessions'
+  ground. All three rounds found a real issue, each verified by hand before
+  shipping, own PR per fix, all merged same-session after CI went green:
+  - **PR #140**: `apps/worker/src/processors/publish-post.ts`'s final write
+    (recording `status: published` and the platform's `external_id` after a
+    successful post) never checked the Supabase error, unlike every other
+    database call in that file. A failed write there left the row stuck with
+    `external_id` still null, exactly the signal `claim_post_for_publish`
+    (migration 0028) and the admin stuck-post scan (migration 0035) both
+    rely on to know a post already went out; a later retry, automatic or an
+    admin clicking retry on what looked like a safe row, would have posted
+    the same video to a real account a second time. Throwing would not have
+    been safe either (the platform had already accepted the post, so a retry
+    would call `publishPost` again). Fixed by logging loudly instead,
+    mirroring the existing `settle()` pattern in `render-video.ts` built for
+    the same class of problem.
+  - **PR #141**: `useGenerationPoll`'s `stop()` clears the polling interval
+    but cannot cancel a `pollGeneration` request already in flight. Cancel a
+    draft while its poll is mid-request, and the stale response still
+    resolved and unconditionally fired a notice, sometimes a contradictory
+    one ("did not complete, try again") for a draft the user had just been
+    told would keep rendering in the background. No data was affected, a
+    confusing notice only. Fixed by checking whether `stop()` already ran for
+    that generation id before settling a response.
+  - **PR #142**: the billing page's "About N runs of X" line picked the
+    single cheapest active model across every family and every `min_plan`,
+    with no check that the signed-in user's plan could actually run it.
+    `cheapestRunCost()` in `lib/credits/queries.ts` already established the
+    right filter for this exact question (family=video, min_plan=free, a
+    floor every plan can run) and the billing page's own inline
+    reimplementation had skipped both. Not visibly wrong with the current
+    catalogue (today's cheapest active row already happens to be
+    free/video), but the model catalogue is entirely data-driven by design
+    specifically so it can be re-priced without a deploy, and nothing
+    stopped a future re-price from pointing a user's balance summary at a
+    model they are locked out of. Fixed by scoping the reduction to match
+    `cheapestRunCost()`'s filter.
+
+  None of the three fixes were manually verified in a real browser or against
+  a live Supabase instance (unavailable this session, as above); each was
+  traced by hand against the actual failure sequence and, where an existing
+  pattern in the codebase already solved the same class of problem, checked
+  for consistency with it. None had existing test coverage to extend: no
+  smoke-test harness exists for the worker's BullMQ/Supabase processing loop,
+  and no React hook testing infrastructure (vitest/jest/testing-library)
+  exists in `apps/web`, so building either would have been a larger unit of
+  work than the fixes themselves. `pnpm verify` (build, lint, typecheck)
+  passed clean across all 23 workspace tasks after all three merges.
+
+  Three PRs merged (#140, #141, #142), zero left in flight. Stopped here
+  rather than run a fourth research round: three of three rounds each found
+  exactly one real, worth-fixing issue in a fresh corner of the codebase, a
+  healthier hit rate than the sixth session's third scan (which came back
+  clean and signalled the easy-bug vein was thinning), so there is no
+  present signal that this vein is exhausted. Next session: a fourth round
+  targeting still-unswept areas is a reasonable continuation of the same
+  approach (candidates not yet covered by any session: `apps/worker`'s
+  render/stitch temp-file handling under concurrent renders, the trends/
+  Firecrawl refresh cron path, `packages/prompt-engine`'s embedding cache,
+  and anything under `apps/admin` not already covered by this session's
+  admin-debug-console sweep). Otherwise the standing open items are
+  unchanged: CSP nonce and observability/rate limiting (new-dependency,
+  needs owner confirmation) are the best-scoped substantial items if a
+  browser or the owner's input becomes available; the Zod-message
+  consistency nit is still open and still low value.
+
 - **2026-08-22, setup.** This file created alongside `TEAM.md`, `RULES.md`,
   `START_HERE.md`. No engineering session run yet under this system.
 - **2026-08-22, first scheduled session.** Shipped PR #123
