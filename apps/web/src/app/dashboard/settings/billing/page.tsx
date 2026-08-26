@@ -43,9 +43,18 @@ export default async function BillingPage() {
 
   const plan = PLAN_CATALOGUE[asPlanId(planId)];
   // The catalogue is ordered for display, not by price, so the anchor for "what
-  // does my balance buy" has to be chosen rather than assumed.
+  // does my balance buy" has to be chosen rather than assumed. Scoped to
+  // family=video and min_plan=free, the same floor `cheapestRunCost()` uses:
+  // a model any plan can actually run, not just whichever row is priced
+  // lowest across every family and tier, which could point at something this
+  // user is locked out of.
   const cheapest = models.reduce<CatalogModel | null>(
-    (best, model) => (best === null || model.creditCost < best.creditCost ? model : best),
+    (best, model) =>
+      model.family === "video" &&
+      model.minPlan === "free" &&
+      (best === null || model.creditCost < best.creditCost)
+        ? model
+        : best,
     null,
   );
 
