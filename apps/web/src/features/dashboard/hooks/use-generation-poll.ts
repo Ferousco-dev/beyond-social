@@ -52,6 +52,13 @@ export function useGenerationPoll(onSettled: (id: string, outcome: PollOutcome) 
           }
 
           const result = await pollGeneration(generationId);
+
+          // `stop` may have run while that request was in flight (the user
+          // cancelled the draft), which clears the interval but cannot cancel a
+          // request already sent. Settling anyway would surface a notice for a
+          // draft the person already dismissed.
+          if (!timers.current.has(generationId)) return;
+
           if (result.status === "ready") {
             stop(generationId);
             settled.current(generationId, { status: "ready", resultUrl: result.resultUrl });
