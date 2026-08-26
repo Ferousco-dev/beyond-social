@@ -159,10 +159,28 @@ export function startPublishWorker(): Worker<PublishJobData> {
           throw error;
         }
 
-        await supabase
+        const { error: settleError } = await supabase
           .from("scheduled_posts")
           .update({ status: "published", external_id: externalId, error: null })
           .eq("id", scheduledPostId);
+
+        /*
+         * The platform has already accepted the post at this point, so this is
+         * not a failure to retry: throwing here would let BullMQ run the job
+         * again, and a second `publishPost` call would post a second time to a
+         * real account. Logged loudly instead, since a row stuck without its
+         * `external_id` recorded is exactly what `claim_post_for_publish` and
+         * the admin stuck-post scan both rely on never happening.
+         */
+        if (settleError) {
+          logger.error("could not record a successful publish", {
+            scheduledPostId,
+            platform: post.platform,
+            externalId,
+            error: settleError.message,
+          });
+          return;
+        }
 
         // Carries the trace of the request that scheduled this, which is the
         // only thing connecting a post going out now to the person who asked for
