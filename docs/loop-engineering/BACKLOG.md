@@ -274,6 +274,116 @@ Nothing. Session below finished cleanly with everything merged.
 
 ## Session log
 
+- **2026-08-27, eighth scheduled session.** No docker daemon again this
+  session (`docker ps` fails to connect, same as the sixth and seventh), so
+  no local Supabase stack and no authenticated UI walkthrough. GitHub access
+  was normal throughout (push, PR create, PR merge all worked without the
+  403/stale-session issue the fourth session hit).
+
+  Continued the code-quality/correctness sweep from the sixth and seventh
+  sessions, targeting the specific unswept corners the seventh session's
+  log named as candidates: worker render/stitch temp-file handling under
+  concurrency, the trends/Firecrawl refresh cron path, `packages/prompt-
+engine`'s embedding cache, and anything under `apps/admin` not already
+  covered. Ran four research rounds total (three in parallel, a fourth
+  after), each read-only and verified by hand before anything shipped:
+
+  - **Worker render/stitch under concurrency**: clean. Every render/stitch
+    workspace (`apps/worker/src/processors/render-video.ts`,
+    `apps/worker/src/lib/stitch.ts`, and the newer `services/render`
+    implementation) uses `mkdtemp` for a per-job/per-invocation directory
+    with cleanup scoped to that same directory in a `finally`, so no
+    cross-job collision or premature-delete is possible even under real
+    concurrency. `startRenderWorker` also runs at `CONCURRENCY = 1` by
+    design, and renders are additionally deduped by a `jobId` and an atomic
+    DB claim. Noted but not acted on: `lastFrame` in `apps/worker/src/lib/
+stitch.ts` has zero callers anywhere in the repo (confirmed by grep),
+    worth a look next time dead code is in scope; and `services/render` vs
+    `apps/worker` are two independent implementations of the same render
+    pipeline, a design question, not a bug.
+  - **Trends/Firecrawl cron path**: found and fixed a real bug, PR #144
+    (merged). `Firecrawl.search()`/`.scrape()` (`apps/web/src/lib/trends/
+firecrawl.ts`) parsed the API's `success`/`error` fields but never read
+    them; since every field in the response schema is optional, an
+    API-level failure returned with HTTP 200 (`{success: false, error:
+"..."}`) parsed cleanly and fell through to returning `[]`/`null`,
+    discarding the real error. `discoverTrends()`'s own doc comment states
+    its whole purpose is making a silently-failing source distinguishable
+    from a genuinely quiet day, but that safeguard only fires on a thrown
+    error, so this bypassed it entirely: a run would finish as `sources: 0,
+discovered: 0, ok: true`, indistinguishable from nothing trending. Fixed
+    by throwing `FirecrawlError` with the real message on `success ===
+false`, reusing the existing error type and reaching the existing catch
+    in `discoverTrends`. Added two new cases to `apps/web/scripts/trends-
+smoke.ts` (17/17 passing). Also noted: `/api/cron/discover-trends` is
+    not currently scheduled in `vercel.json` (its own comment says so), so
+    this affects manually-triggered runs only today, but the fix is correct
+    regardless of when the route is wired back up.
+  - **`packages/prompt-engine`'s embedding cache**: clean. Cache keys are
+    `model:sha256(text)`, collision-proof and correctly scoped per model;
+    the persisted table has a real pruning cron; the in-memory cache is a
+    correctly bounded LRU; concurrent misses on the same key cost redundant
+    work but never produce a wrong result. One thin, deliberately-not-shipped
+    nit: within a single batch, only the first cache-miss occurrence of a
+    repeated text is tracked for in-flight dedup, so later duplicates each
+    re-issue their own cache lookup; output is still correct, just a wasted
+    lookup.
+  - **`apps/admin`**: clean, read broadly rather than trusting the prior
+    session's undocumented "admin-debug-console sweep" reference (no
+    matching PR exists in the log or git history for what that covered).
+    Every mutation path follows the same disciplined pattern: `requireAdmin()`
+    gate, Zod validation, a SECURITY DEFINER RPC that re-checks admin and
+    audits in the same transaction, every Supabase error checked, keyset
+    pagination done correctly. No silent error swallowing, no missing
+    awaits, nothing stale found anywhere in `features/debug`, `features/
+users`, `features/config`, `features/queues`, `features/secrets`,
+    `features/deleted`, `audit`, `lib/health`, `lib/analytics`, `lib/auth`,
+    `lib/queues`, or `middleware.ts`.
+  - **Fourth round** (retention cron, every `/api/v1/*` route, the Stripe
+    webhook handler): clean. `/api/cron/retention` fails closed on auth,
+    is correctly global-scope by design (not a tenant leak), and its four
+    backing SQL functions are idempotent and safe to partially fail.
+    `/api/v1/generations|usage|openapi` are all correctly scoped to the
+    calling user with bounded pagination. The Stripe webhook verifies its
+    signature unconditionally before touching anything, and both the
+    subscription and one-time-credit-pack paths are protected against a
+    redelivered event double-crediting an account (`billing_events` and
+    `credit_ledger.external_ref` unique-index-backed idempotency
+    respectively).
+
+  One process note worth recording: creating and updating the PR through
+  the GitHub MCP tools auto-appended an AI-attribution footer to the PR
+  body, which directly conflicts with this project's explicit "no AI or
+  assistant attribution anywhere" rule. Updating the PR body without
+  including the footer myself did make it disappear (confirmed by reading
+  the body back), so it is at least removable after the fact; worth a
+  future session checking whether it reappears on further edits, and
+  whether the same happens on commit messages or comments, which were not
+  tested this session.
+
+  One PR shipped and merged (#144), zero left in flight. `pnpm build`,
+  `pnpm lint`, `pnpm typecheck` all passed locally before push, and CI
+  (Secret scan, Dependency audit, Verify, Migrations and schema) all passed
+  independently before merge. Stopped after one unit rather than manufacture
+  a fifth research round: three of four rounds came back clean this session
+  (worker render/stitch, prompt-engine cache, admin, and the fourth round
+  covering retention/api-v1/webhook), a meaningfully lower hit rate than the
+  sixth and seventh sessions' three-of-three, which is a real signal this
+  particular vein (silent bugs findable by reading, no browser needed) is
+  genuinely thinning now rather than just unlucky on one pass. Next session:
+  worth trying a browser/UI pass first if one is available (still unverified
+  across eight sessions: the low-balance-notice PRs #126/#129/#131, and
+  whether Docker/computer-use is reachable at all varies session to
+  session and is worth checking fresh rather than assuming). If no browser
+  again, the remaining safe-to-work items are thin: the CSP nonce and
+  observability/rate-limiting items need the owner or a new dependency: the
+  Zod-message consistency nit (`apps/web/src/features/generation/
+actions.ts:161` and three other call sites, noted 2026-08-24) is still
+  open and still low value. A genuinely fresh corner to search next time
+  Docker is unavailable: `apps/worker`'s BullMQ queue/job configuration
+  itself (retry counts, backoff, stalled-job handling) hasn't been swept by
+  name in any session log, unlike the render/stitch logic it wraps.
+
 - **2026-08-26, seventh scheduled session.** No browser/computer-use tool and
   no Docker daemon again this session (`docker ps` fails to connect, same as
   the sixth session), so the local Supabase stack and any authenticated UI
