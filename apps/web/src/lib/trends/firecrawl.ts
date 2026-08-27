@@ -95,6 +95,12 @@ export class Firecrawl {
       await this.post("/scrape", { url, formats: ["markdown"], onlyMainContent: true }),
     );
     if (!parsed.success) return null;
+    if (parsed.data.success === false) {
+      throw new FirecrawlError(
+        `Firecrawl /scrape reported failure: ${parsed.data.error ?? "unknown error"}`,
+        200,
+      );
+    }
 
     const markdown = parsed.data.data?.markdown?.trim();
     if (!markdown) return null;
@@ -116,6 +122,12 @@ export class Firecrawl {
       }),
     );
     if (!parsed.success) return [];
+    if (parsed.data.success === false) {
+      throw new FirecrawlError(
+        `Firecrawl /search reported failure: ${parsed.data.error ?? "unknown error"}`,
+        200,
+      );
+    }
 
     return (parsed.data.data ?? [])
       .map((item) => ({
