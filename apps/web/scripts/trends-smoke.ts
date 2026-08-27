@@ -99,6 +99,37 @@ async function main(): Promise<void> {
     );
   }
 
+  // An API-level failure reported with HTTP 200 must not look like "no
+  // results": the real error has to surface, not be swallowed as an empty list.
+  {
+    const s = stub(() => json({ success: false, error: "insufficient credits" }));
+    let message = "";
+    try {
+      await new Firecrawl("k", s.fetch).search("q");
+    } catch (error) {
+      if (error instanceof FirecrawlError) message = error.message;
+    }
+    check(
+      "search surfaces an api-level failure",
+      message.includes("insufficient credits"),
+      message,
+    );
+  }
+  {
+    const s = stub(() => json({ success: false, error: "insufficient credits" }));
+    let message = "";
+    try {
+      await new Firecrawl("k", s.fetch).scrape("u");
+    } catch (error) {
+      if (error instanceof FirecrawlError) message = error.message;
+    }
+    check(
+      "scrape surfaces an api-level failure",
+      message.includes("insufficient credits"),
+      message,
+    );
+  }
+
   // Categories are shared between discovery and the filter chips, so a label
   // must resolve for every id discovery can write.
   check(
