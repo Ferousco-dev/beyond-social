@@ -284,7 +284,7 @@ Nothing. Session below finished cleanly with everything merged.
   sessions, targeting the specific unswept corners the seventh session's
   log named as candidates: worker render/stitch temp-file handling under
   concurrency, the trends/Firecrawl refresh cron path, `packages/prompt-
-  engine`'s embedding cache, and anything under `apps/admin` not already
+engine`'s embedding cache, and anything under `apps/admin` not already
   covered. Ran four research rounds total (three in parallel, a fourth
   after), each read-only and verified by hand before anything shipped:
 
@@ -297,25 +297,25 @@ Nothing. Session below finished cleanly with everything merged.
     concurrency. `startRenderWorker` also runs at `CONCURRENCY = 1` by
     design, and renders are additionally deduped by a `jobId` and an atomic
     DB claim. Noted but not acted on: `lastFrame` in `apps/worker/src/lib/
-    stitch.ts` has zero callers anywhere in the repo (confirmed by grep),
+stitch.ts` has zero callers anywhere in the repo (confirmed by grep),
     worth a look next time dead code is in scope; and `services/render` vs
     `apps/worker` are two independent implementations of the same render
     pipeline, a design question, not a bug.
   - **Trends/Firecrawl cron path**: found and fixed a real bug, PR #144
     (merged). `Firecrawl.search()`/`.scrape()` (`apps/web/src/lib/trends/
-    firecrawl.ts`) parsed the API's `success`/`error` fields but never read
+firecrawl.ts`) parsed the API's `success`/`error` fields but never read
     them; since every field in the response schema is optional, an
     API-level failure returned with HTTP 200 (`{success: false, error:
-    "..."}`) parsed cleanly and fell through to returning `[]`/`null`,
+"..."}`) parsed cleanly and fell through to returning `[]`/`null`,
     discarding the real error. `discoverTrends()`'s own doc comment states
     its whole purpose is making a silently-failing source distinguishable
     from a genuinely quiet day, but that safeguard only fires on a thrown
     error, so this bypassed it entirely: a run would finish as `sources: 0,
-    discovered: 0, ok: true`, indistinguishable from nothing trending. Fixed
+discovered: 0, ok: true`, indistinguishable from nothing trending. Fixed
     by throwing `FirecrawlError` with the real message on `success ===
-    false`, reusing the existing error type and reaching the existing catch
+false`, reusing the existing error type and reaching the existing catch
     in `discoverTrends`. Added two new cases to `apps/web/scripts/trends-
-    smoke.ts` (17/17 passing). Also noted: `/api/cron/discover-trends` is
+smoke.ts` (17/17 passing). Also noted: `/api/cron/discover-trends` is
     not currently scheduled in `vercel.json` (its own comment says so), so
     this affects manually-triggered runs only today, but the fix is correct
     regardless of when the route is wired back up.
@@ -336,7 +336,7 @@ Nothing. Session below finished cleanly with everything merged.
     audits in the same transaction, every Supabase error checked, keyset
     pagination done correctly. No silent error swallowing, no missing
     awaits, nothing stale found anywhere in `features/debug`, `features/
-    users`, `features/config`, `features/queues`, `features/secrets`,
+users`, `features/config`, `features/queues`, `features/secrets`,
     `features/deleted`, `audit`, `lib/health`, `lib/analytics`, `lib/auth`,
     `lib/queues`, or `middleware.ts`.
   - **Fourth round** (retention cron, every `/api/v1/*` route, the Stripe
@@ -378,7 +378,7 @@ Nothing. Session below finished cleanly with everything merged.
   again, the remaining safe-to-work items are thin: the CSP nonce and
   observability/rate-limiting items need the owner or a new dependency: the
   Zod-message consistency nit (`apps/web/src/features/generation/
-  actions.ts:161` and three other call sites, noted 2026-08-24) is still
+actions.ts:161` and three other call sites, noted 2026-08-24) is still
   open and still low value. A genuinely fresh corner to search next time
   Docker is unavailable: `apps/worker`'s BullMQ queue/job configuration
   itself (retry counts, backoff, stalled-job handling) hasn't been swept by
