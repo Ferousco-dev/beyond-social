@@ -13,6 +13,11 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # claude-code-action requests a short-lived GitHub OIDC token as part of
+  # its own auth flow, separate from CLAUDE_CODE_OAUTH_TOKEN; without this
+  # the "Run Claude Code" step fails immediately with "Could not fetch an
+  # OIDC token" before it ever reaches the actual task.
+  id-token: write
 
 concurrency:
   group: telegram-claude-task-${{ github.event.client_payload.task_id }}
