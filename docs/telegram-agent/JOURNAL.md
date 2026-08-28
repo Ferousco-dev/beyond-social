@@ -120,3 +120,19 @@ was asked, what changed or was decided, and why if it's not obvious.
   bot's whole interaction model is plain-text task instructions. Fix is
   on Telegram's side: disable privacy mode via @BotFather
   (`/setprivacy` → Disable) and re-add the bot to the group.
+- **2026-08-28**: Asked to merge all open PRs, bring every branch up to
+  date with main, and delete unused branches. Merged #165, #164, and
+  #163 (all green, the latter two needed a conflict resolve first since
+  all three touched this file's tail — additive entries, kept all of
+  them). Deleted 7 remote branches whose PRs were already squash-merged
+  into main (`claude/telegram-smarter-memory-reply`,
+  `docs/flag-telegram-branch-input-validation`,
+  `docs/session-nine-backlog-update`,
+  `fix/mail-payload-validation-permanent-error`,
+  `fix/mail-unchecked-write-errors`,
+  `fix/scheduler-enqueue-failure-recovery`,
+  `fix/telegram-cancel-run-swallowed-error`) — squash merges mean
+  `git branch --merged` never flags them, so this was checked against
+  `gh pr list --state all` instead. Left `redesign/landing-hero` alone
+  again: still no PR, still 59 commits of hero-redesign and retrieval
+  work with nothing else on main, so still not safe to delete.
