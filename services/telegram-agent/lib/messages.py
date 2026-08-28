@@ -18,7 +18,9 @@ HELP = (
     "Just send a message describing the task, e\\.g\\. “Fix the login "
     "redirect bug”\\.\n\n"
     "To follow up on a task, *reply* to the bot's message about it \\(the "
-    "task footer is what lets me find the right context\\)\\."
+    "task footer is what lets me find the right context\\)\\. If it's "
+    "still running, wait for the result and reply to that instead \\- "
+    "there's no session to resume until it finishes\\."
 )
 
 UNAUTHORIZED = "⛔ Unauthorized."
@@ -33,7 +35,16 @@ def task_received(repository: str, task_id: str, prompt: str, is_followup: bool)
         f"{task_footer(task_id)}"
     )
 
-IN_PROGRESS = "\U0001f916 Claude is working…"
+
+def in_progress(task_id: str) -> str:
+    return f"\U0001f916 Claude is working…\n\n{task_footer(task_id)}"
+
+
+STILL_RUNNING = (
+    "⏳ That task is still running \\- I can't attach a follow\\-up to "
+    "it until it finishes \\(there's no session to resume yet\\)\\. Send "
+    "this again once you get a result, replying to *that* message\\."
+)
 
 DISPATCH_FAILED = (
     "⚠️ Could not start the task \\(GitHub didn't accept the "

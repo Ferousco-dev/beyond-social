@@ -8,12 +8,16 @@ thing that carries context forward between separate tasks, the same role
 sessions.
 
 Claude appends one entry here as part of the same commit whenever a task
-actually changes the repository. A task that doesn't (a question, a status
-check) doesn't get an entry — that exchange already lives in the Telegram
-chat history, so logging it here would just be noise.
+changes the repository. A task that doesn't change anything still gets a
+short entry if it settled something a future task would need to know
+(a clarified requirement, a decision, a constraint ruled out) — later
+sessions have no access to the Telegram chat itself, only this file, so
+that context would otherwise be lost for good. A task that was purely
+informational and produced no lasting decision (a one-off "what does X
+do") gets no entry.
 
 Newest entries at the bottom. Keep each entry to a couple of lines: what
-was asked, what changed, and why if it's not obvious from the diff.
+was asked, what changed or was decided, and why if it's not obvious.
 
 ## Log
 
@@ -22,3 +26,21 @@ was asked, what changed, and why if it's not obvious from the diff.
   main (no unique work lost). Left `redesign/landing-hero` alone: it has
   no PR and ~20 commits not on main (hero redesign, new model
   integrations, avatar/download work) that would be lost for good.
+- **2026-08-28**: Asked to make the bot "smarter" around memory and
+  replying. Found the "Claude is working…" status message carried no task
+  footer, so replying to it while a task was still running silently
+  dispatched an unrelated task instead of following up (there's no
+  session to resume until the run finishes anyway) — it now carries a
+  footer, and that reply case gets an honest "still running, try again
+  once it finishes" instead. Also broadened this journal's own logging
+  rule: previously only repo-changing tasks got an entry; now a task that
+  settles a decision or constraint with no code change also gets one,
+  since a fresh session only ever sees this file, never the Telegram
+  chat itself. Note: the matching prompt text in
+  `.github/workflows/telegram-claude-task.yml` (the actual instruction a
+  future session reads, not just this file's header) could **not** be
+  updated by this task — the GitHub App token this workflow runs under
+  has no `workflows` permission, so pushes touching files under
+  `.github/workflows/` are rejected. That file still has the old, narrower
+  wording until someone with repo write access applies it by hand; until
+  then, treat this file's broadened rule as the source of truth.

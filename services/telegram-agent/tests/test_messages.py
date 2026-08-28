@@ -1,8 +1,17 @@
 import unittest
 
-from lib.messages import ci_status, completed, escape, failed, pr_event
+from lib.messages import ci_status, completed, escape, failed, in_progress, pr_event
+from lib.tasks import parse_task_reference
 
 REAL_RUN_URL = "https://github.com/Ferousco-dev/beyond-social/actions/runs/33133979478"
+
+
+class TestInProgress(unittest.TestCase):
+    def test_carries_a_footer_the_task_id_round_trips_from(self):
+        text = in_progress("task_20260828_abc123")
+        parsed = parse_task_reference(text)
+        self.assertEqual(parsed["task_id"], "task_20260828_abc123")
+        self.assertIsNone(parsed["session_id"])
 
 
 class TestEscape(unittest.TestCase):
