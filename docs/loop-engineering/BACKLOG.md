@@ -8,6 +8,126 @@ real repo state before acting on it.
 Seeded 2026-08-22, right after the 2026-08-21 marathon session (17+ PRs
 merged that day, `docs/marathon/SCOPE.md` has the full record).
 
+## Owner-directed priority for the next session (queued 2026-08-28)
+
+The owner gave this directly, live, after the ninth scheduled session ended
+(not through the usual "found during a sweep" path). Read this section
+first and work it ahead of anything below, but only the pieces marked safe:
+several of these are explicitly blocked on a decision only the owner can
+make, per `RULES.md`, and should not be guessed at just because the owner
+is asking for the feature.
+
+**The feature:** a "Live" recording flow (sidebar or new-project entry
+point) where a user records themselves on camera, reads a few short
+verification lines (Siri-setup style, so the system can tell a real,
+present voice from silence or the user going off-script), and the app
+extracts their face and voice from that recording to generate future
+videos that use their real likeness and real voice, driven by a text
+prompt. First vertical: a real-estate agent in Singapore presenting
+listings as themselves, in their own voice, not a generic AI narrator.
+Standing UI bar for all of it, in the owner's own words: not "AI slop,"
+a genuinely bold, considered UI, to the same standard `docs/ui.md` already
+holds the rest of the app to.
+
+**Safe to build this session, no blocker:**
+
+- Fix the `omnihuman-1-5` polling bug: `supabase/functions/poll-generation/
+index.ts` decides which status endpoint to poll by testing whether
+  `generation.model` starts with `"veo"`; its own comment already admits
+  most market ids are vendor-prefixed with a slash but `omnihuman-1-5` is
+  not, so activating it today would poll the wrong endpoint and the
+  generation would look like it never finishes. Worth fixing regardless of
+  whether this model ships as part of the avatar feature.
+- Wire up builders in `apps/web/src/lib/generation/select-model.ts` and
+  confirm real request shapes for `wan/2-7-videoedit`, `wan/2-7-r2v`,
+  `gemini-omni-video`, and the currently-unconfirmed shape on
+  `wan/2-6-video-to-video` (which already has a builder,
+  `select-model.ts:134`). Use the same free verification technique
+  migration `0058_premium_video_models.sql`'s own comment describes: call
+  kie.ai's `jobs/createTask` with empty input, which returns a validation
+  error and starts nothing real. Do not spend a real generation credit
+  confirming any of this.
+- Add `volcengine/video-to-video-lip-sync` to `model_catalog`. This is a
+  real, valid id verified directly against `docs.kie.ai/market/volcengine/
+video-to-video-lip-sync.md` this session (takes an existing `video_url` +
+  `audio_url`, re-dubs the mouth to new audio, 360p-1080p in, MP4 25fps
+  out). It is a different id from `volcengine/lip-sync`, which migration
+  `0057_avatar_models.sql` already deleted because kie.ai's own endpoint
+  rejects that exact name outright, so do not confuse the two or
+  reintroduce the deleted one.
+- Do NOT reintroduce `kling-3.0-turbo` either, for the same reason as
+  `volcengine/lip-sync` above: both were verified against kie.ai's real
+  `createTask` endpoint and rejected outright, and both are gone from the
+  catalog on purpose. If "more crazy models" comes up again, the working
+  Kling id is `kling-3.0/video` (already active).
+- UI/UX design pass on the Live record flow and the read-along
+  verification screen: wireframes and the actual visual bar, no camera or
+  microphone actually wired up yet, no data captured or stored. Safe
+  because nothing here touches a new dependency or collects anything real.
+- Trends/discovery tweak: bias `apps/web/src/lib/trends` toward surfacing
+  more human-led content as inspiration, alongside whatever it already
+  returns. Needs a definition of "human-led" concrete enough to filter or
+  rank on (visible face/presenter vs. faceless/branded footage, is the
+  simplest starting signal) before this is actually buildable; treat
+  landing on that definition as part of the task, not a blocker to raise
+  separately.
+
+**What the recorded video should actually become, researched this
+session:** kie.ai's avatar-family models were checked directly against
+their own docs (`docs.kie.ai/market/kling/ai-avatar-pro.md`,
+`omnihuman-1-5.md`, `volcengine/video-to-video-lip-sync.md`). None of them
+takes a recorded video as a face/voice training reference: `kling/
+ai-avatar-pro` (already active) and `omnihuman-1-5` (inactive, see the
+polling fix above) both take a single still photo + an audio clip + a text
+prompt; Volcengine's model re-dubs an existing video's mouth to new audio
+rather than generating a new scene. The closest buildable v1 with what
+kie.ai actually documents today: extract one good still frame and the
+clean voice clip from the Live recording, save both against the account,
+and generate future prompt-driven videos against `kling/ai-avatar-pro`
+using that saved pair. That is a real, honest version of "your real face,
+your real voice, saying something new," not the full "reconstructs your
+real environment and movement from the recording" version the owner
+originally described, which was not confirmed to exist anywhere in kie.ai's
+documented market. Whether that gap matters is decision (2) below.
+
+**Blocked on the owner, do not guess at these:**
+
+1. Real per-second pricing for the Wan and Gemini Omni models
+   (`wan/2-7-videoedit`, `wan/2-7-r2v`, `wan/2-6-video-to-video`,
+   `gemini-omni-video`), read off kie.ai's actual pricing page. They are
+   currently priced at a flat, admittedly-guessed 30 credits each
+   (`0058_premium_video_models.sql`'s own comment says so); none of the
+   four should go `is_active = true` on a guessed price.
+2. Whether `kling/ai-avatar-pro`'s photo+voice+prompt bar is actually
+   good enough for the feature, or whether the full recorded-video,
+   real-environment, real-movement version the owner described needs a
+   different provider entirely (HeyGen, Synthesia, Argil, and similar all
+   do personal-avatar training from a short video, unlike anything
+   confirmed in kie.ai's market). A different provider is a new
+   third-party dependency and needs the owner's sign-off before anyone
+   integrates one, same as every other new-dependency item in this file.
+3. Consent and data-retention policy for storing a user's photo and voice.
+   This is the one piece that does not move regardless of which model or
+   provider gets picked: where it is captured, how long it is kept, and
+   what a user can delete. Storing a real person's biometric likeness for
+   reuse is a materially bigger privacy question than anything else
+   currently in this file's "Needs the owner" section below, and no
+   unattended session should design this on its own.
+
+**Also asked, not yet confirmed:** the owner asked about installing
+[Ìlànà](https://github.com/Ferousco-dev/ilana), a local, MIT-licensed
+process-discipline skill (requirements/design/code/test gates, an
+append-only decision ledger, no external services). The proposed plan,
+given to the owner but not yet confirmed: a Claude-Code-only install,
+committed into this repo (not the full `--all` multi-tool footprint,
+which would also drop `.cursor/rules/`, `.windsurf/rules/`,
+`.github/copilot-instructions.md`, `CONVENTIONS.md`, and `GEMINI.md` into
+the project for tools nobody here uses) — needed because this session's
+container is ephemeral and a user-home install
+(`~/.claude/skills/ilana/`, the installer's default) would not survive to
+the next scheduled session. If the owner confirms, do the project-scoped
+install as its own small PR before anything else.
+
 ## Needs the owner (do not start until unblocked)
 
 - **`base_branch` in the Telegram-agent task flow bypasses the input safelist
