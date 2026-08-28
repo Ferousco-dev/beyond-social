@@ -16,3 +16,9 @@ Newest entries at the bottom. Keep each entry to a couple of lines: what
 was asked, what changed, and why if it's not obvious from the diff.
 
 ## Log
+
+- **2026-08-28**: Asked to delete unused branches and start using this
+  journal. Deleted 55 remote branches whose PRs were already merged into
+  main (no unique work lost). Left `redesign/landing-hero` alone: it has
+  no PR and ~20 commits not on main (hero redesign, new model
+  integrations, avatar/download work) that would be lost for good.
