@@ -10,6 +10,32 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
 
 ## Needs the owner (do not start until unblocked)
 
+- **`base_branch` in the Telegram-agent task flow bypasses the input safelist
+  its sibling fields enforce.** Found 2026-08-28 auditing
+  `services/telegram-agent/` (a new service, PRs #146-155, not yet swept by
+  this system). `lib/tasks.py`'s `_TASK_ID_RE` and `_SESSION_RE` restrict
+  `task_id`/`session_id` to a narrow charset (`[0-9a-f]`, `[A-Za-z0-9_-]`),
+  but ``_BRANCH_RE = re.compile(r"branch:([^\s`]+)")`` admits almost any
+  non-whitespace, non-backtick text. `parse_task_reference()` reads this
+  from the text of any prior message in the chat a user replies to (not
+  necessarily a bot-generated one), and it flows unsanitized as
+  `base_branch` through `lib/commands.py` and `lib/github_client.py`'s
+  `repository_dispatch` payload into
+  `.github/workflows/telegram-claude-task.yml`'s checkout step:
+  `ref: ${{ github.event.client_payload.base_branch || github.ref }}`, a
+  workflow with `contents: write`, `pull-requests: write`, `issues: write`,
+  and an OIDC token. No full exploit chain was found (`actions/checkout`
+  takes `ref` as a `with:` input, invoked via git argument arrays, not
+  spliced into a `run:` shell string, and the field is only reachable by an
+  already-allow-listed Telegram user, not a new external privilege
+  escalation), but there is no stated reason this one field should skip the
+  charset restriction its two siblings apply, and it is an unvalidated
+  value feeding a privileged workflow's checkout ref. This is exactly the
+  security-boundary-shaped category `RULES.md` says needs the owner's own
+  look rather than an "obviously correct" fix applied silently. Owner
+  should either tighten `_BRANCH_RE` to a safe branch-name charset (mirroring
+  `_TASK_ID_RE`/`_SESSION_RE`) or confirm the current behavior is
+  acceptable given the narrower practical reach.
 - **Vercel production deploy.** Everything merged through 2026-08-21 is on
   `main` but not yet live. Owner runs `cd apps/web && vercel deploy --prod
 --yes --archive=tgz` themselves; this system does not deploy.
