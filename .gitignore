@@ -36,6 +36,10 @@ coverage/
 # TypeScript
 *.tsbuildinfo
 
+# Python (services/telegram-agent)
+__pycache__/
+*.pyc
+
 # Next.js generated types
 next-env.d.ts
 

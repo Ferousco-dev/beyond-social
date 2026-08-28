@@ -1,0 +1,86 @@
+name: Telegram Claude Task
+
+# Started by the Vercel Telegram backend via the GitHub REST API's
+# repository_dispatch endpoint (see services/telegram-agent). Independent of
+# every other workflow in this repo: nothing about the scheduled
+# loop-engineering process or CI is touched by this file, and this workflow
+# never runs on a schedule of its own, only on demand.
+on:
+  repository_dispatch:
+    types: [telegram_claude_task]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: telegram-claude-task-${{ github.event.client_payload.task_id }}
+  cancel-in-progress: false
+
+jobs:
+  run-claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      TASK_ID: ${{ github.event.client_payload.task_id }}
+      TELEGRAM_CHAT_ID: ${{ github.event.client_payload.telegram_chat_id }}
+      TELEGRAM_CALLBACK_URL: ${{ secrets.TELEGRAM_CALLBACK_URL }}
+      # Named CALLBACK_WEBHOOK_SECRET on GitHub's side: repo secret names
+      # can't start with "GITHUB_", that prefix is reserved. The value
+      # must match the GITHUB_WEBHOOK_SECRET env var on Vercel, which has
+      # no such restriction.
+      GITHUB_WEBHOOK_SECRET: ${{ secrets.CALLBACK_WEBHOOK_SECRET }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.client_payload.base_branch || github.ref }}
+
+      - name: Notify Telegram that the task started
+        continue-on-error: true
+        env:
+          TASK_TITLE: ${{ github.event.client_payload.prompt }}
+        run: .github/scripts/telegram-callback.sh in_progress
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ github.event.client_payload.prompt }}
+          branch_prefix: claude/telegram-
+          claude_args: >-
+            ${{ github.event.client_payload.resume_session_id != '' &&
+                format('--resume {0}', github.event.client_payload.resume_session_id) || '' }}
+
+      - name: Find the pull request Claude opened
+        id: pr
+        if: always() && steps.claude.outputs.branch_name != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(gh pr list --head "${{ steps.claude.outputs.branch_name }}" --json url --jq '.[0].url // ""')
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+
+      - name: Report success to Telegram
+        if: always() && steps.claude.outputs.conclusion == 'success'
+        env:
+          TASK_TITLE: ${{ github.event.client_payload.prompt }}
+          BRANCH: ${{ steps.claude.outputs.branch_name }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          SESSION_ID: ${{ steps.claude.outputs.session_id }}
+        run: .github/scripts/telegram-callback.sh success
+
+      - name: Report failure to Telegram
+        if: always() && steps.claude.outputs.conclusion != 'success'
+        env:
+          TASK_TITLE: ${{ github.event.client_payload.prompt }}
+          FAILURE_REASON: >-
+            Claude did not complete the task successfully. See the run for
+            details.
+          BRANCH: ${{ steps.claude.outputs.branch_name }}
+          SESSION_ID: ${{ steps.claude.outputs.session_id }}
+        run: .github/scripts/telegram-callback.sh failure
