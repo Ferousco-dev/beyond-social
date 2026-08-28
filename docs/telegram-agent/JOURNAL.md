@@ -44,6 +44,43 @@ was asked, what changed or was decided, and why if it's not obvious.
   `.github/workflows/` are rejected. That file still has the old, narrower
   wording until someone with repo write access applies it by hand; until
   then, treat this file's broadened rule as the source of truth.
+- **2026-08-28**: Asked (again, same day) to give the bot memory, make it
+  smarter, and scope a KV migration. The memory/smarter part was already
+  the previous entry's work (cross-task `JOURNAL.md` context, the
+  still-running reply fix); nothing further was specific enough to act on
+  without guessing at features, so no code changed there. Wrote
+  `docs/telegram-agent/kv-migration-scope.md`: what a store would hold
+  (task state, update-id idempotency), why it should be a Supabase table
+  rather than a new KV vendor (matches this repo's existing
+  PostgREST-over-HTTP pattern, no new dependency), and a phased rollout
+  that ships independently and falls back to the current footer-parsing
+  path at every step. No table was created and no env vars were added —
+  that needs an explicit go-ahead since it's new production
+  infrastructure, per the open questions at the end of that doc.
+- **2026-08-28**: A "Merge all prs then I test" run was reported as ❌
+  failed ("made no changes to the repository") even though Claude had
+  actually merged a PR and pushed a fix to another PR's branch. Root
+  cause: `telegram-claude-task.yml` treated an empty `branch_name`
+  output (claude-code-action only sets it when it creates its own
+  isolation branch) as proof nothing happened, when Claude can do real
+  work through Bash - merging an existing PR, pushing to another PR's
+  branch - without ever creating one. The actual error signal is
+  `permission_denials` on the result message in claude-code-action's
+  `execution_file`: added `.github/scripts/extract-permission-denials-count.sh`
+  to read it, and this task's branch has the count committed and
+  pushed. The matching `telegram-claude-task.yml` change (a "Count
+  permission denials" step, and narrowing the "no branch" failure step
+  to fire only when that count is nonzero - a clean run with zero
+  denials now reports success instead, even with no PR/branch to link)
+  is written but **not pushed**: same as the prior KV-migration-scope
+  entry, the GitHub App token this workflow runs under has no
+  `workflows` permission, so any push touching `.github/workflows/` is
+  rejected. Someone with repo write access needs to apply that diff by
+  hand from this branch (`git diff` against
+  `claude/telegram-no-branch-false-failure` for the workflow file, or
+  see this commit's PR description) before the new script has any
+  effect - until then the old, overly-broad failure heuristic is still
+  what runs.
 - **2026-08-28**: Asked why the bot doesn't answer when messaged in a
   Telegram group. No code change: the webhook has no group-specific
   logic at all (`app.py` authorizes purely on sender `user_id`, no
