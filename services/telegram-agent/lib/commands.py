@@ -34,7 +34,7 @@ def handle_status(config: Config, chat_id: int) -> None:
         state = run.get("status", "unknown")
         conclusion = run.get("conclusion")
         label = conclusion or state
-        lines.append(f"• `{label}` — {run.get('html_url', '')}")
+        lines.append(f"• `{label}` — {messages.escape(run.get('html_url', ''))}")
     send_message(config.telegram_bot_token, chat_id, "\n".join(lines))
 
 
