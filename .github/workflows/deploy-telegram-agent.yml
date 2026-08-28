@@ -1,0 +1,74 @@
+name: Deploy Telegram Agent
+
+# services/telegram-agent was only ever deployed by running the Vercel CLI
+# locally (see scripts/setup.sh) — it has no GitHub<->Vercel Git integration
+# of its own, unlike apps/web (see ci.yml). Without this, a merged change
+# to the bot's backend silently never reaches production.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "services/telegram-agent/**"
+      - ".github/workflows/deploy-telegram-agent.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-telegram-agent
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Same pattern as ci.yml: check in a step, not a job-level `if`,
+      # since secrets aren't available there. Keeps this workflow green
+      # before the Vercel credentials are configured instead of failing
+      # every run until they are.
+      - name: Check for Vercel credentials
+        id: creds
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.TELEGRAM_AGENT_VERCEL_PROJECT_ID }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::VERCEL_TOKEN or TELEGRAM_AGENT_VERCEL_PROJECT_ID not set, telegram-agent was not deployed."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # VERCEL_TOKEN and VERCEL_ORG_ID are shared with apps/web's deploy
+      # (same Vercel account/team); only the project ID differs.
+      # working-directory matters here: this project was linked by running
+      # `vercel deploy` from inside services/telegram-agent, not the repo
+      # root, so that's the tree Vercel expects to receive.
+      - name: Deploy
+        id: deploy
+        if: steps.creds.outputs.configured == 'true'
+        working-directory: services/telegram-agent
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.TELEGRAM_AGENT_VERCEL_PROJECT_ID }}
+        run: |
+          url=$(npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Production: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Smoke check production
+        if: steps.creds.outputs.configured == 'true'
+        env:
+          # The stable aliased domain, not steps.deploy.outputs.url: that's
+          # the per-deployment URL, which sits behind Vercel's deployment
+          # protection and answers a 401/SSO redirect even on a healthy
+          # deploy (same reasoning as ci.yml's production smoke check).
+          # This is also the domain registered as the Telegram webhook URL.
+          PRODUCTION_URL: https://telegram-agent-gamma.vercel.app
+        run: curl --fail --silent --show-error "${PRODUCTION_URL}/api/health"

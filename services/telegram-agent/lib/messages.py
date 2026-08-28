@@ -53,6 +53,8 @@ def completed(task_id: str, summary: dict) -> str:
         lines.append(f"Tests: {_escape(summary['tests'])}")
     if summary.get("build"):
         lines.append(f"Build: {_escape(summary['build'])}")
+    if summary.get("reply"):
+        lines.append(f"\nClaude said:\n{_escape(summary['reply'])}")
     lines.append("")
     lines.append(task_footer(task_id, summary.get("session_id"), summary.get("branch")))
     return "\n".join(lines)
@@ -66,8 +68,28 @@ def failed(task_id: str, summary: dict) -> str:
         lines.append(f"Reason: {_escape(summary['reason'])}")
     if summary.get("run_url"):
         lines.append(f"Run: {summary['run_url']}")
+    if summary.get("reply"):
+        lines.append(f"\nClaude said:\n{_escape(summary['reply'])}")
     lines.append("")
     lines.append(task_footer(task_id, summary.get("session_id"), summary.get("branch")))
+    return "\n".join(lines)
+
+
+def ci_status(success: bool, summary: dict) -> str:
+    """Renders a repo-wide CI/deploy notification, not tied to any Telegram
+    task — no task_footer, since there's no session to follow up on.
+    """
+    icon = "✅" if success else "❌"
+    name = summary.get("workflow_name") or "Workflow"
+    lines = [f"{icon} *{_escape(name)}*"]
+    if summary.get("branch"):
+        lines.append(f"Branch: `{summary['branch']}`")
+    if summary.get("commit_sha"):
+        lines.append(f"Commit: `{summary['commit_sha'][:7]}`")
+    if summary.get("actor"):
+        lines.append(f"Triggered by: {_escape(summary['actor'])}")
+    if summary.get("run_url"):
+        lines.append(f"Run: {summary['run_url']}")
     return "\n".join(lines)
 
 

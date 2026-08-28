@@ -1,0 +1,51 @@
+name: Telegram Repo Notifications
+
+# Reports every other workflow's completion to Telegram, independent of
+# telegram-claude-task.yml (which already reports on its own runs directly
+# and is deliberately left out of the `workflows:` list below to avoid a
+# duplicate message for the same run). This is what makes any CI run,
+# scheduled job, or deploy in this repo visible in Telegram even when it
+# wasn't triggered from the bot — a normal push, a teammate's PR, etc.
+#
+# workflow_run only fires for workflows whose definition exists on the
+# default branch, and only for workflows listed here by their `name:`
+# (not filename) — add new workflows to this list as they're created.
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Database
+      - Edge functions
+      - Security
+      - Deploy Telegram Agent
+    types: [completed]
+
+jobs:
+  notify:
+    # Only success/failure are worth a message; cancelled/skipped/neutral
+    # runs are noise (e.g. a superseded push under a cancel-in-progress
+    # concurrency group).
+    if: >-
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_CALLBACK_URL: ${{ secrets.TELEGRAM_CALLBACK_URL }}
+      GITHUB_WEBHOOK_SECRET: ${{ secrets.CALLBACK_WEBHOOK_SECRET }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+      WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
+      ACTOR: ${{ github.event.workflow_run.actor.login }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Report to Telegram
+        run: |
+          status="ci_failure"
+          if [ "${{ github.event.workflow_run.conclusion }}" = "success" ]; then
+            status="ci_success"
+          fi
+          .github/scripts/telegram-callback.sh "$status"
