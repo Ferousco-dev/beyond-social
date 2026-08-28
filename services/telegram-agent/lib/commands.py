@@ -53,6 +53,15 @@ def handle_cancel(config: Config, chat_id: int) -> None:
 
 def handle_task_message(config: Config, chat_id: int, text: str, replied_text: str | None) -> None:
     parent = tasks.parse_task_reference(replied_text)
+    if parent and not parent["session_id"]:
+        # The reply targets a task's "in progress" message: recognizable
+        # (it now carries a footer too) but not resumable, since a session
+        # id only exists once claude-code-action finishes. Dispatching here
+        # would silently start an unrelated run instead of the follow-up
+        # the user asked for.
+        send_message(config.telegram_bot_token, chat_id, messages.STILL_RUNNING)
+        return
+
     task_id = tasks.generate_task_id()
 
     dispatched = github_client.dispatch_task(

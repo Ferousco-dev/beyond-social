@@ -135,7 +135,7 @@ def _render_callback(task_id: str | None, status: str, payload: dict) -> str:
     if status == "pr_event":
         return messages.pr_event(payload)
     if status == "in_progress":
-        return messages.IN_PROGRESS
+        return messages.in_progress(task_id)
     if status == "success":
         return messages.completed(task_id, payload)
     return messages.failed(task_id, payload)

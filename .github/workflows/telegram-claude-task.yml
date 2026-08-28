@@ -66,11 +66,16 @@ jobs:
             ---
             This task was sent through the Telegram engineering bot. If
             docs/telegram-agent/JOURNAL.md exists, skim its last few entries
-            first for context from recent related tasks. If this task ends
-            up changing the repository, append one short entry there (as
-            part of the same commit): today's date, and one to three lines
-            on what was asked and what changed. Skip this for a task that
-            doesn't change anything, such as a question.
+            first for context from recent related tasks. Append one short
+            entry there: today's date, and one to three lines on what was
+            asked and what changed or was decided. Add an entry if this
+            task changed anything else in the repository, or if it settled
+            something a future task would need to know (a clarified
+            requirement, a decision, a constraint ruled out) — you have no
+            access to the Telegram chat itself, only this file, so that's
+            the only way that context survives. Skip it for a purely
+            informational exchange with no lasting decision (a one-off
+            question with nothing to remember).
           branch_prefix: claude/telegram-
           # Without this, Claude's actual turn-by-turn output and final
           # message are hidden from the log ("full output hidden for

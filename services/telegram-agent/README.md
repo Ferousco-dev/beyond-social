@@ -38,7 +38,11 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   `message.reply_to_message.text`, re-dispatches with `resume_session_id`
   (so `claude-code-action` resumes the same session via `--resume`) and
   `base_branch` (so the workflow checks out the existing branch instead of
-  the default branch). No database, fully stateless.
+  the default branch). No database, fully stateless. The "Claude is
+  working…" message carries a footer too (task id only — no session yet),
+  so a reply to *that* is recognized rather than silently starting an
+  unrelated task; since there's nothing to resume until the run finishes,
+  the bot tells you to wait and reply to the result instead.
 - **`/status` and `/cancel`**: query the GitHub Actions API live for the
   telegram-claude-task workflow's recent runs, rather than tracking
   anything locally.
@@ -54,9 +58,12 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   database, `docs/telegram-agent/JOURNAL.md` plays the same role
   `docs/loop-engineering/BACKLOG.md` already plays for the scheduled
   loop-engineering sessions — Claude reads its recent entries for context
-  and appends one when a task actually changes the repo. Free, versioned,
-  human-readable, and consistent with how this repo already solves this
-  exact problem elsewhere.
+  and appends one when a task changes the repo, or when a task settles a
+  decision or constraint a future task would need — a fresh session has no
+  access to the Telegram chat itself, only this file, so that's the only
+  way that context carries forward. Free, versioned, human-readable, and
+  consistent with how this repo already solves this exact problem
+  elsewhere.
 
 ## Project layout
 
