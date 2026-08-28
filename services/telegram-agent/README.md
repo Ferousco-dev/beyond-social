@@ -108,11 +108,17 @@ variables** (Settings → Environment Variables), not GitHub secrets:
 
 These are separate from the Vercel env vars above:
 
-| Secret                    | Purpose                                                                                                                                        |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Output of `claude setup-token` (Claude Pro/Max)                                                                                                |
-| `TELEGRAM_CALLBACK_URL`   | `https://<your-vercel-domain>/api/github/callback`                                                                                             |
-| `CALLBACK_WEBHOOK_SECRET` | Same value as the `GITHUB_WEBHOOK_SECRET` Vercel env var above (renamed here only because GitHub rejects secret names starting with `GITHUB_`) |
+| Secret                             | Purpose                                                                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CODE_OAUTH_TOKEN`          | Output of `claude setup-token` (Claude Pro/Max)                                                                                                |
+| `TELEGRAM_CALLBACK_URL`            | `https://<your-vercel-domain>/api/github/callback`                                                                                             |
+| `CALLBACK_WEBHOOK_SECRET`          | Same value as the `GITHUB_WEBHOOK_SECRET` Vercel env var above (renamed here only because GitHub rejects secret names starting with `GITHUB_`) |
+| `TELEGRAM_AGENT_VERCEL_PROJECT_ID` | This project's ID from `services/telegram-agent/.vercel/project.json` after your first local deploy. Needed for `deploy-telegram-agent.yml`.   |
+| `TELEGRAM_OWNER_CHAT_ID`           | Your numeric Telegram user ID. Needed for `telegram-notify.yml` (there's no per-task chat to echo back to for repo-wide notifications).        |
+
+`VERCEL_TOKEN` and `VERCEL_ORG_ID` are **not** duplicated here — they
+already exist as repo secrets for `apps/web`'s deploy (same Vercel
+account/team) and `deploy-telegram-agent.yml` reuses them.
 
 ## Deploy
 
@@ -162,6 +168,28 @@ Verify it took:
 ```sh
 curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
 ```
+
+## Automation beyond the bot
+
+Three things happen outside the direct Telegram request/response cycle:
+
+- **Claude's real reply, not just a status line.** After a Telegram-triggered
+  task finishes, `telegram-claude-task.yml` runs
+  `.github/scripts/extract-claude-reply.sh` against `claude-code-action`'s
+  `execution_file` output and includes Claude's actual final message (best
+  effort — that file's format isn't documented upstream) as a "Claude said:"
+  line in the success/failure message.
+- **`services/telegram-agent` auto-deploys.** `deploy-telegram-agent.yml`
+  runs `vercel deploy --prod` on every push to `main` that touches this
+  directory, so a merged fix reaches production without you re-running
+  `setup.sh` by hand.
+- **Repo-wide CI/deploy notifications.** `telegram-notify.yml` watches every
+  other workflow in this repo (CI, Database, Edge functions, Security,
+  Deploy Telegram Agent) and posts a pass/fail message to your chat for any
+  run, not just ones you triggered from Telegram — a plain push, a
+  teammate's PR, a scheduled job. It reuses the same signed callback
+  endpoint with a `ci_success`/`ci_failure` status that has no task to
+  correlate to, so it skips the task footer entirely.
 
 ## Running the tests
 

@@ -86,6 +86,21 @@ jobs:
           url=$(gh pr list --head "${{ steps.claude.outputs.branch_name }}" --json url --jq '.[0].url // ""')
           echo "url=${url}" >> "$GITHUB_OUTPUT"
 
+      # Best-effort: lets the actual Telegram message quote what Claude said
+      # instead of only a canned status line. See the script for why this
+      # is defensive rather than a strict parse.
+      - name: Extract Claude's reply text
+        id: reply
+        if: always() && steps.claude.outputs.execution_file != ''
+        run: |
+          delimiter="EOF_$(openssl rand -hex 8)"
+          {
+            echo "text<<${delimiter}"
+            .github/scripts/extract-claude-reply.sh "${{ steps.claude.outputs.execution_file }}"
+            echo
+            echo "${delimiter}"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Report success to Telegram
         if: always() && steps.claude.outputs.conclusion == 'success' && steps.claude.outputs.branch_name != ''
         env:
@@ -93,6 +108,7 @@ jobs:
           BRANCH: ${{ steps.claude.outputs.branch_name }}
           PR_URL: ${{ steps.pr.outputs.url }}
           SESSION_ID: ${{ steps.claude.outputs.session_id }}
+          REPLY: ${{ steps.reply.outputs.text }}
         run: .github/scripts/telegram-callback.sh success
 
       # A "success" conclusion only means claude-code-action's own run
@@ -110,6 +126,7 @@ jobs:
             This usually means the task didn't need one, or an edit was
             blocked. Check the run for the real reason.
           SESSION_ID: ${{ steps.claude.outputs.session_id }}
+          REPLY: ${{ steps.reply.outputs.text }}
         run: .github/scripts/telegram-callback.sh failure
 
       - name: Report failure to Telegram
@@ -121,4 +138,5 @@ jobs:
             details.
           BRANCH: ${{ steps.claude.outputs.branch_name }}
           SESSION_ID: ${{ steps.claude.outputs.session_id }}
+          REPLY: ${{ steps.reply.outputs.text }}
         run: .github/scripts/telegram-callback.sh failure

@@ -114,9 +114,14 @@ def github_callback() -> Response:
     task_id = payload.get("task_id")
     status = payload.get("status")
     chat_id = payload.get("telegram_chat_id")
-    valid_statuses = {"in_progress", "success", "failure"}
+    task_statuses = {"in_progress", "success", "failure"}
+    ci_statuses = {"ci_success", "ci_failure"}
 
-    if not task_id or status not in valid_statuses or not isinstance(chat_id, int):
+    if (
+        status not in task_statuses | ci_statuses
+        or (status in task_statuses and not task_id)
+        or not isinstance(chat_id, int)
+    ):
         return _json_response({"ok": False, "error": "missing or invalid required fields"}, 400)
 
     text = _render_callback(task_id, status, payload)
@@ -124,7 +129,9 @@ def github_callback() -> Response:
     return _json_response({"ok": True}, 200)
 
 
-def _render_callback(task_id: str, status: str, payload: dict) -> str:
+def _render_callback(task_id: str | None, status: str, payload: dict) -> str:
+    if status in ("ci_success", "ci_failure"):
+        return messages.ci_status(status == "ci_success", payload)
     if status == "in_progress":
         return messages.IN_PROGRESS
     if status == "success":
