@@ -44,3 +44,16 @@ was asked, what changed or was decided, and why if it's not obvious.
   `.github/workflows/` are rejected. That file still has the old, narrower
   wording until someone with repo write access applies it by hand; until
   then, treat this file's broadened rule as the source of truth.
+- **2026-08-28**: Asked to start the Supabase table for the bot's memory.
+  Added `supabase/migrations/0076_bot_memory.sql`: a `bot_memory` table
+  (`task_id`, `summary`, `created_at`), RLS enabled with no policies
+  (service-role only, same as `mail_deliveries`), and an append-only trigger
+  like `admin_audit_log`'s so no row can be edited or deleted once written.
+  Verified against a local stack: the migration applies, the check
+  constraints and immutability trigger reject bad input, and
+  `authenticated`/`anon` cannot read it. This is only the table; nothing in
+  `services/telegram-agent` writes to or reads from it yet, and JOURNAL.md
+  remains the source of truth for cross-task memory until a future task
+  wires the bot up to it (new Supabase env vars in Vercel, a Supabase
+  client in `lib/`, and a decision on whether it replaces or supplements
+  this file).
