@@ -44,3 +44,12 @@ was asked, what changed or was decided, and why if it's not obvious.
   `.github/workflows/` are rejected. That file still has the old, narrower
   wording until someone with repo write access applies it by hand; until
   then, treat this file's broadened rule as the source of truth.
+- **2026-08-28**: Asked why the bot doesn't answer when messaged in a
+  Telegram group. No code change: the webhook has no group-specific
+  logic at all (`app.py` authorizes purely on sender `user_id`, no
+  `chat.type` check anywhere), so this isn't fixable here. Almost
+  certainly Telegram's bot privacy mode, which by default only forwards
+  commands/replies/@mentions to a bot in groups, not plain text — this
+  bot's whole interaction model is plain-text task instructions. Fix is
+  on Telegram's side: disable privacy mode via @BotFather
+  (`/setprivacy` → Disable) and re-add the bot to the group.
