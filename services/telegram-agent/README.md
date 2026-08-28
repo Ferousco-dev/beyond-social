@@ -54,10 +54,7 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
 
 ```
 services/telegram-agent/
-  api/
-    health.py              GET  /api/health
-    telegram/webhook.py    POST /api/telegram/webhook
-    github/callback.py     POST /api/github/callback
+  app.py                         Flask entrypoint: all three routes
   lib/
     config.py               env var loading/validation
     security.py              allowlist + signature checks
@@ -66,16 +63,30 @@ services/telegram-agent/
     commands.py               /start /help /status /cancel + task dispatch
     telegram_client.py        Telegram Bot API
     github_client.py          repository_dispatch, list/cancel runs
-    http_utils.py              BaseHTTPRequestHandler read/write helpers
   tests/                       unit tests (no network, no credentials needed)
   requirements.txt
   vercel.json
   .env.example
 ```
 
-Each `api/*.py` file uses Vercel's file-based Python routing: a
-`BaseHTTPRequestHandler` subclass named `handler`, one function per HTTP
-method. `api/telegram/webhook.py` maps to `/api/telegram/webhook`.
+### Why one entrypoint
+
+This started as three separate `api/*.py` files (Vercel's older
+file-based Python routing, one `BaseHTTPRequestHandler` per route). The
+Vercel CLI rejected that at deploy time:
+
+```
+Error: No python entrypoint found in default locations, but found
+potential entrypoints: api/github/callback.py, api/health.py,
+api/telegram/webhook.py
+```
+
+The Python Runtime's currently-enforced contract is a single `app`
+(ASGI/WSGI) object at the project root, so this is now one Flask app
+with three internal routes (`GET /api/health`, `POST
+/api/telegram/webhook`, `POST /api/github/callback`) instead. All the
+actual logic still lives in `lib/`, untouched by this — only the
+request/response glue moved.
 
 ## Environment variables
 
