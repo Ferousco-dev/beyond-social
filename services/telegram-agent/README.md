@@ -93,26 +93,26 @@ request/response glue moved.
 See `.env.example`. All of these are **Vercel project environment
 variables** (Settings → Environment Variables), not GitHub secrets:
 
-| Variable                    | Purpose                                                                                                  |
-| --------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`        | From [@BotFather](https://t.me/BotFather)                                                                |
-| `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated numeric Telegram user IDs. Get yours from [@userinfobot](https://t.me/userinfobot)       |
-| `TELEGRAM_WEBHOOK_SECRET`   | Any random string you generate (`openssl rand -hex 32`); registered with Telegram as `secret_token`      |
-| `GITHUB_TOKEN`              | A token (fine-grained PAT recommended) with Contents, Pull requests, and Actions read/write on this repo |
-| `GITHUB_OWNER`              | `ferousco-dev`                                                                                           |
-| `GITHUB_REPOSITORY`         | `beyond-social`                                                                                          |
-| `GITHUB_WORKFLOW_FILE`      | `telegram-claude-task.yml` (default)                                                                     |
-| `GITHUB_WEBHOOK_SECRET`     | Random string (`openssl rand -hex 32`); **must match** the GitHub Actions secret of the same name below  |
+| Variable                    | Purpose                                                                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`        | From [@BotFather](https://t.me/BotFather)                                                                                                                                                                        |
+| `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated numeric Telegram user IDs. Get yours from [@userinfobot](https://t.me/userinfobot)                                                                                                               |
+| `TELEGRAM_WEBHOOK_SECRET`   | Any random string you generate (`openssl rand -hex 32`); registered with Telegram as `secret_token`                                                                                                              |
+| `GITHUB_TOKEN`              | A token (fine-grained PAT recommended) with Contents, Pull requests, and Actions read/write on this repo                                                                                                         |
+| `GITHUB_OWNER`              | `ferousco-dev`                                                                                                                                                                                                   |
+| `GITHUB_REPOSITORY`         | `beyond-social`                                                                                                                                                                                                  |
+| `GITHUB_WORKFLOW_FILE`      | `telegram-claude-task.yml` (default)                                                                                                                                                                             |
+| `GITHUB_WEBHOOK_SECRET`     | Random string (`openssl rand -hex 32`); **must match** the value of the `CALLBACK_WEBHOOK_SECRET` GitHub Actions secret below (different name, same value — GitHub won't let a repo secret start with `GITHUB_`) |
 
 ### GitHub Actions secrets (repo Settings → Secrets and variables → Actions)
 
 These are separate from the Vercel env vars above:
 
-| Secret                    | Purpose                                            |
-| ------------------------- | -------------------------------------------------- |
-| `CLAUDE_CODE_OAUTH_TOKEN` | Output of `claude setup-token` (Claude Pro/Max)    |
-| `TELEGRAM_CALLBACK_URL`   | `https://<your-vercel-domain>/api/github/callback` |
-| `GITHUB_WEBHOOK_SECRET`   | Same value as the Vercel env var above             |
+| Secret                    | Purpose                                                                                                                                        |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Output of `claude setup-token` (Claude Pro/Max)                                                                                                |
+| `TELEGRAM_CALLBACK_URL`   | `https://<your-vercel-domain>/api/github/callback`                                                                                             |
+| `CALLBACK_WEBHOOK_SECRET` | Same value as the `GITHUB_WEBHOOK_SECRET` Vercel env var above (renamed here only because GitHub rejects secret names starting with `GITHUB_`) |
 
 ## Deploy
 

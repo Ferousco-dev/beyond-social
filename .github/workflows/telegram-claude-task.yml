@@ -26,7 +26,11 @@ jobs:
       TASK_ID: ${{ github.event.client_payload.task_id }}
       TELEGRAM_CHAT_ID: ${{ github.event.client_payload.telegram_chat_id }}
       TELEGRAM_CALLBACK_URL: ${{ secrets.TELEGRAM_CALLBACK_URL }}
-      GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}
+      # Named CALLBACK_WEBHOOK_SECRET on GitHub's side: repo secret names
+      # can't start with "GITHUB_", that prefix is reserved. The value
+      # must match the GITHUB_WEBHOOK_SECRET env var on Vercel, which has
+      # no such restriction.
+      GITHUB_WEBHOOK_SECRET: ${{ secrets.CALLBACK_WEBHOOK_SECRET }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout

@@ -105,9 +105,11 @@ Done on the Vercel side. Two things left, both in GitHub:
 
 repo -> Settings -> Secrets and variables -> Actions -> New repository secret
 
-  CLAUDE_CODE_OAUTH_TOKEN = <output of 'claude setup-token'>
-  TELEGRAM_CALLBACK_URL   = ${PROD_URL}/api/github/callback
-  GITHUB_WEBHOOK_SECRET   = <the same value you just entered above>
+  CLAUDE_CODE_OAUTH_TOKEN  = <output of 'claude setup-token'>
+  TELEGRAM_CALLBACK_URL    = ${PROD_URL}/api/github/callback
+  CALLBACK_WEBHOOK_SECRET  = <the GITHUB_WEBHOOK_SECRET value you just entered above>
+                             (named differently here only because GitHub
+                             rejects secret names starting with GITHUB_)
 
 Then message your bot on Telegram and try a real task.
 =================================================================
