@@ -40,7 +40,7 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   `base_branch` (so the workflow checks out the existing branch instead of
   the default branch). No database, fully stateless. The "Claude is
   working…" message carries a footer too (task id only — no session yet),
-  so a reply to *that* is recognized rather than silently starting an
+  so a reply to _that_ is recognized rather than silently starting an
   unrelated task; since there's nothing to resume until the run finishes,
   the bot tells you to wait and reply to the result instead.
 - **`/status` and `/cancel`**: query the GitHub Actions API live for the

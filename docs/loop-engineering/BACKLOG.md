@@ -15,7 +15,7 @@ merged that day, `docs/marathon/SCOPE.md` has the full record).
   `services/telegram-agent/` (a new service, PRs #146-155, not yet swept by
   this system). `lib/tasks.py`'s `_TASK_ID_RE` and `_SESSION_RE` restrict
   `task_id`/`session_id` to a narrow charset (`[0-9a-f]`, `[A-Za-z0-9_-]`),
-  but `_BRANCH_RE = re.compile(r"branch:([^\s\`]+)")` admits almost any
+  but ``_BRANCH_RE = re.compile(r"branch:([^\s`]+)")`` admits almost any
   non-whitespace, non-backtick text. `parse_task_reference()` reads this
   from the text of any prior message in the chat a user replies to (not
   necessarily a bot-generated one), and it flows unsanitized as
