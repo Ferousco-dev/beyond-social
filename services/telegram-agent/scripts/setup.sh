@@ -48,9 +48,18 @@ GITHUB_OWNER="ferousco-dev"
 GITHUB_REPOSITORY="beyond-social"
 GITHUB_WORKFLOW_FILE="telegram-claude-task.yml"
 
+extract_url() {
+  # The CLI's last printed line is a status message ("Ready in Ns"), not
+  # a URL, so grab the actual deployment URLs out of the log instead. The
+  # aliased/stable domain (if this project already has one) is printed
+  # after the per-deployment URL, so the last match is the one worth
+  # keeping — it doesn't change on every future deploy.
+  grep -oE 'https://[a-zA-Z0-9.-]+\.vercel\.app' "$1" | tail -1
+}
+
 echo "=== Step 1/4: linking + first deploy (creates the Vercel project) ==="
 vercel deploy --yes 2>&1 | tee /tmp/telegram-agent-deploy1.log
-FIRST_URL=$(tail -1 /tmp/telegram-agent-deploy1.log)
+FIRST_URL=$(extract_url /tmp/telegram-agent-deploy1.log)
 echo "First deploy: ${FIRST_URL}"
 
 echo
@@ -72,7 +81,13 @@ add_env GITHUB_WEBHOOK_SECRET "$GITHUB_WEBHOOK_SECRET"
 echo
 echo "=== Step 3/4: redeploying to production (env vars apply from here) ==="
 vercel deploy --prod --yes 2>&1 | tee /tmp/telegram-agent-deploy2.log
-PROD_URL=$(tail -1 /tmp/telegram-agent-deploy2.log)
+PROD_URL=$(extract_url /tmp/telegram-agent-deploy2.log)
+if [[ -z "$PROD_URL" ]]; then
+  echo "Could not find the deployed URL in Vercel's output above."
+  echo "Copy the 'Production' or 'Aliased' URL from it and re-run from here:"
+  echo "  curl -X POST \"https://api.telegram.org/bot\$TELEGRAM_BOT_TOKEN/setWebhook\" -d '{\"url\": \"<URL>/api/telegram/webhook\", \"secret_token\": \"\$TELEGRAM_WEBHOOK_SECRET\"}'"
+  exit 1
+fi
 echo "Production URL: ${PROD_URL}"
 
 echo
