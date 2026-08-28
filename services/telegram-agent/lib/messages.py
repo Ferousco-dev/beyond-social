@@ -93,6 +93,41 @@ def ci_status(success: bool, summary: dict) -> str:
     return "\n".join(lines)
 
 
+_REVIEW_ICONS = {"approved": "✅", "changes_requested": "🔴", "commented": "💬"}
+_REVIEW_VERBS = {"approved": "approved", "changes_requested": "requested changes on", "commented": "commented on"}
+
+
+def pr_event(payload: dict) -> str:
+    """Renders a PR merge/close/review notification. Independent of any
+    Telegram task, same as ci_status() — no task_footer, since there's no
+    session to follow up on and the PR may not have come from the bot.
+    """
+    kind = payload.get("pr_event_kind")
+    if kind == "merged":
+        lines = ["🟣 *PR merged*"]
+    elif kind == "closed":
+        lines = ["⚪ *PR closed without merging*"]
+    elif kind == "review":
+        state = (payload.get("review_state") or "").lower()
+        icon = _REVIEW_ICONS.get(state, "💬")
+        verb = _REVIEW_VERBS.get(state, "reviewed")
+        reviewer = escape(payload.get("reviewer") or "Someone")
+        lines = [f"{icon} *{reviewer} {verb} a PR*"]
+    else:
+        lines = ["📬 *PR update*"]
+
+    if payload.get("pr_title"):
+        lines.append(f"Title: {escape(payload['pr_title'])}")
+    if payload.get("pr_author"):
+        lines.append(f"Author: {escape(payload['pr_author'])}")
+    review_body = (payload.get("review_body") or "").strip()[:3000]
+    if kind == "review" and review_body:
+        lines.append(f"\n{escape(review_body)}")
+    if payload.get("pr_url"):
+        lines.append(f"PR: {escape(payload['pr_url'])}")
+    return "\n".join(lines)
+
+
 def escape(text: str) -> str:
     """Escapes Telegram MarkdownV2 special characters in user-derived text,
     including URLs — a bare '.' or '-' in an unescaped URL is enough to make

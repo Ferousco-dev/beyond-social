@@ -115,10 +115,10 @@ def github_callback() -> Response:
     status = payload.get("status")
     chat_id = payload.get("telegram_chat_id")
     task_statuses = {"in_progress", "success", "failure"}
-    ci_statuses = {"ci_success", "ci_failure"}
+    untracked_statuses = {"ci_success", "ci_failure", "pr_event"}
 
     if (
-        status not in task_statuses | ci_statuses
+        status not in task_statuses | untracked_statuses
         or (status in task_statuses and not task_id)
         or not isinstance(chat_id, int)
     ):
@@ -132,6 +132,8 @@ def github_callback() -> Response:
 def _render_callback(task_id: str | None, status: str, payload: dict) -> str:
     if status in ("ci_success", "ci_failure"):
         return messages.ci_status(status == "ci_success", payload)
+    if status == "pr_event":
+        return messages.pr_event(payload)
     if status == "in_progress":
         return messages.IN_PROGRESS
     if status == "success":

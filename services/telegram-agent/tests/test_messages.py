@@ -1,6 +1,6 @@
 import unittest
 
-from lib.messages import ci_status, completed, escape, failed
+from lib.messages import ci_status, completed, escape, failed, pr_event
 
 REAL_RUN_URL = "https://github.com/Ferousco-dev/beyond-social/actions/runs/33133979478"
 
@@ -65,6 +65,38 @@ class TestCiStatus(unittest.TestCase):
     def test_defaults_workflow_name(self):
         text = ci_status(True, {})
         self.assertIn("Workflow", text)
+
+
+class TestPrEvent(unittest.TestCase):
+    def test_merged(self):
+        text = pr_event({"pr_event_kind": "merged", "pr_title": "Fix bug", "pr_url": REAL_RUN_URL})
+        self.assertTrue(text.startswith("🟣"))
+        self.assertIn("github\\.com", text)
+
+    def test_closed_without_merging(self):
+        text = pr_event({"pr_event_kind": "closed"})
+        self.assertIn("without merging", text)
+
+    def test_review_approved(self):
+        text = pr_event({"pr_event_kind": "review", "review_state": "approved", "reviewer": "octocat"})
+        self.assertTrue(text.startswith("✅"))
+        self.assertIn("octocat approved a PR", text)
+
+    def test_review_changes_requested_includes_body(self):
+        text = pr_event(
+            {
+                "pr_event_kind": "review",
+                "review_state": "changes_requested",
+                "reviewer": "octocat",
+                "review_body": "Please add a test.",
+            }
+        )
+        self.assertTrue(text.startswith("🔴"))
+        self.assertIn("Please add a test\\.", text)
+
+    def test_unknown_kind_falls_back(self):
+        text = pr_event({})
+        self.assertIn("PR update", text)
 
 
 if __name__ == "__main__":

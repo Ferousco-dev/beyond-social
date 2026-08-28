@@ -1,0 +1,47 @@
+name: Telegram PR Notifications
+
+# Reports what CI/deploy notifications can't see: a PR getting merged or
+# closed, and a human review landing on one. telegram-notify.yml only ever
+# reports workflow pass/fail, so a reviewer leaving feedback (with no CI
+# re-run attached) was previously silent. Deliberately skips "opened" -
+# a bot-created PR is already announced by telegram-claude-task.yml's own
+# completion message, and a second message for the same PR would just be
+# noise.
+on:
+  pull_request:
+    types: [closed]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    env:
+      TELEGRAM_CALLBACK_URL: ${{ secrets.TELEGRAM_CALLBACK_URL }}
+      GITHUB_WEBHOOK_SECRET: ${{ secrets.CALLBACK_WEBHOOK_SECRET }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_OWNER_CHAT_ID }}
+      PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+      REVIEWER: ${{ github.event.review.user.login }}
+      REVIEW_STATE: ${{ github.event.review.state }}
+      REVIEW_BODY: ${{ github.event.review.body }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine event kind
+        id: kind
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request_review" ]; then
+            echo "kind=review" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+            echo "kind=merged" >> "$GITHUB_OUTPUT"
+          else
+            echo "kind=closed" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report to Telegram
+        env:
+          PR_EVENT_KIND: ${{ steps.kind.outputs.kind }}
+        run: .github/scripts/telegram-callback.sh pr_event

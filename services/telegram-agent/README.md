@@ -49,6 +49,14 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   `repository_dispatch`. Acceptable for V1 given how rare that is; a real
   fix (an idempotency key keyed on Telegram's own `update_id`) needs a KV
   store — see "Evolving past V1" below.
+- **Memory across separate tasks**: each task runs in a brand new Claude
+  Code session with no awareness of any earlier one. Rather than a
+  database, `docs/telegram-agent/JOURNAL.md` plays the same role
+  `docs/loop-engineering/BACKLOG.md` already plays for the scheduled
+  loop-engineering sessions — Claude reads its recent entries for context
+  and appends one when a task actually changes the repo. Free, versioned,
+  human-readable, and consistent with how this repo already solves this
+  exact problem elsewhere.
 
 ## Project layout
 
@@ -190,6 +198,12 @@ Three things happen outside the direct Telegram request/response cycle:
   teammate's PR, a scheduled job. It reuses the same signed callback
   endpoint with a `ci_success`/`ci_failure` status that has no task to
   correlate to, so it skips the task footer entirely.
+- **PR merges, closes, and reviews.** `telegram-pr-events.yml` reports a PR
+  getting merged or closed, and a human review landing on one — the one
+  class of activity CI notifications can't see, since a reviewer leaving
+  feedback doesn't necessarily trigger a CI run. Deliberately skips "PR
+  opened": a Claude-authored PR is already announced by
+  `telegram-claude-task.yml`'s own completion message.
 
 ## Running the tests
 
