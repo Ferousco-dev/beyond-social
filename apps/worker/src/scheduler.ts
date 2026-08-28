@@ -28,29 +28,52 @@ export function startScheduler(queue: PublishQueue): () => void {
     }
     const posts = (data ?? []) as DuePost[];
     for (const post of posts) {
-      await queue.add(
-        "publish",
-        {
+      try {
+        await queue.add(
+          "publish",
+          {
+            scheduledPostId: post.id,
+            userId: post.user_id,
+            platform: post.platform,
+            caption: post.caption,
+            hashtags: post.hashtags,
+            generationId: post.generation_id,
+          },
+          // A hyphen, not a colon: BullMQ namespaces its own Redis keys with
+          // colons and rejects a custom id containing one. This threw on the
+          // first due post, and only ever on the first due post, so it survived
+          // until something was actually scheduled.
+          //
+          // The post's own id is the job id, so the same post can never be in the
+          // queue twice. Two schedulers scanning at once, or one scan retried
+          // after a partial failure, both produce the same id and BullMQ keeps
+          // one. Without this the claim in the database is the only thing standing
+          // between a retry and a duplicate post; with it, the duplicate never
+          // reaches the queue.
+          { jobId: `post-${post.id}` },
+        );
+      } catch (error) {
+        // The claim above already moved this row out of `scheduled`, so a
+        // failed `queue.add` (a Redis blip, a shutdown mid-scan) strands it:
+        // no future scan will ever select it again, and nothing is processing
+        // it either. Reverting the claim is what makes the retry the comment
+        // above describes actually happen, instead of only being true in
+        // theory.
+        logger.error("failed to enqueue a claimed post, reverting for a later scan", {
           scheduledPostId: post.id,
-          userId: post.user_id,
-          platform: post.platform,
-          caption: post.caption,
-          hashtags: post.hashtags,
-          generationId: post.generation_id,
-        },
-        // A hyphen, not a colon: BullMQ namespaces its own Redis keys with
-        // colons and rejects a custom id containing one. This threw on the
-        // first due post, and only ever on the first due post, so it survived
-        // until something was actually scheduled.
-        //
-        // The post's own id is the job id, so the same post can never be in the
-        // queue twice. Two schedulers scanning at once, or one scan retried
-        // after a partial failure, both produce the same id and BullMQ keeps
-        // one. Without this the claim in the database is the only thing standing
-        // between a retry and a duplicate post; with it, the duplicate never
-        // reaches the queue.
-        { jobId: `post-${post.id}` },
-      );
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const { error: revertError } = await supabase
+          .from("scheduled_posts")
+          .update({ status: "scheduled" })
+          .eq("id", post.id);
+        if (revertError) {
+          logger.error("could not revert a stranded scheduled post back to scheduled", {
+            scheduledPostId: post.id,
+            error: revertError.message,
+          });
+        }
+      }
     }
     if (posts.length > 0) logger.info("enqueued due posts", { count: posts.length });
   };
@@ -98,16 +121,36 @@ export function startRenderScheduler(queue: RenderQueue): () => void {
 
     const renders = (data ?? []) as QueuedRender[];
     for (const render of renders) {
-      await queue.add(
-        "render",
-        {
+      try {
+        await queue.add(
+          "render",
+          {
+            renderId: render.id,
+            userId: render.user_id,
+            clipPaths: render.clip_paths,
+            spec: render.spec,
+          },
+          { jobId: `render-${render.id}` },
+        );
+      } catch (error) {
+        // Same reasoning as the publish scan above: the claim already moved
+        // this row out of `queued`, so a failed enqueue strands it for good
+        // unless the claim is reverted here.
+        logger.error("failed to enqueue a claimed render, reverting for a later scan", {
           renderId: render.id,
-          userId: render.user_id,
-          clipPaths: render.clip_paths,
-          spec: render.spec,
-        },
-        { jobId: `render-${render.id}` },
-      );
+          error: error instanceof Error ? error.message : String(error),
+        });
+        const { error: revertError } = await supabase
+          .from("project_renders")
+          .update({ status: "queued" })
+          .eq("id", render.id);
+        if (revertError) {
+          logger.error("could not revert a stranded render back to queued", {
+            renderId: render.id,
+            error: revertError.message,
+          });
+        }
+      }
     }
     if (renders.length > 0) logger.info("enqueued renders", { count: renders.length });
   };
