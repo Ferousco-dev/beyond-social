@@ -8,6 +8,24 @@ export const mailPayloadSchema = z.record(z.union([z.string(), z.number(), z.boo
 
 export type MailPayload = z.infer<typeof mailPayloadSchema>;
 
+/**
+ * Validates a delivery's stored payload, or throws a permanent error.
+ *
+ * A payload shaped wrong (a nested object, an array) is the same class of
+ * problem `interpolate` below throws `PermanentSendError` for: the retry that
+ * would fix a transient fault cannot fix a payload that was wrong when it was
+ * written.
+ */
+export function parsePayload(payload: unknown): MailPayload {
+  const result = mailPayloadSchema.safeParse(payload ?? {});
+  if (!result.success) {
+    throw new PermanentSendError(
+      `The payload does not match the expected shape: ${result.error.message}`,
+    );
+  }
+  return result.data;
+}
+
 const templateRowSchema = z.object({
   key: z.string(),
   subject: z.string(),

@@ -4,7 +4,7 @@ import { createProvider, PermanentSendError, SendBlockedError } from "../lib/pro
 import { createRedis } from "../lib/redis";
 import { createServiceClient } from "../lib/supabase";
 import { logger } from "../lib/logger";
-import { mailPayloadSchema, renderTemplate } from "../lib/template";
+import { parsePayload, renderTemplate } from "../lib/template";
 import { MAIL_QUEUE, type MailJobData } from "../queues/mail";
 
 /**
@@ -55,11 +55,10 @@ export function startMailWorker(): Worker<MailJobData> {
         return;
       }
 
-      const payload = mailPayloadSchema.parse(delivery.payload ?? {});
-      const rendered = await renderTemplate(delivery.template_key, payload);
-
       let providerMessageId: string;
       try {
+        const payload = parsePayload(delivery.payload);
+        const rendered = await renderTemplate(delivery.template_key, payload);
         ({ providerMessageId } = await provider.send({
           to: delivery.to_email,
           subject: rendered.subject,
