@@ -105,16 +105,37 @@ These are separate from the Vercel env vars above:
 
 ## Deploy
 
+The fastest path is the setup script, which prompts for every Vercel
+value (hidden input for secrets, nothing echoed), adds them to the
+project, deploys to production, and registers the Telegram webhook
+against the resulting URL:
+
+```sh
+cd services/telegram-agent
+npm install -g vercel   # if you don't have it
+bash scripts/setup.sh
+```
+
+Run it on your own machine, not inside a Claude session — it needs a
+browser for `vercel login` and the whole point of prompting is that
+secrets never get typed into a chat.
+
+It cannot touch GitHub Actions secrets (no CLI credential for that here),
+so it prints the 3 values you still need to paste into
+**repo Settings → Secrets and variables → Actions** at the end,
+including the `TELEGRAM_CALLBACK_URL` it just discovered from your own
+deployment.
+
+### Doing it by hand instead
+
 ```sh
 cd services/telegram-agent
 vercel deploy --prod
 ```
 
-(Not run by this change — see "What still needs your action" below.)
-
-## Register the Telegram webhook
-
-Once deployed, point Telegram at it:
+Then set the 8 environment variables in the Vercel dashboard (Settings →
+Environment Variables) and redeploy so they take effect. Register the
+webhook manually:
 
 ```sh
 curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \
