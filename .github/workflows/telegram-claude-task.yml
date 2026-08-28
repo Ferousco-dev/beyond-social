@@ -57,6 +57,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ github.event.client_payload.prompt }}
           branch_prefix: claude/telegram-
+          # Without this, Claude's actual turn-by-turn output and final
+          # message are hidden from the log ("full output hidden for
+          # security"), leaving only pass/fail metadata. Several real
+          # tasks completed with zero permission denials and zero file
+          # changes with no way to see why; this repo's code isn't
+          # secret from its own CI, so the tradeoff is worth it here.
+          show_full_output: true
           # Tool use has no interactive approver in an unattended run, so
           # anything not explicitly allowed here is denied by default: the
           # first real task completed "successfully" with zero file changes
