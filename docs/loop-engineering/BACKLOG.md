@@ -300,6 +300,115 @@ Nothing. Session below finished cleanly with everything merged.
 
 ## Session log
 
+- **2026-08-28, ninth scheduled session.** No Docker daemon again this session
+  (`docker ps` fails to connect, same as the sixth through eighth sessions),
+  so no local Supabase stack and no authenticated UI walkthrough. Installed
+  Deno v2.9.6 fresh (this environment does not persist between sessions), not
+  actually needed this session since nothing touched `supabase/functions`.
+  GitHub access was normal throughout.
+
+  Two new services now exist in the repo that no prior loop-engineering
+  session had swept: `services/telegram-agent` (a Telegram-triggered remote
+  Claude Code engineering bot, PRs #146-155, built by that bot's own separate
+  automation between the eighth session and this one, unrelated to this
+  scheduled system) and `services/mail` (a BullMQ-based transactional-email
+  worker with a Resend provider, also new, apparently added around the same
+  time). Neither had been read by this system before. Gave both a first pass
+  this session, on top of finishing the `apps/worker` BullMQ queue/job sweep
+  the eighth session's log flagged as the next fresh corner:
+
+  - **`apps/worker`'s scheduler/queue config**: found and fixed one real bug,
+    PR #156 (merged). `startScheduler`'s and `startRenderScheduler`'s scan
+    loops claimed a row (moving it out of `scheduled`/`queued` atomically via
+    `claim_due_posts`/`claim_queued_renders`) and then called `queue.add()`
+    with no error handling. A failed enqueue (a Redis blip, or a shutdown
+    mid-scan, since `stopScheduler`/`stopRenderScheduler` only clear the
+    timer and don't await an in-flight scan before the queue connection
+    closes) stranded the row in `publishing`/`generating` forever: no future
+    scan reclaims it, since both claim functions only select
+    `scheduled`/`queued` rows, and nothing else was processing it. Fixed by
+    reverting the row's status on a failed enqueue so the next scan reclaims
+    it, which is the retry the scheduler's own comments already described as
+    safe but nothing was actually triggering. Everything else in the
+    publish/render queue config (retry counts, backoff, `UnrecoverableError`
+    classification, the `claim_post_for_publish` idempotency guard) checked
+    out clean.
+  - **`services/telegram-agent`**: security-focused audit found the core
+    trust boundaries (Telegram webhook secret, GitHub callback HMAC
+    signature, the Telegram user allowlist) all correctly implemented and
+    checked before any state-changing action, and no shell-injection path in
+    the `.github/scripts/*.sh` helpers. Two real findings: `cancel_run()` in
+    `lib/github_client.py` computed a rejection's HTTP status but never
+    logged it, unlike its two sibling functions in the same file, a plain
+    code bug, fixed and shipped, PR #158 (merged). Separately, `lib/tasks.py`'s
+    `_BRANCH_RE` regex lets `base_branch` through almost unrestricted (unlike
+    `_TASK_ID_RE`/`_SESSION_RE`, which are charset-limited), and that value
+    flows unsanitized into `telegram-claude-task.yml`'s `actions/checkout`
+    ref for a workflow with `contents: write`/`pull-requests: write` and an
+    OIDC token. No exploit chain confirmed (only reachable by an
+    already-allow-listed user, and lands in a `with:` input rather than a
+    `run:` shell string), but it is security-boundary-shaped input
+    validation with no stated reason to differ from its siblings, so it was
+    routed to "Needs the owner" above rather than patched silently, PR #157
+    (merged, docs-only).
+  - **`services/mail`**: no live caller exists anywhere in the repo yet
+    (confirmed by grep: nothing enqueues into this queue or inserts into
+    `mail_deliveries`), so every finding here is latent, not yet
+    user-facing. Two real bugs found and fixed. First, three writes in
+    `processors/send-mail.ts` never checked the Supabase error they got
+    back: the "sent" write, the `block_delivery` RPC call, and the
+    terminal-failure write in `worker.on("failed")`. The "sent" write
+    mattered most: `claim_delivery_for_send`'s only duplicate guard is
+    `provider_message_id IS NULL`, so a failed write there after the
+    provider already accepted the message would leave the row exactly as
+    claimable as one that never sent, and a later retry or crash-recovery
+    replay would send a real second email. Fixed by mirroring the identical,
+    already-correct `settleError` pattern in `apps/worker`'s
+    `publish-post.ts`, PR #159 (merged). Second, `renderTemplate` (which
+    includes `interpolate()`, already throwing `PermanentSendError` for a
+    missing placeholder or template) was called outside the
+    `try`/`catch` that converts `PermanentSendError` to `UnrecoverableError`,
+    so a permanently broken template or payload silently retried five times
+    over the full backoff instead of failing immediately, defeating intent
+    the code already stated in its own comments; the payload-shape check
+    just above it had the same gap from a different angle
+    (`mailPayloadSchema.parse` threw a raw `ZodError`, never converted).
+    Fixed by moving both calls inside the try block and adding a
+    `parsePayload()` helper that converts a shape mismatch to
+    `PermanentSendError`, PR #160 (merged).
+
+  Two process notes worth recording:
+  - The GitHub MCP `create_pull_request`/`update_pull_request` tools still
+    auto-append an AI-attribution footer to the PR body on every call, not
+    just PR creation as the eighth session's log guessed. Stripped it from
+    all five PRs this session via a follow-up `update_pull_request` call
+    with the footer omitted; needs doing every time, not once.
+  - CI on the first three PRs (#156-158) all failed identically on
+    `format:check`, traced to `services/telegram-agent/README.md` already
+    failing `prettier --check` on `main` before any of this session's
+    changes (confirmed directly against `main` at `6d69acb`), unrelated
+    formatting drift left over from PRs #146-155. Ported the `prettier
+--write` fix into all three PRs rather than waiting on a separate fix to
+    land first (it no-ops once one of them merges into `main`), each with a
+    PR comment naming the failure and why it wasn't that PR's own bug, per
+    the standing CI-red discipline.
+
+  Five PRs shipped and merged (#156, #157, #158, #159, #160), zero left in
+  flight. A final full-repo `pnpm typecheck` (14/14 tasks) and `pnpm lint`
+  (9/9 tasks, only the pre-existing `retry-verification.ts` console-usage
+  warnings noted in prior sessions) both passed clean on the merged `main`
+  before stopping. Next session: `services/mail` and `services/telegram-agent`
+  got a first pass but not the same exhaustive sweep `apps/worker` and
+  `apps/admin` have had across multiple sessions now; `services/mail`'s
+  `lib/providers/resend.ts` (the actual Resend HTTP call) and
+  `queues/mail.ts` config, and `telegram-agent`'s `app.py`/`commands.py`
+  beyond the security-focused pass, are reasonable next targets. The new
+  "Needs the owner" item (`base_branch` validation) is small and
+  well-scoped if the owner wants to knock it out. Otherwise the standing
+  items are unchanged: CSP nonce and observability/rate limiting need the
+  owner or a new dependency; a real browser/UI pass is still worth trying
+  fresh each session since availability has varied session to session.
+
 - **2026-08-27, eighth scheduled session.** No docker daemon again this
   session (`docker ps` fails to connect, same as the sixth and seventh), so
   no local Supabase stack and no authenticated UI walkthrough. GitHub access
