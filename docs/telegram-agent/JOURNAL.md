@@ -44,3 +44,16 @@ was asked, what changed or was decided, and why if it's not obvious.
   `.github/workflows/` are rejected. That file still has the old, narrower
   wording until someone with repo write access applies it by hand; until
   then, treat this file's broadened rule as the source of truth.
+- **2026-08-28**: Asked (again, same day) to give the bot memory, make it
+  smarter, and scope a KV migration. The memory/smarter part was already
+  the previous entry's work (cross-task `JOURNAL.md` context, the
+  still-running reply fix); nothing further was specific enough to act on
+  without guessing at features, so no code changed there. Wrote
+  `docs/telegram-agent/kv-migration-scope.md`: what a store would hold
+  (task state, update-id idempotency), why it should be a Supabase table
+  rather than a new KV vendor (matches this repo's existing
+  PostgREST-over-HTTP pattern, no new dependency), and a phased rollout
+  that ships independently and falls back to the current footer-parsing
+  path at every step. No table was created and no env vars were added —
+  that needs an explicit go-ahead since it's new production
+  infrastructure, per the open questions at the end of that doc.
