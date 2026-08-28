@@ -57,7 +57,16 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ github.event.client_payload.prompt }}
           branch_prefix: claude/telegram-
+          # Tool use has no interactive approver in an unattended run, so
+          # anything not explicitly allowed here is denied by default: the
+          # first real task completed "successfully" with zero file changes
+          # because Edit wasn't on this list (permission_denials_count: 1
+          # in the run's own output). Bash is unscoped because installing
+          # dependencies, running tests, and git operations all go through
+          # it; the workflow's own contents/pull-requests/issues
+          # permissions and per-branch isolation are the actual boundary.
           claude_args: >-
+            --allowedTools "Bash,Edit,Write,Replace"
             ${{ github.event.client_payload.resume_session_id != '' &&
                 format('--resume {0}', github.event.client_payload.resume_session_id) || '' }}
 
