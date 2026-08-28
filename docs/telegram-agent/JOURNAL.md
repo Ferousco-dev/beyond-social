@@ -36,4 +36,11 @@ was asked, what changed or was decided, and why if it's not obvious.
   rule: previously only repo-changing tasks got an entry; now a task that
   settles a decision or constraint with no code change also gets one,
   since a fresh session only ever sees this file, never the Telegram
-  chat itself.
+  chat itself. Note: the matching prompt text in
+  `.github/workflows/telegram-claude-task.yml` (the actual instruction a
+  future session reads, not just this file's header) could **not** be
+  updated by this task — the GitHub App token this workflow runs under
+  has no `workflows` permission, so pushes touching files under
+  `.github/workflows/` are rejected. That file still has the old, narrower
+  wording until someone with repo write access applies it by hand; until
+  then, treat this file's broadened rule as the source of truth.
