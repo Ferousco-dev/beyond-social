@@ -1,6 +1,26 @@
 import unittest
 
-from lib.messages import ci_status, completed, failed
+from lib.messages import ci_status, completed, escape, failed
+
+REAL_RUN_URL = "https://github.com/Ferousco-dev/beyond-social/actions/runs/33133979478"
+
+
+class TestEscape(unittest.TestCase):
+    def test_escapes_reserved_characters(self):
+        self.assertEqual(escape("a.b-c!d"), "a\\.b\\-c\\!d")
+
+    def test_escapes_literal_backslash(self):
+        # A raw backslash must become \\ itself, or it can swallow the
+        # following character and produce an invalid escape sequence.
+        self.assertEqual(escape("C:\\Users"), "C:\\\\Users")
+
+    def test_url_survives_markdownv2(self):
+        # Every '.' and '-' in a bare URL is a reserved MarkdownV2 character;
+        # left unescaped, Telegram rejects the whole message and falls back
+        # to unformatted plain text (the literal "\." bug reported live).
+        escaped = escape(REAL_RUN_URL)
+        self.assertIn("\\.com", escaped)
+        self.assertIn("Ferousco\\-dev", escaped)
 
 
 class TestCompletedReply(unittest.TestCase):
@@ -13,6 +33,10 @@ class TestCompletedReply(unittest.TestCase):
         text = completed("task_1", {})
         self.assertNotIn("Claude said:", text)
 
+    def test_pr_url_is_escaped(self):
+        text = completed("task_1", {"pr_url": "https://github.com/org/repo/pull/1"})
+        self.assertIn("github\\.com", text)
+
 
 class TestFailedReply(unittest.TestCase):
     def test_includes_reply_when_present(self):
@@ -20,13 +44,18 @@ class TestFailedReply(unittest.TestCase):
         self.assertIn("Claude said:", text)
         self.assertIn("Hit a permission error\\.", text)
 
+    def test_run_url_is_escaped(self):
+        text = failed("task_1", {"run_url": REAL_RUN_URL})
+        self.assertIn("github\\.com", text)
+        self.assertNotIn("github.com", text)
+
 
 class TestCiStatus(unittest.TestCase):
     def test_success_renders_without_task_footer(self):
-        text = ci_status(True, {"workflow_name": "CI", "branch": "main", "run_url": "https://x"})
+        text = ci_status(True, {"workflow_name": "CI", "branch": "main", "run_url": REAL_RUN_URL})
         self.assertTrue(text.startswith("✅"))
         self.assertIn("Branch: `main`", text)
-        self.assertIn("Run: https://x", text)
+        self.assertIn("github\\.com", text)
         self.assertNotIn("task_", text)
 
     def test_failure_uses_cross_icon(self):

@@ -29,7 +29,7 @@ def task_received(repository: str, task_id: str, prompt: str, is_followup: bool)
     return (
         f"\U0001f680 {verb}\\.\n"
         f"Repository: `{repository}`\n"
-        f"Task: {_escape(prompt)}\n\n"
+        f"Task: {escape(prompt)}\n\n"
         f"{task_footer(task_id)}"
     )
 
@@ -44,17 +44,17 @@ DISPATCH_FAILED = (
 def completed(task_id: str, summary: dict) -> str:
     lines = ["✅ *Claude completed the task\\.*"]
     if summary.get("task_title"):
-        lines.append(f"Task: {_escape(summary['task_title'])}")
+        lines.append(f"Task: {escape(summary['task_title'])}")
     if summary.get("branch"):
         lines.append(f"Branch: `{summary['branch']}`")
     if summary.get("pr_url"):
-        lines.append(f"PR: {summary['pr_url']}")
+        lines.append(f"PR: {escape(summary['pr_url'])}")
     if summary.get("tests"):
-        lines.append(f"Tests: {_escape(summary['tests'])}")
+        lines.append(f"Tests: {escape(summary['tests'])}")
     if summary.get("build"):
-        lines.append(f"Build: {_escape(summary['build'])}")
+        lines.append(f"Build: {escape(summary['build'])}")
     if summary.get("reply"):
-        lines.append(f"\nClaude said:\n{_escape(summary['reply'])}")
+        lines.append(f"\nClaude said:\n{escape(summary['reply'])}")
     lines.append("")
     lines.append(task_footer(task_id, summary.get("session_id"), summary.get("branch")))
     return "\n".join(lines)
@@ -63,13 +63,13 @@ def completed(task_id: str, summary: dict) -> str:
 def failed(task_id: str, summary: dict) -> str:
     lines = ["❌ *Claude could not complete the task\\.*"]
     if summary.get("task_title"):
-        lines.append(f"Task: {_escape(summary['task_title'])}")
+        lines.append(f"Task: {escape(summary['task_title'])}")
     if summary.get("reason"):
-        lines.append(f"Reason: {_escape(summary['reason'])}")
+        lines.append(f"Reason: {escape(summary['reason'])}")
     if summary.get("run_url"):
-        lines.append(f"Run: {summary['run_url']}")
+        lines.append(f"Run: {escape(summary['run_url'])}")
     if summary.get("reply"):
-        lines.append(f"\nClaude said:\n{_escape(summary['reply'])}")
+        lines.append(f"\nClaude said:\n{escape(summary['reply'])}")
     lines.append("")
     lines.append(task_footer(task_id, summary.get("session_id"), summary.get("branch")))
     return "\n".join(lines)
@@ -81,19 +81,24 @@ def ci_status(success: bool, summary: dict) -> str:
     """
     icon = "✅" if success else "❌"
     name = summary.get("workflow_name") or "Workflow"
-    lines = [f"{icon} *{_escape(name)}*"]
+    lines = [f"{icon} *{escape(name)}*"]
     if summary.get("branch"):
         lines.append(f"Branch: `{summary['branch']}`")
     if summary.get("commit_sha"):
         lines.append(f"Commit: `{summary['commit_sha'][:7]}`")
     if summary.get("actor"):
-        lines.append(f"Triggered by: {_escape(summary['actor'])}")
+        lines.append(f"Triggered by: {escape(summary['actor'])}")
     if summary.get("run_url"):
-        lines.append(f"Run: {summary['run_url']}")
+        lines.append(f"Run: {escape(summary['run_url'])}")
     return "\n".join(lines)
 
 
-def _escape(text: str) -> str:
-    """Escapes Telegram MarkdownV2 special characters in user-derived text."""
-    special = r"_*[]()~`>#+-=|{}.!"
+def escape(text: str) -> str:
+    """Escapes Telegram MarkdownV2 special characters in user-derived text,
+    including URLs — a bare '.' or '-' in an unescaped URL is enough to make
+    Telegram reject the whole message and fall back to unformatted plain
+    text, which is what previously made messages with a Run/PR link show up
+    full of stray backslashes.
+    """
+    special = "\\_*[]()~`>#+-=|{}.!"
     return "".join(f"\\{c}" if c in special else c for c in text)

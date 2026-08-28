@@ -3,6 +3,7 @@ the HTTP status and Telegram's non-sensitive `description` field are logged.
 """
 
 import logging
+import re
 
 import requests
 
@@ -31,12 +32,21 @@ def send_message(bot_token: str, chat_id: int, text: str) -> bool:
 
     # A malformed MarkdownV2 message (special characters we missed escaping
     # in caller-supplied text) is the single most common failure here; retry
-    # once as plain text rather than lose the notification entirely.
+    # once as plain text rather than lose the notification entirely. `text`
+    # still has MarkdownV2 escape backslashes in it, which would otherwise
+    # show up literally once parse_mode is dropped, so strip them first.
     logger.warning("telegram sendMessage failed with status %s, retrying as plain text", response.status_code)
-    fallback_payload = {"chat_id": chat_id, "text": text, "disable_web_page_preview": True}
+    fallback_payload = {"chat_id": chat_id, "text": _strip_markdown_escapes(text), "disable_web_page_preview": True}
     try:
         retry = requests.post(url, json=fallback_payload, timeout=_TIMEOUT_SECONDS)
     except requests.RequestException as exc:
         logger.warning("telegram sendMessage retry failed: %s", type(exc).__name__)
         return False
     return retry.ok
+
+
+def _strip_markdown_escapes(text: str) -> str:
+    """Undoes lib.messages.escape()'s `\\X` -> `X` so the plain-text fallback
+    reads as normal prose instead of literal backslash-escaped markdown.
+    """
+    return re.sub(r"\\(.)", r"\1", text)
