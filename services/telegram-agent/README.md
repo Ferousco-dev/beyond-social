@@ -258,4 +258,8 @@ The reply-to-message follow-up mechanism and the live GitHub Actions
 queries for `/status`/`/cancel` are the seams designed to be replaced with
 real storage later without a rewrite: `lib/tasks.py` isolates task-identity
 handling, and `lib/github_client.py` isolates every GitHub API call. Adding
-a KV store later means changing those two files, not the handlers.
+a store later means changing those two files, not the handlers.
+
+See [`docs/telegram-agent/kv-migration-scope.md`](../../docs/telegram-agent/kv-migration-scope.md)
+for what that migration would actually hold, why it should be a Supabase
+table rather than a new KV vendor, and a phased rollout.
