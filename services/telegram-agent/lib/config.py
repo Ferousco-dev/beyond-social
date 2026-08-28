@@ -20,6 +20,11 @@ def _require(name: str) -> str:
     return value
 
 
+def _optional(name: str) -> str | None:
+    value = os.environ.get(name, "").strip()
+    return value or None
+
+
 @dataclass(frozen=True)
 class Config:
     telegram_bot_token: str
@@ -30,10 +35,18 @@ class Config:
     github_repository: str
     github_workflow_file: str
     github_webhook_secret: str
+    # Optional: writing to bot_memory degrades to a no-op without these, so
+    # the bot works the same as before an owner sets them. See lib/memory.py.
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
 
     @property
     def github_repo_full_name(self) -> str:
         return f"{self.github_owner}/{self.github_repository}"
+
+    @property
+    def is_memory_configured(self) -> bool:
+        return bool(self.supabase_url and self.supabase_service_role_key)
 
 
 def load_config() -> Config:
@@ -60,4 +73,6 @@ def load_config() -> Config:
         github_repository=_require("GITHUB_REPOSITORY"),
         github_workflow_file=os.environ.get("GITHUB_WORKFLOW_FILE", "telegram-claude-task.yml").strip(),
         github_webhook_secret=_require("GITHUB_WEBHOOK_SECRET"),
+        supabase_url=_optional("SUPABASE_URL"),
+        supabase_service_role_key=_optional("SUPABASE_SERVICE_ROLE_KEY"),
     )

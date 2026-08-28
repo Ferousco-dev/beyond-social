@@ -14,7 +14,7 @@ import logging
 
 from flask import Flask, Response, request
 
-from lib import commands, messages
+from lib import commands, memory, messages
 from lib.config import MissingConfig, load_config
 from lib.security import (
     is_authorized_user,
@@ -125,8 +125,20 @@ def github_callback() -> Response:
         return _json_response({"ok": False, "error": "missing or invalid required fields"}, 400)
 
     text = _render_callback(task_id, status, payload)
+    if status in ("success", "failure") and task_id:
+        _record_memory(config, task_id, status, payload)
     send_message(config.telegram_bot_token, chat_id, text)
     return _json_response({"ok": True}, 200)
+
+
+def _record_memory(config, task_id: str, status: str, payload: dict) -> None:
+    """Best-effort: must never stop the Telegram notification below from
+    being sent, so any unexpected failure here is only logged.
+    """
+    try:
+        memory.record_task_outcome(config, task_id, status, payload)
+    except Exception:
+        logger.exception("unexpected error recording bot_memory entry")
 
 
 def _render_callback(task_id: str | None, status: str, payload: dict) -> str:

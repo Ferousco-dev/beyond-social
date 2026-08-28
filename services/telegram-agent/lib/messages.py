@@ -86,6 +86,25 @@ def failed(task_id: str, summary: dict) -> str:
     return "\n".join(lines)
 
 
+def memory_summary(status: str, payload: dict) -> str:
+    """Condenses a finished task's callback payload into the plain-text
+    summary stored in bot_memory (see lib/memory.py) - the same fields
+    completed()/failed() render for Telegram, without MarkdownV2 escaping
+    since this text never reaches Telegram.
+    """
+    parts = []
+    if payload.get("task_title"):
+        parts.append(payload["task_title"].strip())
+    if status == "failure" and payload.get("reason"):
+        parts.append(f"Failed: {payload['reason'].strip()}")
+    if payload.get("reply"):
+        parts.append(payload["reply"].strip())
+    if payload.get("pr_url"):
+        parts.append(f"PR: {payload['pr_url']}")
+    summary = " ".join(part for part in parts if part)
+    return summary[:4000] if summary else f"Task {status}."
+
+
 def ci_status(success: bool, summary: dict) -> str:
     """Renders a repo-wide CI/deploy notification, not tied to any Telegram
     task — no task_footer, since there's no session to follow up on.

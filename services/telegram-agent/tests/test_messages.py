@@ -1,6 +1,6 @@
 import unittest
 
-from lib.messages import ci_status, completed, escape, failed, in_progress, pr_event
+from lib.messages import ci_status, completed, escape, failed, in_progress, memory_summary, pr_event
 from lib.tasks import parse_task_reference
 
 REAL_RUN_URL = "https://github.com/Ferousco-dev/beyond-social/actions/runs/33133979478"
@@ -74,6 +74,34 @@ class TestCiStatus(unittest.TestCase):
     def test_defaults_workflow_name(self):
         text = ci_status(True, {})
         self.assertIn("Workflow", text)
+
+
+class TestMemorySummary(unittest.TestCase):
+    def test_no_markdown_escaping(self):
+        # Unlike completed()/failed(), this text is stored, not sent to
+        # Telegram, so a bare '.' must survive unescaped.
+        text = memory_summary("success", {"task_title": "Fix the login bug."})
+        self.assertEqual(text, "Fix the login bug.")
+
+    def test_combines_title_reply_and_pr_url(self):
+        text = memory_summary(
+            "success",
+            {"task_title": "Add a regression test", "reply": "Added it.", "pr_url": "https://example.com/pr/1"},
+        )
+        self.assertIn("Add a regression test", text)
+        self.assertIn("Added it.", text)
+        self.assertIn("PR: https://example.com/pr/1", text)
+
+    def test_failure_includes_reason(self):
+        text = memory_summary("failure", {"task_title": "Fix the bug", "reason": "Hit a permission error."})
+        self.assertIn("Failed: Hit a permission error.", text)
+
+    def test_falls_back_when_payload_is_empty(self):
+        self.assertEqual(memory_summary("failure", {}), "Task failure.")
+
+    def test_truncates_long_summaries(self):
+        text = memory_summary("success", {"reply": "x" * 5000})
+        self.assertLessEqual(len(text), 4000)
 
 
 class TestPrEvent(unittest.TestCase):
