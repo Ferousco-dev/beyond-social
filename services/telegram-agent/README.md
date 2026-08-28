@@ -128,8 +128,8 @@ variables** (Settings → Environment Variables), not GitHub secrets:
 | `GITHUB_REPOSITORY`         | `beyond-social`                                                                                                                                                                                                  |
 | `GITHUB_WORKFLOW_FILE`      | `telegram-claude-task.yml` (default)                                                                                                                                                                             |
 | `GITHUB_WEBHOOK_SECRET`     | Random string (`openssl rand -hex 32`); **must match** the value of the `CALLBACK_WEBHOOK_SECRET` GitHub Actions secret below (different name, same value — GitHub won't let a repo secret start with `GITHUB_`) |
-| `SUPABASE_URL`               | Optional. This project's Supabase API URL. Leave unset to skip `bot_memory` writes entirely.                                                                                                                    |
-| `SUPABASE_SERVICE_ROLE_KEY`  | Optional. The service role key for the project above — never the anon key, since `bot_memory` has no RLS policies and relies on the service role bypassing RLS.                                                |
+| `SUPABASE_URL`              | Optional. This project's Supabase API URL. Leave unset to skip `bot_memory` writes entirely.                                                                                                                     |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional. The service role key for the project above — never the anon key, since `bot_memory` has no RLS policies and relies on the service role bypassing RLS.                                                  |
 
 ### GitHub Actions secrets (repo Settings → Secrets and variables → Actions)
 
