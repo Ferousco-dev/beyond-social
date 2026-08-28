@@ -44,6 +44,36 @@ was asked, what changed or was decided, and why if it's not obvious.
   `.github/workflows/` are rejected. That file still has the old, narrower
   wording until someone with repo write access applies it by hand; until
   then, treat this file's broadened rule as the source of truth.
+- **2026-08-28**: Asked to start the Supabase table for the bot's memory.
+  Added `supabase/migrations/0076_bot_memory.sql`: a `bot_memory` table
+  (`task_id`, `summary`, `created_at`), RLS enabled with no policies
+  (service-role only, same as `mail_deliveries`), and an append-only trigger
+  like `admin_audit_log`'s so no row can be edited or deleted once written.
+  Verified against a local stack: the migration applies, the check
+  constraints and immutability trigger reject bad input, and
+  `authenticated`/`anon` cannot read it. This is only the table; nothing in
+  `services/telegram-agent` writes to or reads from it yet, and JOURNAL.md
+  remains the source of truth for cross-task memory until a future task
+  wires the bot up to it (new Supabase env vars in Vercel, a Supabase
+  client in `lib/`, and a decision on whether it replaces or supplements
+  this file).
+- **2026-08-28**: Asked to "complete everything and test it" on the
+  `bot_memory` follow-up above. Added `lib/memory.py` and wired
+  `/api/github/callback` (app.py) to insert one `bot_memory` row per
+  finished task (`success`/`failure`), reusing the same `task_title` /
+  `reply` / `pr_url` / `reason` fields already flowing through that handler
+  for the Telegram message — no workflow changes needed. New `SUPABASE_URL`
+  / `SUPABASE_SERVICE_ROLE_KEY` Vercel env vars, both optional: unset (the
+  default until an owner adds them), the bot behaves exactly as before.
+  Verified the insert against a local Supabase stack (row lands correctly,
+  `anon` still can't read it) and that a forced failure in the memory write
+  never blocks the Telegram notification. Decision on "replace or
+  supplement JOURNAL.md": **supplement, write-only for now.** This is
+  shadow-write mode only — nothing reads `bot_memory` back. Making a fresh
+  session read from it instead of this file means changing the prompt
+  baked into `.github/workflows/telegram-claude-task.yml`, which is still
+  blocked by the same missing `workflows` permission noted above; that
+  part of "everything" could not be completed by this task.
 - **2026-08-28**: Asked (again, same day) to give the bot memory, make it
   smarter, and scope a KV migration. The memory/smarter part was already
   the previous entry's work (cross-task `JOURNAL.md` context, the

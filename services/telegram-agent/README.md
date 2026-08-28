@@ -54,8 +54,8 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   fix (an idempotency key keyed on Telegram's own `update_id`) needs a KV
   store — see "Evolving past V1" below.
 - **Memory across separate tasks**: each task runs in a brand new Claude
-  Code session with no awareness of any earlier one. Rather than a
-  database, `docs/telegram-agent/JOURNAL.md` plays the same role
+  Code session with no awareness of any earlier one.
+  `docs/telegram-agent/JOURNAL.md` plays the same role
   `docs/loop-engineering/BACKLOG.md` already plays for the scheduled
   loop-engineering sessions — Claude reads its recent entries for context
   and appends one when a task changes the repo, or when a task settles a
@@ -63,7 +63,17 @@ branch:claude/telegram-abc123` ``. Reply to that message in Telegram
   access to the Telegram chat itself, only this file, so that's the only
   way that context carries forward. Free, versioned, human-readable, and
   consistent with how this repo already solves this exact problem
-  elsewhere.
+  elsewhere. If `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are set, the
+  `/api/github/callback` handler also writes a row to the `bot_memory`
+  table (`supabase/migrations/0076_bot_memory.sql`) for every finished
+  task, in shadow-write mode: nothing reads it back yet, so it's purely a
+  structured, queryable record of the same outcome JOURNAL.md already
+  captures in prose. JOURNAL.md stays what a fresh session actually reads —
+  switching that over means changing the prompt in
+  `.github/workflows/telegram-claude-task.yml`, which a Telegram-triggered
+  task cannot currently do — see the 2026-08-28 entries in `JOURNAL.md` for
+  why. Optional and best-effort: unset or unreachable, the bot behaves
+  exactly as before.
 
 ## Project layout
 
@@ -118,6 +128,8 @@ variables** (Settings → Environment Variables), not GitHub secrets:
 | `GITHUB_REPOSITORY`         | `beyond-social`                                                                                                                                                                                                  |
 | `GITHUB_WORKFLOW_FILE`      | `telegram-claude-task.yml` (default)                                                                                                                                                                             |
 | `GITHUB_WEBHOOK_SECRET`     | Random string (`openssl rand -hex 32`); **must match** the value of the `CALLBACK_WEBHOOK_SECRET` GitHub Actions secret below (different name, same value — GitHub won't let a repo secret start with `GITHUB_`) |
+| `SUPABASE_URL`              | Optional. This project's Supabase API URL. Leave unset to skip `bot_memory` writes entirely.                                                                                                                     |
+| `SUPABASE_SERVICE_ROLE_KEY` | Optional. The service role key for the project above — never the anon key, since `bot_memory` has no RLS policies and relies on the service role bypassing RLS.                                                  |
 
 ### GitHub Actions secrets (repo Settings → Secrets and variables → Actions)
 
