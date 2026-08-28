@@ -83,4 +83,7 @@ def cancel_run(token: str, owner: str, repo: str, run_id: int) -> bool:
     except requests.RequestException as exc:
         logger.warning("cancel run failed: %s", type(exc).__name__)
         return False
-    return response.status_code == 202
+    if response.status_code == 202:
+        return True
+    logger.warning("cancel run rejected with status %s", response.status_code)
+    return False
