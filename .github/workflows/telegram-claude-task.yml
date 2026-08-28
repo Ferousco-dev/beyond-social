@@ -55,7 +55,22 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: ${{ github.event.client_payload.prompt }}
+          # Every task runs in a fresh session with no memory of any other
+          # task, so docs/telegram-agent/JOURNAL.md is the only thing that
+          # carries context between them (same role BACKLOG.md plays for
+          # loop-engineering) - this appendix is what keeps that file alive
+          # without a database.
+          prompt: |
+            ${{ github.event.client_payload.prompt }}
+
+            ---
+            This task was sent through the Telegram engineering bot. If
+            docs/telegram-agent/JOURNAL.md exists, skim its last few entries
+            first for context from recent related tasks. If this task ends
+            up changing the repository, append one short entry there (as
+            part of the same commit): today's date, and one to three lines
+            on what was asked and what changed. Skip this for a task that
+            doesn't change anything, such as a question.
           branch_prefix: claude/telegram-
           # Without this, Claude's actual turn-by-turn output and final
           # message are hidden from the log ("full output hidden for
