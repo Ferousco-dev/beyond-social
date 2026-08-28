@@ -80,13 +80,30 @@ jobs:
           echo "url=${url}" >> "$GITHUB_OUTPUT"
 
       - name: Report success to Telegram
-        if: always() && steps.claude.outputs.conclusion == 'success'
+        if: always() && steps.claude.outputs.conclusion == 'success' && steps.claude.outputs.branch_name != ''
         env:
           TASK_TITLE: ${{ github.event.client_payload.prompt }}
           BRANCH: ${{ steps.claude.outputs.branch_name }}
           PR_URL: ${{ steps.pr.outputs.url }}
           SESSION_ID: ${{ steps.claude.outputs.session_id }}
         run: .github/scripts/telegram-callback.sh success
+
+      # A "success" conclusion only means claude-code-action's own run
+      # didn't error; it says nothing about whether Claude actually
+      # changed anything. The first real task hit exactly this: it read
+      # a file, had its edit silently denied (no tool permission granted),
+      # and still reported success with nothing to show for it. Telling
+      # the user the truth here is the whole point of this step existing.
+      - name: Report no changes made to Telegram
+        if: always() && steps.claude.outputs.conclusion == 'success' && steps.claude.outputs.branch_name == ''
+        env:
+          TASK_TITLE: ${{ github.event.client_payload.prompt }}
+          FAILURE_REASON: >-
+            Claude finished the run but made no changes to the repository.
+            This usually means the task didn't need one, or an edit was
+            blocked. Check the run for the real reason.
+          SESSION_ID: ${{ steps.claude.outputs.session_id }}
+        run: .github/scripts/telegram-callback.sh failure
 
       - name: Report failure to Telegram
         if: always() && steps.claude.outputs.conclusion != 'success'
