@@ -19,7 +19,9 @@ export type MailPayload = z.infer<typeof mailPayloadSchema>;
 export function parsePayload(payload: unknown): MailPayload {
   const result = mailPayloadSchema.safeParse(payload ?? {});
   if (!result.success) {
-    throw new PermanentSendError(`The payload does not match the expected shape: ${result.error.message}`);
+    throw new PermanentSendError(
+      `The payload does not match the expected shape: ${result.error.message}`,
+    );
   }
   return result.data;
 }
