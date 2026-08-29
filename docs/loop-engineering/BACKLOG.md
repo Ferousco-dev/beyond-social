@@ -199,6 +199,53 @@ container is ephemeral and a user-home install
 the next scheduled session. If the owner confirms, do the project-scoped
 install as its own small PR before anything else.
 
+**Also queued live, same conversation: Discover search should be
+location-aware.** The owner's complaint, verbatim: searching "Nigeria"
+while actually in Nigeria returns diaspora/global content about Nigeria,
+not content relevant to or popular in Nigeria itself. Traced this to the
+real mechanism before writing it up, per the research-then-design rule
+above:
+
+- The Discover search bar (`apps/web/src/features/discover/
+search-actions.ts`'s `searchSocial`) calls `searchPosts` in
+  `apps/web/src/lib/social-scrape/search.ts`, which runs the Apify
+  `clockworks/tiktok-scraper` actor via `inputFor()`. That function sends
+  only `searchQueries`/`hashtags` — no geographic signal at all — so
+  TikTok's own region-biased search is never engaged and the query is
+  purely a global keyword match.
+- The owner's proposed mechanism (ask the browser for the user's GPS
+  location) is not actually how to fix this. Checked the actor's real
+  input schema directly: it has a `proxyCountryCode` field, described as
+  routing the scrape through a proxy in that country specifically so
+  TikTok returns that country's results. That is the real lever — a
+  routing signal, not a text filter — and raw lat/lng from
+  `navigator.geolocation` would still need an extra reverse-geocoding step
+  to become the country code this field actually wants, plus a browser
+  permission prompt the alternative below does not need.
+- Better default source for the country code, no new dependency: this app
+  already runs on Vercel, and Vercel-served requests carry an
+  `x-vercel-ip-country` header, readable via `headers()` from
+  `next/headers` inside the existing `"use server"` action. That is a
+  free, already-available, permission-prompt-free signal. Reserve
+  `navigator.geolocation` (if it's ever added) for an explicit
+  user-initiated override, not the default path — a page asking for GPS
+  access just to run a search is a heavier ask than the problem needs.
+- Scope for tomorrow: pass a resolved country code through
+  `searchSocial` → `searchPosts` → `inputFor` as `proxyCountryCode`,
+  defaulted from `x-vercel-ip-country`, with a sane fallback when that
+  header is absent (local dev, or a request that reaches the app through
+  something other than Vercel's edge). Worth a small UX touch alongside
+  it, for the Designer/UX lens: something in the Discover UI showing which
+  country a search ran against, since a result set that quietly changed
+  based on invisible request metadata is confusing without it — a manual
+  override selector is a reasonable follow-up once the default path
+  works, not required for the first version.
+- Not owner-blocked: no new third-party dependency (the actor already
+  supports this field), and it's not a consent/biometric question the way
+  the avatar feature's data is — an IP-derived country code is the same
+  category of signal the app's own edge middleware and CDN already handle
+  routinely. Safe to build once picked up.
+
 ## Needs the owner (do not start until unblocked)
 
 - **`base_branch` in the Telegram-agent task flow bypasses the input safelist
