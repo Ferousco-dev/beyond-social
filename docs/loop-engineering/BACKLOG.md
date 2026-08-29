@@ -17,6 +17,64 @@ several of these are explicitly blocked on a decision only the owner can
 make, per `RULES.md`, and should not be guessed at just because the owner
 is asking for the feature.
 
+**Do this first: finish the deep research the owner started.** A
+`deep-research` workflow run was started live in the same conversation
+that produced this section, to ground the pipeline/provider/consent
+decisions below in real evidence before any code gets written. The owner
+paused it partway through to let it "continue in the task" — but the
+workflow's own resume mechanism (`resumeFromRunId`) is same-session only,
+so a fresh session cannot literally resume that exact paused run; it has
+to be relaunched fresh with the same brief. Run it via
+`Workflow({ name: "deep-research", args: "<brief below>" })` before
+starting the avatar feature's design work, and read its report before
+answering the two "blocked on the owner" items below about which provider
+and pipeline shape to use, so those questions go back to the owner
+answered with real findings, not still open.
+
+The exact brief to pass as `args`, unchanged from what was already
+launched once:
+
+> How to build a realistic "digital twin" AI avatar video generation
+> feature, where a user records a short video of themselves (face +
+> voice), and the system extracts their likeness and voice to generate new,
+> realistic, prompt-driven videos of that specific person (real movement,
+> real environment, real voice) — not just a static photo lip-synced to
+> audio. Context: this is for a real estate marketing product (Beyond
+> Social), first use case being a Singapore real-estate agent presenting
+> property listings as themselves in generated videos. The team already
+> checked the video-generation provider currently in their stack (kie.ai)
+> and confirmed its avatar models (Kling AI Avatar Standard/Pro, OmniHuman
+> 1.5, Volcengine lip-sync) all take a single still photo + audio clip +
+> text prompt, or re-dub an existing video's mouth — none of them train or
+> condition on a full recorded video of the person. The goal of this
+> research is to ground real engineering and product decisions in evidence
+> before any code is written, specifically: (1) what real techniques and
+> models (open-source or commercial API) actually do full "digital twin" /
+> personal-avatar generation from a short recorded video today, as opposed
+> to a single photo — e.g. HeyGen Instant/Photo Avatar, Synthesia
+> Personal/Expressive Avatar, Argil, Captions AI Avatars, D-ID, Hedra,
+> Colossyan, and any comparable products, what each actually requires as
+> input and can output, and what it costs; (2) whether there is real
+> open-source work in this space (LivePortrait, SadTalker, Wav2Lip
+> successors, EMO, VASA-1-style research, voice cloning stacks like
+> ElevenLabs/OpenVoice/XTTS paired with a separate video model) a small
+> team could build on, searching GitHub broadly for real repositories and
+> how production-ready they actually are, not just paper demos; (3) the
+> real production pipeline shape other companies use for a "record
+> yourself, get a reusable digital avatar" feature, including the
+> capture/consent flow; (4) legal, consent, and biometric-data-handling
+> norms specifically for a product that lets users generate videos of
+> themselves using their own cloned likeness and voice (GDPR biometric data
+> category, Illinois BIPA and similar state laws, and what consent
+> language, retention limits, and deletion mechanisms comparable commercial
+> products actually implement and disclose); (5) any existing "AI avatar
+> real estate agent" or "AI presenter for property listings" products or
+> case studies. Deliverable: a cited, verified report a team can use to
+> decide whether kie.ai can support this feature at all versus needing a
+> second, specialized provider, roughly what the real engineering pipeline
+> needs to look like, and what the non-negotiable consent/legal
+> requirements are before storing anyone's face or voice.
+
 **The feature:** a "Live" recording flow (sidebar or new-project entry
 point) where a user records themselves on camera, reads a few short
 verification lines (Siri-setup style, so the system can tell a real,
