@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCountryCode } from "@/lib/social-scrape/country";
 import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { SCRAPE_PLATFORMS } from "@/lib/social-scrape/types";
 import { fetchPosters } from "@/lib/tiktok/oembed";
@@ -60,7 +61,8 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
 
   try {
     const { platform } = parsed.data;
-    const posts = await searchPosts(platform, parsed.data.query, RESULT_LIMIT);
+    const countryCode = await resolveCountryCode();
+    const posts = await searchPosts(platform, parsed.data.query, RESULT_LIMIT, countryCode);
     if (posts.length === 0) return { status: "ok", posts: [] };
 
     /*

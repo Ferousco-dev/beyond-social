@@ -42,7 +42,13 @@ function actorFor(platform: ScrapePlatform): string {
  * spellings of "how many" is cheaper than a search that silently returns the
  * actor's own default of a thousand rows and bills for it.
  */
-function inputFor(platform: ScrapePlatform, query: string, limit: number): Record<string, unknown> {
+/** Exported for the smoke test; not part of this module's public surface otherwise. */
+export function inputFor(
+  platform: ScrapePlatform,
+  query: string,
+  limit: number,
+  countryCode: string | null,
+): Record<string, unknown> {
   if (platform === "tiktok") {
     return {
       searchQueries: [query],
@@ -52,6 +58,11 @@ function inputFor(platform: ScrapePlatform, query: string, limit: number): Recor
       shouldDownloadVideos: false,
       shouldDownloadCovers: true,
       shouldDownloadSubtitles: false,
+      // Routes the scrape through a proxy in this country, which is what
+      // biases TikTok's own search toward what is trending there. Omitted
+      // rather than sent empty: the actor's own default is an unbiased
+      // global search, which is exactly what "no signal" should mean.
+      ...(countryCode ? { proxyCountryCode: countryCode } : {}),
     };
   }
 
@@ -99,17 +110,19 @@ export async function searchPosts(
   platform: ScrapePlatform,
   query: string,
   limit: number,
+  countryCode: string | null,
 ): Promise<readonly ScrapedPost[]> {
   if (!isApifyConfigured() || query.trim() === "") return [];
 
   // Answered without a run when somebody has already asked this recently. The
   // results are public posts, identical whoever asked, so there is nothing
-  // per-user to keep them apart.
-  const cached = await readCachedPosts(platform, query);
+  // per-user to keep them apart. Kept separate per country: the same term
+  // genuinely returns a different, regionally-biased result set.
+  const cached = await readCachedPosts(platform, query, countryCode);
   if (cached) return cached.slice(0, limit);
 
   try {
-    const rows = await runActor(actorFor(platform), inputFor(platform, query, limit));
+    const rows = await runActor(actorFor(platform), inputFor(platform, query, limit, countryCode));
 
     const posts = rows.flatMap((row) => {
       const post = mapScrapedPost(platform, row);
@@ -129,7 +142,7 @@ export async function searchPosts(
     const ranked = posts.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
     // Written before slicing, so a later search asking for more is not a miss
     // against a row we already have the posts for.
-    await writeCachedPosts(platform, query, ranked);
+    await writeCachedPosts(platform, query, ranked, countryCode);
 
     return ranked.slice(0, limit);
   } catch (error) {

@@ -33,6 +33,15 @@ function keyFor(query: string): string {
   return query.trim().toLowerCase();
 }
 
+/**
+ * Empty string rather than null: the primary key needs a real value, and a
+ * request with no resolved country (local dev, outside Vercel's edge) is its
+ * own cacheable bucket, not a miss against every country-specific one.
+ */
+function countryFor(countryCode: string | null): string {
+  return countryCode ?? "";
+}
+
 function isConfigured(): boolean {
   return serverEnv.SUPABASE_SERVICE_ROLE_KEY !== "";
 }
@@ -45,6 +54,7 @@ const rowSchema = z.object({
 export async function readCachedPosts(
   platform: ScrapePlatform,
   query: string,
+  countryCode: string | null,
 ): Promise<readonly ScrapedPost[] | null> {
   if (!isConfigured()) return null;
 
@@ -54,6 +64,7 @@ export async function readCachedPosts(
       .select("posts, fetched_at")
       .eq("platform", platform)
       .eq("query", keyFor(query))
+      .eq("country", countryFor(countryCode))
       .maybeSingle();
 
     if (error || !data) return null;
@@ -86,6 +97,7 @@ export async function writeCachedPosts(
   platform: ScrapePlatform,
   query: string,
   posts: readonly ScrapedPost[],
+  countryCode: string | null,
 ): Promise<void> {
   // An empty result is not cached. "Nothing came back" is as often a scraper
   // having a bad minute as it is a term with no posts, and holding that answer
@@ -98,13 +110,14 @@ export async function writeCachedPosts(
       {
         platform,
         query: keyFor(query),
+        country: countryFor(countryCode),
         // Through JSON rather than cast: the column is `jsonb`, and the
         // generated type wants a plain serialisable value rather than the
         // readonly array the rest of this module passes around.
         posts: JSON.parse(JSON.stringify(posts)) as Json,
         fetched_at: new Date().toISOString(),
       },
-      { onConflict: "platform,query" },
+      { onConflict: "platform,query,country" },
     );
 
     // Swept from the read path rather than a cron entry: the table is small and

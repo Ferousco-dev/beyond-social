@@ -9,6 +9,7 @@
  * feed silently empties.
  */
 import { mapScrapedPost } from "../src/lib/social-scrape/map";
+import { inputFor } from "../src/lib/social-scrape/search";
 
 const results: string[] = [];
 let failures = 0;
@@ -129,6 +130,33 @@ const tiktokRow = {
 {
   check("a non-object row is dropped", mapScrapedPost("tiktok", "nonsense") === null);
   check("null is dropped", mapScrapedPost("tiktok", null) === null);
+}
+
+{
+  // A resolved country routes the TikTok search through a proxy there.
+  const withCountry = inputFor("tiktok", "fashion", 60, "NG");
+  check(
+    "a resolved country sets proxyCountryCode",
+    withCountry.proxyCountryCode === "NG",
+    String(withCountry.proxyCountryCode),
+  );
+
+  // No signal must mean an unbiased search, not an empty/invalid proxy value.
+  const withoutCountry = inputFor("tiktok", "fashion", 60, null);
+  check(
+    "no country omits proxyCountryCode entirely",
+    !("proxyCountryCode" in withoutCountry),
+    JSON.stringify(withoutCountry),
+  );
+
+  // Instagram is reached by URL and was never part of the country-bias fix;
+  // this pins that it stays untouched rather than silently picking it up.
+  const instagram = inputFor("instagram", "fashion", 60, "NG");
+  check(
+    "Instagram's input carries no proxyCountryCode",
+    !("proxyCountryCode" in instagram),
+    JSON.stringify(instagram),
+  );
 }
 
 process.stdout.write(
