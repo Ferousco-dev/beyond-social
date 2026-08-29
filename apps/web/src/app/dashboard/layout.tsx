@@ -4,21 +4,27 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 import { OnboardingChecklist } from "@/features/onboarding/components/onboarding-checklist";
 import { TimezoneSync } from "@/features/settings/components/timezone-sync";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
-import { getSidebarProjects } from "@/lib/dashboard/queries";
+import { getCredits, getSidebarProjects } from "@/lib/dashboard/queries";
 import { getOnboardingProgress } from "@/lib/onboarding/progress";
 import { isBillingConfigured } from "@/lib/server-env";
 import { getUserTimeZone } from "@/lib/time/user-zone";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const [user, projects, timeZone, onboarding] = await Promise.all([
+  const [user, projects, credits, timeZone, onboarding] = await Promise.all([
     getCurrentUser(),
     getSidebarProjects(),
+    getCredits(),
     getUserTimeZone(),
     getOnboardingProgress(),
   ]);
 
   return (
-    <DashboardShell user={user} projects={projects} checkoutReady={isBillingConfigured}>
+    <DashboardShell
+      user={user}
+      projects={projects}
+      credits={credits}
+      checkoutReady={isBillingConfigured}
+    >
       {/* Reads the device zone and stores it when it differs, so nobody has to
           pick their own timezone out of a list of six hundred. */}
       <TimezoneSync current={timeZone} />

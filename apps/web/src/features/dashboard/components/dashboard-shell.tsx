@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 
 import { UpgradeModal } from "@/features/billing/components/upgrade-modal";
 import { cn } from "@/lib/utils";
-import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
+import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
 import { SidebarRail } from "./sidebar-rail";
@@ -17,11 +17,13 @@ import { WorkspaceMenu } from "./workspace-menu";
 export function DashboardShell({
   user,
   projects,
+  credits,
   checkoutReady,
   children,
 }: {
   user: DashboardUser;
   projects: readonly SidebarProject[];
+  credits: Credits;
   /** False until Stripe keys exist; passed from the server. */
   checkoutReady: boolean;
   children: ReactNode;
@@ -49,7 +51,12 @@ export function DashboardShell({
         {collapsed ? (
           <SidebarRail user={user} projects={projects} onExpand={() => setCollapsed(false)} />
         ) : (
-          <AppSidebar user={user} projects={projects} onCollapse={() => setCollapsed(true)} />
+          <AppSidebar
+            user={user}
+            projects={projects}
+            credits={credits}
+            onCollapse={() => setCollapsed(true)}
+          />
         )}
       </aside>
 
@@ -65,7 +72,12 @@ export function DashboardShell({
             className="fixed inset-y-0 left-0 z-50 w-[min(280px,85vw)] border-r border-hairline bg-paper pb-safe pl-safe outline-none lg:hidden"
           >
             <Dialog.Title className="sr-only">Navigation</Dialog.Title>
-            <AppSidebar user={user} projects={projects} onNavigate={() => setDrawerOpen(false)} />
+            <AppSidebar
+              user={user}
+              projects={projects}
+              credits={credits}
+              onNavigate={() => setDrawerOpen(false)}
+            />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
