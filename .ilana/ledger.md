@@ -95,3 +95,23 @@ Work done, in order:
   actions, edge functions, and the worker remain unobserved. Correcting the earlier
   process mistake (DEF-002): pushed both commits to `main` and let `ci.yml`'s own
   `deploy-production` job deploy, did not run `vercel deploy` manually this round.
+
+## 2026-08-29 | DEF-008 | constructor | Self-caught deployment bug
+
+User could not sign into `apps/admin` after granting `role = 'admin'`
+(`profiles.email = 'feranmioresajo@gmail.com'`, verified present and correct via direct
+REST query against production once its real URL was found). Root cause: when `apps/admin`
+was deployed (this session, DEF-006), its Supabase env vars were sourced from
+`apps/admin/.env.local`, which holds the **local development placeholder**
+(`http://127.0.0.1:54321`), not the production project. The live console had been trying to
+reach localhost since the moment it was deployed — every sign-in attempt was doomed
+regardless of credentials, and the generic refusal message gave no signal of that.
+
+The correct production values were in the repo-root `.env.local`
+(`NEXT_PUBLIC_SUPABASE_URL=https://rluswrevtevrrijaqowu.supabase.co`), which the initial
+deploy did not check. Fixed: removed and re-added all three Supabase env vars on
+`beyond-social-admin` (production + preview) with the root file's values, redeployed.
+
+Article 2 applies to my own mistakes, not just the codebase's: recorded here rather than
+folded silently into DEF-006's "Closed" status, since the deploy was not actually correct
+the first time.
