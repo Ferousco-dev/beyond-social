@@ -8,6 +8,56 @@ real repo state before acting on it.
 Seeded 2026-08-22, right after the 2026-08-21 marathon session (17+ PRs
 merged that day, `docs/marathon/SCOPE.md` has the full record).
 
+## Critical, found 2026-08-29: merging to `main` now deploys to production
+
+`.github/workflows/ci.yml`'s `deploy-production` job runs `vercel deploy
+--prod` automatically on every push to `main` (`push` event, not just
+`workflow_dispatch`), gated only by an automated smoke check on `/` and
+`/api/health`. Confirmed via GitHub Actions history that this job has been
+running and succeeding on ordinary merges going back to at least the ninth
+scheduled session (`58bf7eee`, 2026-08-28, run `33157128540`, job "Deploy
+production": success) and on this morning's direct-to-main commits (run
+`33237198393`). This was true well before this file's own "Needs the
+owner" section below was last written, which still says "Owner runs
+`vercel deploy --prod` themselves; this system does not deploy." That
+assumption was already false: the scheduled loop-engineering sessions have
+been unknowingly pushing real code straight to production on every merge,
+with no human review beyond a shallow health check, for at least the last
+two sessions and likely longer.
+
+Separately, this morning's live owner session (using the newly-installed
+Ìlànà process-discipline tool, `.ilana/`, not yet mentioned anywhere else
+in this file since it predates this entry) found the same CI behavior from
+the other direction: `DEF-002` in `.ilana/defects.md` treats the CI
+auto-deploy as redundant with a manual `vercel deploy` the owner had also
+been running, and the resolution was to keep CI's auto-deploy as the
+intended path and stop the manual step. That is a reasonable call for a
+session where the owner is watching live: the same session caught and
+fixed a real deploy bug in real time (`DEF-008`, the newly-deployed
+`apps/admin` pointed at a localhost Supabase placeholder instead of the
+real project). It does not answer the question that matters for this
+system: `RULES.md`'s "never deploy to production, no exceptions" was
+written specifically because the owner is not one message away during a
+scheduled run, and that reasoning does not change just because deploying
+now happens to be one `git push` away instead of a separate CLI command.
+
+**Action taken this session:** every scheduled run from today forward
+holds all merges until the owner decides. Work still proceeds normally
+otherwise, reading, writing, committing to branches, pushing, opening
+PRs, since none of that touches `main`, and CI's `deploy-preview` job (PR
+branches) never deploys to the live project. PRs are left open for the
+owner to merge themselves, same as any other owner-blocked item, rather
+than merged automatically.
+
+**Needs the owner:** decide whether unattended scheduled sessions should
+resume merging (and therefore auto-deploying) once this is read, or
+whether the pipeline should change first, for example requiring manual
+approval on the `production` GitHub Actions environment, or restricting
+`deploy-production` to `workflow_dispatch` only so a merge and a deploy
+become two separate, deliberate actions again. Nothing in production is
+currently broken; the last several auto-deploys, including this morning's,
+all passed their smoke checks.
+
 ## Owner-directed priority for the next session (queued 2026-08-28)
 
 The owner gave this directly, live, after the ninth scheduled session ended
