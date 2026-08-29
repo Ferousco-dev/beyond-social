@@ -1419,18 +1419,21 @@ export type Database = {
       };
       scrape_cache: {
         Row: {
+          country: string;
           fetched_at: string;
           platform: string;
           posts: Json;
           query: string;
         };
         Insert: {
+          country?: string;
           fetched_at?: string;
           platform: string;
           posts: Json;
           query: string;
         };
         Update: {
+          country?: string;
           fetched_at?: string;
           platform?: string;
           posts?: Json;
