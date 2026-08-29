@@ -6,6 +6,7 @@ import { TimezoneSync } from "@/features/settings/components/timezone-sync";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { getSidebarProjects } from "@/lib/dashboard/queries";
 import { getOnboardingProgress } from "@/lib/onboarding/progress";
+import { isBillingConfigured } from "@/lib/server-env";
 import { getUserTimeZone } from "@/lib/time/user-zone";
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
@@ -17,7 +18,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   ]);
 
   return (
-    <DashboardShell user={user} projects={projects}>
+    <DashboardShell user={user} projects={projects} checkoutReady={isBillingConfigured}>
       {/* Reads the device zone and stores it when it differs, so nobody has to
           pick their own timezone out of a list of six hundred. */}
       <TimezoneSync current={timeZone} />

@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Menu, Search, Sparkle } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { UpgradeModal } from "@/features/billing/components/upgrade-modal";
 import { cn } from "@/lib/utils";
 import { type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
@@ -16,14 +17,18 @@ import { WorkspaceMenu } from "./workspace-menu";
 export function DashboardShell({
   user,
   projects,
+  checkoutReady,
   children,
 }: {
   user: DashboardUser;
   projects: readonly SidebarProject[];
+  /** False until Stripe keys exist; passed from the server. */
+  checkoutReady: boolean;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   return (
     // The workspace is a dark "operating environment" regardless of the global
@@ -103,13 +108,14 @@ export function DashboardShell({
 
             {/* Was href="#", so the upgrade call to action did nothing at all.
                 Padded to a real tap target too: it was 20px tall. */}
-            <a
-              href="/dashboard/settings/billing"
+            <button
+              type="button"
+              onClick={() => setUpgradeOpen(true)}
               className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-primary transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <Sparkle className="size-4 fill-current" aria-hidden />
               Upgrade
-            </a>
+            </button>
           </div>
         </header>
 
@@ -117,6 +123,13 @@ export function DashboardShell({
           {children}
         </main>
       </div>
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        currentPlan={user.plan}
+        checkoutReady={checkoutReady}
+      />
     </div>
   );
 }
