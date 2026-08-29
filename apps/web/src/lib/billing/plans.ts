@@ -30,11 +30,14 @@ export interface Plan {
    * first is true advertises a price we would not honour.
    */
   readonly priceUsd: number;
+  /** USD per month when billed annually, for display only. Zero means not priced yet. */
+  readonly yearlyPriceUsd: number;
   readonly features: readonly string[];
   /** The tier the pricing page lifts as the guided choice. */
   readonly featured: boolean;
   /** Call to action on the marketing pricing card. */
   readonly cta: string;
+  readonly href: "/signup";
 }
 
 export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
@@ -44,9 +47,11 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     description: "Enough to see whether the output is good.",
     credits: 15,
     priceUsd: 0,
+    yearlyPriceUsd: 0,
     features: ["15 videos a month", "Every aspect ratio", "Editor and captions"],
     featured: false,
     cta: "Start free",
+    href: "/signup",
   },
   creator: {
     id: "creator",
@@ -54,6 +59,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     description: "For one person publishing consistently.",
     credits: 100,
     priceUsd: 0,
+    yearlyPriceUsd: 0,
     features: [
       "Everything in Free",
       "100 videos a month",
@@ -63,6 +69,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     ],
     featured: true,
     cta: "Choose Creator",
+    href: "/signup",
   },
   studio: {
     id: "studio",
@@ -70,6 +77,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     description: "For a team running several brands.",
     credits: 400,
     priceUsd: 0,
+    yearlyPriceUsd: 0,
     features: [
       "Everything in Creator",
       "400 videos a month",
@@ -80,6 +88,7 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     ],
     featured: false,
     cta: "Choose Studio",
+    href: "/signup",
   },
 };
 

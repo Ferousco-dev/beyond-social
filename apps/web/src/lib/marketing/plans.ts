@@ -1,6 +1,6 @@
 import { type FaqItem, type PricingTier } from "./types";
 
-import { PLAN_LIST, priceLabel } from "@/lib/billing/plans";
+import { PLAN_LIST, isPriced } from "@/lib/billing/plans";
 
 /**
  * Marketing pricing cards, derived from the billing catalogue.
@@ -11,12 +11,15 @@ import { PLAN_LIST, priceLabel } from "@/lib/billing/plans";
  */
 export const PRICING_TIERS: readonly PricingTier[] = PLAN_LIST.map((plan) => ({
   name: plan.name,
-  price: priceLabel(plan),
+  monthlyPriceUsd: plan.id === "free" ? 0 : isPriced(plan) ? plan.priceUsd : null,
+  yearlyPriceUsd: plan.id === "free" ? 0 : isPriced(plan) ? plan.yearlyPriceUsd : null,
+  isFree: plan.id === "free",
   description: plan.description,
   videos: `${plan.credits} videos / month`,
   features: plan.features,
   featured: plan.featured,
   cta: plan.cta,
+  href: plan.href,
 }));
 
 export const FAQ_ITEMS: readonly FaqItem[] = [

@@ -23,13 +23,16 @@ export interface Benefit {
 
 export interface PricingTier {
   readonly name: string;
-  /** Null when the plan is not priced yet, which the card has to say out loud. */
-  readonly price: string | null;
+  /** Null on the free plan (no charge) and on a plan not priced yet. */
+  readonly monthlyPriceUsd: number | null;
+  readonly yearlyPriceUsd: number | null;
+  readonly isFree: boolean;
   readonly description: string;
   readonly videos: string;
   readonly features: readonly string[];
   readonly featured: boolean;
   readonly cta: string;
+  readonly href: "/signup";
 }
 
 export interface FaqItem {
