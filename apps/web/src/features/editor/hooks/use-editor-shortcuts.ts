@@ -44,6 +44,7 @@ export function useEditorShortcuts(playback: Playback, editor: EditorState): voi
           playback.toggle();
           break;
         case "s":
+        case "S":
           editor.split(playback.currentMs);
           break;
         case "Delete":
