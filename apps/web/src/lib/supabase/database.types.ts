@@ -528,6 +528,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      heygen_avatars: {
+        Row: {
+          consent_version: number;
+          created_at: string;
+          id: string;
+          provider_avatar_id: string | null;
+          storage_path: string;
+          training_status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          consent_version: number;
+          created_at?: string;
+          id?: string;
+          provider_avatar_id?: string | null;
+          storage_path: string;
+          training_status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          consent_version?: number;
+          created_at?: string;
+          id?: string;
+          provider_avatar_id?: string | null;
+          storage_path?: string;
+          training_status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       likeness_consents: {
         Row: {
           accepted_at: string;
