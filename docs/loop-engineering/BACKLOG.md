@@ -17,63 +17,72 @@ several of these are explicitly blocked on a decision only the owner can
 make, per `RULES.md`, and should not be guessed at just because the owner
 is asking for the feature.
 
-**Do this first: finish the deep research the owner started.** A
-`deep-research` workflow run was started live in the same conversation
-that produced this section, to ground the pipeline/provider/consent
-decisions below in real evidence before any code gets written. The owner
-paused it partway through to let it "continue in the task" — but the
-workflow's own resume mechanism (`resumeFromRunId`) is same-session only,
-so a fresh session cannot literally resume that exact paused run; it has
-to be relaunched fresh with the same brief. Run it via
-`Workflow({ name: "deep-research", args: "<brief below>" })` before
-starting the avatar feature's design work, and read its report before
-answering the two "blocked on the owner" items below about which provider
-and pipeline shape to use, so those questions go back to the owner
-answered with real findings, not still open.
+**Process for this feature, non-negotiable order: research, then a
+written design, then code.** The owner watched the first research attempt
+burn a large amount of budget in about a minute — that was the
+`deep-research` workflow, which fans out 5 parallel search agents plus up
+to 15 deeply-fetched sources plus 3-way adversarial verification per
+claim, dozens of concurrent agent calls by design. Do not use that
+workflow for this feature, or for anything else in this file, unless the
+owner explicitly asks for it again. Instead, research the way the rest of
+this "blocked on the owner" section below was resolved on 2026-08-29: a
+single agent, plain `WebSearch`/`WebFetch`, one query at a time,
+sequential, no subagent fan-out. Slower, but the token cost is
+predictable and bounded instead of arriving all at once. Once research for
+a piece of this feature is far enough along to inform a real decision,
+write it down as an actual design document (architecture, data model, the
+pipeline shape, the consent flow) before writing any implementation code
+for that piece — a design doc costs nothing to revise; code that
+implements the wrong shape is expensive to undo. This is also exactly the
+gate Ìlànà (see below) is built to enforce, if it ends up installed.
 
-The exact brief to pass as `args`, unchanged from what was already
-launched once:
+**Research already done, 2026-08-29, live, cheaply (a handful of
+sequential `WebSearch` calls, not the workflow):** this answers most of
+"blocked on the owner" item 2 below with real evidence rather than leaving
+it open.
 
-> How to build a realistic "digital twin" AI avatar video generation
-> feature, where a user records a short video of themselves (face +
-> voice), and the system extracts their likeness and voice to generate new,
-> realistic, prompt-driven videos of that specific person (real movement,
-> real environment, real voice) — not just a static photo lip-synced to
-> audio. Context: this is for a real estate marketing product (Beyond
-> Social), first use case being a Singapore real-estate agent presenting
-> property listings as themselves in generated videos. The team already
-> checked the video-generation provider currently in their stack (kie.ai)
-> and confirmed its avatar models (Kling AI Avatar Standard/Pro, OmniHuman
-> 1.5, Volcengine lip-sync) all take a single still photo + audio clip +
-> text prompt, or re-dub an existing video's mouth — none of them train or
-> condition on a full recorded video of the person. The goal of this
-> research is to ground real engineering and product decisions in evidence
-> before any code is written, specifically: (1) what real techniques and
-> models (open-source or commercial API) actually do full "digital twin" /
-> personal-avatar generation from a short recorded video today, as opposed
-> to a single photo — e.g. HeyGen Instant/Photo Avatar, Synthesia
-> Personal/Expressive Avatar, Argil, Captions AI Avatars, D-ID, Hedra,
-> Colossyan, and any comparable products, what each actually requires as
-> input and can output, and what it costs; (2) whether there is real
-> open-source work in this space (LivePortrait, SadTalker, Wav2Lip
-> successors, EMO, VASA-1-style research, voice cloning stacks like
-> ElevenLabs/OpenVoice/XTTS paired with a separate video model) a small
-> team could build on, searching GitHub broadly for real repositories and
-> how production-ready they actually are, not just paper demos; (3) the
-> real production pipeline shape other companies use for a "record
-> yourself, get a reusable digital avatar" feature, including the
-> capture/consent flow; (4) legal, consent, and biometric-data-handling
-> norms specifically for a product that lets users generate videos of
-> themselves using their own cloned likeness and voice (GDPR biometric data
-> category, Illinois BIPA and similar state laws, and what consent
-> language, retention limits, and deletion mechanisms comparable commercial
-> products actually implement and disclose); (5) any existing "AI avatar
-> real estate agent" or "AI presenter for property listings" products or
-> case studies. Deliverable: a cited, verified report a team can use to
-> decide whether kie.ai can support this feature at all versus needing a
-> second, specialized provider, roughly what the real engineering pipeline
-> needs to look like, and what the non-negotiable consent/legal
-> requirements are before storing anyone's face or voice.
+- **HeyGen's Avatar V** (released ~April 2026) is a real, current, and
+  verified answer to "build a digital twin from a recorded video, not a
+  photo": it builds a photorealistic avatar from as little as a 15-second
+  video clip, generates in 175+ languages, and outputs up to 3 minutes of
+  new video per generation, confirmed directly against HeyGen's own help
+  center and community docs, not just marketing copy
+  ([HeyGen Help Center](https://help.heygen.com/en/articles/14602974-avatar-v-is-now-available-on-heygen),
+  [community guide](https://community.heygen.com/public/resources/how-to-use-avatar-v-to-create-a-realistic-ai-avatar-from-a-15-second-video)).
+  This is the capability kie.ai's avatar family does not have (see the
+  "researched this session" note further down): none of Kling
+  Avatar/OmniHuman/Volcengine train on a video, only a still photo, or
+  re-dub an existing clip.
+- Rough pricing shape (from HeyGen's and comparison sites' public pricing,
+  not independently re-verified against an invoice): a $29/mo entry tier,
+  premium avatar models billed at roughly 20 credits/minute of output, a
+  $99 one-time charge per custom avatar on some plans, and a
+  pay-as-you-go API with per-minute pricing meant for production use
+  ([HeyGen blog comparison](https://www.heygen.com/blog/best-ai-avatar-generators)).
+  Get an exact current quote before committing to anything; pricing pages
+  change.
+- **Consent/biometric handling, the other blocking question (item 3
+  below):** HeyGen has a published
+  [Biometric Information Privacy Notice](https://www.heygen.com/biometric-privacy-notice)
+  and a [GDPR compliance statement](https://www.heygen.com/gdpr-compliant):
+  explicit consent required before training any voice or avatar model,
+  identity verification that the consenting person matches the submitted
+  footage, and biometric processing under GDPR Article 9(2)(a) explicit
+  consent. Synthesia's consent/re-consent documentation was independently
+  reported as even stricter. Neither is a substitute for the owner's own
+  retention/deletion policy decision (item 3 below still stands), but it
+  means real, working consent-flow patterns already exist to model this
+  product's own flow on, rather than designing one from nothing.
+- Argil's biometric data policy specifically was not found documented
+  publicly in this pass — do not assume it matches HeyGen's or
+  Synthesia's without checking directly if it comes up as a candidate.
+- Not yet researched (skip unless the owner asks again): open-source
+  self-hosted alternatives (LivePortrait, SadTalker, EMO/VASA-1-style
+  work), a GitHub-repo survey of implementations, and specific real-estate
+  AI presenter case studies. These were in the original research brief
+  but the owner paused research before reaching them; they are lower
+  priority than the provider/consent answers above, which already unblock
+  a design pass.
 
 **The feature:** a "Live" recording flow (sidebar or new-project entry
 point) where a user records themselves on camera, reads a few short
@@ -159,11 +168,15 @@ documented market. Whether that gap matters is decision (2) below.
 2. Whether `kling/ai-avatar-pro`'s photo+voice+prompt bar is actually
    good enough for the feature, or whether the full recorded-video,
    real-environment, real-movement version the owner described needs a
-   different provider entirely (HeyGen, Synthesia, Argil, and similar all
-   do personal-avatar training from a short video, unlike anything
-   confirmed in kie.ai's market). A different provider is a new
-   third-party dependency and needs the owner's sign-off before anyone
-   integrates one, same as every other new-dependency item in this file.
+   different provider entirely. This now has a real, verified answer to
+   present, not just a hypothesis: HeyGen's Avatar V does exactly what
+   kie.ai's avatar family cannot, building a photorealistic digital twin
+   from a 15-second recorded video rather than a still photo (see the
+   research note above). It is still a new third-party dependency and
+   still needs the owner's sign-off before anyone integrates it, same as
+   every other new-dependency item in this file — the research narrows
+   the decision to "is HeyGen worth the cost and integration", not "does
+   anything like this exist."
 3. Consent and data-retention policy for storing a user's photo and voice.
    This is the one piece that does not move regardless of which model or
    provider gets picked: where it is captured, how long it is kept, and
