@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Mic, Pause, Play, Trash2 } from "lucide-react";
+import { Check, Loader2, Mic, Pause, Play, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -107,7 +107,7 @@ export function EnrollCard({ initial, phrase }: Props) {
 
   if (profile) {
     return (
-      <div className="rounded-xl border border-hairline bg-paper p-5">
+      <div className="h-full rounded-2xl border border-hairline bg-paper p-6">
         {dialog}
         <div className="flex items-start gap-4">
           <span
@@ -117,8 +117,14 @@ export function EnrollCard({ initial, phrase }: Props) {
             <Mic className="size-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-medium text-ink">Your saved voice</h2>
-            <p className="mt-1 text-sm text-ink-soft">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-ink">Your saved voice</h2>
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <Check className="size-2.5" aria-hidden />
+                Saved
+              </span>
+            </div>
+            <p className="mt-1 text-sm leading-relaxed text-ink-soft">
               Type what you want said and your saved voice will speak it. Re-record to replace it.
             </p>
             <div className="mt-3 flex items-center gap-2">
@@ -171,8 +177,8 @@ export function EnrollCard({ initial, phrase }: Props) {
           <Mic className="size-5" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-medium text-ink">Save your voice</h2>
-          <p className="mt-1 text-sm text-ink-soft">
+          <h2 className="text-sm font-semibold text-ink">Save your voice</h2>
+          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
             Read the line below out loud, once. After that you can type what you want said instead
             of recording every time.
           </p>

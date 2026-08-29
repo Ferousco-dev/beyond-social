@@ -8,7 +8,7 @@ import { Mic } from "lucide-react";
  */
 export function VoiceCardSkeleton() {
   return (
-    <div className="rounded-2xl border border-hairline bg-paper p-5">
+    <div className="h-full rounded-2xl border border-hairline bg-paper p-6">
       <div className="flex items-start gap-4">
         <span
           aria-hidden

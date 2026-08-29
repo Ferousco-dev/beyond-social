@@ -31,12 +31,15 @@ export default async function AssetsPage() {
         plus button in the message box.
       </p>
 
-      <div className="mt-6 flex flex-col gap-4 lg:mt-8">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:mt-8">
         <AvatarCard avatar={library.avatar} />
-        <ProductsCard products={library.products} />
         <Suspense fallback={<VoiceCardSkeleton />}>
           <EnrollSection />
         </Suspense>
+      </div>
+
+      <div className="mt-4">
+        <ProductsCard products={library.products} />
       </div>
     </div>
   );

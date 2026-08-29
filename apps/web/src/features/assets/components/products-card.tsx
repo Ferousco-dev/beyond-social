@@ -58,18 +58,33 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
   }
 
   return (
-    <section className="mt-4 rounded-xl border border-hairline bg-paper p-5">
-      <h2 className="text-sm font-semibold text-ink">Your products</h2>
-      <p className="mt-1.5 text-sm text-ink-soft">
+    <section className="rounded-2xl border border-hairline bg-paper p-6">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        >
+          <Package className="size-5" aria-hidden />
+        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="text-sm font-semibold text-ink">Your products</h2>
+          {shelf.items.length > 0 ? (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              {shelf.items.length} saved
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-ink-soft">
         Pictures of what you sell, so a video can feature the real thing instead of something the
         model imagined. Start one straight from a picture, or attach it from the plus button in the
         message box.
       </p>
 
-      <ul className="mt-5 flex flex-wrap gap-3">
+      <ul className="mt-5 flex flex-wrap gap-4">
         {shelf.items.map((product) => (
           <li key={product.id} className="group relative">
-            <div className="size-24 overflow-hidden rounded-xl border border-hairline bg-cloud">
+            <div className="size-24 overflow-hidden rounded-2xl border border-hairline bg-cloud">
               {product.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -105,11 +120,14 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             </button>
 
             {product.label ? (
-              <p className="mt-1.5 w-24 truncate text-xs text-ink-soft">{product.label}</p>
+              <p className="mt-2 w-24 truncate text-xs font-medium text-ink">{product.label}</p>
             ) : null}
 
-            <MakeVideoButton asset={product} className="mt-1 text-ink-soft hover:text-ink">
-              Make a video
+            <MakeVideoButton
+              asset={product}
+              className="mt-1 text-[11px] text-ink-soft hover:text-ink"
+            >
+              Make video
             </MakeVideoButton>
           </li>
         ))}
@@ -126,7 +144,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             type="button"
             disabled={busy}
             onClick={() => fileRef.current?.click()}
-            className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-hairline text-ink-soft transition-colors hover:border-ink-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-hairline text-ink-soft transition-colors hover:border-primary/50 hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? (
               <Loader2 className="size-5 animate-spin" aria-hidden />

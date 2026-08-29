@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Trash2, UserRound } from "lucide-react";
+import { Check, Loader2, Trash2, UserRound } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -88,23 +88,39 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
   }
 
   return (
-    <section className="rounded-xl border border-hairline bg-paper p-5">
+    <section className="h-full rounded-2xl border border-hairline bg-paper p-6">
       {dialog}
-      <h2 className="text-sm font-semibold text-ink">You</h2>
-      <p className="mt-1.5 text-sm text-ink-soft">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        >
+          <UserRound className="size-5" aria-hidden />
+        </span>
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="text-sm font-semibold text-ink">You</h2>
+          {shown ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <Check className="size-2.5" aria-hidden />
+              Saved
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-ink-soft">
         A photo of yourself, kept so your videos can be of you without uploading it every time. Face
         forward, well lit, nothing covering it.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-4">
-        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-cloud">
+        <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-cloud">
           {shown?.url ? (
             // Plain img: these are signed, short-lived URLs the image optimiser
             // cannot be configured for.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={shown.url} alt="Your saved avatar" className="size-full object-cover" />
           ) : (
-            <UserRound className="size-8 text-ink-soft" aria-hidden />
+            <UserRound className="size-9 text-ink-soft" aria-hidden />
           )}
         </div>
 
