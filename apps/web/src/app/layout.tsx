@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import { type ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 
+import { FirebaseObservability } from "@/components/analytics/firebase-observability";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { env } from "@/lib/env";
 import { THEME_SCRIPT } from "@/lib/theme";
@@ -72,6 +73,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         </a>
         {children}
         <ServiceWorker />
+        <FirebaseObservability />
       </body>
     </html>
   );

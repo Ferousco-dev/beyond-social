@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { reportError } from "@/lib/firebase/report-error";
+
 import "./globals.css";
 
 export default function GlobalError({
@@ -12,7 +14,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error(error);
+    reportError(error, { boundary: "global" });
   }, [error]);
 
   return (

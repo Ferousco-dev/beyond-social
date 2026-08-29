@@ -9,9 +9,11 @@ overrides:
 
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
+  "@firebase/util": true
   esbuild: true
   ffmpeg-static: true
   msgpackr-extract: true
+  protobufjs: true
   sharp: true
   unrs-resolver: true
 

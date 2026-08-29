@@ -5,6 +5,7 @@ import { useEffect } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/firebase/report-error";
 
 export default function Error({
   error,
@@ -14,8 +15,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Surface for local debugging; wire to a monitoring service in production.
-    console.error(error);
+    reportError(error, { boundary: "route" });
   }, [error]);
 
   return (
