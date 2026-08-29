@@ -1,14 +1,14 @@
 {
   "ilana_version": "1.0.0",
   "project": "beyond-social",
-  "mode": "AUDIT",
+  "mode": "TASK",
   "phase": "08",
   "gate": "G0",
-  "agent": "quality-auditor",
+  "agent": "constructor",
   "process_style": "hybrid",
   "rigour": 3,
-  "open": ["DEF-001", "DEF-002", "DEF-003", "DEF-004", "DEF-005"],
+  "open": ["DEF-002", "DEF-003", "DEF-005", "DEF-007"],
   "overrides": [],
-  "counters": { "DEF": 5, "DEC": 1, "GATE": 0 },
+  "counters": { "DEF": 7, "DEC": 1, "GATE": 0 },
   "attempts": {}
 }

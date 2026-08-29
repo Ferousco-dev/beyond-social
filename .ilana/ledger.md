@@ -54,3 +54,44 @@ Article 6 (process adherence is not optional) argues against leaving a known-bro
 sitting red for the length of a full audit write-up. Logged here for traceability; this is
 the one deviation from "audit changes nothing" in this run, and it is a same-effect, no-risk
 formatting fix, not a design decision made on the user's behalf.
+
+## 2026-08-29 | TASK | constructor | User selected findings to act on
+
+User response to the G0 handoff: use Firebase instead of Sentry for DEF-003 (own choice, not
+Ìlànà's recommendation — flagged the mismatch: Firebase has no first-party server-side error
+tracking/alerting product for a Vercel-hosted Next.js app; Crashlytics is mobile-only. User
+confirmed proceeding anyway, scoped to "error tracking too" alongside analytics). Deploy
+`apps/admin` (DEF-006 in the report). Add LICENSE/SECURITY.md/CODE_OF_CONDUCT.md (DEF-004).
+Worker deployment (F-07) declined — user is handling it themselves, out of scope here.
+
+Work done, in order:
+
+- DEF-004 closed: `LICENSE` (proprietary, matches every package.json's existing
+  `"license": "UNLICENSED"`), `SECURITY.md` (routes to GitHub private security advisories,
+  no email needed), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1). Commit `ca8f1b2`.
+- `apps/admin` deployed: new Vercel project `beyond-social-admin`, root directory set via
+  API (CLI cannot set it, same limitation as the web app's original setup), 4 env vars
+  (reused the app's existing Supabase project — no new backend). Live at
+  https://beyond-social-admin.vercel.app. Verified: `/` and `/users` redirect
+  unauthenticated (307), `/sign-in` renders (200). Access is DB-gated
+  (`profiles.role = 'admin'`); nobody can sign in until the owner sets their own row.
+  Not a DEF in the register (was F-06 in the narrative report, informational).
+- Firebase: new project `beyond-social-app` (project id, since `beyond-social` was taken
+  globally), one Web app registered, SDK config pulled. `NEXT_PUBLIC_FIREBASE_*` vars
+  (6 of 7; `MEASUREMENT_ID` intentionally empty) added to `.env.local` and Vercel
+  (production + preview) for the `beyond-social` project.
+  Built: `lib/firebase/client.ts` (lazy analytics init, no-ops without configured),
+  `lib/firebase/report-error.ts` (console + Analytics `exception` event),
+  `components/analytics/firebase-observability.tsx` (window error/rejection listener +
+  route-change page views), wired into `error.tsx`, `global-error.tsx`, and root layout.
+  CSP `connect-src` widened for the Google Analytics/Firebase domains this needs.
+  Commit `20a5d7d`.
+- **Open, needs the owner**: Google Analytics must be linked to the `beyond-social-app`
+  Firebase project from https://console.firebase.google.com — the CLI has no command for
+  it. Until `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` is set (Vercel env, both environments),
+  every `track()`/`reportError()` call is a safe no-op; nothing breaks, nothing is
+  collected either.
+- DEF-003 stays open by design: this closes client-side crash visibility only. Server
+  actions, edge functions, and the worker remain unobserved. Correcting the earlier
+  process mistake (DEF-002): pushed both commits to `main` and let `ci.yml`'s own
+  `deploy-production` job deploy, did not run `vercel deploy` manually this round.
