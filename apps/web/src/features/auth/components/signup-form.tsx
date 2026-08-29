@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
@@ -25,7 +26,13 @@ export function SignupForm() {
     formState: { errors },
   } = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
+    },
   });
 
   function onSubmit(values: SignupInput) {
@@ -85,6 +92,27 @@ export function SignupForm() {
         error={errors.confirmPassword?.message}
         {...register("confirmPassword")}
       />
+
+      <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+          {...register("acceptedTerms")}
+        />
+        <span>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="font-medium text-primary hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" className="font-medium text-primary hover:underline">
+            Privacy Policy
+          </Link>
+        </span>
+      </label>
+      {errors.acceptedTerms ? (
+        <p className="-mt-3 text-sm text-destructive">{errors.acceptedTerms.message}</p>
+      ) : null}
 
       <SubmitButton pending={pending} size="lg" className="mt-1 w-full">
         Create account
