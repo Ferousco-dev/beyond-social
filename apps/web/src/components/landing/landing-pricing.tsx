@@ -60,21 +60,11 @@ export function LandingPricing(): ReactNode {
         />
 
         <div className="mt-10 flex items-center justify-center gap-3">
-          <span
-            className={cn(
-              "text-sm font-medium",
-              isMonthly ? "text-ink" : "text-ink-soft",
-            )}
-          >
+          <span className={cn("text-sm font-medium", isMonthly ? "text-ink" : "text-ink-soft")}>
             Monthly
           </span>
           <Switch ref={switchRef} checked={!isMonthly} onCheckedChange={handleToggle} />
-          <span
-            className={cn(
-              "text-sm font-medium",
-              isMonthly ? "text-ink-soft" : "text-ink",
-            )}
-          >
+          <span className={cn("text-sm font-medium", isMonthly ? "text-ink-soft" : "text-ink")}>
             Annual <span className="text-primary">(save 20%)</span>
           </span>
         </div>
@@ -121,7 +111,11 @@ function PlanCard({
           : { y: 0, opacity: 1 }
       }
       viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.6, ease: "easeOut", delay: position === "left" ? 0 : position === "right" ? 0.1 : 0.05 }}
+      transition={{
+        duration: 0.6,
+        ease: "easeOut",
+        delay: position === "left" ? 0 : position === "right" ? 0.1 : 0.05,
+      }}
       className={cn(
         "relative flex flex-col rounded-2xl border p-7 text-center",
         tier.featured ? "border-primary bg-canvas" : "border-hairline bg-paper",
@@ -142,13 +136,16 @@ function PlanCard({
             <span className="text-[2.75rem] font-semibold leading-none tracking-tight tabular-nums text-ink">
               <NumberFlow
                 value={price}
-                format={{ style: "currency", currency: "USD", minimumFractionDigits: 0, maximumFractionDigits: 0 }}
+                format={{
+                  style: "currency",
+                  currency: "USD",
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                }}
                 transformTiming={{ duration: 500, easing: "ease-out" }}
               />
             </span>
-            {!tier.isFree ? (
-              <span className="text-sm text-ink-soft">/month</span>
-            ) : null}
+            {!tier.isFree ? <span className="text-sm text-ink-soft">/month</span> : null}
           </>
         ) : (
           <span className="text-lg font-medium leading-none text-ink-soft">Coming soon</span>

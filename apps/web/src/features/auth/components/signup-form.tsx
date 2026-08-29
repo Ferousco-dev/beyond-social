@@ -105,7 +105,11 @@ export function SignupForm() {
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/privacy" target="_blank" className="font-medium text-primary hover:underline">
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="font-medium text-primary hover:underline"
+          >
             Privacy Policy
           </Link>
         </span>

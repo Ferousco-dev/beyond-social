@@ -49,9 +49,7 @@ export const EDITOR_SHORTCUTS: readonly ShortcutGroup[] = [
   },
   {
     title: "Everywhere",
-    shortcuts: [
-      { keys: ["?"], action: "Show this list" },
-    ],
+    shortcuts: [{ keys: ["?"], action: "Show this list" }],
   },
 ];
 
