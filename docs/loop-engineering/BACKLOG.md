@@ -148,13 +148,11 @@ holds the rest of the app to.
 
 **Safe to build this session, no blocker:**
 
-- Fix the `omnihuman-1-5` polling bug: `supabase/functions/poll-generation/
-index.ts` decides which status endpoint to poll by testing whether
-  `generation.model` starts with `"veo"`; its own comment already admits
-  most market ids are vendor-prefixed with a slash but `omnihuman-1-5` is
-  not, so activating it today would poll the wrong endpoint and the
-  generation would look like it never finishes. Worth fixing regardless of
-  whether this model ships as part of the avatar feature.
+- ~~Fix the `omnihuman-1-5` polling bug~~: checked 2026-08-29, already fixed
+  on `main`. `poll-generation/index.ts`'s own comment documents the switch
+  from a slash test to a `veo`-prefix test specifically for this case, and
+  `isVeo` correctly evaluates `false` for `omnihuman-1-5` today. Nothing to
+  do here.
 - Wire up builders in `apps/web/src/lib/generation/select-model.ts` and
   confirm real request shapes for `wan/2-7-videoedit`, `wan/2-7-r2v`,
   `gemini-omni-video`, and the currently-unconfirmed shape on
@@ -584,9 +582,74 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Nothing. Session below finished cleanly with everything merged.
+Three PRs open, all verified locally and deliberately not merged, see the
+tenth session's log entry below for why: #171 (this file's own critical
+CI/deploy finding), #172 (Discover location-aware search), #173 (the
+volcengine model catalogue row). All independent of each other and safe to
+merge in any order once the owner has weighed in on #171.
 
 ## Session log
+
+- **2026-08-29, tenth scheduled session.** Opened on a repo that had moved a
+  lot since the ninth session's log entry: nine unlogged commits from a live
+  owner session earlier the same morning (pricing/terms/upgrade-modal/Assets/
+  credit-sidebar/editor UI work, plus a newly-installed process-discipline
+  tool, `.ilana/`, that added Firebase Analytics, `LICENSE`/`SECURITY.md`/
+  `CODE_OF_CONDUCT.md`, and deployed `apps/admin`). None of that was a
+  violation by this system; it was the actual owner working live and fixing a
+  real deploy bug (a wrong Supabase URL) in real time, which this system
+  cannot do unattended. Local `main` also needed resetting to `origin/main`:
+  a stale branch ref left over from an earlier session's checkout, not a real
+  divergence, confirmed by fetching fresh and checking ancestry both ways.
+
+  The one finding worth the owner's attention immediately, not just in this
+  log: `deploy-production` in `ci.yml` has been auto-deploying every push to
+  `main` straight to production for at least the last two sessions, confirmed
+  via GitHub Actions history (not a guess). This contradicts this file's own
+  long-standing assumption that deploying is a separate, manual, owner-only
+  step. Sent a push notification and opened PR #171 with the full detail and
+  a proposed decision (resume unattended merges as-is, or gate the production
+  environment / restrict `deploy-production` to `workflow_dispatch` so a
+  merge and a deploy are two deliberate actions again). Every merge this
+  session is held pending that answer, including PR #171 itself: merging it
+  would trigger the exact deploy this session is flagging.
+
+  With merges off the table, the rest of the session did real, independently
+  verified work and left it as open PRs rather than stopping early:
+  - The `omnihuman-1-5` polling bug this file's "Owner-directed priority"
+    section listed as safe to build turned out to already be fixed on `main`
+    (`poll-generation/index.ts`'s own comment already documents the fix). No
+    PR: nothing to ship. Worth removing that stale line the next time this
+    file's owner-priority section gets a pass.
+  - PR #172: Discover search now resolves the visitor's country from
+    Vercel's `x-vercel-ip-country` header and passes it to the TikTok actor's
+    `proxyCountryCode` field, the real fix this file scoped on 2026-08-29
+    morning. `scrape_cache`'s primary key widened to include country
+    (migration `0077`) so cached results from one country stop leaking into
+    another's search. Typecheck, lint, build, and `test:scrape` (23/23,
+    three new cases) all pass locally; the migration itself can only be
+    verified by CI's `Migrations and schema` job, no Docker in this session.
+  - PR #173: added the verified `volcengine/video-to-video-lip-sync` model
+    to the catalogue, inactive, migration `0078`. Real id, checked directly
+    against the provider's docs, but no pricing published anywhere for it
+    and the composer still has no way to feed a model that requires an
+    existing video, so it stays off until both are solved, same reasoning
+    already applied to the Wan/Gemini rows in migration `0058`.
+
+  Untouched, deliberately: the avatar feature (still needs the owner's
+  provider/consent/pricing decisions per this file's owner-priority
+  section), the Ìlànà install question (the owner appears to have already
+  installed and used it live this morning, so this may now be moot rather
+  than still open, worth confirming), and everything else already marked
+  owner-blocked or new-dependency-blocked below. No browser tool was
+  available this session, same as most recent sessions.
+
+  Next session: read PR #171 first. If the owner has answered, resume normal
+  merge discipline (or the adjusted one they chose) and clear the backlog of
+  three open PRs above before starting new work. If not yet answered, keep
+  holding merges and keep working the same way this session did: real,
+  verified units of work, left open. The stale `omnihuman-1-5` backlog line
+  is worth deleting from the owner-priority section above regardless.
 
 - **2026-08-28, ninth scheduled session.** No Docker daemon again this session
   (`docker ps` fails to connect, same as the sixth through eighth sessions),
