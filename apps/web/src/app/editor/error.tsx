@@ -28,9 +28,10 @@ export default function EditorError({
   }, [error]);
 
   return (
-    // Dark-scoped like the editor itself, so a failure does not flash a white
-    // page in the middle of a dark workspace.
-    <div className="dark flex min-h-dvh items-center justify-center bg-canvas px-6">
+    <div
+      data-surface="workspace"
+      className="flex min-h-dvh items-center justify-center bg-canvas px-6"
+    >
       <div className="w-full max-w-2xl">
         <ErrorState
           title="The editor did not load"

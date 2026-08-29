@@ -7,12 +7,10 @@
  *
  * Shaped like the real thing rather than a spinner: the bars are where the top
  * bar, player and timeline land, so the layout does not jump when it arrives.
- * Carries the same dark scope as the editor itself, since a white flash before a
- * dark workspace is worse than a slower one.
  */
 export default function EditorLoading() {
   return (
-    <div className="dark flex h-dvh flex-col bg-canvas" aria-busy>
+    <div data-surface="workspace" className="flex h-dvh flex-col bg-canvas" aria-busy>
       <span className="sr-only">Loading the editor</span>
 
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-hairline px-4">

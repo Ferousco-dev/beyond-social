@@ -51,9 +51,7 @@ export function EditorShell({
   useEditorShortcuts(playback, editor);
 
   return (
-    // The editor is part of the dark workspace; scope the dark tokens here too
-    // so it stays consistent regardless of the global theme.
-    <div className="dark flex h-dvh flex-col bg-canvas text-ink">
+    <div data-surface="workspace" className="flex h-dvh flex-col bg-canvas text-ink">
       <EditorTopBar
         backHref={backHref}
         title={title}
