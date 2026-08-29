@@ -21,19 +21,19 @@ scoped units.
 This is smaller than the original brief made it sound, because most of the
 supporting pipeline is already live:
 
-| Piece | Already exists | What HeyGen changes |
-| --- | --- | --- |
-| Save one face photo | `brand_assets` (kind `avatar`), `avatar-card.tsx` | Superseded for Live users: HeyGen trains from video, not a still |
-| Save one voice clip | `voice_profiles`, `enroll-card.tsx`, a read-along phrase (`lib/voice/phrase.ts`) | Superseded: HeyGen's Avatar V trains face *and* voice from the same clip |
-| Consent to reuse a likeness | `likeness_consents`, `CONSENT_VERSION`/`CONSENT_STATEMENT` (`features/generation/consent.ts`), checked both client-side and inside the edge function | Needs a second, HeyGen-specific statement (see Consent below); the existing table and gating pattern are reused as-is |
-| Generate a video from a saved photo + voice | `generate-avatar` edge function, dispatches to kie.ai's avatar family | Not reused for the Live path: HeyGen is a different API with a different job shape. `generate-avatar` keeps serving the existing photo+clip flow unchanged |
-| Actual voice cloning (say new words in the saved voice) | **Does not exist today.** `voice_profiles.provider_voice_id` is a real column but nothing ever sets it — enrollment just stores one fixed clip and today's avatar path replays that exact clip's audio, it does not synthesize new speech | HeyGen's Avatar V does this itself, as part of one video-generation call. This is the actual gap the whole feature exists to close |
+| Piece                                                   | Already exists                                                                                                                                                                                                                            | What HeyGen changes                                                                                                                                        |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Save one face photo                                     | `brand_assets` (kind `avatar`), `avatar-card.tsx`                                                                                                                                                                                         | Superseded for Live users: HeyGen trains from video, not a still                                                                                           |
+| Save one voice clip                                     | `voice_profiles`, `enroll-card.tsx`, a read-along phrase (`lib/voice/phrase.ts`)                                                                                                                                                          | Superseded: HeyGen's Avatar V trains face _and_ voice from the same clip                                                                                   |
+| Consent to reuse a likeness                             | `likeness_consents`, `CONSENT_VERSION`/`CONSENT_STATEMENT` (`features/generation/consent.ts`), checked both client-side and inside the edge function                                                                                      | Needs a second, HeyGen-specific statement (see Consent below); the existing table and gating pattern are reused as-is                                      |
+| Generate a video from a saved photo + voice             | `generate-avatar` edge function, dispatches to kie.ai's avatar family                                                                                                                                                                     | Not reused for the Live path: HeyGen is a different API with a different job shape. `generate-avatar` keeps serving the existing photo+clip flow unchanged |
+| Actual voice cloning (say new words in the saved voice) | **Does not exist today.** `voice_profiles.provider_voice_id` is a real column but nothing ever sets it — enrollment just stores one fixed clip and today's avatar path replays that exact clip's audio, it does not synthesize new speech | HeyGen's Avatar V does this itself, as part of one video-generation call. This is the actual gap the whole feature exists to close                         |
 
 So the genuinely new work is: a video-recording flow instead of two separate
 uploads, a new consent statement fit for that, a new stored "trained avatar"
 record per user (HeyGen's own asset id, not a photo path), and a new
 generation dispatch path that calls HeyGen instead of kie.ai. Everything
-about *how* consent is gated, stored, and checked before dispatch follows the
+about _how_ consent is gated, stored, and checked before dispatch follows the
 pattern `likeness_consents` and `generate-avatar` already established; this
 is extension, not invention.
 
@@ -103,7 +103,7 @@ recording" idea `voice_profiles.phrase` already uses):
 Retention: same policy as `voice_profiles` today, not a new invention —
 kept until the user deletes it, no automatic expiry. `docs/loop-engineering/
 BACKLOG.md`'s open "storage lifecycle rules" item is a real, separate gap
-(no TTL sweep exists for *any* stored asset in this app yet), but it is a
+(no TTL sweep exists for _any_ stored asset in this app yet), but it is a
 cross-cutting gap, not one this feature should solve alone or be blocked by:
 Live ships with exactly the retention guarantee voice enrollment already
 ships with today. `heygen_avatars` gets the same owner-deletable RLS policy
@@ -118,7 +118,7 @@ screen, three short lines to read rather than one — long enough for Avatar V
 to have a real sample, short enough to not feel like a chore:
 
 1. The consent statement above, read aloud (this is the training clip's
-   audio *and* the consent record at once, same dual-purpose idea as
+   audio _and_ the consent record at once, same dual-purpose idea as
    `enrollmentPhrase`).
 2. A second line, prompted, natural speech for training variety (HeyGen's
    own guidance recommends more than one static sentence for a convincing
