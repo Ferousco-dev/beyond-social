@@ -351,12 +351,12 @@ export function LiveCaptureDialog({
             {stage === "review" && shot ? (
               <div>
                 <div className="relative aspect-square overflow-hidden rounded-xl bg-ink">
-                  <video
-                    ref={reviewRef}
-                    controls
-                    playsInline
-                    className="size-full -scale-x-100 object-cover"
-                  />
+                  {/* Not mirrored, unlike the live preview above: this is
+                      played back, not looked into. The recording itself was
+                      never flipped, only its live preview was, so mirroring
+                      the review too would show it backwards from how it was
+                      actually recorded. */}
+                  <video ref={reviewRef} controls playsInline className="size-full object-cover" />
                 </div>
                 <div className="mt-3 flex gap-2">
                   <button
