@@ -12,13 +12,13 @@ import { getAuthUser } from "@/lib/supabase/session";
 import { type LibraryItem } from "./types";
 
 /**
- * How many items one page of the library holds.
+ * How many items one source contributes to one page of the library.
  *
- * Bounded rather than endless on purpose. An unbounded list signs every object
- * the account has ever produced on every visit, which is a page that gets
- * slower the longer someone uses the product. Older items stay reachable
- * through their thread. Applied per source before the merge, so one busy source
- * cannot crowd the other out of the page.
+ * Bounded rather than endless on purpose. Signing every object the account has
+ * ever produced on every visit is a page that gets slower the longer someone
+ * uses the product. Applied per source before the merge, so one busy source
+ * cannot crowd the other out of the page; older items are reached with
+ * `getLibraryItems(cursor)`, not by raising this.
  */
 const PAGE_SIZE = 120;
 
@@ -76,12 +76,14 @@ function titleOf(project: { title: string } | null): string {
 }
 
 /** Photos and voice clips the user attached to a message. */
-async function readAttachments(supabase: Supabase): Promise<LibraryItem[]> {
-  const { data, error } = await supabase
+async function readAttachments(supabase: Supabase, before: string | null): Promise<LibraryItem[]> {
+  let query = supabase
     .from("message_attachments")
     .select("id, kind, storage_path, created_at, messages!inner(project_id, projects(title))")
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE);
+  if (before !== null) query = query.lt("created_at", before);
+  const { data, error } = await query;
 
   if (error !== null) {
     logger.warn("could not read library attachments", { error: error.message });
@@ -114,14 +116,16 @@ async function readAttachments(supabase: Supabase): Promise<LibraryItem[]> {
  * included: a stitched export is made from these same clips, so listing both
  * would show one video twice.
  */
-async function readGenerations(supabase: Supabase): Promise<LibraryItem[]> {
-  const { data, error } = await supabase
+async function readGenerations(supabase: Supabase, before: string | null): Promise<LibraryItem[]> {
+  let query = supabase
     .from("video_generations")
     .select("id, project_id, result_path, created_at, projects(title)")
     .eq("status", "ready")
     .not("result_path", "is", null)
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE);
+  if (before !== null) query = query.lt("created_at", before);
+  const { data, error } = await query;
 
   if (error !== null) {
     logger.warn("could not read library generations", { error: error.message });
@@ -145,21 +149,63 @@ async function readGenerations(supabase: Supabase): Promise<LibraryItem[]> {
   }));
 }
 
-export async function getLibraryItems(): Promise<readonly LibraryItem[]> {
-  if (!isSupabaseConfigured) return [];
+export interface LibraryPage {
+  readonly items: readonly LibraryItem[];
+  /**
+   * The `created_at` to page from next, or null when this page was not full
+   * enough to promise more exist. Not the last item's timestamp: with two
+   * sources merged and each independently capped at PAGE_SIZE, the older of
+   * the two per-source cursors is what neither source has been exhausted
+   * before, so re-querying from it cannot skip a row the merge simply
+   * hadn't gotten to yet.
+   */
+  readonly nextCursor: string | null;
+}
+
+/**
+ * One page of the library, newest first.
+ *
+ * `before` re-queries both sources with `created_at < before` rather than
+ * slicing an already-fetched array, so paging back through history actually
+ * reaches older items instead of the same bounded page every time.
+ */
+export async function getLibraryItems(before: string | null = null): Promise<LibraryPage> {
+  if (!isSupabaseConfigured) return { items: [], nextCursor: null };
 
   const user = await getAuthUser();
-  if (user === null) return [];
+  if (user === null) return { items: [], nextCursor: null };
 
   const supabase = await createClient();
   // Independent reads against different tables and buckets, so they run at once
   // rather than putting one round trip in front of the other.
   const [attachments, generations] = await Promise.all([
-    readAttachments(supabase),
-    readGenerations(supabase),
+    readAttachments(supabase, before),
+    readGenerations(supabase, before),
   ]);
 
-  return [...attachments, ...generations]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, PAGE_SIZE);
+  // Not sliced down to PAGE_SIZE: the cursor below is only safe to resume
+  // from because every row fetched here is also returned. Trimming this to a
+  // single page would silently drop whichever source's tail lost the merge,
+  // and those rows would then never surface, since the next page starts
+  // after this cursor.
+  const merged = [...attachments, ...generations].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
+
+  // A source that came back short of PAGE_SIZE has no more rows before this
+  // cursor; only a source that came back full might still have older ones.
+  // The oldest of those safe-to-continue-from cursors is where the next page
+  // must start, so the merge cannot skip a row from whichever source it
+  // hadn't reached yet.
+  const exhaustedCursors = [
+    attachments.length === PAGE_SIZE ? attachments[attachments.length - 1]?.createdAt : undefined,
+    generations.length === PAGE_SIZE ? generations[generations.length - 1]?.createdAt : undefined,
+  ].filter((cursor): cursor is string => cursor !== undefined);
+
+  const nextCursor =
+    exhaustedCursors.length > 0
+      ? exhaustedCursors.reduce((oldest, cursor) => (cursor < oldest ? cursor : oldest))
+      : null;
+
+  return { items: merged, nextCursor };
 }
