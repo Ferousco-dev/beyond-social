@@ -71,6 +71,7 @@ interface Results {
   readonly posts: readonly DiscoverPost[];
   readonly term: string;
   readonly platform: ScrapePlatform;
+  readonly countryCode: string | null;
 }
 
 export function DiscoverScroller({
@@ -105,7 +106,12 @@ export function DiscoverScroller({
    * search after trying another, paid both again for an answer we were holding.
    * A ref rather than state: reading it must not itself cause a render.
    */
-  const cache = useRef(new Map<string, readonly DiscoverPost[]>());
+  const cache = useRef(
+    new Map<
+      string,
+      { readonly posts: readonly DiscoverPost[]; readonly countryCode: string | null }
+    >(),
+  );
 
   /*
    * Which search is the one the screen should show.
@@ -138,9 +144,9 @@ export function DiscoverScroller({
       const key = `${on}:${text.toLowerCase()}`;
       const held = cache.current.get(key);
       if (held) {
-        setResults({ posts: held, term: text, platform: on });
-        setSelectedId(held[0]?.videoId ?? null);
-        if (held.length === 0)
+        setResults({ posts: held.posts, term: text, platform: on, countryCode: held.countryCode });
+        setSelectedId(held.posts[0]?.videoId ?? null);
+        if (held.posts.length === 0)
           setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
         return;
       }
@@ -161,8 +167,13 @@ export function DiscoverScroller({
           return;
         }
 
-        cache.current.set(key, result.posts);
-        setResults({ posts: result.posts, term: text, platform: on });
+        cache.current.set(key, { posts: result.posts, countryCode: result.countryCode });
+        setResults({
+          posts: result.posts,
+          term: text,
+          platform: on,
+          countryCode: result.countryCode,
+        });
         // The first result opens on its own. Landing on a grid where nothing is
         // playing makes the pane look broken until you happen to click.
         setSelectedId(result.posts[0]?.videoId ?? null);
@@ -324,6 +335,7 @@ export function DiscoverScroller({
         query={query}
         term={results?.term ?? ""}
         platform={results?.platform ?? platform}
+        countryCode={results?.countryCode ?? null}
         count={posts.length}
         suggestions={[...industryTerms, ...SUGGESTIONS]}
         onSuggestion={(term) => run(term, platform)}

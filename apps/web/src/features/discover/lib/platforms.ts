@@ -17,3 +17,22 @@ export function formatViews(views: number): string {
   if (views >= 1_000) return `${(views / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
   return String(views);
 }
+
+/** English display name for an ISO 3166-1 alpha-2 code, e.g. "NG" -> "Nigeria". */
+const REGION_NAMES = new Intl.DisplayNames(["en"], { type: "region" });
+
+/**
+ * What a result set was biased to, for the line above the grid.
+ *
+ * Null means an unbiased, global search (local dev, or a country Vercel could
+ * not resolve), which is worth saying plainly rather than leaving the reader
+ * to guess why a search of the same term reads differently another time.
+ */
+export function countryName(code: string | null): string | null {
+  if (!code) return null;
+  try {
+    return REGION_NAMES.of(code) ?? null;
+  } catch {
+    return null;
+  }
+}
