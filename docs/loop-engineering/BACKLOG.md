@@ -113,6 +113,33 @@ increment of the Live feature build order below.
   is not an unattended session bypassing the merge hold that section
   describes.
 
+**Addendum, same session, after the owner clarified the entry point was
+wrong:** the owner had actually meant the dashboard home screen itself (the
+"Product video" / "Talking avatar" / "Trend remix" pill row), not the
+composer's `+` menu or Assets. Corrected, same PR-and-merge pattern, not a
+new one:
+
+- Added a "Go live" pill to that row in
+  `apps/web/src/features/dashboard/components/dashboard-home.tsx`, styled
+  distinctly (primary-tinted, not the plain-text-fill pills beside it) since
+  it opens the camera dialog directly rather than filling the prompt. The
+  dialog's existing 3-step intro is the first-timer explainer the owner
+  asked for; nothing new was written for that.
+- Closed a real, separate gap this surfaced: the home screen's `onVoice` was
+  wired to a no-op (`onVoice={() => undefined}`), because
+  `lib/composer/seed.ts` had no way to carry a recorded voice clip across
+  the navigation to `/dashboard/c/new`. Added a `voice` field to
+  `ComposerSeed`/`TakenSeed` (new `bs:pending-voice` session-storage key,
+  same pattern as the existing photo/shots keys) and wired
+  `use-composer-draft.ts` to read it back. This was not scope creep for its
+  own sake: without it, recording a photo and then a voice clip on the home
+  screen still could not reach `conversation-thread.tsx`'s existing
+  photo-plus-voice avatar detection, which already reads `draft.voice`
+  precisely for this. The wiring now goes all the way through, verified by
+  reading `conversation-thread.tsx`'s send handler, not assumed.
+- Same verification gap as above still stands: not clicked through in a
+  real browser. `pnpm typecheck`/`lint`/`format:check`/`build` all pass.
+
 ## Owner-directed priority for the next session (queued 2026-08-28)
 
 The owner gave this directly, live, after the ninth scheduled session ended

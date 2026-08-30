@@ -1,8 +1,10 @@
 "use client";
 
+import { Radio } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
 import { BriefFlow } from "@/features/brief/components/brief-flow";
 import { Coachmark } from "@/features/tips/components/coachmark";
 import { TIPS } from "@/lib/tips/tips";
@@ -12,6 +14,8 @@ import { cn } from "@/lib/utils";
 
 import { leaveSeed } from "@/lib/composer/seed";
 import { type PendingPhoto } from "./compose-menu";
+import { usePhotoUpload } from "../hooks/use-photo-upload";
+import { type PendingVoice } from "../hooks/use-voice-upload";
 import { PromptComposer } from "./prompt-composer";
 
 /**
@@ -34,8 +38,17 @@ export function DashboardHome({
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
+  const [voice, setVoice] = useState<PendingVoice | null>(null);
   const [greeting, setGreeting] = useState("");
   const [composing, setComposing] = useState(false);
+  const [live, setLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const photoUpload = usePhotoUpload({
+    projectId: "new",
+    onPhotos: setPhotos,
+    onError: setLiveError,
+    onBusyChange: () => {},
+  });
 
   // Resolved on the client: the greeting depends on the visitor's own clock,
   // which the server cannot know without causing a hydration mismatch.
@@ -45,14 +58,14 @@ export function DashboardHome({
   }, [name]);
 
   const start = useCallback(
-    (text: string, attachments: readonly PendingPhoto[] = []) => {
+    (text: string, attachments: readonly PendingPhoto[] = [], clip: PendingVoice | null = null) => {
       const trimmed = text.trim();
       if (!trimmed) return;
 
-      // Photos are already uploaded and signed by this point, so only the
-      // references travel. Without this the attachment was accepted here, shown
-      // here, and then silently dropped by the navigation.
-      leaveSeed({ prompt: trimmed, photos: attachments });
+      // Photos and a voice clip are already uploaded and signed by this point,
+      // so only the references travel. Without this the attachment was
+      // accepted here, shown here, and then silently dropped by the navigation.
+      leaveSeed({ prompt: trimmed, photos: attachments, voice: clip });
       router.push("/dashboard/c/new");
     },
     [router],
@@ -88,23 +101,40 @@ export function DashboardHome({
       <PromptComposer
         value={prompt}
         onChange={setPrompt}
-        onSubmit={() => start(prompt, photos)}
+        onSubmit={() => start(prompt, photos, voice)}
         // There is no project yet, so an upload here is filed against none and
         // carried into the thread the first message creates.
         projectId="new"
         photos={photos}
         onPhotosChange={setPhotos}
-        voice={null}
+        voice={voice}
         footage={null}
         onFootage={() => {}}
-        onVoice={() => undefined}
+        onVoice={setVoice}
         shots={null}
         onShotsChange={() => {}}
         busy={false}
         credits={credits}
       />
 
+      {liveError ? (
+        <p role="alert" className="mt-3 text-center text-xs text-destructive">
+          {liveError}
+        </p>
+      ) : null}
+
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => {
+            setLiveError(null);
+            setLive(true);
+          }}
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
+        >
+          <Radio className="size-4" aria-hidden />
+          Go live
+        </button>
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion.label}
@@ -117,6 +147,12 @@ export function DashboardHome({
           </button>
         ))}
       </div>
+
+      <LiveCaptureDialog
+        open={live}
+        onOpenChange={setLive}
+        onCapture={(file) => photoUpload.upload([file])}
+      />
 
       <div className="mt-6 text-center">
         <button

@@ -69,6 +69,7 @@ export function useComposerDraft(
 
     if (seed.photos) setPhotos(seed.photos);
     if (seed.shots) setShots(seed.shots);
+    if (seed.voice) setVoice(seed.voice);
 
     setPrompt(seed.prompt);
     setSeeded(true);

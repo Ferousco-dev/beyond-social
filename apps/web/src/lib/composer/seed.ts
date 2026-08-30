@@ -1,5 +1,6 @@
 import { type PendingPhoto } from "@/features/dashboard/components/compose-menu";
 import { type PendingShot } from "@/features/dashboard/components/shot-list-editor";
+import { type PendingVoice } from "@/features/dashboard/hooks/use-voice-upload";
 
 /**
  * Filling the composer from somewhere else in the app.
@@ -17,6 +18,7 @@ import { type PendingShot } from "@/features/dashboard/components/shot-list-edit
 const PROMPT_KEY = "bs:pending-prompt";
 const PHOTOS_KEY = "bs:pending-photos";
 const SHOTS_KEY = "bs:pending-shots";
+const VOICE_KEY = "bs:pending-voice";
 
 export interface ComposerSeed {
   readonly prompt: string;
@@ -24,6 +26,12 @@ export interface ComposerSeed {
   readonly photos?: readonly PendingPhoto[];
   /** Beats, when the seed came from something that had a shot list. */
   readonly shots?: readonly PendingShot[];
+  /**
+   * A clip recorded before the thread existed, from the home screen's own
+   * mic button. Paired with a photo, this is what turns the next send into
+   * an avatar render rather than a plain generation.
+   */
+  readonly voice?: PendingVoice | null;
 }
 
 /** Leaves the seed for the composer. Does not navigate; the caller does that. */
@@ -38,6 +46,13 @@ export function leaveSeed(seed: ComposerSeed): void {
 
   if (seed.shots && seed.shots.length > 0) {
     window.sessionStorage.setItem(SHOTS_KEY, JSON.stringify(seed.shots));
+  }
+
+  // Only a settled clip is worth carrying: a recording still uploading has no
+  // path yet, and the new thread has no way to wait for one that was started
+  // on a screen it never rendered.
+  if (seed.voice && seed.voice.path !== "") {
+    window.sessionStorage.setItem(VOICE_KEY, JSON.stringify(seed.voice));
   }
 }
 
@@ -67,6 +82,17 @@ export interface TakenSeed {
   readonly prompt: string | null;
   readonly photos: readonly PendingPhoto[] | null;
   readonly shots: readonly PendingShot[] | null;
+  readonly voice: PendingVoice | null;
+}
+
+/** Loose enough to catch a hand-edited value without importing a schema here. */
+function isPendingVoice(value: unknown): value is PendingVoice {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "path" in value &&
+    typeof (value as { path: unknown }).path === "string"
+  );
 }
 
 /** Takes everything left for this screen, clearing it as it goes. */
@@ -81,12 +107,14 @@ export function takeSeed(fallbackPrompt: string | null): TakenSeed {
     // thread the user starts by hand later.
     window.sessionStorage.removeItem(PHOTOS_KEY);
     window.sessionStorage.removeItem(SHOTS_KEY);
-    return { prompt: null, photos: null, shots: null };
+    window.sessionStorage.removeItem(VOICE_KEY);
+    return { prompt: null, photos: null, shots: null, voice: null };
   }
 
   return {
     prompt,
     photos: takeJson(PHOTOS_KEY, (value): value is readonly PendingPhoto[] => Array.isArray(value)),
     shots: takeJson(SHOTS_KEY, (value): value is readonly PendingShot[] => Array.isArray(value)),
+    voice: takeJson(VOICE_KEY, isPendingVoice),
   };
 }
