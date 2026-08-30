@@ -9,6 +9,17 @@ const workerEnvSchema = z.object({
   REDIS_URL: z.string().url().or(z.literal("")).default(""),
   SUPABASE_URL: z.string().url().or(z.literal("")).default(""),
   SUPABASE_SERVICE_ROLE_KEY: z.string().default(""),
+  // Same credentials the web app's OAuth flow uses, needed here too: a
+  // scheduled post whose access token has expired needs to refresh it before
+  // publishing, not just report the failure. Empty by default, same as
+  // above; a platform without its pair simply cannot be refreshed and falls
+  // back to today's "reconnect" failure.
+  TIKTOK_CLIENT_KEY: z.string().default(""),
+  TIKTOK_CLIENT_SECRET: z.string().default(""),
+  META_APP_ID: z.string().default(""),
+  META_APP_SECRET: z.string().default(""),
+  GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
