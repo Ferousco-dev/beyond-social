@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Loader2, Trash2, UserRound } from "lucide-react";
+import { Camera, Check, Loader2, Trash2, UserRound } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
+import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
 import { recordLikenessConsent } from "@/features/generation/avatar-actions";
@@ -33,6 +34,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
    * bytes have landed and the attestation may still be needed.
    */
   const [removed, setRemoved] = useState(false);
+  const [live, setLive] = useState(false);
   const shown = removed ? null : avatar;
   const busy = uploading || pending;
 
@@ -142,6 +144,16 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
             {shown ? "Replace photo" : "Upload a photo"}
           </button>
 
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setLive(true)}
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline px-4 text-xs font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Camera className="size-3.5" aria-hidden />
+            Use camera
+          </button>
+
           {shown ? (
             <MakeVideoButton
               asset={shown}
@@ -214,6 +226,12 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
           {message}
         </p>
       ) : null}
+
+      <LiveCaptureDialog
+        open={live}
+        onOpenChange={setLive}
+        onCapture={(file) => void choose(file)}
+      />
     </section>
   );
 }
