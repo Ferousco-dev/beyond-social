@@ -7,7 +7,6 @@ import {
   Images,
   Mic,
   Plus,
-  Radio,
   Scissors,
   TrendingUp,
   UserRound,
@@ -17,7 +16,6 @@ import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
-import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
 import { PicturePicker } from "@/features/assets/components/picture-picker";
 import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { useSavedVoice } from "@/features/voice/use-saved-voice";
@@ -50,7 +48,6 @@ interface MenuItem {
   label: string;
   hint: string;
   upload?: boolean;
-  live?: boolean;
   voice?: boolean;
   savedVoice?: boolean;
   footage?: boolean;
@@ -61,7 +58,6 @@ interface MenuItem {
 
 const BASE_ITEMS: readonly MenuItem[] = [
   { icon: ImagePlus, label: "Add photos", hint: "They become the footage", upload: true },
-  { icon: Radio, label: "Go live", hint: "Take a photo with your camera", live: true },
   {
     icon: TrendingUp,
     label: "Search TikTok",
@@ -132,7 +128,6 @@ export function ComposeMenu({
   const savedVoice = useSavedVoice();
   const saved = useBrandLibrary();
   const [picking, setPicking] = useState(false);
-  const [going, setGoing] = useState(false);
 
   // Inserted just before "Add your voice" rather than at a fixed index, so
   // adding or reordering an item above it cannot silently misplace this one.
@@ -198,8 +193,6 @@ export function ComposeMenu({
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
-                  } else if (item.live) {
-                    setGoing(true);
                   } else if (item.saved) {
                     setPicking(true);
                   } else if (item.savedVoice) {
@@ -244,12 +237,6 @@ export function ComposeMenu({
               .map((asset) => ({ id: asset.id, url: asset.url, path: asset.path })),
           ])
         }
-      />
-
-      <LiveCaptureDialog
-        open={going}
-        onOpenChange={setGoing}
-        onCapture={(file) => photo.upload([file])}
       />
     </>
   );

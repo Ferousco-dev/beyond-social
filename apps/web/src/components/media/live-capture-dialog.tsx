@@ -49,7 +49,6 @@ export function LiveCaptureDialog({
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
       setStage("preview");
     } catch (error) {
       setStage(
@@ -57,6 +56,19 @@ export function LiveCaptureDialog({
       );
     }
   }, []);
+
+  // The `<video>` element only exists once `stage` is "preview" (it is not
+  // rendered at all before then), so assigning `srcObject` from inside
+  // `startCamera` itself always landed on a still-null ref: the element had
+  // not mounted yet on first open, and only appeared to work on a retake
+  // because the previous stream's element was still around. Attaching here,
+  // after the state that mounts the element has actually committed, is what
+  // makes the first open work too.
+  useEffect(() => {
+    if (stage === "preview" && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [stage]);
 
   // Torn down on every close, not just unmount: a dialog left open in the
   // background with the camera still running is a light on nobody asked for.
