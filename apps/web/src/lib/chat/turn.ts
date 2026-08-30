@@ -453,6 +453,11 @@ export async function runTurn(
       reason: choice.reason,
     });
   }
+  if (choice?.attachmentIgnored) {
+    const attachmentNotice =
+      'That attached video isn\'t used for this yet. Ask to "copy the movement" if you want its motion carried over, otherwise this generates from your prompt alone.';
+    notice = notice === undefined ? attachmentNotice : `${notice} ${attachmentNotice}`;
+  }
   const chosenModel = preference ?? (choice && !choice.worthConfirming ? choice.modelId : null);
 
   /*

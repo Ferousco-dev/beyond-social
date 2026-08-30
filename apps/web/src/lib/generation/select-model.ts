@@ -39,6 +39,13 @@ export interface ModelChoice {
    * twenty times Seedance at three, and nobody should discover that afterwards.
    */
   readonly worthConfirming: boolean;
+  /**
+   * True when footage was attached but nothing here could use it: the restyle
+   * path is not active yet, and the prompt did not ask for motion either. The
+   * generation still runs, from the prompt alone, and silently dropping the
+   * attachment on the floor is worse than a video that ignores it loudly.
+   */
+  readonly attachmentIgnored?: boolean;
 }
 
 /** Which plans outrank which, for the `min_plan` check. */
@@ -102,7 +109,11 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
     plan,
   );
 
-  const pick = (model: CatalogModel | null, reason: string): ModelChoice | null =>
+  const pick = (
+    model: CatalogModel | null,
+    reason: string,
+    attachmentIgnored = false,
+  ): ModelChoice | null =>
     model === null
       ? null
       : {
@@ -112,6 +123,7 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
           // Only against what they would otherwise have paid. The same model is
           // remarkable on one plan and ordinary on another.
           worthConfirming: model.creditCost > (workhorse?.creditCost ?? 0),
+          attachmentIgnored,
         };
 
   /*
@@ -154,5 +166,9 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
     if (seedance) return pick(seedance, "You asked for something longer, which this handles best.");
   }
 
-  return pick(workhorse, "The everyday generator for your plan.");
+  // Reached with footage attached only when nothing above could use it: the
+  // restyle model is inactive, or motion was asked for but is not usable on
+  // this plan. Either way the attachment is about to be dropped silently, and
+  // the caller needs to say so rather than generate as if nothing was sent.
+  return pick(workhorse, "The everyday generator for your plan.", hasFootage);
 }
