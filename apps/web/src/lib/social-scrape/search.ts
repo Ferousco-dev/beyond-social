@@ -121,8 +121,8 @@ export async function searchPosts(
   const cached = await readCachedPosts(platform, query, countryCode);
   if (cached) return cached.slice(0, limit);
 
-  try {
-    const rows = await runActor(actorFor(platform), inputFor(platform, query, limit, countryCode));
+  async function run(country: string | null): Promise<readonly ScrapedPost[]> {
+    const rows = await runActor(actorFor(platform), inputFor(platform, query, limit, country));
 
     const posts = rows.flatMap((row) => {
       const post = mapScrapedPost(platform, row);
@@ -142,14 +142,36 @@ export async function searchPosts(
     const ranked = posts.sort((a, b) => (b.viewCount ?? 0) - (a.viewCount ?? 0));
     // Written before slicing, so a later search asking for more is not a miss
     // against a row we already have the posts for.
-    await writeCachedPosts(platform, query, ranked, countryCode);
+    await writeCachedPosts(platform, query, ranked, country);
 
     return ranked.slice(0, limit);
+  }
+
+  try {
+    return await run(countryCode);
   } catch (error) {
     logger.error("apify search failed", {
       platform,
+      countryCode,
       error: error instanceof Error ? error.message : String(error),
     });
-    return [];
+
+    // A run scoped to a proxy country is a materially different request from
+    // an unscoped one, not just a retry of the same thing: routing through a
+    // specific country's proxy pool is exactly the kind of thing that can fail
+    // on its own while a global search still works fine. Worth one more try
+    // without it before giving up, rather than a country bias turning an
+    // otherwise-working search into a dead one.
+    if (countryCode === null) return [];
+
+    try {
+      return await run(null);
+    } catch (retryError) {
+      logger.error("apify search failed again without country bias", {
+        platform,
+        error: retryError instanceof Error ? retryError.message : String(retryError),
+      });
+      return [];
+    }
   }
 }
