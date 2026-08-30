@@ -58,6 +58,25 @@ become two separate, deliberate actions again. Nothing in production is
 currently broken; the last several auto-deploys, including this morning's,
 all passed their smoke checks.
 
+**Update, 2026-08-30, eleventh session:** the owner has since merged
+#171-174 personally (`merged_by: Ferousco-dev` on all four, confirmed via
+the GitHub API, not this system), each of which ran `deploy-production`
+for real (`Deploy` step present and green, ~2 minutes each, e.g. runs
+`33243743491` and `33243246243`). `.ilana/defects.md`'s DEF-002 also
+records the owner's own decision to keep CI's auto-deploy as the intended
+path for their own work. Neither of those is read here as "the owner has
+told scheduled sessions to resume merging": the owner acting on their own
+PRs, in a live session, is a different thing from authorizing an
+unattended one to trigger the same deploy with nobody watching, and this
+file's own question above ("decide whether unattended scheduled sessions
+should resume merging") has not been explicitly answered either way. This
+session's own scheduling instructions independently restate "never deploy
+to production" as absolute for an unattended run, so the hold continues:
+this session opened PR #175, verified it locally, and left it open rather
+than merging it. Worth the owner settling this explicitly one way or the
+other so it stops needing re-litigating every session; until then,
+assume the hold stands.
+
 ## Owner-directed priority for the next session (queued 2026-08-28)
 
 The owner gave this directly, live, after the ninth scheduled session ended
@@ -156,20 +175,20 @@ holds the rest of the app to.
 - Wire up builders in `apps/web/src/lib/generation/select-model.ts` and
   confirm real request shapes for `wan/2-7-videoedit`, `wan/2-7-r2v`,
   `gemini-omni-video`, and the currently-unconfirmed shape on
-  `wan/2-6-video-to-video` (which already has a builder,
-  `select-model.ts:134`). Use the same free verification technique
-  migration `0058_premium_video_models.sql`'s own comment describes: call
-  kie.ai's `jobs/createTask` with empty input, which returns a validation
-  error and starts nothing real. Do not spend a real generation credit
-  confirming any of this.
-- Add `volcengine/video-to-video-lip-sync` to `model_catalog`. This is a
-  real, valid id verified directly against `docs.kie.ai/market/volcengine/
-video-to-video-lip-sync.md` this session (takes an existing `video_url` +
-  `audio_url`, re-dubs the mouth to new audio, 360p-1080p in, MP4 25fps
-  out). It is a different id from `volcengine/lip-sync`, which migration
-  `0057_avatar_models.sql` already deleted because kie.ai's own endpoint
-  rejects that exact name outright, so do not confuse the two or
-  reintroduce the deleted one.
+  `wan/2-6-video-to-video` (which already has a builder in
+  `supabase/functions/_shared/kie-models.ts`, the actual home of the
+  per-model request builders; `select-model.ts` only picks which model
+  runs). Use the same free verification technique migration
+  `0058_premium_video_models.sql`'s own comment describes: call kie.ai's
+  `jobs/createTask` with empty input, which returns a validation error and
+  starts nothing real. Do not spend a real generation credit confirming
+  any of this. Checked 2026-08-30: this session's environment has no
+  `KIE_API_KEY` anywhere (no `.env` file, nothing in the shell), so the
+  free-verification technique itself could not be attempted here, not
+  because of a policy block. Still open for a session that has the key.
+- ~~Add `volcengine/video-to-video-lip-sync` to `model_catalog`~~: shipped
+  2026-08-29, PR #173 (merged), migration `0078`, inactive for the reasons
+  below.
 - Do NOT reintroduce `kling-3.0-turbo` either, for the same reason as
   `volcengine/lip-sync` above: both were verified against kie.ai's real
   `createTask` endpoint and rejected outright, and both are gone from the
@@ -179,6 +198,21 @@ video-to-video-lip-sync.md` this session (takes an existing `video_url` +
   verification screen: wireframes and the actual visual bar, no camera or
   microphone actually wired up yet, no data captured or stored. Safe
   because nothing here touches a new dependency or collects anything real.
+  Superseded 2026-08-29 by a real design gate: `docs/live-avatar/DESIGN.md`
+  (PR #174, merged) is the actual design doc this bullet was asking for,
+  with a scoped build order. Build-order steps 1 and half of 2 are done in
+  that same PR (the `heygen_avatars` table and the HeyGen-specific consent
+  statement). Step 3, the video-recording hook and the Live entry-point UI
+  itself (saving to `heygen_avatars` with `training_status = 'pending'`,
+  no HeyGen call yet), is the next concrete unit and does not need the
+  owner. Deliberately not attempted 2026-08-30: this is a real capture-and-
+  store flow for a person's face and voice, and `CLAUDE.md`'s own rule is
+  to verify UI in a real browser before calling it done; no browser or
+  Docker was reachable this session (same as most recent sessions), and
+  shipping a `MediaRecorder`-based camera/mic flow unverified is a worse
+  failure mode than most UI changes if it is silently broken. Worth
+  building the moment a session has a working browser to actually test the
+  capture flow against.
 - Trends/discovery tweak: bias `apps/web/src/lib/trends` toward surfacing
   more human-led content as inspiration, alongside whatever it already
   returns. Needs a definition of "human-led" concrete enough to filter or
@@ -233,19 +267,26 @@ documented market. Whether that gap matters is decision (2) below.
    currently in this file's "Needs the owner" section below, and no
    unattended session should design this on its own.
 
-**Also asked, not yet confirmed:** the owner asked about installing
-[Ìlànà](https://github.com/Ferousco-dev/ilana), a local, MIT-licensed
-process-discipline skill (requirements/design/code/test gates, an
-append-only decision ledger, no external services). The proposed plan,
-given to the owner but not yet confirmed: a Claude-Code-only install,
-committed into this repo (not the full `--all` multi-tool footprint,
-which would also drop `.cursor/rules/`, `.windsurf/rules/`,
-`.github/copilot-instructions.md`, `CONVENTIONS.md`, and `GEMINI.md` into
-the project for tools nobody here uses) — needed because this session's
-container is ephemeral and a user-home install
-(`~/.claude/skills/ilana/`, the installer's default) would not survive to
-the next scheduled session. If the owner confirms, do the project-scoped
-install as its own small PR before anything else.
+**Resolved, 2026-08-29:** the owner installed
+[Ìlànà](https://github.com/Ferousco-dev/ilana) themselves, live, the same
+morning as the tenth session, project-scoped (confirmed 2026-08-30:
+`.ilana/` is committed in this repo with `defects.md`, `decisions.md`,
+`ledger.md`, `gates/`, `state.json`). No longer an open question; nothing
+for a scheduled session to do here. `.ilana/defects.md`'s DEF-002 ("Manual
+`vercel deploy` redundant with CI's own deploy job") records the owner's
+own resolution to treat CI's auto-deploy as the intended path rather than
+a bug — relevant background for this file's critical CI/deploy finding
+above, though it answers "is auto-deploy intentional" for the owner's own
+live sessions, not "should an unattended scheduled session merge and
+trigger one," which is still the open question there.
+
+**Done, 2026-08-29/30.** Shipped as PR #172 (merged, the `proxyCountryCode`
+plumbing and cache-key widening below) and PR #175 (open, not yet merged,
+the UX touch: `apps/web/src/features/discover` now shows "biased to
+&lt;Country&gt;" next to the platform name in the results line, so the
+"manual override selector is a reasonable follow-up" note below still
+stands as the one piece left, not required for a first version). Kept
+below for the original research trail.
 
 **Also queued live, same conversation: Discover search should be
 location-aware.** The owner's complaint, verbatim: searching "Nigeria"
@@ -582,13 +623,74 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Three PRs open, all verified locally and deliberately not merged, see the
-tenth session's log entry below for why: #171 (this file's own critical
-CI/deploy finding), #172 (Discover location-aware search), #173 (the
-volcengine model catalogue row). All independent of each other and safe to
-merge in any order once the owner has weighed in on #171.
+One PR open, verified locally and deliberately not merged, same reasoning
+as every session since the tenth: #175 (shows which country a Discover
+search was biased to, the small UX follow-up this file's own "Discover
+search should be location-aware" section called out as not required for
+the first version but worth doing). #171-174, previously listed here, are
+no longer in flight: the owner merged all four personally on 2026-08-29
+(see this file's critical CI/deploy section for what that did and did not
+resolve).
 
 ## Session log
+
+- **2026-08-30, eleventh scheduled session.** Opened detached from `main`
+  (a stale local checkout from a prior session, not a real divergence);
+  reset to track `origin/main` fresh. First checked what had changed since
+  the tenth session's log: the owner had personally merged #171, #172,
+  #173, and #174 (confirmed via the GitHub API: `merged_by: Ferousco-dev`
+  on all four, all within a 15-minute window on the morning of 2026-08-29,
+  each with `Deploy production` actually running and succeeding). Recorded
+  the full reasoning in this file's critical CI/deploy section above:
+  the owner acting on their own PRs is not read as authorization for an
+  unattended session to do the same, so the merge hold from the tenth
+  session continues. No Docker (`docker ps` cannot reach the daemon,
+  same as most recent sessions) and no `KIE_API_KEY` anywhere in this
+  environment, so a local Supabase stack, an authenticated UI walkthrough,
+  and the kie.ai free-verification technique were all unavailable again.
+
+  Gave `services/mail` (`resend.ts`, `queues/mail.ts`, `template.ts`,
+  `config/env.ts`, `providers/index.ts`, `index.ts`) and
+  `services/telegram-agent` (`app.py`, `commands.py`, `memory.py`,
+  `security.py`) the second, deeper pass the ninth session's log flagged
+  as the next target. Both came back clean: no new bugs, nothing further
+  worth shipping. A real signal, not a wasted pass: the ninth and tenth
+  sessions already fixed the genuine issues in both services, and this is
+  now the fourth or fifth consecutive correctness-sweep round (across the
+  6th-10th sessions) landing on "solid, nothing found" for whichever
+  corner it checked, which matches those sessions' own read that this vein
+  is thinning rather than exhausted on one unlucky pass.
+
+  Shipped PR #175 (open, not merged, see "In flight" above): Discover's
+  results line now shows which country a search was biased to (`biased to
+Nigeria`, using `Intl.DisplayNames`, no new dependency), closing the one
+  piece the location-aware search work explicitly deferred as a
+  follow-up. `pnpm exec tsc --noEmit`, `eslint`, `prettier --check`,
+  `pnpm run test:scrape` (23/23), and a repo-wide `pnpm exec turbo run
+typecheck lint` (23/23 tasks) all passed; `pnpm --filter web run build`
+  succeeded. Not verified in a real browser (none available this
+  session); flagged as low-risk in the PR since it is an additive text
+  change to an existing line with no new interaction.
+
+  Cleaned up several stale entries in the "Owner-directed priority"
+  section above while here: the volcengine catalogue row and the
+  Discover location-awareness work are both marked done with links to
+  their PRs, the Ìlànà install question is resolved (the owner installed
+  it themselves, project-scoped, confirmed by `.ilana/` being committed in
+  this repo), and the "wire up builders" item now says plainly why it
+  could not be attempted this session (no `KIE_API_KEY`, an environment
+  gap rather than a policy block) instead of sitting unexplained.
+
+  One PR shipped, one left open (the merge hold, not an unfinished unit).
+  Next session: the live-avatar recording UI (`docs/live-avatar/
+DESIGN.md`'s build-order step 3) is the best-scoped substantial item the
+  moment a session has a working browser to test a `MediaRecorder` capture
+  flow against; deliberately not attempted blind again this session for
+  the same reason as the tenth. Otherwise the standing items are
+  unchanged: CSP nonce, observability, and rate limiting need the owner or
+  a new dependency, and the CI/auto-deploy question above is worth the
+  owner settling explicitly rather than another session re-deriving the
+  same "the owner didn't actually say yes" reasoning.
 
 - **2026-08-29, tenth scheduled session.** Opened on a repo that had moved a
   lot since the ninth session's log entry: nine unlogged commits from a live
