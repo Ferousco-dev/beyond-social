@@ -74,18 +74,28 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
     keep(path);
   }
 
+  const agreeing = useRef(false);
+
   function agree() {
     const path = askConsent;
-    if (path === null) return;
+    // `disabled={pending}` is a React state update, not a synchronous lock: a
+    // second click landing before that render commits still fires this
+    // handler again. A ref flips within the same tick a click is handled, so
+    // it is what actually stops the second submission the button's own
+    // `disabled` attribute arrives a beat too late to catch.
+    if (path === null || agreeing.current) return;
+    agreeing.current = true;
 
     startTransition(async () => {
       const consent = await recordLikenessConsent();
       if (consent.status !== "ok") {
         setMessage("Could not record that agreement.");
+        agreeing.current = false;
         return;
       }
       setAskConsent(null);
       keep(path);
+      agreeing.current = false;
     });
   }
 
