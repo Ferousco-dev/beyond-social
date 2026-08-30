@@ -58,6 +58,61 @@ become two separate, deliberate actions again. Nothing in production is
 currently broken; the last several auto-deploys, including this morning's,
 all passed their smoke checks.
 
+## Reconciliation, 2026-08-30: a live owner session shipped an interim step on the Live feature
+
+The owner gave the same "Live" recording brief described below directly to a
+live, interactive session (not through this file), and that session shipped
+something before finding this document. Recording it here so no future
+session, scheduled or live, builds a second, competing version of the same
+idea.
+
+**What shipped, merged to `main`, PR #177:** a "Go live" item in the
+composer's `+` menu and a "Use camera" button on the Assets avatar card, both
+opening `apps/web/src/components/media/live-capture-dialog.tsx`, an in-browser
+webcam dialog that captures **one still frame**, then hands it to
+`apps/web/src/features/dashboard/hooks/use-photo-upload.ts` (extracted from
+the composer's existing photo-upload logic so a captured frame and a
+picked-from-disk file share one path). This feeds the existing photo-plus-
+voice avatar render (`kling/ai-avatar-pro`), unchanged. No new table, no new
+consent statement, no HeyGen involvement, no video recording: it is a
+still-photo capture, not the training-video capture the Live feature
+actually needs.
+
+This matches this file's own "closest buildable v1" note further down
+(extract a frame, save it, generate against `kling/ai-avatar-pro`) but is
+**not** the dedicated Live entry point (sidebar or new-project menu),
+verification read-along, or biometric consent flow the owner actually
+described, and it does not touch any of `docs/live-avatar/DESIGN.md`'s
+schema or consent work. Treat it as what it is: a smaller, immediately
+useful utility that happens to sit near the same idea, not a first
+increment of the Live feature build order below.
+
+**For the next session working on Live, scheduled or live:**
+
+- Do not build a second composer-level "capture a photo" entry point; one
+  already exists (`live-capture-dialog.tsx` above). If the Live feature's
+  own recording flow (`DESIGN.md`'s build order, step 3) needs video rather
+  than a still frame, extend that same component to record a clip via
+  `MediaRecorder` rather than starting a new one from scratch, the same
+  reasoning `DESIGN.md` itself gives for reusing `useVoiceRecorder`'s
+  primitive instead of inventing a second one.
+- `live-capture-dialog.tsx`'s copy and framing ("Go live", the 3-step photo
+  explainer) are scoped to the still-photo-plus-existing-voice-recording
+  case. They should be rewritten or replaced, not layered under, once the
+  real Live entry point exists, so the app is never showing two different
+  things both called "Live" at once.
+- Not manually verified in a real browser this round either: no Docker/
+  Supabase locally, and pointing local dev at production Supabase to test
+  needed the production service-role key, which the session's own
+  environment correctly refused to write to a local file. Whoever gets a
+  working browser tool next should click through PR #177's actual behavior
+  before building further on top of it.
+- The PR was merged directly to `main` by the owner's own live instruction
+  in that session ("merge them"), consistent with this file's "Critical"
+  section above treating an owner-watching merge as the reasonable case; it
+  is not an unattended session bypassing the merge hold that section
+  describes.
+
 ## Owner-directed priority for the next session (queued 2026-08-28)
 
 The owner gave this directly, live, after the ninth scheduled session ended
