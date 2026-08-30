@@ -7,11 +7,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /**
  * Recording yourself, live, for a talking-avatar render.
  *
- * A photo plus a voice clip already makes an avatar render (see the composer's
- * own hint next to those two chips); this is the other half of that, a way to
- * get the photo without leaving the app to find one. What comes out of here is
- * an ordinary `File`, handed to the same upload path a picked-from-disk photo
- * already uses, so nothing downstream needs to know a camera was involved.
+ * A photo plus a voice clip already makes an avatar render, whether attached in
+ * the composer or saved as your avatar in Assets; this is a way to get that
+ * photo without leaving the app to find one. What comes out of here is an
+ * ordinary `File`, handed to whatever upload path the caller already uses for a
+ * picked-from-disk photo, so nothing downstream needs to know a camera was
+ * involved.
  *
  * Captures a still frame rather than a video clip: the render this feeds still
  * takes a photo and a separate voice recording, not a talking video, so a

@@ -17,6 +17,7 @@ import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type Dispatch, type SetStateAction } from "react";
 
+import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
 import { PicturePicker } from "@/features/assets/components/picture-picker";
 import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { useSavedVoice } from "@/features/voice/use-saved-voice";
@@ -24,7 +25,6 @@ import { useSavedVoice } from "@/features/voice/use-saved-voice";
 import { useFootageUpload, VIDEO_ACCEPT, type PendingFootage } from "../hooks/use-footage-upload";
 import { usePhotoUpload } from "../hooks/use-photo-upload";
 import { useVoiceUpload, VOICE_ACCEPT, type PendingVoice } from "../hooks/use-voice-upload";
-import { LiveCaptureDialog } from "./live-capture-dialog";
 
 /**
  * A photo waiting to be attached to the next message.
