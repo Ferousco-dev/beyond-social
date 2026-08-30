@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Library" };
 export const dynamic = "force-dynamic";
 
 export default async function LibraryPage() {
-  const items = await getLibraryItems();
+  const page = await getLibraryItems();
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
@@ -17,7 +17,7 @@ export default async function LibraryPage() {
         it belongs to.
       </p>
 
-      <LibraryGrid items={items} />
+      <LibraryGrid initialItems={page.items} initialCursor={page.nextCursor} />
     </div>
   );
 }

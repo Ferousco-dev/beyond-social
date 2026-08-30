@@ -1,12 +1,13 @@
 "use client";
 
-import { AudioLines, Film, ImageIcon, LibraryBig } from "lucide-react";
+import { AudioLines, Film, ImageIcon, LibraryBig, Loader2 } from "lucide-react";
 import { type Route } from "next";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { FilterChips, type ChipOption } from "@/components/ui/filter-chips";
 
+import { loadMoreLibraryItems } from "../actions";
 import { dayHeading, groupByDay } from "../lib/group";
 import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";
@@ -14,15 +15,33 @@ import { LibraryCard } from "./library-card";
 const ALL = "all";
 
 /**
- * The library, filtered in the browser.
+ * The library, filtered in the browser, paged from the server.
  *
- * Client-side for the same reason the model market is: one bounded page of
- * items already arrived with the request, so a round trip per chip would buy
- * nothing. If this grows to real paging, the chips become search params and the
- * filter moves into the query.
+ * Filtering stays client-side over whatever has loaded so far: one bounded
+ * page already arrived with the request, so a round trip per chip would buy
+ * nothing. Paging further back does need the server, since older items were
+ * never fetched at all.
  */
-export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
+export function LibraryGrid({
+  initialItems,
+  initialCursor,
+}: {
+  initialItems: readonly LibraryItem[];
+  initialCursor: string | null;
+}) {
+  const [items, setItems] = useState(initialItems);
+  const [cursor, setCursor] = useState(initialCursor);
+  const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState<string>(ALL);
+
+  function loadMore() {
+    if (cursor === null) return;
+    startTransition(async () => {
+      const page = await loadMoreLibraryItems(cursor);
+      setItems((current) => [...current, ...page.items]);
+      setCursor(page.nextCursor);
+    });
+  }
 
   const options = useMemo<readonly ChipOption[]>(() => {
     const count = (kind: LibraryKind) => items.filter((item) => item.kind === kind).length;
@@ -77,6 +96,20 @@ export function LibraryGrid({ items }: { items: readonly LibraryItem[] }) {
           </section>
         ))
       )}
+
+      {cursor !== null ? (
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={pending}
+            className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-hairline bg-paper px-4 text-[13px] font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            Load more
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
