@@ -58,6 +58,41 @@ become two separate, deliberate actions again. Nothing in production is
 currently broken; the last several auto-deploys, including this morning's,
 all passed their smoke checks.
 
+**Update, 2026-08-30, eleventh session:** the owner merged #171-174
+personally (`merged_by: Ferousco-dev` on all four, confirmed via the
+GitHub API). `.ilana/defects.md`'s DEF-002 also records the owner's own
+decision to keep CI's auto-deploy as the intended path for their own
+work. Neither is read as "the owner has told scheduled sessions to
+resume merging": acting on your own PRs live is a different thing from
+authorizing an unattended one to trigger the same deploy with nobody
+watching, and the question above still had no explicit answer either
+way. The hold continued.
+
+**Update, 2026-08-30, later the same day:** the owner then ran a long
+live session that merged nine more PRs straight to `main` (#177-180 and
+others: worker OAuth refresh, a billing idempotency fix, the live capture
+dialog rebuild, library pagination), each triggering the same real
+`deploy-production` run. Still the owner acting on their own work live,
+same reasoning as above; still no explicit answer to the question this
+section asks.
+
+**Update, 2026-08-31, twelfth scheduled session:** picked a concrete
+reason this keeps mattering rather than just re-flagging the same
+question. Audited the nine PRs above, since nobody had reviewed them yet
+(no CI reviewer, no code-review pass, merged straight to `main`), and
+found a real bug in one of them within hours of it going live: the
+billing webhook's credit-grant fix had a locking gap that could
+double-grant a subscription renewal under concurrent Stripe webhook
+delivery, a real-money bug (PR #181, detail below and in `## Open, safe
+to work`). That is exactly the risk an unreviewed, auto-deploying merge
+path creates, independent of whether deploying itself is what needs
+gating. Fixed and opened as a PR like everything else this session
+found, but it sits unmerged, same as five other independently verified
+fixes, because of this same hold. Worth the owner's attention on two
+fronts now, not one: settle the merge/deploy question, and note that
+`billing_apply_subscription` has been live with a real double-grant race
+since 2026-08-30 regardless of what this system does next.
+
 ## Reconciliation, 2026-08-30: a live owner session shipped an interim step on the Live feature
 
 The owner gave the same "Live" recording brief described below directly to a
@@ -664,13 +699,135 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Three PRs open, all verified locally and deliberately not merged, see the
-tenth session's log entry below for why: #171 (this file's own critical
-CI/deploy finding), #172 (Discover location-aware search), #173 (the
-volcengine model catalogue row). All independent of each other and safe to
-merge in any order once the owner has weighed in on #171.
+Six PRs open, all verified locally and deliberately not merged, same
+reasoning as every session since the tenth (see the critical section
+above): #175 (shows which country a Discover search was biased to, opened
+by the eleventh session), and five from this, the twelfth session, all
+found by auditing the owner's unreviewed 2026-08-30 commits:
+
+- #181: locks the subscription row before granting renewal credits, the
+  most severe finding (see the critical section above).
+- #182: stops a camera stream leak on "Retake" in the live capture dialog.
+- #183: resets the avatar-consent double-submit guard if the server
+  action throws rather than resolves.
+- #184: stops Library pagination from re-showing a smaller source's rows.
+- #185: dedupes concurrent OAuth token refreshes for the same social
+  connection in the publish worker.
+
+All six are independent of each other and safe to merge in any order once
+the owner has weighed in on the critical section's question. PR #176 (the
+eleventh session's own backlog update) was closed, not merged: `main` had
+moved too far past it by the time this session ran, and this update
+supersedes its content.
 
 ## Session log
+
+- **2026-08-31, twelfth scheduled session.** Read the critical CI/deploy
+  section above first, as always. Confirmed the hold still stands: no
+  explicit owner answer exists anywhere (`.ilana/decisions.md`,
+  `.ilana/defects.md`, this file), and the owner's own 2026-08-30 live
+  merges are, per the eleventh session's own reasoning, evidence about
+  their own live sessions, not about this one. `docker ps` and
+  `KIE_API_KEY` were both unavailable again (same as most recent
+  sessions), so a local Supabase stack, an authenticated UI walkthrough,
+  and kie.ai's free-verification technique were all off the table again.
+
+  With those closed off, picked up where the eleventh session left off:
+  the owner's large 2026-08-30 live session merged nine PRs straight to
+  `main` with no review pass from anyone (no CI reviewer, no code-review
+  lens applied by this system). Audited all of it by hand: the worker's
+  new OAuth token-refresh path, the subscription credit-grant race fix,
+  Library pagination, the avatar consent double-submit guard, and the
+  live capture dialog's MediaRecorder rebuild across its three follow-up
+  commits. Found five real, concrete bugs, each verified against the
+  actual code before fixing, each its own branch, PR, and independent
+  `pnpm exec turbo run typecheck lint build` pass (23/23 tasks every
+  time):
+
+  - **PR #181**, most severe: `billing_apply_subscription` (migration
+    `0080`, itself only a day old) read `current_period_end` with a plain
+    `select`, no lock. Two concurrent Stripe webhook deliveries for the
+    same subscription (`customer.subscription.created` and `.updated`
+    commonly arrive together) could both read the same pre-upsert value
+    and both grant a renewal's credits, since `billing_events`
+    idempotency only dedupes one event redelivered, not two different
+    events. Also fixed a `is distinct from` comparison that treated a
+    null `period_end` (reachable whenever Stripe's `items.data` array is
+    briefly empty) as a change, which could grant on a non-renewal event.
+    Migration `0081` adds `for update` and requires the new period_end to
+    be present and later than what was on file, matching this codebase's
+    existing locking convention (`0071_reserve_credits.sql`,
+    `0047_cancel_generation.sql`). Not run against a real database (no
+    Docker), verified by hand against the exact concurrent-webhook
+    sequence that produces today's double grant.
+  - **PR #185**: the publish worker's new OAuth-refresh path
+    (`social-refresh.ts`, `publish.ts`, merged 2026-08-30) read a
+    connection's refresh token independently per job. With
+    `concurrency: 20` and several scheduled posts per connection landing
+    in one batch, two jobs could both read the same not-yet-refreshed
+    token and both call a provider that rotates refresh tokens on use
+    (TikTok); the second call's failure looked identical to a dead
+    connection and revoked one the first call had just repaired.
+    `refreshAccessTokenOnce` dedupes by connection instead of by token, so
+    a second concurrent caller awaits the first's in-flight request. Added
+    three cases to `apps/worker/scripts/publish-smoke.ts` (the file CI's
+    "Publishing tests" step runs): 34/34 passed. A narrower, rarer gap
+    (a persist failure after a successful refresh leaving a stale token on
+    file for the next run) is noted in the PR and left open; it needs a
+    retry-with-backoff on the persist write, a separate unit.
+  - **PR #184**: `getLibraryItems` (PR #180, 2026-08-30) derived a single
+    shared pagination cursor from whichever of its two independently-paged
+    sources (attachments, generations) came back full. A source smaller
+    than the other had every one of its rows already shown by the time it
+    stopped being "full," but nothing recorded that; the next page kept
+    re-querying it against the other source's still-advancing cursor and
+    re-returned rows already on screen, duplicating them in the grid (no
+    id-based de-dup there) on literally the first "Load more" click for
+    any account with an imbalance between the two sources. `LibraryCursor`
+    now tracks each source's own resume point and completion
+    independently.
+  - **PR #183**: the avatar-consent double-submit guard added 2026-08-30
+    (a ref flipped synchronously to beat `disabled={pending}`'s render
+    delay) correctly closed the double-click race it was built for, but
+    had no `try`/`finally` around its own `await`. A thrown transport
+    error (not a `{status: "error"}` resolution — a dropped connection, a
+    mid-deploy 5xx) skipped both of the guard's reset points, permanently
+    disabling "I agree" for the rest of that page session.
+  - **PR #182**: the rebuilt live capture dialog's `switchCamera` stops
+    the running camera stream before opening a new one; `retake()`,
+    added in the same rebuild, did not, leaving the pre-recording camera
+    stream (and the browser's own recording indicator) running for as
+    long as the dialog stayed open, one more orphaned stream per retake.
+
+  None of the five were verified in a real browser or against a live
+  database (unavailable this session, as above); each was traced by hand
+  against the actual failure sequence, and the two with existing
+  test-running infrastructure (the worker's smoke suite; nothing
+  comparable exists for the web app's React components or Postgres
+  functions) got real, executed test coverage rather than only a written
+  test plan.
+
+  Also closed PR #176 (the eleventh session's own backlog update): `main`
+  had moved far enough past it that the diff no longer applied cleanly,
+  and this entry supersedes its content directly rather than resolving it
+  as a merge conflict.
+
+  Six PRs now open and unmerged (#175, #181-185), zero left "in flight" as
+  unfinished work: every one is a complete, independently verified unit,
+  just held by the same merge hold as everything since the tenth session.
+  Next session: the eleventh session's list of standing items is still
+  accurate (the live-avatar recording UI, `docs/live-avatar/DESIGN.md`
+  build-order step 3, is the best-scoped substantial item the moment a
+  session has a working browser to test a `MediaRecorder` capture flow
+  against; CSP nonce, observability, and rate limiting still need the
+  owner or a new dependency). The one thing worth doing differently: if
+  the owner still hasn't answered the critical section's question by the
+  next session, that session should say so plainly rather than writing a
+  fourth near-identical "still no answer" update, since the real cost is
+  no longer hypothetical (a genuine bug shipped to production unreviewed
+  within this system's own observation window) and repeating the same
+  paragraph is not adding new information the owner does not already have
+  available to read.
 
 - **2026-08-29, tenth scheduled session.** Opened on a repo that had moved a
   lot since the ninth session's log entry: nine unlogged commits from a live
