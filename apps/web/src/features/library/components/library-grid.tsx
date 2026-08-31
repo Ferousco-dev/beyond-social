@@ -9,6 +9,7 @@ import { FilterChips, type ChipOption } from "@/components/ui/filter-chips";
 
 import { loadMoreLibraryItems } from "../actions";
 import { dayHeading, groupByDay } from "../lib/group";
+import { type LibraryCursor } from "../queries";
 import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";
 
@@ -27,7 +28,7 @@ export function LibraryGrid({
   initialCursor,
 }: {
   initialItems: readonly LibraryItem[];
-  initialCursor: string | null;
+  initialCursor: LibraryCursor | null;
 }) {
   const [items, setItems] = useState(initialItems);
   const [cursor, setCursor] = useState(initialCursor);

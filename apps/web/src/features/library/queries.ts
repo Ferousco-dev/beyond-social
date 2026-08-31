@@ -149,63 +149,79 @@ async function readGenerations(supabase: Supabase, before: string | null): Promi
   }));
 }
 
+/**
+ * Where to resume each source independently.
+ *
+ * A single shared `created_at` cursor cannot tell "this source has more
+ * rows older than the cursor" apart from "this source ran dry pages ago and
+ * every row it has is already in a page the caller was given": a source
+ * smaller than PAGE_SIZE returns every remaining row well before the other
+ * source catches up, and re-querying it again from a later, unrelated
+ * cursor re-returns whatever of its own already-shown rows happen to be
+ * older than that cursor. `done` is what actually remembers a source is
+ * finished, independent of what the other source's cursor has moved to.
+ */
+export interface LibraryCursor {
+  readonly attachmentsBefore: string | null;
+  readonly attachmentsDone: boolean;
+  readonly generationsBefore: string | null;
+  readonly generationsDone: boolean;
+}
+
 export interface LibraryPage {
   readonly items: readonly LibraryItem[];
-  /**
-   * The `created_at` to page from next, or null when this page was not full
-   * enough to promise more exist. Not the last item's timestamp: with two
-   * sources merged and each independently capped at PAGE_SIZE, the older of
-   * the two per-source cursors is what neither source has been exhausted
-   * before, so re-querying from it cannot skip a row the merge simply
-   * hadn't gotten to yet.
-   */
-  readonly nextCursor: string | null;
+  /** Where to resume from next, or null once both sources are done. */
+  readonly nextCursor: LibraryCursor | null;
 }
 
 /**
  * One page of the library, newest first.
  *
- * `before` re-queries both sources with `created_at < before` rather than
- * slicing an already-fetched array, so paging back through history actually
- * reaches older items instead of the same bounded page every time.
+ * Each source pages independently and stops being queried the moment it
+ * returns fewer than PAGE_SIZE rows, so a source smaller than the other
+ * never gets re-queried into returning rows it already gave out.
  */
-export async function getLibraryItems(before: string | null = null): Promise<LibraryPage> {
+export async function getLibraryItems(cursor: LibraryCursor | null = null): Promise<LibraryPage> {
   if (!isSupabaseConfigured) return { items: [], nextCursor: null };
 
   const user = await getAuthUser();
   if (user === null) return { items: [], nextCursor: null };
 
   const supabase = await createClient();
+  const attachmentsDone = cursor?.attachmentsDone ?? false;
+  const generationsDone = cursor?.generationsDone ?? false;
+
   // Independent reads against different tables and buckets, so they run at once
-  // rather than putting one round trip in front of the other.
+  // rather than putting one round trip in front of the other. A source already
+  // marked done is skipped rather than re-queried with a cursor that belongs
+  // to the other source's progress.
   const [attachments, generations] = await Promise.all([
-    readAttachments(supabase, before),
-    readGenerations(supabase, before),
+    attachmentsDone
+      ? Promise.resolve([])
+      : readAttachments(supabase, cursor?.attachmentsBefore ?? null),
+    generationsDone
+      ? Promise.resolve([])
+      : readGenerations(supabase, cursor?.generationsBefore ?? null),
   ]);
 
-  // Not sliced down to PAGE_SIZE: the cursor below is only safe to resume
-  // from because every row fetched here is also returned. Trimming this to a
-  // single page would silently drop whichever source's tail lost the merge,
-  // and those rows would then never surface, since the next page starts
-  // after this cursor.
+  // Not sliced down to PAGE_SIZE: every row fetched here is also returned, or
+  // a source's tail would silently drop out of the merge and never surface.
   const merged = [...attachments, ...generations].sort((a, b) =>
     b.createdAt.localeCompare(a.createdAt),
   );
 
-  // A source that came back short of PAGE_SIZE has no more rows before this
-  // cursor; only a source that came back full might still have older ones.
-  // The oldest of those safe-to-continue-from cursors is where the next page
-  // must start, so the merge cannot skip a row from whichever source it
-  // hadn't reached yet.
-  const exhaustedCursors = [
-    attachments.length === PAGE_SIZE ? attachments[attachments.length - 1]?.createdAt : undefined,
-    generations.length === PAGE_SIZE ? generations[generations.length - 1]?.createdAt : undefined,
-  ].filter((cursor): cursor is string => cursor !== undefined);
+  const nextAttachmentsDone = attachmentsDone || attachments.length < PAGE_SIZE;
+  const nextGenerationsDone = generationsDone || generations.length < PAGE_SIZE;
 
-  const nextCursor =
-    exhaustedCursors.length > 0
-      ? exhaustedCursors.reduce((oldest, cursor) => (cursor < oldest ? cursor : oldest))
-      : null;
+  const nextCursor: LibraryCursor | null =
+    nextAttachmentsDone && nextGenerationsDone
+      ? null
+      : {
+          attachmentsBefore: attachments.at(-1)?.createdAt ?? cursor?.attachmentsBefore ?? null,
+          attachmentsDone: nextAttachmentsDone,
+          generationsBefore: generations.at(-1)?.createdAt ?? cursor?.generationsBefore ?? null,
+          generationsDone: nextGenerationsDone,
+        };
 
   return { items: merged, nextCursor };
 }
