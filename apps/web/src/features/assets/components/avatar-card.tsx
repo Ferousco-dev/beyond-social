@@ -87,15 +87,23 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
     agreeing.current = true;
 
     startTransition(async () => {
-      const consent = await recordLikenessConsent();
-      if (consent.status !== "ok") {
+      try {
+        const consent = await recordLikenessConsent();
+        if (consent.status !== "ok") {
+          setMessage("Could not record that agreement.");
+          return;
+        }
+        setAskConsent(null);
+        keep(path);
+      } catch {
+        // A transport failure (dropped connection, a mid-deploy 5xx) throws
+        // rather than resolving to a status, same as any other server action
+        // call; without the finally below the ref would stay latched and the
+        // button would need a page reload to work again.
         setMessage("Could not record that agreement.");
+      } finally {
         agreeing.current = false;
-        return;
       }
-      setAskConsent(null);
-      keep(path);
-      agreeing.current = false;
     });
   }
 
