@@ -136,3 +136,12 @@ was asked, what changed or was decided, and why if it's not obvious.
   `gh pr list --state all` instead. Left `redesign/landing-hero` alone
   again: still no PR, still 59 commits of hero-redesign and retrieval
   work with nothing else on main, so still not safe to delete.
+- **2026-08-31**: Asked to merge all open PRs and, from here on, stop
+  branching per task: work a session's tasks on one branch, then merge to
+  main and delete it once everything's done. Merged all 7 open PRs (#181-186,
+  #175), all green, no conflicts; their branches auto-deleted on merge. No
+  cleanup of older stale branches this time since none was requested. The
+  new one-branch-per-session policy doesn't change anything about PRs still
+  going through the owner for merge (per CLAUDE.md, still never push straight
+  to main) — it only stops a fresh branch being cut for every individual task
+  within the same work session.
