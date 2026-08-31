@@ -1,8 +1,8 @@
 "use server";
 
-import { getLibraryItems, type LibraryPage } from "./queries";
+import { getLibraryItems, type LibraryCursor, type LibraryPage } from "./queries";
 
 /** Server action wrapper so the client grid can page without a route. */
-export async function loadMoreLibraryItems(cursor: string): Promise<LibraryPage> {
+export async function loadMoreLibraryItems(cursor: LibraryCursor): Promise<LibraryPage> {
   return getLibraryItems(cursor);
 }
