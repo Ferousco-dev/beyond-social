@@ -11,6 +11,7 @@ import { TikTokPublisher } from "../src/lib/platforms/tiktok";
 import { YouTubePublisher } from "../src/lib/platforms/youtube";
 import { PermanentPublishError, isPermanentStatus } from "../src/lib/platforms/types";
 import { composeCaption } from "../src/lib/publish";
+import { refreshAccessTokenOnce } from "../src/lib/social-refresh";
 
 const results: string[] = [];
 let failures = 0;
@@ -194,6 +195,30 @@ async function main(): Promise<void> {
       threw = true;
     }
     check("youtube fails without a session url", threw);
+  }
+
+  // Concurrent publishes for one connection must share a single refresh, not
+  // each spend the same (possibly single-use) refresh token independently.
+  {
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return json({ access_token: "new-token", expires_in: 3600 });
+    }) as typeof globalThis.fetch;
+    try {
+      const [a, b] = await Promise.all([
+        refreshAccessTokenOnce("user_1:tiktok", "tiktok", "refresh_1"),
+        refreshAccessTokenOnce("user_1:tiktok", "tiktok", "refresh_1"),
+      ]);
+      check("concurrent refreshes for one connection share one request", calls === 1, `${calls}`);
+      check("both callers get the same refreshed token", a.accessToken === b.accessToken);
+
+      await refreshAccessTokenOnce("user_2:tiktok", "tiktok", "refresh_2");
+      check("a different connection gets its own request", calls === 2, `${calls}`);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   }
 
   process.stdout.write(
