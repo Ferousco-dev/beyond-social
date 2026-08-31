@@ -110,3 +110,39 @@ export async function refreshAccessToken(
         : null,
   };
 }
+
+const inFlightRefreshes = new Map<string, Promise<RefreshedToken>>();
+
+/**
+ * `refreshAccessToken`, deduped per connection within this worker process.
+ *
+ * The publish worker runs several jobs concurrently, and more than one
+ * scheduled post for the same connection commonly lands in the same batch.
+ * Each job reads `social_connections` independently, so two jobs can both
+ * see the same not-yet-refreshed token and both call this with the same
+ * refresh token. A provider that rotates refresh tokens on use (TikTok's
+ * own docs say so) accepts only the first of those two calls; the second
+ * gets an `invalid_grant`-shaped failure that looks identical to a dead
+ * connection, and `publish.ts` reacts to it by revoking a connection the
+ * first call just repaired. Keying the in-flight promise by connection
+ * rather than by refresh token means the second caller awaits the same
+ * request instead of issuing its own.
+ */
+export function refreshAccessTokenOnce(
+  connectionKey: string,
+  platform: RefreshablePlatform,
+  refreshToken: string,
+): Promise<RefreshedToken> {
+  const existing = inFlightRefreshes.get(connectionKey);
+  if (existing) return existing;
+
+  const promise = refreshAccessToken(platform, refreshToken).finally(() => {
+    // Only this call's own entry, never a newer one a later job may have
+    // already started after this one settled.
+    if (inFlightRefreshes.get(connectionKey) === promise) {
+      inFlightRefreshes.delete(connectionKey);
+    }
+  });
+  inFlightRefreshes.set(connectionKey, promise);
+  return promise;
+}
