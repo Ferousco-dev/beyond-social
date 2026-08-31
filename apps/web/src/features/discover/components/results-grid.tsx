@@ -6,7 +6,7 @@ import { type ReactNode } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
-import { PLATFORM_NAME } from "../lib/platforms";
+import { countryName, PLATFORM_NAME } from "../lib/platforms";
 
 /**
  * The results, and the one being studied beside them.
@@ -27,6 +27,7 @@ export function ResultsGrid({
   query,
   term,
   platform,
+  countryCode,
   count,
   suggestions,
   onSuggestion,
@@ -45,6 +46,8 @@ export function ResultsGrid({
   /** What the shown results were actually a search for. */
   term: string;
   platform: ScrapePlatform;
+  /** The country the search was biased to, or null for an unbiased, global search. */
+  countryCode: string | null;
   count: number;
   suggestions: readonly string[];
   onSuggestion: (term: string) => void;
@@ -116,6 +119,10 @@ export function ResultsGrid({
           Showing <span className="tabular-nums text-ink">{Math.min(shown, count)}</span> of{" "}
           <span className="tabular-nums text-ink">{count}</span> for &ldquo;{term}&rdquo; on{" "}
           {PLATFORM_NAME[platform]}
+          {/* Invisible request metadata decided this result set; said here rather
+              than left for the reader to notice the same term reads differently
+              another time. */}
+          {countryName(countryCode) ? `, biased to ${countryName(countryCode)}` : ""}
         </p>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{children}</ul>
 
