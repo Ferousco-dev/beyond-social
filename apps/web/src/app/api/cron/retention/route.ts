@@ -16,9 +16,20 @@ import { createServiceClient } from "@/lib/supabase/service";
  * touched: they are the record of work someone paid for.
  *
  * DRY RUN BY DEFAULT. This endpoint reports what it would remove and removes
- * nothing unless `?apply=1` is passed. That asymmetry is deliberate: the first
+ * nothing unless it is told to apply. That asymmetry is deliberate: the first
  * accidental call, the misconfigured schedule, the copied curl command, should
  * all be harmless. Deleting has to be the thing you asked for.
+ *
+ * Which is why the scheduled run has never deleted anything. `vercel.json`
+ * schedules this path with no query string, so every nightly run since it
+ * shipped has been a dry run: the logs say "retention dry run", the counts grow,
+ * and nothing is ever removed. A default that cannot be reached by the only
+ * caller is not a safe default, it is an off switch nobody knows about.
+ *
+ * So applying is now a setting rather than a URL. `RETENTION_APPLY=1` turns the
+ * scheduled run into a real one, which means it can be enabled after reading a
+ * dry run and turned off again without a deploy. `?apply=1` still works for a
+ * one-off manual run.
  */
 export const dynamic = "force-dynamic";
 
@@ -36,7 +47,8 @@ export const GET = withTrace("GET /api/cron/retention", async (request) => {
     return NextResponse.json({ error: "unconfigured" }, { status: 503 });
   }
 
-  const apply = new URL(request.url).searchParams.get("apply") === "1";
+  const apply =
+    new URL(request.url).searchParams.get("apply") === "1" || serverEnv.RETENTION_APPLY === "1";
   const supabase = createServiceClient();
 
   const run = async (
@@ -71,7 +83,10 @@ export const GET = withTrace("GET /api/cron/retention", async (request) => {
     // true in August.
     const memories = await run("retention_prune_memories");
 
-    logger.info(apply ? "retention applied" : "retention dry run", {
+    // A dry run says so, and says what would make it real. Otherwise a line
+    // reading "retention dry run" every morning looks like a working job.
+    logger.info(apply ? "retention applied" : "retention dry run, nothing deleted", {
+      ...(apply ? {} : { enableWith: "RETENTION_APPLY=1" }),
       embeddingsAffected: embeddings.affected,
       usageAffected: usage.affected,
       mailPayloadsCleared: mail.payloadsCleared,

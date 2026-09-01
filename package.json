@@ -16,7 +16,7 @@
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yml,yaml}\"",
-    "verify": "turbo run build lint typecheck"
+    "verify": "turbo run build && turbo run lint typecheck"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

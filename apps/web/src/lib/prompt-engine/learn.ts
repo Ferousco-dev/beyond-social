@@ -9,6 +9,7 @@ import {
   PromptEvaluator,
   SupabaseLearningStore,
   type IngestResult,
+  type LearningCandidate,
   type SupabaseRpcClient,
 } from "@beyond-social/prompt-engine";
 
@@ -19,6 +20,15 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 import { getEmbedder, getJudge, getStore } from "./providers";
 
+let learningStoreRef: SupabaseLearningStore | null = null;
+
+function getStoreForLearning(): SupabaseLearningStore {
+  learningStoreRef ??= new SupabaseLearningStore(
+    createServiceClient() as unknown as SupabaseRpcClient,
+  );
+  return learningStoreRef;
+}
+
 let pipelineRef: LearningPipeline | null = null;
 
 function getPipeline(): LearningPipeline {
@@ -26,9 +36,7 @@ function getPipeline(): LearningPipeline {
   const judge = getJudge();
   const embedder = getEmbedder();
   const store = getStore();
-  const learningStore = new SupabaseLearningStore(
-    createServiceClient() as unknown as SupabaseRpcClient,
-  );
+  const learningStore = getStoreForLearning();
   pipelineRef = new LearningPipeline({
     evaluator: new PromptEvaluator(judge, embedder, store),
     extractor: new KnowledgeExtractor(judge),
@@ -68,4 +76,35 @@ export async function learnFromPrompt(
     });
     return null;
   }
+}
+
+/**
+ * The candidates waiting for a human decision.
+ *
+ * The pipeline gates everything it does not auto-promote into `pending`, and
+ * auto-promotion is off by default, so this queue is where learned knowledge
+ * actually goes. It had no reader: the pipeline filed candidates that nothing
+ * could list, which is a review step that cannot be performed.
+ */
+export async function pendingCandidates(): Promise<LearningCandidate[]> {
+  if (!isPromptEngineConfigured) return [];
+  return getStoreForLearning().listCandidates("pending");
+}
+
+/**
+ * Accepts a candidate into the knowledge base.
+ *
+ * Promotion is not a status change: a merge candidate is re-resolved against
+ * the corpus first, because it was merged against whatever its target looked
+ * like at ingest time and the target may have moved on while it waited. That
+ * work needs the embedder and the vector store, which is why this lives here
+ * rather than in the console.
+ */
+export async function promoteCandidate(id: string): Promise<void> {
+  await getPipeline().promote(id);
+}
+
+/** Refuses a candidate, keeping the reason on the audit trail. */
+export async function rejectCandidate(id: string, reason: string): Promise<void> {
+  await getPipeline().reject(id, reason);
 }

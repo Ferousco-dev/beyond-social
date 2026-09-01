@@ -5,6 +5,8 @@ import {
   AnthropicClient,
   GeminiClient,
   GatewayLlm,
+  SpendBudget,
+  type GatewayAttribution,
   MemoryResponseCache,
   MemoryUsageSink,
   OpenAiClient,
@@ -18,19 +20,26 @@ import {
   GeminiEmbedder,
   OpenAiEmbedder,
   PassthroughReranker,
+  PromptEngine,
   Retriever,
   SupabaseVectorStore,
   VoyageEmbedder,
+  VoyageReranker,
   recipeSchema,
   type Embedder,
   type Llm,
   type Recipe,
+  type Reranker,
   type SupabaseRpcClient,
   type VectorStore,
 } from "@beyond-social/prompt-engine";
 
 import { currentAiUser } from "@/lib/ai/request-user";
+import { currentAiOrg } from "@/lib/ai/request-org";
+import { currentTrace } from "@/lib/observability/trace";
+import { logger } from "@/lib/logger";
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
+import { SupabaseSpendReader } from "@/lib/ai/spend-reader";
 import { serverEnv } from "@/lib/server-env";
 import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
 import { SupabaseUsageSink } from "./usage-sink";
@@ -86,9 +95,32 @@ export function getStore(): VectorStore {
   return storeRef;
 }
 
+let rerankerRef: Reranker | null = null;
+
+/**
+ * The cross-encoder, when there is a key for one.
+ *
+ * The ranking blend carries a rerank weight of 0.18, and the passthrough
+ * returns an empty map, so with it wired that weight contributed exactly
+ * nothing: retrieval was ranked on a formula whose fourth-largest term was
+ * always zero. A cross-encoder scores each candidate jointly with the query
+ * and catches relevance a bi-encoder misses, which is what that weight was
+ * written to pay for.
+ *
+ * The passthrough remains the honest fallback rather than an error, since a
+ * deployment without a Voyage key still retrieves perfectly well on the other
+ * seven signals.
+ */
+export function getReranker(): Reranker {
+  rerankerRef ??= serverEnv.VOYAGE_API_KEY
+    ? new VoyageReranker(serverEnv.VOYAGE_API_KEY)
+    : new PassthroughReranker();
+  return rerankerRef;
+}
+
 let retrieverRef: Retriever | null = null;
 export function getRetriever(): Retriever {
-  retrieverRef ??= new Retriever(getEmbedder(), getStore(), new PassthroughReranker());
+  retrieverRef ??= new Retriever(getEmbedder(), getStore(), getReranker());
   return retrieverRef;
 }
 
@@ -159,6 +191,56 @@ function getGateway(): AiGateway {
       new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
       new SupabaseRateLimiter({ bucket: "ai", limit: 150, windowSeconds: 600 }),
     ]),
+    /*
+     * Usage rows, cache writes and limiter settlement all run beside the
+     * response so they cannot slow a call that has already been paid for. That
+     * makes their failures silent unless something listens: a usage sink that
+     * has been rejecting every insert for a week looks exactly like a quiet
+     * week, and the cost dashboard reads as an empty one.
+     */
+    onError: (source, error) => {
+      logger.warn("ai gateway bookkeeping failed", {
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+    /*
+     * Screening verdicts that stop short of blocking. Today that is one rule:
+     * a credential detected in a prompt, which is not a reason to fail
+     * somebody's work but is very much a reason for somebody to know. Only the
+     * rule categories are logged; the text is the part that holds the secret.
+     */
+    onFlag: (flag) => {
+      logger.warn("ai content flagged for review", {
+        stage: flag.stage,
+        categories: flag.categories,
+        requestId: flag.requestId,
+        userId: flag.userId,
+      });
+    },
+    /*
+     * A ceiling on spend, which the limiter cannot express.
+     *
+     * Requests and prompt tokens are not what the invoice is denominated in: a
+     * few long calls to an expensive model cost more than a flood of cheap
+     * ones. Needs a database to read spend from, so without one there is
+     * nothing to enforce against and the ceiling is simply absent.
+     */
+    ...(serverEnv.AI_SPEND_LIMIT_USD > 0 && serverEnv.SUPABASE_SERVICE_ROLE_KEY !== ""
+      ? {
+          budget: new SpendBudget({
+            reader: new SupabaseSpendReader(),
+            limitUsd: serverEnv.AI_SPEND_LIMIT_USD,
+            windowMs: serverEnv.AI_SPEND_WINDOW_HOURS * 60 * 60 * 1000,
+            onReadError: (key, error) => {
+              logger.warn("ai spend ceiling could not read usage", {
+                key,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            },
+          }),
+        }
+      : {}),
   });
   return gatewayRef;
 }
@@ -172,14 +254,32 @@ function getGateway(): AiGateway {
  * have one to hand.
  */
 
+/**
+ * Attribution for one call: who it is for, and what it is part of.
+ *
+ * The trace id comes from the request context the logger already reads, so a
+ * row in `ai_usage` and the log lines around it carry the same id. One chat
+ * message fans out into four or five model calls, and this is what lets them
+ * be added up as the message rather than read as five unrelated charges.
+ */
+function attribution(userId: string | undefined): GatewayAttribution {
+  const traceId = currentTrace()?.traceId;
+  const orgId = currentAiOrg();
+  return {
+    ...(userId === undefined ? {} : { userId }),
+    ...(orgId === undefined ? {} : { orgId }),
+    ...(traceId === undefined ? {} : { traceId }),
+  };
+}
+
 /** The generation model chain for a task; falls back across providers. */
 export function getGenerator(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "generation", userId);
+  return new GatewayLlm(getGateway(), "generation", attribution(userId));
 }
 
 /** A cheaper chain for grading and extraction. */
 export function getJudge(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "judge", userId);
+  return new GatewayLlm(getGateway(), "judge", attribution(userId));
 }
 
 /**
@@ -189,7 +289,33 @@ export function getJudge(userId: string | undefined = currentAiUser()): Llm {
  * directed video prompt is worth waiting on, a two-sentence reply is not.
  */
 export function getChat(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "chat", userId);
+  return new GatewayLlm(getGateway(), "chat", attribution(userId));
+}
+
+/**
+ * The full engine: retrieve, compose, generate, grade, and revise once if the
+ * grade fails.
+ *
+ * Not memoized. It closes over the generator and judge, which carry the
+ * attribution for the request that built them, and a cached engine would go on
+ * charging every later call to whoever happened to make the first one.
+ */
+export function getPromptEngine(userId: string | undefined = currentAiUser()): PromptEngine {
+  return new PromptEngine({
+    embedder: getEmbedder(),
+    store: getStore(),
+    reranker: getReranker(),
+    generator: getGenerator(userId),
+    judge: getJudge(userId),
+    systemLayers: SYSTEM_LAYERS,
+    onGradeError: (error) => {
+      logger.warn("could not grade an enhanced prompt", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+    now: () => new Date().toISOString(),
+    newId: () => crypto.randomUUID(),
+  });
 }
 
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */

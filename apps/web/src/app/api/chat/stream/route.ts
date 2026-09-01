@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
 
 import { runWithAiUser } from "@/lib/ai/request-user";
+import { withAiOrgSlot } from "@/lib/ai/request-org";
 import { runTurn, sendSchema, type SendResult, type TurnStage } from "@/lib/chat/turn";
 import { isSupabaseConfigured } from "@/lib/env";
+import { aiLimitMessage } from "@/lib/ai/limit-message";
 import { logger } from "@/lib/logger";
 import { withActionTrace } from "@/lib/observability/trace";
 import { createClient } from "@/lib/supabase/server";
@@ -91,20 +93,29 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       try {
         const result = await withActionTrace("sendMessageStream", () =>
-          runWithAiUser(user.id, () =>
-            runTurn(parsed.data, user.id, supabase, name, {
-              onStage: (stage) => send({ type: "stage", stage }),
-              onReplyChunk: (text) => send({ type: "chunk", text }),
-            }),
+          withAiOrgSlot(() =>
+            runWithAiUser(user.id, () =>
+              runTurn(parsed.data, user.id, supabase, name, {
+                onStage: (stage) => send({ type: "stage", stage }),
+                onReplyChunk: (text) => send({ type: "chunk", text }),
+              }),
+            ),
           ),
         );
 
         send({ type: "result", result });
       } catch (error) {
-        logger.error("streamed turn failed", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        send({ type: "error", message: "That could not be sent. Try again." });
+        // A refusal on rate or spend is the system working, and reads nothing
+        // like a fault: "try again" invites a retry that is refused identically.
+        const refusal = aiLimitMessage(error);
+        if (refusal) {
+          logger.info("streamed turn refused", { reason: (error as Error).name });
+        } else {
+          logger.error("streamed turn failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        send({ type: "error", message: refusal ?? "That could not be sent. Try again." });
       } finally {
         if (open) controller.close();
       }

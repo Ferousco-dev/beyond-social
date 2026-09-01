@@ -9,7 +9,7 @@ import {
 } from "./models";
 import { cacheKey, isCacheable, type ResponseCache } from "./cache";
 import { NoopLimiter, RateLimitedError, type RateLimiter } from "./rate-limit";
-import { estimateTokens } from "./tokens";
+import { countRequestTokens, providerMargin } from "./tokens";
 import { CircuitBreaker, type BreakerOptions } from "./breaker";
 import { isRetryable, withRetry, type RetryOptions } from "./retry";
 import {
@@ -24,8 +24,10 @@ import {
   detectInjection,
   moderate,
   type InjectionSeverity,
+  type ModerationVerdict,
 } from "./safety";
 import { NoopUsageSink, type UsageRecord, type UsageSink } from "./usage";
+import { type SpendBudget } from "./budget";
 
 export interface GatewayOptions {
   clients: Partial<Record<Provider, ProviderClient>>;
@@ -63,12 +65,55 @@ export interface GatewayOptions {
     moderateInput?: boolean;
     moderateOutput?: boolean;
   };
+  /**
+   * Where a failure in the bookkeeping goes.
+   *
+   * Usage records, cache writes and limiter settlement all happen alongside the
+   * response rather than in front of it, because none of them should add
+   * latency to a call that has already succeeded. That makes their failures
+   * invisible unless something is listening: a usage sink that has been
+   * rejecting every insert for a week looks exactly like a quiet week.
+   */
+  onError?: (source: "usage" | "cache" | "limiter", error: unknown) => void;
+  /**
+   * A ceiling on what one caller may spend over a window, in dollars.
+   *
+   * The limiter bounds how often a caller may ask; this bounds what those asks
+   * may cost, which is the half that shows up on the invoice.
+   */
+  budget?: SpendBudget;
+  /**
+   * A screening verdict that fell short of blocking.
+   *
+   * `moderate` can return `review`, which the gateway does not refuse on: the
+   * one rule that produces it detects a credential in a prompt, and a key
+   * pasted into a brief by mistake is not a reason to fail somebody's work.
+   * With nowhere to report it, though, the verdict was computed and dropped,
+   * so a leaked API key was noticed by the code and by nobody else.
+   *
+   * Handed the rule categories and never the text, because the text is the part
+   * that contains the secret.
+   */
+  onFlag?: (flag: {
+    stage: "input" | "output";
+    categories: readonly string[];
+    requestId: string;
+    userId: string | null;
+  }) => void;
 }
 
 export interface GatewayRequest extends CompletionRequest {
   task: Task;
   /** Rate limiting and usage attribution key. */
   userId?: string;
+  /** Which organisation the spend belongs to, when the caller acts for one. */
+  orgId?: string;
+  /**
+   * Groups the calls that make up one piece of work. A single chat message
+   * fans out into several model calls; passing the same id through all of them
+   * is what makes "what did that message cost" answerable.
+   */
+  traceId?: string;
 }
 
 export interface GatewayResponse extends CompletionResult {
@@ -88,12 +133,6 @@ const DEFAULT_RETRY: RetryOptions = { attempts: 3, baseDelayMs: 500, maxDelayMs:
  * connection that has died quietly, not to cap how long a model may think.
  */
 const DEFAULT_TIMEOUT_MS = 60_000;
-
-/**
- * Headroom on the token estimate, which is a character count divided by four.
- * Right for English prose, optimistic for JSON, code and non-Latin scripts.
- */
-const ESTIMATE_MARGIN = 1.15;
 
 /** Assumed output when a caller does not say, so the window check has both halves. */
 const DEFAULT_OUTPUT_RESERVE = 4_096;
@@ -159,7 +198,7 @@ export class AiGateway {
 
     // Screening happens before anything is spent, and before the cache, so a
     // hostile prompt can neither cost money nor be served from a warm entry.
-    this.screenInput(request);
+    this.screenInput(request, requestId);
 
     if (candidates.length === 0) {
       throw new Error(
@@ -176,7 +215,7 @@ export class AiGateway {
       if (hit) {
         const latencyMs = this.now() - startedAt;
         const spec = modelSpec(hit.model);
-        void this.usage.record({
+        this.record({
           requestId,
           task: request.task,
           model: hit.model,
@@ -191,6 +230,8 @@ export class AiGateway {
           ok: true,
           error: null,
           userId: request.userId ?? null,
+          orgId: request.orgId ?? null,
+          traceId: request.traceId ?? null,
           createdAt: new Date(this.now()).toISOString(),
         });
         return {
@@ -205,16 +246,7 @@ export class AiGateway {
       }
     }
 
-    // Shed load before spending anything. Cost is in estimated input tokens, so
-    // a large prompt consumes more of the budget than a small one.
-    const promptTokens = estimateTokens(
-      request.system + request.messages.map((message) => message.content).join(" "),
-    );
-    const decision = await this.limiter.take(
-      request.userId ?? "anonymous",
-      Math.max(1, promptTokens),
-    );
-    if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
+    const { key: limiterKey, promptTokens } = await this.admit(request);
 
     let lastError: unknown;
 
@@ -222,28 +254,9 @@ export class AiGateway {
       const client = this.options.clients[spec.provider];
       if (!client) continue;
 
-      /*
-       * A prompt that cannot fit is a terminal error for this model, not a
-       * retryable one; skip straight to the next candidate.
-       *
-       * The budget is input *plus* output, because they share one window. The
-       * check here compared the prompt alone, which passes a prompt sitting at
-       * 95% of the window and then asks for 8k of completion on top, and the
-       * provider rejects the whole thing. That reads as a mysterious 400 from
-       * every model in the chain rather than as "too long".
-       *
-       * The margin covers the estimate itself: ~4 characters per token is right
-       * for English prose and optimistic for JSON, code and non-Latin scripts,
-       * all of which appear in real briefs. Being wrong in this direction costs
-       * a slightly smaller usable window; being wrong in the other costs the
-       * request.
-       */
-      const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
-      const budget = Math.ceil(promptTokens * ESTIMATE_MARGIN) + reservedOutput;
-      if (budget > spec.contextWindow) {
-        lastError = new Error(
-          `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
-        );
+      const tooLong = this.windowError(spec, promptTokens, request);
+      if (tooLong) {
+        lastError = tooLong;
         continue;
       }
 
@@ -264,11 +277,17 @@ export class AiGateway {
 
         this.breaker.recordSuccess(spec.provider);
 
-        this.screenOutput(result.text);
+        this.screenOutput(result.text, requestId, request.userId ?? null);
+
+        // The bucket was charged an estimate of the prompt alone. Reconcile it
+        // against what the provider says the whole call actually cost, so a
+        // small prompt that produces an enormous completion is not free.
+        this.settle(limiterKey, result.inputTokens + result.outputTokens - promptTokens);
 
         const latencyMs = this.now() - startedAt;
         const cost = costUsd(spec, result.inputTokens, result.outputTokens);
-        void this.usage.record(
+        this.options.budget?.record(limiterKey, cost);
+        this.record(
           this.buildRecord(requestId, request, spec, {
             result,
             cost,
@@ -290,7 +309,7 @@ export class AiGateway {
            * every entry lived for whatever this constant said regardless of
            * what the cache itself was configured with.
            */
-          void this.options.cache.set(key, {
+          this.store(key, {
             result,
             model: spec.id,
             expiresAt: this.now() + (this.options.cacheTtlMs ?? this.options.cache.defaultTtlMs),
@@ -314,7 +333,7 @@ export class AiGateway {
         if (isRetryable(error) || error instanceof ProviderTimeoutError) {
           this.breaker.recordFailure(spec.provider);
         }
-        void this.usage.record(
+        this.record(
           this.buildRecord(requestId, request, spec, {
             result: { text: "", inputTokens: 0, outputTokens: 0 },
             cost: 0,
@@ -357,7 +376,7 @@ export class AiGateway {
     const startedAt = this.now();
     const candidates = this.chain(request.task);
 
-    this.screenInput(request);
+    this.screenInput(request, requestId);
 
     if (candidates.length === 0) {
       throw new Error(
@@ -365,14 +384,7 @@ export class AiGateway {
       );
     }
 
-    const promptTokens = estimateTokens(
-      request.system + request.messages.map((message) => message.content).join(" "),
-    );
-    const decision = await this.limiter.take(
-      request.userId ?? "anonymous",
-      Math.max(1, promptTokens),
-    );
-    if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
+    const { key: limiterKey, promptTokens } = await this.admit(request);
 
     let lastError: unknown;
 
@@ -380,12 +392,9 @@ export class AiGateway {
       const client = this.options.clients[spec.provider];
       if (!client) continue;
 
-      const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
-      const budget = Math.ceil(promptTokens * ESTIMATE_MARGIN) + reservedOutput;
-      if (budget > spec.contextWindow) {
-        lastError = new Error(
-          `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
-        );
+      const tooLong = this.windowError(spec, promptTokens, request);
+      if (tooLong) {
+        lastError = tooLong;
         continue;
       }
 
@@ -417,12 +426,15 @@ export class AiGateway {
         // Screened at the end rather than per chunk: a rule about the whole
         // answer cannot be evaluated against a fragment of it. The caller is
         // told to discard what it has if this throws.
-        this.screenOutput(text);
+        this.screenOutput(text, requestId, request.userId ?? null);
+
+        this.settle(limiterKey, usage.inputTokens + usage.outputTokens - promptTokens);
 
         const latencyMs = this.now() - startedAt;
         const result = { text, ...usage };
         const cost = costUsd(spec, usage.inputTokens, usage.outputTokens);
-        void this.usage.record(
+        this.options.budget?.record(limiterKey, cost);
+        this.record(
           this.buildRecord(requestId, request, spec, {
             result,
             cost,
@@ -441,7 +453,7 @@ export class AiGateway {
         if (isRetryable(error) || error instanceof ProviderTimeoutError) {
           this.breaker.recordFailure(spec.provider);
         }
-        void this.usage.record(
+        this.record(
           this.buildRecord(requestId, request, spec, {
             result: { text, ...usage },
             cost: 0,
@@ -464,8 +476,56 @@ export class AiGateway {
       : new Error(`All models failed for task "${request.task}"`);
   }
 
+  /**
+   * Sheds load before anything is spent, and reports what the prompt costs.
+   *
+   * The bucket is charged the prompt only, because that is the whole of what is
+   * knowable before the call. The completion is the other half of the bill and
+   * is settled against the same key once the provider reports its real size.
+   */
+  private async admit(request: GatewayRequest): Promise<{ key: string; promptTokens: number }> {
+    const key = request.userId ?? "anonymous";
+    // Spend first: refusing on cost before the bucket is charged means a caller
+    // who is already over budget does not also lose throughput they cannot use.
+    await this.options.budget?.check(key);
+    const promptTokens = countRequestTokens(request.system, request.messages);
+    const decision = await this.limiter.take(key, Math.max(1, promptTokens));
+    if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);
+    return { key, promptTokens };
+  }
+
+  /**
+   * Why this model cannot serve this prompt, or null if it can.
+   *
+   * A prompt that cannot fit is a terminal error for this model, not a
+   * retryable one, so the caller skips straight to the next candidate.
+   *
+   * The budget is input *plus* output, because they share one window. Comparing
+   * the prompt alone passes a prompt sitting at 95% of the window and then asks
+   * for 8k of completion on top, and the provider rejects the whole thing. That
+   * reads as a mysterious 400 from every model in the chain rather than as
+   * "too long".
+   *
+   * The margin covers the counter itself and is per provider: the count is
+   * exact for OpenAI and a close foreign approximation for the others, so they
+   * do not deserve the same headroom. Being wrong in this direction costs a
+   * slightly smaller usable window; being wrong in the other costs the request.
+   */
+  private windowError(
+    spec: ModelSpec,
+    promptTokens: number,
+    request: GatewayRequest,
+  ): Error | null {
+    const reservedOutput = Math.min(request.maxTokens ?? DEFAULT_OUTPUT_RESERVE, spec.maxOutput);
+    const budget = Math.ceil(promptTokens * providerMargin(spec.provider)) + reservedOutput;
+    if (budget <= spec.contextWindow) return null;
+    return new Error(
+      `Prompt of ~${promptTokens} tokens plus ${reservedOutput} reserved for output exceeds the ${spec.contextWindow} token window of ${spec.id}`,
+    );
+  }
+
   /** Refuses hostile or disallowed prompts before any provider is called. */
-  private screenInput(request: GatewayRequest): void {
+  private screenInput(request: GatewayRequest, requestId: string): void {
     const safety = this.options.safety;
     if (!safety) return;
 
@@ -482,6 +542,7 @@ export class AiGateway {
     if (safety.moderateInput) {
       const verdict = moderate(text);
       if (verdict.action === "block") throw new ModerationError("input", verdict);
+      this.flag("input", verdict, requestId, request.userId ?? null);
     }
   }
 
@@ -530,10 +591,72 @@ export class AiGateway {
   }
 
   /** Refuses disallowed completions before they reach the caller. */
-  private screenOutput(text: string): void {
+  private screenOutput(text: string, requestId: string, userId: string | null): void {
     if (!this.options.safety?.moderateOutput) return;
     const verdict = moderate(text);
     if (verdict.action === "block") throw new ModerationError("output", verdict);
+    this.flag("output", verdict, requestId, userId);
+  }
+
+  /** Reports a non-blocking verdict, by category only. */
+  private flag(
+    stage: "input" | "output",
+    verdict: ModerationVerdict,
+    requestId: string,
+    userId: string | null,
+  ): void {
+    if (verdict.action !== "review") return;
+    try {
+      this.options.onFlag?.({
+        stage,
+        categories: verdict.findings.map((finding) => finding.category),
+        requestId,
+        userId,
+      });
+    } catch {
+      // Reporting a flag must not fail the call it was noticed on.
+    }
+  }
+
+  /**
+   * Bookkeeping that runs beside the response, never in front of it.
+   *
+   * These three are deliberately not awaited: a completion that has already
+   * been paid for should not be made slower, or failed, by a telemetry insert.
+   * What they must not do is reject into nowhere, which is what an unadorned
+   * `void somePromise()` does, so every one of them lands in `onError`.
+   */
+  private detach(source: "usage" | "cache" | "limiter", work: unknown): void {
+    if (work instanceof Promise) {
+      work.catch((error: unknown) => this.options.onError?.(source, error));
+    }
+  }
+
+  private record(usage: UsageRecord): void {
+    try {
+      this.detach("usage", this.usage.record(usage) ?? undefined);
+    } catch (error) {
+      this.options.onError?.("usage", error);
+    }
+  }
+
+  private store(key: string, entry: Parameters<ResponseCache["set"]>[1]): void {
+    if (!this.options.cache) return;
+    try {
+      this.detach("cache", this.options.cache.set(key, entry) ?? undefined);
+    } catch (error) {
+      this.options.onError?.("cache", error);
+    }
+  }
+
+  /** Charges the completion against the bucket the prompt was admitted from. */
+  private settle(key: string, cost: number): void {
+    if (cost <= 0) return;
+    try {
+      this.detach("limiter", this.limiter.settle?.(key, cost) ?? undefined);
+    } catch (error) {
+      this.options.onError?.("limiter", error);
+    }
   }
 
   private buildRecord(
@@ -565,6 +688,8 @@ export class AiGateway {
       ok: outcome.ok,
       error: outcome.error,
       userId: request.userId ?? null,
+      orgId: request.orgId ?? null,
+      traceId: request.traceId ?? null,
       createdAt: new Date(this.now()).toISOString(),
     };
   }

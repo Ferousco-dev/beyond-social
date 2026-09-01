@@ -21,6 +21,10 @@ import {
 } from "../src/safety";
 import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orchestration";
 import { MemoryUsageSink } from "../src/usage";
+import { estimateTokens } from "../src/tokens";
+import { BudgetExceededError, SpendBudget } from "../src/budget";
+import { ContextTooLargeError, contextBudget, packContext, truncateToTokens } from "../src/context";
+import { MODELS } from "../src/models";
 
 const results: string[] = [];
 let failures = 0;
@@ -135,6 +139,263 @@ async function main(): Promise<void> {
     refused = error instanceof RateLimitedError;
   }
   check("rate limits oversized requests", refused);
+
+  /*
+   * 5b. The completion is charged too, not just the prompt.
+   *
+   * A limiter that only ever charges what it can see beforehand lets a one-word
+   * prompt pull an unbounded completion for almost nothing, which is the shape
+   * of the expensive mistake: the bill is dominated by output tokens. The first
+   * call here is admitted on a tiny prompt and returns 5,000 output tokens; the
+   * second must be refused because the first has been settled against a bucket
+   * that cannot cover it.
+   */
+  const settling = new TokenBucketLimiter({ capacity: 1_000, refillPerSec: 0, now: () => 0 });
+  const chatty = new AiGateway({
+    clients: { anthropic: flaky(0, 5_000) },
+    limiter: settling,
+  });
+  await chatty.complete({ task: "generation", system: "hi", messages: [] });
+  let settledRefusal = false;
+  try {
+    await chatty.complete({ task: "generation", system: "hi", messages: [] });
+  } catch (error) {
+    settledRefusal = error instanceof RateLimitedError;
+  }
+  check("charges the completion, not just the prompt", settledRefusal);
+
+  /*
+   * 5e. Spend is bounded in dollars, not only in calls.
+   *
+   * The limiter counts requests and tokens, which is not what the invoice is
+   * denominated in: a handful of long calls to an expensive model costs more
+   * than a flood of cheap ones. These three cases are the ones that matter.
+   */
+  {
+    // Reads the store once, then refuses everything past the ceiling.
+    let reads = 0;
+    const budget = new SpendBudget({
+      reader: {
+        async spentUsd() {
+          reads += 1;
+          return 0;
+        },
+      },
+      limitUsd: 0.005,
+      windowMs: 60_000,
+      now: () => 0,
+    });
+    // 1000 in + 1000 out on gpt-4o is $0.0125, comfortably over the ceiling.
+    const pricey = new AiGateway({ clients: { openai: flaky(0, 1_000) }, budget });
+    await pricey.complete({ task: "generation", system: "s", messages: [] });
+    let stopped = false;
+    try {
+      await pricey.complete({ task: "generation", system: "s", messages: [] });
+    } catch (error) {
+      stopped = error instanceof BudgetExceededError;
+    }
+    check("stops a caller who is over the spend ceiling", stopped);
+
+    /*
+     * Spend inside one refresh window still counts. Usage reaches the store
+     * asynchronously, so a loop running many calls between two readings would
+     * otherwise be measured against a reading that says nothing was spent:
+     * exactly the runaway the ceiling exists to stop.
+     */
+    check("a single reading covers the whole window", reads === 1, `${reads} read(s)`);
+  }
+
+  {
+    // A store that cannot be read must not take the product down with it.
+    let refusedOnOutage = false;
+    const blind = new SpendBudget({
+      reader: {
+        async spentUsd() {
+          throw new Error("spend store unreachable");
+        },
+      },
+      limitUsd: 0.01,
+      windowMs: 60_000,
+    });
+    const resilient = new AiGateway({ clients: { anthropic: flaky(0) }, budget: blind });
+    try {
+      await resilient.complete({ task: "generation", system: "s", messages: [] });
+    } catch {
+      refusedOnOutage = true;
+    }
+    check("an unreadable spend store does not block every call", !refusedOnOutage);
+  }
+
+  /*
+   * 5f. A non-blocking verdict is reported rather than dropped.
+   *
+   * The credentials rule returns `review`, not `block`, on purpose: a key
+   * pasted into a brief by mistake should not fail somebody's work. Until this
+   * hook existed the verdict was computed and then discarded, so a leaked API
+   * key was noticed by the code and by nobody else.
+   */
+  {
+    const flags: { stage: string; categories: readonly string[] }[] = [];
+    const watched = new AiGateway({
+      clients: { anthropic: flaky(0) },
+      safety: { moderateInput: true },
+      onFlag: (flag) => flags.push({ stage: flag.stage, categories: flag.categories }),
+    });
+    await watched.complete({
+      task: "generation",
+      system: "s",
+      messages: [
+        { role: "user", content: "use my key sk-abcdefghijklmnopqrstuvwxyz012345 for this" },
+      ],
+    });
+    check(
+      "a leaked credential is reported instead of dropped",
+      flags.length === 1 && flags[0]?.categories.includes("credentials") === true,
+      JSON.stringify(flags),
+    );
+    // The text is the part that holds the secret, so it must never be handed on.
+    check(
+      "a flag carries categories, never the prompt",
+      !JSON.stringify(flags).includes("sk-abcdefghijklmnopqrstuvwxyz012345"),
+    );
+  }
+
+  /*
+   * 5g. A prompt is fitted to the window on purpose.
+   *
+   * Every part of a chat prompt was bounded on its own, by a count of messages
+   * or a slice of characters, and nothing bounded the total. Bounding the parts
+   * does not bound the whole, and characters are not what a window is
+   * denominated in.
+   */
+  {
+    const packed = packContext(
+      [
+        { name: "system", text: "You direct video.", priority: 100, required: true },
+        {
+          name: "memories",
+          text: "- prefers vertical 9:16\n- films at closing time",
+          priority: 60,
+        },
+        {
+          name: "history",
+          text: "user: make it slower\n".repeat(400),
+          priority: 40,
+          truncable: true,
+        },
+        { name: "message", text: "now make it brighter", priority: 100, required: true },
+      ],
+      200,
+    );
+    const byName = new Map(packed.sections.map((section) => [section.name, section]));
+    check(
+      "required sections always survive",
+      byName.get("system")?.outcome === "full" && byName.get("message")?.outcome === "full",
+    );
+    check(
+      "a large low-value section is trimmed, not the valuable one",
+      byName.get("memories")?.outcome === "full" && byName.get("history")?.outcome === "truncated",
+      `memories=${byName.get("memories")?.outcome}, history=${byName.get("history")?.outcome}`,
+    );
+    check(
+      "the packed total respects the budget",
+      packed.tokens <= 200 && packed.trimmed,
+      `${packed.tokens}/200`,
+    );
+    check(
+      "sections keep the order they were given in",
+      packed.sections.map((section) => section.name).join(",") ===
+        "system,memories,history,message",
+    );
+  }
+
+  {
+    // A list of discrete facts is dropped whole: half of one is a claim that
+    // stops mid-sentence, which is worse than not having it.
+    const packed = packContext(
+      [
+        { name: "keep", text: "short", priority: 10, required: true },
+        { name: "facts", text: "- one fact that is quite long indeed\n".repeat(50), priority: 5 },
+      ],
+      40,
+    );
+    check(
+      "a list of facts is dropped rather than half-said",
+      packed.sections.find((section) => section.name === "facts")?.outcome === "dropped",
+    );
+  }
+
+  {
+    // Truncation lands on a boundary, so a section never stops mid-word.
+    const prose =
+      "The first paragraph says something.\n\nThe second paragraph says more.\n\nThe third continues at length beyond the budget.";
+    const cut = truncateToTokens(prose, 12);
+    check(
+      "truncation stops on a boundary, not mid-word",
+      cut.length > 0 && !prose.slice(cut.length).startsWith("x") && /[.\n]$|[a-z]$/i.test(cut),
+      JSON.stringify(cut.slice(-40)),
+    );
+  }
+
+  {
+    // Nothing to trim: the parts that cannot be given up do not fit.
+    let refused = false;
+    try {
+      packContext(
+        [{ name: "huge", text: "word ".repeat(5_000), priority: 1, required: true }],
+        100,
+      );
+    } catch (error) {
+      refused = error instanceof ContextTooLargeError;
+    }
+    check("says so when the required context cannot fit", refused);
+  }
+
+  {
+    // The window is shared with the answer, so the budget accounts for both.
+    const spec = MODELS["claude-sonnet-5"];
+    if (spec) {
+      const budget = contextBudget(spec, 4_096);
+      check(
+        "the context budget leaves room for the answer",
+        budget > 0 && budget < spec.contextWindow - 4_096 + 1,
+        `${budget} of ${spec.contextWindow}`,
+      );
+    }
+  }
+
+  /*
+   * 5c. Counting is script-aware.
+   *
+   * The character heuristic this replaced undercounts Yoruba by about half and
+   * CJK by rather more, so a prompt measured as fitting was rejected by the
+   * provider. Asserting the direction rather than an exact number keeps this
+   * from breaking every time an encoding is updated.
+   */
+  const yoruba = "Mo fẹ́ fi ₦5,000 ránṣẹ́ sí màmá mi lónìí. ".repeat(20);
+  const cjk = "前三秒决定一切".repeat(60);
+  check(
+    "counts non-Latin scripts above the old four-chars-per-token guess",
+    estimateTokens(yoruba) > yoruba.length / 4 && estimateTokens(cjk) > cjk.length / 4,
+    `yoruba ${estimateTokens(yoruba)} vs ${Math.ceil(yoruba.length / 4)}, cjk ${estimateTokens(cjk)} vs ${Math.ceil(cjk.length / 4)}`,
+  );
+
+  /*
+   * 5d. A pathological prompt is counted in bounded time.
+   *
+   * BPE merging is superlinear in one unbroken run of characters, so a pasted
+   * document used to take the counter from milliseconds to minutes and hang the
+   * request. Slicing bounds it.
+   */
+  const pathological = "x".repeat(760_000);
+  const countStartedAt = Date.now();
+  const pathologicalTokens = estimateTokens(pathological);
+  const countMs = Date.now() - countStartedAt;
+  check(
+    "counts a pasted document without hanging",
+    countMs < 1_000 && pathologicalTokens > 0,
+    `${countMs}ms for ${pathological.length} chars`,
+  );
 
   // 6. A task with no configured provider fails loudly rather than silently.
   let explained = false;
@@ -503,7 +764,13 @@ async function main(): Promise<void> {
 
   // A prompt that fits but leaves no room for the answer must be treated as too
   // long. Checking the prompt alone sends it and collects a provider 400.
-  const bigPrompt = "x".repeat(4 * 190_000);
+  //
+  // Built from prose and measured, rather than from a character count standing
+  // in for a token count. This was `"x".repeat(4 * 190_000)`, which assumed the
+  // four-characters-per-token heuristic the counter no longer uses: a long run
+  // of one character merges into very few tokens, so that prompt is about 95k
+  // tokens and genuinely fits a 200k window.
+  const bigPrompt = "The quick brown fox jumps over the lazy dog. ".repeat(19_500);
   let windowError = "";
   try {
     await new AiGateway({ clients: { anthropic: standby } }).complete({

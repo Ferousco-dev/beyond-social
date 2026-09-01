@@ -4,6 +4,7 @@ import {
   KeyRound,
   Layers,
   LayoutDashboard,
+  GraduationCap,
   ScrollText,
   Settings,
   SlidersHorizontal,
@@ -80,6 +81,12 @@ export const CONSOLE_GROUPS: readonly ConsoleGroup[] = [
         label: "Deleted accounts",
         description: "Accounts pending erasure, who deleted them, and how long is left to restore.",
         icon: Trash2,
+      },
+      {
+        href: "/learning",
+        label: "Learning review",
+        description: "Knowledge the product has learned from real prompts, waiting to be accepted.",
+        icon: GraduationCap,
       },
       {
         href: "/flags",

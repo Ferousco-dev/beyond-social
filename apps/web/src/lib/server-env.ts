@@ -43,6 +43,35 @@ const serverEnvSchema = z.object({
    * rather than storing something it cannot use.
    */
   WEBHOOK_SECRET_KEY: z.string().default(""),
+  /**
+   * Ceiling on what one user may spend on model calls, in dollars, over
+   * AI_SPEND_WINDOW_HOURS. The rate limiter bounds how often somebody may ask;
+   * this bounds what those asks may cost, which is the half that reaches the
+   * invoice. Zero disables the ceiling.
+   *
+   * The default is deliberately far above real use rather than near it: a heavy
+   * day of chat measures in tens of cents, so this catches a runaway loop or a
+   * scripted abuser without ever being felt by somebody working normally.
+   */
+  /**
+   * Turns the nightly retention job from a dry run into a real one.
+   *
+   * Off by default, and deliberately a setting rather than a code change: the
+   * scheduled run has been a dry run since it shipped, so the counts it reports
+   * are worth reading before anything acts on them, and enabling deletion
+   * should not require a deploy to undo.
+   */
+  /**
+   * Shared secret for server-to-server calls from the admin console.
+   *
+   * Unset closes those routes rather than opening them: a deployment that has
+   * not been given a secret should refuse the call, not accept every caller who
+   * also sends nothing.
+   */
+  INTERNAL_API_SECRET: z.string().default(""),
+  RETENTION_APPLY: z.string().default(""),
+  AI_SPEND_LIMIT_USD: z.coerce.number().nonnegative().default(5),
+  AI_SPEND_WINDOW_HOURS: z.coerce.number().positive().default(24),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -67,6 +96,10 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
   WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
+  INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
+  RETENTION_APPLY: process.env.RETENTION_APPLY,
+  AI_SPEND_LIMIT_USD: process.env.AI_SPEND_LIMIT_USD,
+  AI_SPEND_WINDOW_HOURS: process.env.AI_SPEND_WINDOW_HOURS,
 });
 
 /**

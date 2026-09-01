@@ -22,6 +22,22 @@ export const usageRecordSchema = z.object({
   ok: z.boolean(),
   error: z.string().nullable(),
   userId: z.string().nullable(),
+  /**
+   * Who the spend belongs to when it is not the individual. A budget is set on
+   * an organisation, not on each of its members in turn, so cost that cannot be
+   * grouped by org cannot be governed by one.
+   */
+  orgId: z.string().nullable(),
+  /**
+   * Ties this call to the unit of work that caused it.
+   *
+   * One chat message fans out into four or five model calls, and a generation
+   * continues into a worker that publishes later. Without a shared id, the only
+   * questions answerable are per call ("what did this cost") rather than the
+   * ones actually asked ("what did this message cost", "which request scheduled
+   * the publish that failed").
+   */
+  traceId: z.string().nullable(),
   createdAt: z.string().datetime(),
 });
 

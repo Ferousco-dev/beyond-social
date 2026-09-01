@@ -7,8 +7,12 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {},
+    "typegen": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/types/**"]
+    },
     "typecheck": {
-      "dependsOn": ["build"]
+      "dependsOn": ["typegen"]
     },
     "format:check": {},
     "dev": {

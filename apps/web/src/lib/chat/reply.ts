@@ -1,5 +1,6 @@
 import "server-only";
 
+import { packContext } from "@beyond-social/ai-gateway";
 import { logger } from "@/lib/logger";
 import { getChat } from "@/lib/prompt-engine/providers";
 import { fenceSafe } from "@/lib/text/fence";
@@ -27,6 +28,20 @@ const ASK_FALLBACK = "I could not answer that just now. Try asking again.";
 
 /** Long enough to be specific, short enough that nobody skims past it. */
 const MAX_WORDS = 60;
+
+/** What the reply itself is allowed, which the context budget has to leave room for. */
+const REPLY_MAX_TOKENS = 220;
+
+/*
+ * What the grounding parts of a reply prompt may come to, together.
+ *
+ * A reply is two sentences. The chat chain leads with a model whose window is
+ * enormous, so this is not a limit imposed by the model: it is the point past
+ * which more context stops improving a short answer and only costs money and
+ * latency. Generous enough that an ordinary turn is never trimmed, small enough
+ * that a pathological one cannot run away.
+ */
+const GROUNDING_TOKEN_BUDGET = 4_000;
 
 /** Never promises a video for a message that is not asking for one. */
 function quietFallback(chatting: boolean, asking: boolean, name: string): string {
@@ -191,7 +206,7 @@ function planReply(
 
   // Only the last few turns: the whole thread would grow the prompt without
   // improving a two-sentence reply.
-  const history = (context.history ?? [])
+  const recent = (context.history ?? [])
     .slice(-4)
     .map((turn) => `${turn.role}: ${turn.content}`)
     .join("\n");
@@ -199,10 +214,41 @@ function planReply(
   // The summary stands in for the middle of a long thread; the recent turns
   // are still sent verbatim, because "make it slower" refers to something a
   // summary would have flattened away.
-  const summary = context.summary
+  const summaryText = context.summary
     ? `Earlier in this conversation, summarised:\n<summary>\n${context.summary}\n</summary>\n`
     : "";
-  const grounding = `${context.memories ?? ""}\n${summary}`.trim();
+
+  /*
+   * Four turns is a count, not a size, and none of these parts knew about the
+   * others. A turn carrying a long brief, five memories and a summary that
+   * ignored its word limit could between them dwarf the message being answered,
+   * and nothing measured the total.
+   *
+   * Ordered by what a two-sentence reply actually needs. The recent turns are
+   * what "make it slower" refers to, so they outrank a summary of everything
+   * before them; the summary is prose and shortens gracefully, while memories
+   * are discrete claims that would otherwise stop mid-sentence, so those are
+   * given up whole.
+   */
+  const packed = packContext(
+    [
+      { name: "memories", text: context.memories ?? "", priority: 20 },
+      { name: "summary", text: summaryText, priority: 10, truncable: true },
+      { name: "history", text: recent, priority: 30, truncable: true },
+    ],
+    GROUNDING_TOKEN_BUDGET,
+  );
+  const kept = new Map(packed.sections.map((section) => [section.name, section.text]));
+  if (packed.trimmed) {
+    logger.info("reply context trimmed", {
+      tokens: packed.tokens,
+      budget: packed.budgetTokens,
+      outcomes: packed.sections.map((section) => `${section.name}:${section.outcome}`).join(","),
+    });
+  }
+
+  const history = kept.get("history") ?? "";
+  const grounding = `${kept.get("memories") ?? ""}\n${kept.get("summary") ?? ""}`.trim();
 
   return {
     kind: "ask",
@@ -263,7 +309,7 @@ export async function* streamReply(context: ReplyContext): AsyncGenerator<string
       system: plan.system,
       messages: [{ role: "user", content: plan.content }],
       temperature: 0.6,
-      maxTokens: 220,
+      maxTokens: REPLY_MAX_TOKENS,
     })) {
       if (piece === "") continue;
       emitted = true;
@@ -288,70 +334,24 @@ export async function* streamReply(context: ReplyContext): AsyncGenerator<string
  * than throwing, because a missing model must not cost the user their video.
  */
 export async function writeReply(context: ReplyContext): Promise<string> {
-  const asking = context.intent === "ask";
-  const chatting = context.intent === "chat";
-  // First name only: "Hello Sarah Okonkwo-Whitfield" reads like a summons.
-  const name = (context.name ?? "").trim().split(/\s+/)[0] ?? "";
-
-  /*
-   * The intent is read before this returns, not after.
-   *
-   * This used to hand back `FALLBACK` for every intent, so with no model
-   * configured "hello" was answered with "Working on that now, I will have a
-   * first draft for you in a moment" when nothing had been started and nothing
-   * was coming. `quietFallback` exists for exactly that and was unreachable
-   * from here.
-   */
-  if (!isPromptEngineConfigured || context.brief.trim() === "") {
-    return quietFallback(chatting, asking, name);
-  }
-
-  // Only the last few turns: the whole thread would grow the prompt without
-  // improving a two-sentence reply.
-  const history = (context.history ?? [])
-    .slice(-4)
-    .map((turn) => `${turn.role}: ${turn.content}`)
-    .join("\n");
-
-  const memories = context.memories ?? "";
-  // The summary stands in for the middle of a long thread; the recent turns
-  // above are still sent verbatim, because a request like "make it slower"
-  // refers to something a summary would have flattened away.
-  const summary = context.summary
-    ? `Earlier in this conversation, summarised:\n<summary>\n${context.summary}\n</summary>\n`
-    : "";
+  const plan = planReply(context);
+  if (plan.kind === "fallback") return plan.text;
 
   try {
     const reply = await getChat().complete({
-      system:
-        "You are a video director collaborating with a creator. You are specific about craft, brief in conversation, and you never pad.",
-      messages: [
-        {
-          role: "user",
-          content: chatting
-            ? chatPrompt(context.brief, history, `${memories}\n${summary}`.trim(), name)
-            : asking
-              ? answerPrompt(context.brief, history, `${memories}\n${summary}`.trim())
-              : buildPrompt(
-                  context.brief,
-                  context.directedPrompt ?? null,
-                  history,
-                  context.intent === "adjust",
-                  `${memories}\n${summary}`.trim(),
-                ),
-        },
-      ],
+      system: plan.system,
+      messages: [{ role: "user", content: plan.content }],
       temperature: 0.6,
-      maxTokens: 220,
+      maxTokens: REPLY_MAX_TOKENS,
     });
 
     const trimmed = reply.trim();
     if (trimmed !== "") return trimmed;
-    return quietFallback(chatting, asking, name);
+    return fallbackFor(context);
   } catch (error) {
     logger.warn("reply write failed", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return quietFallback(chatting, asking, name);
+    return fallbackFor(context);
   }
 }
