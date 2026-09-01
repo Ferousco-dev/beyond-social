@@ -123,10 +123,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
               <p className="mt-2 w-24 truncate text-xs font-medium text-ink">{product.label}</p>
             ) : null}
 
-            <MakeVideoButton
-              asset={product}
-              className="mt-1 text-xs text-ink-soft hover:text-ink"
-            >
+            <MakeVideoButton asset={product} className="mt-1 text-xs text-ink-soft hover:text-ink">
               Make video
             </MakeVideoButton>
           </li>
