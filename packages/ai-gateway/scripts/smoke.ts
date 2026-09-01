@@ -225,6 +225,40 @@ async function main(): Promise<void> {
   }
 
   /*
+   * 5f. A non-blocking verdict is reported rather than dropped.
+   *
+   * The credentials rule returns `review`, not `block`, on purpose: a key
+   * pasted into a brief by mistake should not fail somebody's work. Until this
+   * hook existed the verdict was computed and then discarded, so a leaked API
+   * key was noticed by the code and by nobody else.
+   */
+  {
+    const flags: { stage: string; categories: readonly string[] }[] = [];
+    const watched = new AiGateway({
+      clients: { anthropic: flaky(0) },
+      safety: { moderateInput: true },
+      onFlag: (flag) => flags.push({ stage: flag.stage, categories: flag.categories }),
+    });
+    await watched.complete({
+      task: "generation",
+      system: "s",
+      messages: [
+        { role: "user", content: "use my key sk-abcdefghijklmnopqrstuvwxyz012345 for this" },
+      ],
+    });
+    check(
+      "a leaked credential is reported instead of dropped",
+      flags.length === 1 && flags[0]?.categories.includes("credentials") === true,
+      JSON.stringify(flags),
+    );
+    // The text is the part that holds the secret, so it must never be handed on.
+    check(
+      "a flag carries categories, never the prompt",
+      !JSON.stringify(flags).includes("sk-abcdefghijklmnopqrstuvwxyz012345"),
+    );
+  }
+
+  /*
    * 5c. Counting is script-aware.
    *
    * The character heuristic this replaced undercounts Yoruba by about half and

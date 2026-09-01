@@ -178,6 +178,20 @@ function getGateway(): AiGateway {
       });
     },
     /*
+     * Screening verdicts that stop short of blocking. Today that is one rule:
+     * a credential detected in a prompt, which is not a reason to fail
+     * somebody's work but is very much a reason for somebody to know. Only the
+     * rule categories are logged; the text is the part that holds the secret.
+     */
+    onFlag: (flag) => {
+      logger.warn("ai content flagged for review", {
+        stage: flag.stage,
+        categories: flag.categories,
+        requestId: flag.requestId,
+        userId: flag.userId,
+      });
+    },
+    /*
      * A ceiling on spend, which the limiter cannot express.
      *
      * Requests and prompt tokens are not what the invoice is denominated in: a

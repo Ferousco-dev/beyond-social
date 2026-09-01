@@ -24,6 +24,7 @@ import {
   detectInjection,
   moderate,
   type InjectionSeverity,
+  type ModerationVerdict,
 } from "./safety";
 import { NoopUsageSink, type UsageRecord, type UsageSink } from "./usage";
 import { type SpendBudget } from "./budget";
@@ -81,6 +82,24 @@ export interface GatewayOptions {
    * may cost, which is the half that shows up on the invoice.
    */
   budget?: SpendBudget;
+  /**
+   * A screening verdict that fell short of blocking.
+   *
+   * `moderate` can return `review`, which the gateway does not refuse on: the
+   * one rule that produces it detects a credential in a prompt, and a key
+   * pasted into a brief by mistake is not a reason to fail somebody's work.
+   * With nowhere to report it, though, the verdict was computed and dropped,
+   * so a leaked API key was noticed by the code and by nobody else.
+   *
+   * Handed the rule categories and never the text, because the text is the part
+   * that contains the secret.
+   */
+  onFlag?: (flag: {
+    stage: "input" | "output";
+    categories: readonly string[];
+    requestId: string;
+    userId: string | null;
+  }) => void;
 }
 
 export interface GatewayRequest extends CompletionRequest {
@@ -179,7 +198,7 @@ export class AiGateway {
 
     // Screening happens before anything is spent, and before the cache, so a
     // hostile prompt can neither cost money nor be served from a warm entry.
-    this.screenInput(request);
+    this.screenInput(request, requestId);
 
     if (candidates.length === 0) {
       throw new Error(
@@ -258,7 +277,7 @@ export class AiGateway {
 
         this.breaker.recordSuccess(spec.provider);
 
-        this.screenOutput(result.text);
+        this.screenOutput(result.text, requestId, request.userId ?? null);
 
         // The bucket was charged an estimate of the prompt alone. Reconcile it
         // against what the provider says the whole call actually cost, so a
@@ -357,7 +376,7 @@ export class AiGateway {
     const startedAt = this.now();
     const candidates = this.chain(request.task);
 
-    this.screenInput(request);
+    this.screenInput(request, requestId);
 
     if (candidates.length === 0) {
       throw new Error(
@@ -407,7 +426,7 @@ export class AiGateway {
         // Screened at the end rather than per chunk: a rule about the whole
         // answer cannot be evaluated against a fragment of it. The caller is
         // told to discard what it has if this throws.
-        this.screenOutput(text);
+        this.screenOutput(text, requestId, request.userId ?? null);
 
         this.settle(limiterKey, usage.inputTokens + usage.outputTokens - promptTokens);
 
@@ -506,7 +525,7 @@ export class AiGateway {
   }
 
   /** Refuses hostile or disallowed prompts before any provider is called. */
-  private screenInput(request: GatewayRequest): void {
+  private screenInput(request: GatewayRequest, requestId: string): void {
     const safety = this.options.safety;
     if (!safety) return;
 
@@ -523,6 +542,7 @@ export class AiGateway {
     if (safety.moderateInput) {
       const verdict = moderate(text);
       if (verdict.action === "block") throw new ModerationError("input", verdict);
+      this.flag("input", verdict, requestId, request.userId ?? null);
     }
   }
 
@@ -571,10 +591,31 @@ export class AiGateway {
   }
 
   /** Refuses disallowed completions before they reach the caller. */
-  private screenOutput(text: string): void {
+  private screenOutput(text: string, requestId: string, userId: string | null): void {
     if (!this.options.safety?.moderateOutput) return;
     const verdict = moderate(text);
     if (verdict.action === "block") throw new ModerationError("output", verdict);
+    this.flag("output", verdict, requestId, userId);
+  }
+
+  /** Reports a non-blocking verdict, by category only. */
+  private flag(
+    stage: "input" | "output",
+    verdict: ModerationVerdict,
+    requestId: string,
+    userId: string | null,
+  ): void {
+    if (verdict.action !== "review") return;
+    try {
+      this.options.onFlag?.({
+        stage,
+        categories: verdict.findings.map((finding) => finding.category),
+        requestId,
+        userId,
+      });
+    } catch {
+      // Reporting a flag must not fail the call it was noticed on.
+    }
   }
 
   /**
