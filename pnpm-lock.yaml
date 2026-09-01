@@ -111,6 +111,9 @@ importers:
       '@beyond-social/prompt-engine':
         specifier: workspace:*
         version: link:../../packages/prompt-engine
+      '@beyond-social/rate-limit':
+        specifier: workspace:*
+        version: link:../../packages/rate-limit
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
@@ -374,6 +377,21 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.23.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/rate-limit:
+    devDependencies:
+      '@beyond-social/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@beyond-social/typescript-config':
+        specifier: workspace:*
+        version: link:../typescript-config
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.5(jiti@2.7.0)
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

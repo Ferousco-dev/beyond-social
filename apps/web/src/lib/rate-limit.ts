@@ -1,6 +1,9 @@
-// Fixed-window rate limiter. In-memory and per-instance: a solid first line of
-// defense, but production should back this with a shared store (Upstash/Redis)
-// so limits hold across serverless instances. See docs/production-readiness.md.
+import { type RateLimitOutcome } from "@beyond-social/rate-limit";
+
+// Fixed-window rate limiter. In-memory and per-instance: a cheap first line of
+// defence that costs no round trip. The limit that holds across a fleet lives in
+// `@beyond-social/rate-limit`, and this stands in only where there is no shared
+// store to reach, such as local development.
 
 interface Bucket {
   count: number;
@@ -9,21 +12,12 @@ interface Bucket {
 
 const store = new Map<string, Bucket>();
 
-export interface RateLimitResult {
-  ok: boolean;
-  remaining: number;
-  retryAfterMs: number;
-  /**
-   * Why the request was refused, when it was.
-   *
-   * `throttled` means the caller genuinely exceeded the limit and waiting will
-   * help. `unavailable` means the limiter itself could not answer and we denied
-   * by default, where waiting helps nobody: the fix is configuration, not
-   * patience. Telling someone to wait a minute for a limiter that never counted
-   * them sends them to do nothing, repeatedly.
-   */
-  reason?: "throttled" | "unavailable";
-}
+/**
+ * Re-exported so the in-memory limiter and the shared one speak in one shape.
+ * The two are interchangeable at the call site by design: this is the fallback
+ * when there is no shared store to talk to.
+ */
+export type RateLimitResult = RateLimitOutcome;
 
 export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
