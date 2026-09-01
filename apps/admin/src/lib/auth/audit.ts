@@ -12,6 +12,9 @@ export const AUTH_AUDIT_ACTIONS = {
   signInThrottled: "admin.sign_in_throttled",
   signOut: "admin.sign_out",
   accessDenied: "admin.access_denied",
+  mfaUnresolved: "admin.mfa_unresolved",
+  mfaEnrolled: "admin.mfa_enrolled",
+  mfaVerified: "admin.mfa_verified",
 } as const;
 
 export type AuthAuditAction = (typeof AUTH_AUDIT_ACTIONS)[keyof typeof AUTH_AUDIT_ACTIONS];
