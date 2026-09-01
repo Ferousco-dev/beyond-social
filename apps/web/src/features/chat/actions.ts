@@ -5,6 +5,7 @@ import { type z } from "zod";
 import { runWithAiUser } from "@/lib/ai/request-user";
 import { sendSchema, runTurn, type SendResult } from "@/lib/chat/turn";
 import { aiLimitMessage } from "@/lib/ai/limit-message";
+import { withAiOrgSlot } from "@/lib/ai/request-org";
 import { logger } from "@/lib/logger";
 import { isSupabaseConfigured } from "@/lib/env";
 import { withActionTrace } from "@/lib/observability/trace";
@@ -50,7 +51,9 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   const name = typeof metadataName === "string" ? metadataName : "";
 
   try {
-    return await runWithAiUser(user.id, () => runTurn(parsed.data, user.id, supabase, name));
+    return await withAiOrgSlot(() =>
+      runWithAiUser(user.id, () => runTurn(parsed.data, user.id, supabase, name)),
+    );
   } catch (error) {
     // The gateway refuses on rate and on spend by design. Both reach here as
     // exceptions, and reporting them as a generic failure invites an immediate

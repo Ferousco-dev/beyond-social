@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { runWithAiUser } from "@/lib/ai/request-user";
+import { withAiOrgSlot } from "@/lib/ai/request-org";
 import { runTurn, sendSchema, type SendResult, type TurnStage } from "@/lib/chat/turn";
 import { isSupabaseConfigured } from "@/lib/env";
 import { aiLimitMessage } from "@/lib/ai/limit-message";
@@ -92,11 +93,13 @@ export async function POST(request: NextRequest): Promise<Response> {
 
       try {
         const result = await withActionTrace("sendMessageStream", () =>
-          runWithAiUser(user.id, () =>
-            runTurn(parsed.data, user.id, supabase, name, {
-              onStage: (stage) => send({ type: "stage", stage }),
-              onReplyChunk: (text) => send({ type: "chunk", text }),
-            }),
+          withAiOrgSlot(() =>
+            runWithAiUser(user.id, () =>
+              runTurn(parsed.data, user.id, supabase, name, {
+                onStage: (stage) => send({ type: "stage", stage }),
+                onReplyChunk: (text) => send({ type: "chunk", text }),
+              }),
+            ),
           ),
         );
 

@@ -37,6 +37,7 @@ import { learnFromPrompt } from "@/lib/prompt-engine/learn";
 import { type createClient } from "@/lib/supabase/server";
 
 import { toHistory } from "./history";
+import { setAiOrg } from "@/lib/ai/request-org";
 
 /**
  * One turn of the conversation, from a validated request to a persisted reply.
@@ -265,8 +266,27 @@ export async function runTurn(
    * leaves no empty project in the sidebar, and it stops before the enhancement
    * pass, which is a model call spent directing a video we are not making yet.
    */
-  const previousPrompt =
-    parsed.projectId === "new" ? null : await getLatestDirectedPrompt(supabase, parsed.projectId);
+  /*
+   * The previous direction, and which organisation to bill this turn to.
+   *
+   * The org read is paired with a query that was happening anyway, so it costs
+   * no round trip. The obvious home for it is alongside the recall reads
+   * further down, which also run together, and that is too late: the intent
+   * classification happens before them, so that one call would be recorded
+   * against no organisation and org spend would under-report by a call in every
+   * turn.
+   *
+   * A project created by this turn is personal by construction, since the
+   * insert below sets no org, so the null default is already right for it.
+   */
+  const [previousPrompt, owner] =
+    parsed.projectId === "new"
+      ? [null, null]
+      : await Promise.all([
+          getLatestDirectedPrompt(supabase, parsed.projectId),
+          supabase.from("projects").select("org_id").eq("id", parsed.projectId).maybeSingle(),
+        ]);
+  setAiOrg((owner?.data as { org_id?: string | null } | null)?.org_id ?? null);
   /*
    * Whether this turn is worth grounding, decided before the classification
    * rather than from it.

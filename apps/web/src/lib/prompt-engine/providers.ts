@@ -35,6 +35,7 @@ import {
 } from "@beyond-social/prompt-engine";
 
 import { currentAiUser } from "@/lib/ai/request-user";
+import { currentAiOrg } from "@/lib/ai/request-org";
 import { currentTrace } from "@/lib/observability/trace";
 import { logger } from "@/lib/logger";
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
@@ -263,8 +264,10 @@ function getGateway(): AiGateway {
  */
 function attribution(userId: string | undefined): GatewayAttribution {
   const traceId = currentTrace()?.traceId;
+  const orgId = currentAiOrg();
   return {
     ...(userId === undefined ? {} : { userId }),
+    ...(orgId === undefined ? {} : { orgId }),
     ...(traceId === undefined ? {} : { traceId }),
   };
 }
