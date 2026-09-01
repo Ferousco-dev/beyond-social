@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Copy, Smartphone } from "lucide-react";
+import QRCode from "qrcode";
 import { useEffect, useState, type ReactNode } from "react";
 
 /**
@@ -21,6 +22,50 @@ import { useEffect, useState, type ReactNode } from "react";
 /** Matches the expiry the handoff token itself is minted with. */
 export const HANDOFF_MINUTES = 20;
 
+/**
+ * The QR as inline SVG, encoded in the browser.
+ *
+ * Encoded here rather than fetched from an image endpoint because the thing
+ * being encoded is a short-lived capability: sending it to a third-party chart
+ * service to be drawn would hand that service the token, and generating it
+ * server-side would put a one-use secret in a cacheable response. SVG rather
+ * than canvas so it stays sharp on the phone screen being pointed at it.
+ *
+ * Medium error correction is the deliberate middle: enough redundancy to
+ * survive a camera at an angle without inflating the module count to the point
+ * where the code needs a bigger box to stay scannable.
+ */
+function useQrSvg(url: string | null): string | null {
+  const [svg, setSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (url === null) {
+      setSvg(null);
+      return;
+    }
+    let live = true;
+    void QRCode.toString(url, {
+      type: "svg",
+      errorCorrectionLevel: "M",
+      margin: 0,
+      color: { dark: "#000000", light: "#00000000" },
+    })
+      .then((markup) => {
+        if (live) setSvg(markup);
+      })
+      .catch(() => {
+        // A missing QR is a degraded screen, not a broken one: the link and the
+        // copy button below it are the same route by hand.
+        if (live) setSvg(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [url]);
+
+  return svg;
+}
+
 function countdown(msLeft: number): string {
   const total = Math.max(0, Math.floor(msLeft / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
@@ -38,6 +83,7 @@ export function PhoneHandoff({
 }): ReactNode {
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const qr = useQrSvg(url);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -54,19 +100,22 @@ export function PhoneHandoff({
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-4 rounded-xl border border-hairline bg-cloud/50 p-5">
-      <div className="flex aspect-square w-full max-w-[280px] items-center justify-center rounded-lg border border-dashed border-hairline bg-paper p-6 text-center">
-        {/*
-         * The QR itself is the one piece of this screen that is not here yet.
-         * Rendering one needs an encoder, and adding a dependency is the
-         * owner's call, so the link below is the working route in the meantime
-         * rather than a picture of a route that does not resolve.
-         */}
-        <p className="text-sm text-ink-soft">
-          <Smartphone className="mx-auto mb-2 size-6" aria-hidden />
-          {url === null
-            ? "A phone link appears here once recording handoff is switched on."
-            : "Scan or open the link below on your phone."}
-        </p>
+      <div className="flex aspect-square w-full max-w-[280px] items-center justify-center rounded-lg border border-hairline bg-paper p-4 text-center">
+        {qr !== null && !expired ? (
+          <div
+            aria-label="QR code linking to the recording page"
+            role="img"
+            className="size-full [&>svg]:size-full"
+            dangerouslySetInnerHTML={{ __html: qr }}
+          />
+        ) : (
+          <p className="text-sm text-ink-soft">
+            <Smartphone className="mx-auto mb-2 size-6" aria-hidden />
+            {url === null
+              ? "A phone link appears here once recording handoff is switched on."
+              : "This code has expired. Get a new link to carry on."}
+          </p>
+        )}
       </div>
 
       {url !== null ? (
