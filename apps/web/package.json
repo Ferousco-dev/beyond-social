@@ -9,6 +9,7 @@
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "eslint .",
+    "typegen": "next typegen",
     "typecheck": "tsc --noEmit",
     "test:trace": "tsx --tsconfig scripts/tsconfig.json scripts/trace-smoke.ts",
     "test:analytics": "tsx --tsconfig scripts/tsconfig.json scripts/analytics-smoke.ts",

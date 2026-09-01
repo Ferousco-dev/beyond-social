@@ -21,6 +21,11 @@ export interface PromptEngineDeps {
   /** Model used to grade it (a cheaper model is fine and usually better value). */
   judge: Llm;
   systemLayers: ReadonlyMap<string, string>;
+  /**
+   * Told when an output could not be graded, so a judge that has been answering
+   * with nonsense all week is visible rather than merely ungraded.
+   */
+  onGradeError?: (error: unknown) => void;
   /** Injected so generation is deterministic under test and replayable. */
   now: () => string;
   newId: () => string;
@@ -28,10 +33,34 @@ export interface PromptEngineDeps {
 
 export interface GenerateResult {
   output: string;
-  evaluation: Evaluation;
+  /**
+   * Null when the output could not be graded.
+   *
+   * The judge is asked for strict JSON and its answer is validated, so a
+   * malformed reply is a real possibility. An ungradeable output is not a
+   * failed generation: the artifact exists and is very likely fine, and
+   * throwing it away because the second opinion was unreadable would make
+   * quality control the thing that lowers quality.
+   */
+  evaluation: Evaluation | null;
   record: GenerationRecord;
   composed: ComposedPrompt;
   regenerations: number;
+}
+
+/**
+ * How the artifact should be produced, as opposed to what it should be made of.
+ *
+ * Sampling and output shape are properties of a call, not of a recipe: the same
+ * composition strategy is used to write a 500-token video prompt here and could
+ * be used for something longer elsewhere, and neither belongs in a versioned
+ * document about which knowledge to retrieve.
+ */
+export interface GenerateOptions {
+  /** Appended to the composed user message, saying what shape to answer in. */
+  instruction?: string;
+  temperature?: number;
+  maxTokens?: number;
 }
 
 /**
@@ -54,6 +83,7 @@ export class PromptEngine {
     userId: string,
     rawRequest: GenerationRequest,
     rawRecipe: Recipe,
+    options: GenerateOptions = {},
   ): Promise<GenerateResult> {
     const request = generationRequestSchema.parse(rawRequest);
     const recipe = recipeSchema.parse(rawRecipe);
@@ -61,25 +91,38 @@ export class PromptEngine {
 
     const retrieval = await this.retriever.retrieve(request, recipe);
     const composed = composePrompt(request, recipe, retrieval, this.deps.systemLayers);
+    const task = options.instruction ? composed.user + options.instruction : composed.user;
+    const sampling = {
+      ...(options.temperature === undefined ? {} : { temperature: options.temperature }),
+      ...(options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens }),
+    };
 
     let output = await this.deps.generator.complete({
       system: composed.system,
-      messages: [{ role: "user", content: composed.user }],
+      messages: [{ role: "user", content: task }],
+      ...sampling,
     });
-    let evaluation = await this.grade(generationId, output, request, recipe);
+    let evaluation = await this.tryGrade(generationId, output, request, recipe);
     let regenerations = 0;
 
-    while (!evaluation.passed && regenerations < recipe.evalPolicy.maxRegenerations) {
+    // A null evaluation ends the loop: without a grade there is no critique to
+    // revise against, and regenerating blind would spend a second call to
+    // arrive somewhere no better.
+    while (evaluation && !evaluation.passed && regenerations < recipe.evalPolicy.maxRegenerations) {
       output = await this.deps.generator.complete({
         system: composed.system,
         messages: [
-          { role: "user", content: composed.user },
+          { role: "user", content: task },
           { role: "assistant", content: output },
           { role: "user", content: reviseInstruction(evaluation.suggestions) },
         ],
+        ...sampling,
       });
-      evaluation = await this.grade(generationId, output, request, recipe);
+      const regraded = await this.tryGrade(generationId, output, request, recipe);
       regenerations++;
+      // Keeping the previous grade would report the revision as still failing
+      // on issues it may well have fixed.
+      evaluation = regraded;
     }
 
     const record: GenerationRecord = {
@@ -93,7 +136,7 @@ export class PromptEngine {
       outputRef: null,
       outcome: null,
       editDistance: null,
-      evaluationScore: evaluation.overall,
+      evaluationScore: evaluation?.overall ?? null,
       createdAt: this.deps.now(),
     };
 
@@ -114,6 +157,29 @@ export class PromptEngine {
     recipe: Recipe,
   ): Promise<Evaluation> {
     return this.evaluator.evaluate(id, output, request.prompt, recipe.evalPolicy, this.deps.now());
+  }
+
+  /**
+   * The grade, or null when one could not be obtained.
+   *
+   * The evaluator is strict on purpose: a judge that answers with prose instead
+   * of the schema has not graded anything, and pretending otherwise would put a
+   * made-up score on the record. But strictness belongs to the grade, not to
+   * the generation, and a caller that falls back to an unenhanced prompt when
+   * the *judge* misbehaves has let quality control lower quality.
+   */
+  private async tryGrade(
+    id: string,
+    output: string,
+    request: GenerationRequest,
+    recipe: Recipe,
+  ): Promise<Evaluation | null> {
+    try {
+      return await this.grade(id, output, request, recipe);
+    } catch (error) {
+      this.deps.onGradeError?.(error);
+      return null;
+    }
   }
 }
 

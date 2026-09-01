@@ -20,13 +20,16 @@ import {
   GeminiEmbedder,
   OpenAiEmbedder,
   PassthroughReranker,
+  PromptEngine,
   Retriever,
   SupabaseVectorStore,
   VoyageEmbedder,
+  VoyageReranker,
   recipeSchema,
   type Embedder,
   type Llm,
   type Recipe,
+  type Reranker,
   type SupabaseRpcClient,
   type VectorStore,
 } from "@beyond-social/prompt-engine";
@@ -91,9 +94,32 @@ export function getStore(): VectorStore {
   return storeRef;
 }
 
+let rerankerRef: Reranker | null = null;
+
+/**
+ * The cross-encoder, when there is a key for one.
+ *
+ * The ranking blend carries a rerank weight of 0.18, and the passthrough
+ * returns an empty map, so with it wired that weight contributed exactly
+ * nothing: retrieval was ranked on a formula whose fourth-largest term was
+ * always zero. A cross-encoder scores each candidate jointly with the query
+ * and catches relevance a bi-encoder misses, which is what that weight was
+ * written to pay for.
+ *
+ * The passthrough remains the honest fallback rather than an error, since a
+ * deployment without a Voyage key still retrieves perfectly well on the other
+ * seven signals.
+ */
+export function getReranker(): Reranker {
+  rerankerRef ??= serverEnv.VOYAGE_API_KEY
+    ? new VoyageReranker(serverEnv.VOYAGE_API_KEY)
+    : new PassthroughReranker();
+  return rerankerRef;
+}
+
 let retrieverRef: Retriever | null = null;
 export function getRetriever(): Retriever {
-  retrieverRef ??= new Retriever(getEmbedder(), getStore(), new PassthroughReranker());
+  retrieverRef ??= new Retriever(getEmbedder(), getStore(), getReranker());
   return retrieverRef;
 }
 
@@ -261,6 +287,32 @@ export function getJudge(userId: string | undefined = currentAiUser()): Llm {
  */
 export function getChat(userId: string | undefined = currentAiUser()): Llm {
   return new GatewayLlm(getGateway(), "chat", attribution(userId));
+}
+
+/**
+ * The full engine: retrieve, compose, generate, grade, and revise once if the
+ * grade fails.
+ *
+ * Not memoized. It closes over the generator and judge, which carry the
+ * attribution for the request that built them, and a cached engine would go on
+ * charging every later call to whoever happened to make the first one.
+ */
+export function getPromptEngine(userId: string | undefined = currentAiUser()): PromptEngine {
+  return new PromptEngine({
+    embedder: getEmbedder(),
+    store: getStore(),
+    reranker: getReranker(),
+    generator: getGenerator(userId),
+    judge: getJudge(userId),
+    systemLayers: SYSTEM_LAYERS,
+    onGradeError: (error) => {
+      logger.warn("could not grade an enhanced prompt", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
+    now: () => new Date().toISOString(),
+    newId: () => crypto.randomUUID(),
+  });
 }
 
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */

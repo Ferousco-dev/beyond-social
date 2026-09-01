@@ -6,7 +6,15 @@ import { isFlagEnabled } from "@/lib/flags";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { logger } from "@/lib/logger";
 
-import { DEFAULT_RECIPE, SYSTEM_LAYERS, getGenerator, getRetriever } from "./providers";
+import { currentAiUser } from "@/lib/ai/request-user";
+
+import {
+  DEFAULT_RECIPE,
+  SYSTEM_LAYERS,
+  getGenerator,
+  getPromptEngine,
+  getRetriever,
+} from "./providers";
 
 export interface EnhanceInput {
   prompt: string;
@@ -42,6 +50,39 @@ export async function enhancePrompt(input: EnhanceInput): Promise<EnhancedPrompt
       ...(input.platform ? { platform: input.platform } : {}),
       ...(input.productType ? { productType: input.productType } : {}),
     });
+
+    /*
+     * Grade the prompt and revise it once if it falls short.
+     *
+     * The engine that does this was written, bounded and then never called: the
+     * app reached past it to compose and complete directly, so a prompt was
+     * whatever came back first. That is the wrong place to save a judge call.
+     * This prompt is about to be turned into a video that costs credits and
+     * minutes, and a second opinion costs a fraction of a cent against a render
+     * nobody wanted.
+     *
+     * Off by flag rather than by deploy, since it is the one change here that
+     * adds latency to the critical path of starting a generation.
+     */
+    if (await isFlagEnabled("prompt_engine_critic", true)) {
+      const result = await getPromptEngine().generate(
+        currentAiUser() ?? "anonymous",
+        request,
+        DEFAULT_RECIPE,
+        { instruction: REWRITE_INSTRUCTION, temperature: 0.7, maxTokens: 500 },
+      );
+      const revised = result.output.trim();
+      if (revised !== "") {
+        logger.info("prompt enhanced", {
+          regenerations: result.regenerations,
+          score: result.evaluation?.overall ?? null,
+          passed: result.evaluation?.passed ?? null,
+        });
+        return { text: revised, chunkIds: result.composed.chunkRefs.map((ref) => ref.id) };
+      }
+      // An empty output falls through to the single-shot path rather than to
+      // the raw prompt: the retrieval has already been paid for.
+    }
 
     const retrieval = await getRetriever().retrieve(request, DEFAULT_RECIPE);
     const composed = composePrompt(request, DEFAULT_RECIPE, retrieval, SYSTEM_LAYERS);
