@@ -26,7 +26,7 @@
 // this closes, without a live provider call anywhere in the loop.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
 import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
@@ -55,8 +55,7 @@ interface StuckGeneration {
   trace_id: string | null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const expected = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";

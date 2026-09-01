@@ -12,13 +12,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { adminClient } from "../_shared/credits.ts";
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { deleteAvatarGroup, isHeygenConfigured } from "../_shared/heygen.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
+serve(async (request) => {
   const traceId = traceIdFrom(request);
   const authorization = request.headers.get("Authorization") ?? "";
   if (!authorization) return json({ error: "unauthorized" }, 401);

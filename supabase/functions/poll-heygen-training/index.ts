@@ -6,7 +6,7 @@
 // rather than a new mechanism: a batch, oldest first, bounded, and safe to run
 // again if a run dies partway.
 import { adminClient } from "../_shared/credits.ts";
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { getAvatarGroup, isHeygenConfigured } from "../_shared/heygen.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -23,9 +23,7 @@ const BATCH = 20;
  */
 const MAX_POLLS = 60;
 
-Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-
+serve(async (request) => {
   const traceId = traceIdFrom(request);
   const secret = Deno.env.get("CRON_SECRET") ?? "";
   // Same rule as the app's cron routes: an unset secret closes the endpoint
