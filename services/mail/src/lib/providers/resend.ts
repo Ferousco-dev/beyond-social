@@ -1,4 +1,5 @@
 import {
+  PermanentSendError,
   raise,
   SendBlockedError,
   type MailProvider,
@@ -59,8 +60,15 @@ export class ResendProvider implements MailProvider {
 
     const body = (await response.json().catch(() => null)) as ResendResponse | null;
     // Without an id there is nothing to reconcile a bounce or a duplicate
-    // against later, so an accepted response that omits it is still a failure.
-    if (!body?.id) throw new Error("Resend accepted the message but returned no id");
+    // against later, so an accepted response that omits it is still a
+    // failure. It is thrown as permanent rather than a plain Error: a plain
+    // Error retries, and the message has already been accepted by Resend, so
+    // a retry would call send() again and mail a real second copy of it.
+    // Whatever went wrong reading the response, resending is the one thing
+    // that must not happen.
+    if (!body?.id) {
+      throw new PermanentSendError("Resend accepted the message but returned no id");
+    }
     return { providerMessageId: body.id };
   }
 }
