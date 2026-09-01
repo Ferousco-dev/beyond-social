@@ -810,10 +810,8 @@ build` plus a full-repo `pnpm exec turbo run typecheck lint build`
     (`ffmpeg.ts`'s `TIMEOUT_MS`); a rolling deploy could SIGKILL an
     in-flight render regardless of the drain logic, contradicting
     `docs/going-live.md`'s documented "drains rather than dropping a job
-    halfway" behaviour. Set to `600s`. `Verify` passed; `Migrations and
-    schema` was still running when this entry was drafted, watched via
-    the same PR-activity subscription as #188/#189 rather than left
-    unchecked.
+    halfway" behaviour. Set to `600s`. CI green (`Verify`, `Migrations
+and schema` both passed).
 
   None of the three were verified against a live database, a real
   Resend account, or a real Fly deploy (unavailable this session, as
@@ -829,9 +827,8 @@ build` plus a full-repo `pnpm exec turbo run typecheck lint build`
   a decision that's already made. Items 1 and 3 of that list were not
   re-checked and should still be treated as open.
 
-  Three PRs opened this session (#188-190), zero left genuinely
-  unfinished (#190's CI was in flight, not unresolved, when this entry
-  was written; confirm it landed green before trusting it un-watched).
+  Three PRs opened this session (#188-190), all fully green on CI
+  (`Verify`, `Migrations and schema`) and none left genuinely unfinished.
   All three held unmerged under the same critical-section hold as every
   session since the tenth. Next session: `services/mail` and
   `services/render` have now had a real pass end to end; a fresh corner
