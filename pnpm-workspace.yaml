@@ -3,9 +3,18 @@ packages:
   - "packages/*"
   - "services/*"
 
-# Dedupe ioredis so the worker and BullMQ share one version (their types must match).
 overrides:
+  # Dedupe ioredis so the worker and BullMQ share one version (their types must match).
   ioredis: "5.11.1"
+  # Advisory floors. Next pins older postcss and sharp than the advisories require,
+  # and neither is a direct dependency of ours, so the floor has to be set here.
+  postcss: "^8.5.23"
+  sharp: "^0.35.0"
+  # Lint-time only, reached through eslint. Patch bumps within the ranges eslint
+  # already asks for, so the audit is clean rather than noisy.
+  js-yaml@4: "^4.3.1"
+  brace-expansion@1: "^1.1.18"
+  brace-expansion@5: "^5.0.9"
 
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
