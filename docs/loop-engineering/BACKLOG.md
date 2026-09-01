@@ -172,7 +172,6 @@ then the HeyGen client and training kickoff behind the no-op guard. The
 phone route needs a short-lived handoff token and a mobile record page
 before its QR means anything, so it is a backend unit as much as a UI one.
 
-
 ## Reconciliation, 2026-08-30: a live owner session shipped an interim step on the Live feature
 
 The owner gave the same "Live" recording brief described below directly to a
