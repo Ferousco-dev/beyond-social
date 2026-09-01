@@ -11,6 +11,14 @@
 app = "beyond-social-render"
 primary_region = "arn"
 
+# Fly's default is 5s between SIGTERM and a hard SIGKILL, nowhere near enough
+# for the drain the worker actually does: index.ts finishes the job in hand
+# before exiting, and a join alone is allowed up to 8 minutes (ffmpeg.ts's
+# TIMEOUT_MS) before download and upload. Without this, a rolling deploy
+# kills an in-flight render mid-ffmpeg or mid-upload regardless of the
+# drain logic, leaving the row stuck at "generating".
+kill_timeout = "600s"
+
 [build]
 
 [env]
