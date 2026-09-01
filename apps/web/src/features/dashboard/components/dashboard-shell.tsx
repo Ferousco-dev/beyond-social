@@ -131,22 +131,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        {/*
-         * `relative` is load-bearing, not decoration.
-         *
-         * `sr-only` positions absolutely, and an absolutely positioned element
-         * resolves against its nearest positioned ancestor. Without one here,
-         * screen-reader-only captions deep in the scrolled content resolved
-         * against the document instead: a 1px element sitting at its static
-         * offset three thousand pixels down, which the document then had to
-         * grow to contain. The page scrolled into empty space with nothing
-         * visible in it.
-         *
-         * The scroll container is the right containing block for its own
-         * content, so declaring it fixes every such case at once rather than
-         * one caption at a time.
-         */}
-        <main id="main" className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
+        <main id="main" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {children}
         </main>
       </div>
