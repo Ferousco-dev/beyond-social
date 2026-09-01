@@ -38,7 +38,18 @@ const SPHERE = {
    * fifty pixels of rise across the whole screen, so the eye reads the edge of
    * somewhere enormous rather than the top of a ball.
    */
-  width: "600vw",
+  /*
+   * Six times the viewport is the desktop figure, and it cannot simply be
+   * carried down: the rise across the screen goes as width squared over the
+   * radius, so a viewport-relative radius holds the *ratio* constant and lets
+   * the curve flatten as the screen narrows. At 1440 this is a 60px rise; the
+   * same 600vw at 375 is 16px, a straight line with four logos strung along
+   * it, which is what the phone actually showed.
+   *
+   * Narrowing the radius on small screens keeps the rise, and the arc length
+   * between marks, close to what the design intends at every width.
+   */
+  widthClass: "w-[200vw] sm:w-[340vw] lg:w-[600vw]",
   /** Low enough that the crown clears the copy and the glow owns the space above it. */
   top: "88%",
 } as const;
@@ -92,8 +103,8 @@ export function HeroOrbit(): ReactNode {
         over it, which is what sells the curve.
       */}
       <div
-        style={{ width: SPHERE.width, top: SPHERE.top }}
-        className="absolute left-1/2 aspect-square -translate-x-1/2"
+        style={{ top: SPHERE.top }}
+        className={`absolute left-1/2 aspect-square -translate-x-1/2 ${SPHERE.widthClass}`}
       >
         <div className="absolute inset-0 motion-safe:animate-[orbit_600s_linear_infinite]">
           {MARKS.map((mark) => (
@@ -124,8 +135,8 @@ export function HeroOrbit(): ReactNode {
           under the horizon. Its own top edge is barely there; the light comes
           from the blurred arc above it. */}
       <div
-        style={{ width: SPHERE.width, top: SPHERE.top }}
-        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full bg-canvas"
+        style={{ top: SPHERE.top }}
+        className={`absolute left-1/2 aspect-square -translate-x-1/2 rounded-full bg-canvas ${SPHERE.widthClass}`}
       />
 
       {/* The rim. A thick blurred arc rather than a hairline, because a crisp
@@ -133,8 +144,8 @@ export function HeroOrbit(): ReactNode {
           edge catching light. Sitting above the body means it spills both ways:
           up into the wash and a little down onto the dark. */}
       <div
-        style={{ width: SPHERE.width, top: SPHERE.top }}
-        className="absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t border-[color-mix(in_srgb,var(--primary)_55%,white_35%)] blur-[5px]"
+        style={{ top: SPHERE.top }}
+        className={`absolute left-1/2 aspect-square -translate-x-1/2 rounded-full border-t border-[color-mix(in_srgb,var(--primary)_55%,white_35%)] blur-[5px] ${SPHERE.widthClass}`}
       />
     </div>
   );

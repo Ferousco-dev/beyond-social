@@ -94,7 +94,7 @@ export function SignatureDoc() {
         <h3 className="text-xs font-medium text-ink">Node.js</h3>
         <CopyButton value={SNIPPET} label="Copy snippet" />
       </div>
-      <pre className="mt-2 overflow-x-auto rounded-lg border border-hairline bg-canvas p-3 text-[11px] leading-relaxed text-ink-soft">
+      <pre className="mt-2 overflow-x-auto rounded-lg border border-hairline bg-canvas p-3 text-xs leading-relaxed text-ink-soft">
         <code>{SNIPPET}</code>
       </pre>
     </section>

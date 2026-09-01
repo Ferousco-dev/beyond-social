@@ -11,12 +11,28 @@ interface Stored {
 
 const DEFAULTS: Stored = { collapsed: false, dismissed: false };
 
+/**
+ * Where the panel starts when nothing has been stored yet.
+ *
+ * Open on a desktop, shut on a phone. Expanded, the panel is a fixed sheet
+ * roughly half the viewport tall, which on a small screen covers the page it is
+ * docked over rather than sitting beside it: a first-time user on a phone met
+ * the checklist instead of the screen they opened. Collapsed it is a pill in
+ * the corner, so the guidance is still one tap away and the page is legible.
+ *
+ * A choice, once made, is stored and wins over this on every later visit.
+ */
+function initial(): Stored {
+  const narrow = window.matchMedia("(max-width: 639px)").matches;
+  return { ...DEFAULTS, collapsed: narrow };
+}
+
 function read(): Stored {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULTS;
+    if (!raw) return initial();
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null) return DEFAULTS;
+    if (typeof parsed !== "object" || parsed === null) return initial();
 
     const value = parsed as Partial<Stored>;
     return {
@@ -25,7 +41,7 @@ function read(): Stored {
     };
   } catch {
     // A malformed or blocked store should not take the dashboard down.
-    return DEFAULTS;
+    return initial();
   }
 }
 
