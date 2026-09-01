@@ -5,6 +5,7 @@
 //   GET  /v3/avatars/{group_id}             https://developers.heygen.com/reference/get-avatar-group
 //   POST /v3/videos                         https://developers.heygen.com/reference/create-video
 //   GET  /v3/videos/{video_id}              https://developers.heygen.com/reference/get-video
+//   DELETE /v3/avatars/{group_id}          https://developers.heygen.com/reference/delete-avatar-group
 //   POST /v3/avatars/{group_id}/consent     https://developers.heygen.com/reference/create-avatar-consent
 //
 // Separate from `kie.ts` on purpose. kie renders a video from a photo and an
@@ -265,4 +266,26 @@ export async function getVideo(videoId: string): Promise<HeygenVideo> {
       ? `${video.failure_code ?? "failed"}: ${video.failure_message}`
       : (video?.failure_code ?? null),
   };
+}
+
+/**
+ * Permanently removes a trained twin and every look built from it.
+ *
+ * HeyGen's own word is "permanently", and it does not say whether the training
+ * data behind the group goes with it. That gap is why the retention policy in
+ * docs/live-avatar/CONSENT-AND-RETENTION.md treats deletion here as a request
+ * we make and record rather than a fact we can assert to the person.
+ *
+ * A group that is already gone is not an error: deletion is retried, and the
+ * second attempt finding nothing means the first one worked.
+ */
+export async function deleteAvatarGroup(groupId: string): Promise<void> {
+  try {
+    await call<{ data?: { id?: string } }>(`/avatars/${encodeURIComponent(groupId)}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    if (error instanceof HeygenError && error.status === 404) return;
+    throw error;
+  }
 }

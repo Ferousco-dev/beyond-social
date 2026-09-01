@@ -94,6 +94,11 @@ verify_jwt = false
 [functions.generate-heygen-avatar]
 verify_jwt = false
 
+# Authenticated: erases the caller's twin here and at the provider. Resolves the
+# caller itself and only ever deletes that caller's own row.
+[functions.delete-heygen-avatar]
+verify_jwt = false
+
 # Cron-triggered, not user-facing: guarded by CRON_SECRET, which the triggering
 # route and this function both hold. Asks HeyGen how training is going, because
 # HeyGen does not call back for it.

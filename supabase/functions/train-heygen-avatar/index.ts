@@ -85,6 +85,10 @@ Deno.serve(async (request) => {
       user_id: user.id,
       storage_path: storagePath,
       consent_version: CONSENT_VERSION,
+      // Stamped on every run, not only the first: a re-record is a new
+      // attestation, and the old date would describe a recording that no
+      // longer exists.
+      consent_at: new Date().toISOString(),
       training_status: "pending",
       updated_at: new Date().toISOString(),
     },

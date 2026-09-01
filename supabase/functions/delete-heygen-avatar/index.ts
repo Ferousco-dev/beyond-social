@@ -1,0 +1,92 @@
+// Authenticated endpoint: erases the caller's digital twin, everywhere it is.
+//
+// The consent statement people read aloud on camera says the twin is theirs to
+// "delete at any time from my settings". This is what makes that true. It ran
+// for a while as a sentence with nothing behind it, which on biometric data is
+// the worst kind of promise to leave unimplemented.
+//
+// Order matters, and it is provider first. If the provider call fails, the row
+// stays and the person can try again; if the row went first, the twin would be
+// invisible here and still trained over there, with nothing left pointing at it
+// to delete.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+import { adminClient } from "../_shared/credits.ts";
+import { corsHeaders, json } from "../_shared/http.ts";
+import { deleteAvatarGroup, isHeygenConfigured } from "../_shared/heygen.ts";
+import { log, traceIdFrom } from "../_shared/trace.ts";
+
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  const traceId = traceIdFrom(request);
+  const authorization = request.headers.get("Authorization") ?? "";
+  if (!authorization) return json({ error: "unauthorized" }, 401);
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+    { global: { headers: { Authorization: authorization } } },
+  );
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return json({ error: "unauthorized" }, 401);
+
+  const admin = adminClient();
+  const { data, error } = await admin
+    .from("heygen_avatars")
+    .select("provider_avatar_id, storage_path")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (error) {
+    log("error", "could not read the twin to delete", { traceId, error: error.message });
+    return json({ error: "lookup_failed" }, 500);
+  }
+
+  const twin = data as { provider_avatar_id: string | null; storage_path: string } | null;
+  // Nothing to delete is the same outcome as deleted, and saying so lets the
+  // settings screen be simple about a person pressing the button twice.
+  if (!twin) return json({ deleted: true, alreadyGone: true });
+
+  if (twin.provider_avatar_id && isHeygenConfigured()) {
+    try {
+      await deleteAvatarGroup(twin.provider_avatar_id);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      log("error", "provider refused a twin deletion", { traceId, error: message });
+      // Deliberately not swallowed. Reporting success while the twin still
+      // exists at the provider would be a lie about the one thing this
+      // endpoint is for.
+      return json({ error: "provider_delete_failed" }, 502);
+    }
+  }
+
+  /*
+   * The training footage goes with it.
+   *
+   * Kept until now because a dispute about a likeness needs the source, not
+   * only the provider's derived asset. Once the person has asked for the
+   * likeness to be gone, holding the recording of their face and voice is
+   * keeping the most sensitive part of what they asked us to erase.
+   */
+  const { error: storageError } = await admin.storage.from("uploads").remove([twin.storage_path]);
+  if (storageError) {
+    // Logged, not fatal: the row and the provider copy are the ones that make a
+    // twin usable, and a stranded object is caught by the retention sweep.
+    log("warn", "could not remove twin footage", { traceId, error: storageError.message });
+  }
+
+  const { error: deleteError } = await admin.from("heygen_avatars").delete().eq("user_id", user.id);
+  if (deleteError) {
+    log("error", "could not delete the twin row", { traceId, error: deleteError.message });
+    return json({ error: "delete_failed" }, 500);
+  }
+
+  // Any unclaimed handoff is a live capability pointing at an avatar that no
+  // longer exists, so it goes too.
+  await admin.from("avatar_handoffs").delete().eq("user_id", user.id);
+
+  log("info", "twin deleted", { traceId });
+  return json({ deleted: true, alreadyGone: false });
+});

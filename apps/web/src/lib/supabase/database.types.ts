@@ -570,6 +570,7 @@ export type Database = {
           created_at: string;
           id: string;
           provider_avatar_id: string | null;
+          consent_at: string | null;
           poll_count: number;
           trained_at: string | null;
           provider_voice_id: string | null;
@@ -586,6 +587,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           provider_avatar_id?: string | null;
+          consent_at?: string | null;
           poll_count?: number;
           trained_at?: string | null;
           provider_voice_id?: string | null;
@@ -602,6 +604,7 @@ export type Database = {
           created_at?: string;
           id?: string;
           provider_avatar_id?: string | null;
+          consent_at?: string | null;
           poll_count?: number;
           trained_at?: string | null;
           provider_voice_id?: string | null;
