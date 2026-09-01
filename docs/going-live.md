@@ -47,9 +47,19 @@ the migrations and functions that already live in the repo.
    ```
 
    `generate-video` and `poll-generation` verify the caller's JWT;
-   `kie-callback` is public and authenticates the shared secret in constant time.
-   The callback URL is derived as
-   `${SUPABASE_URL}/functions/v1/kie-callback?token=${KIE_CALLBACK_SECRET}`.
+   `kie-callback` is public and authenticates the caller itself.
+
+   Preferred: set `KIE_WEBHOOK_HMAC_KEY` to the `webhookHmacKey` generated on
+   the kie.ai settings page. The callback then carries no secret at all, and is
+   authenticated from the `X-Webhook-Signature` header, a base64 HMAC-SHA256 of
+   `taskId + "." + timestampSeconds`, compared in constant time and rejected
+   outside a five minute window.
+
+   Until that key is set, the older scheme still applies: the callback URL is
+   derived as `${SUPABASE_URL}/functions/v1/kie-callback?token=${KIE_CALLBACK_SECRET}`
+   and the token is checked in constant time. That secret travels in the URL,
+   so it reaches kie.ai's request logs and any proxy in between; setting the
+   HMAC key is what stops that, and it switches over with no code change.
    `reconcile-generations` is triggered by `/api/cron/reconcile-generations`
    (Vercel Cron, see `apps/web/vercel.json`) and authenticates the request by
    comparing its Authorization header against `SUPABASE_SERVICE_ROLE_KEY`,

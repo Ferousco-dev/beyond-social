@@ -80,7 +80,9 @@ verify_jwt = false
 [functions.extend-video]
 verify_jwt = false
 
-# Public webhook from kie.ai (no JWT); guarded by KIE_CALLBACK_SECRET in the URL.
+# Public webhook from kie.ai (no JWT). Authenticated by the provider's HMAC
+# signature header when KIE_WEBHOOK_HMAC_KEY is set, and otherwise by
+# KIE_CALLBACK_SECRET in the URL.
 [functions.kie-callback]
 verify_jwt = false
 
