@@ -3,6 +3,8 @@
 // Docs, read 2026-09-01 rather than recalled:
 //   POST /v3/avatars                        https://developers.heygen.com/reference/create-avatar
 //   GET  /v3/avatars/{group_id}             https://developers.heygen.com/reference/get-avatar-group
+//   POST /v3/videos                         https://developers.heygen.com/reference/create-video
+//   GET  /v3/videos/{video_id}              https://developers.heygen.com/reference/get-video
 //   POST /v3/avatars/{group_id}/consent     https://developers.heygen.com/reference/create-avatar-consent
 //
 // Separate from `kie.ts` on purpose. kie renders a video from a photo and an
@@ -118,31 +120,41 @@ export async function createDigitalTwin(
   };
 }
 
+/**
+ * The group's own fields sit directly on `data`, not under an `avatar_group`
+ * key. The create endpoint nests, this one does not, and reading it the same
+ * way as create silently produced a null status for every poll.
+ */
 interface AvatarGroupResponse {
   data?: {
-    avatar_group?: {
-      id?: string;
-      status?: string | null;
-      consent_status?: string | null;
-      error?: unknown;
-    } | null;
-  };
+    id?: string;
+    status?: string | null;
+    consent_status?: string | null;
+    default_voice_id?: string | null;
+    error?: { code?: string; message?: string } | null;
+  } | null;
 }
+
+/** Verbatim from the reference, so a new value fails loudly rather than silently. */
+export type HeygenTrainingStatus = "processing" | "pending_consent" | "failed" | "completed";
 
 export interface HeygenGroupStatus {
   readonly status: string | null;
   readonly consentStatus: string | null;
+  /** The voice HeyGen assigns the twin. Required to generate anything with it. */
+  readonly defaultVoiceId: string | null;
   readonly error: string | null;
 }
 
 /** Where training has got to. Polled the same way kie jobs are. */
 export async function getAvatarGroup(groupId: string): Promise<HeygenGroupStatus> {
   const body = await call<AvatarGroupResponse>(`/avatars/${encodeURIComponent(groupId)}`);
-  const group = body.data?.avatar_group ?? null;
+  const group = body.data ?? null;
   return {
     status: group?.status ?? null,
     consentStatus: group?.consent_status ?? null,
-    error: describeError(group?.error),
+    defaultVoiceId: group?.default_voice_id ?? null,
+    error: group?.error ? describeError(group.error.message ?? group.error) : null,
   };
 }
 
@@ -179,5 +191,78 @@ export async function submitConsent(
   return {
     consentStatus: body.data?.avatar_group?.consent_status ?? null,
     url: body.data?.url ?? null,
+  };
+}
+
+export interface HeygenVideoRequest {
+  /** The look, not the group: a video is generated from an appearance. */
+  readonly avatarId: string;
+  readonly voiceId: string;
+  readonly script: string;
+  readonly title?: string;
+  /** Where HeyGen posts completion, so this is not polled forever. */
+  readonly callbackUrl?: string;
+  readonly callbackId?: string;
+}
+
+/**
+ * Asks for a video of the twin speaking a script.
+ *
+ * Pinned to Avatar V, the engine the twin is trained for: the older engines
+ * accept the same avatar and produce the static head-loop this whole feature
+ * exists to move past. 9:16 because everything this product makes is vertical.
+ */
+export async function createAvatarVideo(request: HeygenVideoRequest): Promise<string> {
+  const body = await call<{ data?: { video_id?: string } }>("/videos", {
+    method: "POST",
+    body: JSON.stringify({
+      type: "avatar",
+      avatar_id: request.avatarId,
+      voice_id: request.voiceId,
+      script: request.script,
+      engine: { type: "avatar_v" },
+      aspect_ratio: "9:16",
+      resolution: "1080p",
+      output_format: "mp4",
+      ...(request.title ? { title: request.title } : {}),
+      ...(request.callbackUrl ? { callback_url: request.callbackUrl } : {}),
+      ...(request.callbackId ? { callback_id: request.callbackId } : {}),
+    }),
+  });
+  const id = body.data?.video_id;
+  if (!id) throw new HeygenError(502, "HeyGen accepted the video but returned no id");
+  return id;
+}
+
+/** Verbatim from the reference. */
+export type HeygenVideoStatus = "pending" | "processing" | "completed" | "failed";
+
+export interface HeygenVideo {
+  readonly status: string | null;
+  readonly videoUrl: string | null;
+  readonly durationSeconds: number | null;
+  readonly error: string | null;
+}
+
+export async function getVideo(videoId: string): Promise<HeygenVideo> {
+  const body = await call<{
+    data?: {
+      status?: string | null;
+      video_url?: string | null;
+      duration?: number | null;
+      failure_code?: string | null;
+      failure_message?: string | null;
+    } | null;
+  }>(`/videos/${encodeURIComponent(videoId)}`);
+  const video = body.data ?? null;
+  return {
+    status: video?.status ?? null,
+    videoUrl: video?.video_url ?? null,
+    durationSeconds: video?.duration ?? null,
+    // The code alone is not actionable and the message alone loses the class of
+    // failure, so a failed video keeps both.
+    error: video?.failure_message
+      ? `${video.failure_code ?? "failed"}: ${video.failure_message}`
+      : (video?.failure_code ?? null),
   };
 }

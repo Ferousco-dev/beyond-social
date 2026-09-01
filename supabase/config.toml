@@ -84,6 +84,22 @@ verify_jwt = false
 [functions.kie-callback]
 verify_jwt = false
 
+# Authenticated: starts training a digital twin from footage the caller
+# recorded. Resolves the caller itself and checks the footage is under their own
+# prefix, so it holds its own door shut the way its siblings do.
+[functions.train-heygen-avatar]
+verify_jwt = false
+
+# Authenticated: renders a video of the caller's trained twin.
+[functions.generate-heygen-avatar]
+verify_jwt = false
+
+# Cron-triggered, not user-facing: guarded by CRON_SECRET, which the triggering
+# route and this function both hold. Asks HeyGen how training is going, because
+# HeyGen does not call back for it.
+[functions.poll-heygen-training]
+verify_jwt = false
+
 # Cron-triggered, not user-facing: no JWT to verify. Guarded by comparing the
 # Authorization header against SUPABASE_SERVICE_ROLE_KEY itself, the one
 # secret the triggering cron route and this function already both hold.
