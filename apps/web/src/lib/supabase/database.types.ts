@@ -2359,6 +2359,18 @@ export type Database = {
           day: string;
         }[];
       };
+      mint_avatar_handoff: {
+        Args: { p_minutes: number; p_token_hash: string };
+        Returns: string;
+      };
+      resolve_avatar_handoff: {
+        Args: { p_token_hash: string };
+        Returns: { user_id: string }[];
+      };
+      claim_avatar_handoff: {
+        Args: { p_path: string; p_token_hash: string };
+        Returns: { user_id: string }[];
+      };
       ai_spend_usd: {
         Args: { p_since: string; p_user: string };
         Returns: number;

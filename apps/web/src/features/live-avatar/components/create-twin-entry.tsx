@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 
+import { mintHandoff } from "../handoff-actions";
 import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
 
 /**
@@ -19,6 +20,30 @@ import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
  */
 export function CreateTwinEntry({ name }: { name: string }): ReactNode {
   const [captured, setCaptured] = useState<TwinFootage | null>(null);
+  const [handoff, setHandoff] = useState<{ url: string | null; expiresAt: number | null }>({
+    url: null,
+    expiresAt: null,
+  });
+
+  /*
+   * Minted on load rather than when the phone tab is opened.
+   *
+   * The link takes a round trip, and the moment somebody switches to that tab
+   * they are already holding a phone. Having it waiting is the difference
+   * between scanning a code and watching a spinner with a phone in one hand.
+   */
+  const refresh = useCallback(async () => {
+    const result = await mintHandoff();
+    setHandoff(
+      result.status === "ok"
+        ? { url: result.url, expiresAt: result.expiresAt }
+        : { url: null, expiresAt: null },
+    );
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   if (captured) {
     const size = (captured.file.size / (1024 * 1024)).toFixed(1);
@@ -43,5 +68,11 @@ export function CreateTwinEntry({ name }: { name: string }): ReactNode {
     );
   }
 
-  return <CreateTwinScreen name={name} onFootage={setCaptured} />;
+  return (
+    <CreateTwinScreen
+      name={name}
+      onFootage={setCaptured}
+      phone={{ ...handoff, onRefresh: () => void refresh() }}
+    />
+  );
 }
