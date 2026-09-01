@@ -183,7 +183,10 @@ async function main(): Promise<void> {
       temperature: 0.7,
       maxTokens: 500,
     });
-    check("the output instruction reaches the model", generator.last.includes("Output only the prompt."));
+    check(
+      "the output instruction reaches the model",
+      generator.last.includes("Output only the prompt."),
+    );
   }
 
   process.stdout.write(

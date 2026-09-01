@@ -8,7 +8,8 @@ import { createClient } from "@/lib/auth/supabase";
 import { requireAdmin } from "@/lib/auth/require-admin";
 import { clientIp } from "@/lib/auth/request";
 
-export type ReviewState = { status: "idle" } | { status: "done" } | { status: "error"; message: string };
+export type ReviewState =
+  { status: "idle" } | { status: "done" } | { status: "error"; message: string };
 
 const submissionSchema = z.object({
   candidateId: z.string().min(1),

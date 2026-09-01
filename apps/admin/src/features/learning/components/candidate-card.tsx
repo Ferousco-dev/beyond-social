@@ -34,7 +34,9 @@ export function CandidateCard({ candidate }: { candidate: ReviewCandidate }): Re
     <article className="rounded-xl border border-hairline p-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-medium text-ink">{draft.title ?? draft.id ?? candidate.id}</h3>
+          <h3 className="text-sm font-medium text-ink">
+            {draft.title ?? draft.id ?? candidate.id}
+          </h3>
           <p className="mt-0.5 text-xs text-ink-soft">
             {draft.category ?? "uncategorised"}
             {draft.tags.length > 0 ? ` · ${draft.tags.join(", ")}` : ""}

@@ -23,12 +23,7 @@ import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orches
 import { MemoryUsageSink } from "../src/usage";
 import { estimateTokens } from "../src/tokens";
 import { BudgetExceededError, SpendBudget } from "../src/budget";
-import {
-  ContextTooLargeError,
-  contextBudget,
-  packContext,
-  truncateToTokens,
-} from "../src/context";
+import { ContextTooLargeError, contextBudget, packContext, truncateToTokens } from "../src/context";
 import { MODELS } from "../src/models";
 
 const results: string[] = [];
@@ -277,8 +272,17 @@ async function main(): Promise<void> {
     const packed = packContext(
       [
         { name: "system", text: "You direct video.", priority: 100, required: true },
-        { name: "memories", text: "- prefers vertical 9:16\n- films at closing time", priority: 60 },
-        { name: "history", text: "user: make it slower\n".repeat(400), priority: 40, truncable: true },
+        {
+          name: "memories",
+          text: "- prefers vertical 9:16\n- films at closing time",
+          priority: 60,
+        },
+        {
+          name: "history",
+          text: "user: make it slower\n".repeat(400),
+          priority: 40,
+          truncable: true,
+        },
         { name: "message", text: "now make it brighter", priority: 100, required: true },
       ],
       200,
@@ -323,7 +327,8 @@ async function main(): Promise<void> {
 
   {
     // Truncation lands on a boundary, so a section never stops mid-word.
-    const prose = "The first paragraph says something.\n\nThe second paragraph says more.\n\nThe third continues at length beyond the budget.";
+    const prose =
+      "The first paragraph says something.\n\nThe second paragraph says more.\n\nThe third continues at length beyond the budget.";
     const cut = truncateToTokens(prose, 12);
     check(
       "truncation stops on a boundary, not mid-word",
@@ -336,7 +341,10 @@ async function main(): Promise<void> {
     // Nothing to trim: the parts that cannot be given up do not fit.
     let refused = false;
     try {
-      packContext([{ name: "huge", text: "word ".repeat(5_000), priority: 1, required: true }], 100);
+      packContext(
+        [{ name: "huge", text: "word ".repeat(5_000), priority: 1, required: true }],
+        100,
+      );
     } catch (error) {
       refused = error instanceof ContextTooLargeError;
     }
