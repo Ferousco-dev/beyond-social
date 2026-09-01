@@ -58,6 +58,66 @@ become two separate, deliberate actions again. Nothing in production is
 currently broken; the last several auto-deploys, including this morning's,
 all passed their smoke checks.
 
+## Owner priority raised, 2026-09-01: HeyGen avatar is now the top feature
+
+Stated directly by the owner in a live session: the avatar feature is high
+priority and HeyGen is the provider. This supersedes the "queued" framing of
+the owner-directed section below, which is kept for its research.
+
+**What the owner supplied, and what it settles:**
+
+- A HeyGen enterprise workflow PDF, and the Kevin Stratvert walkthrough
+  (`youtube.com/watch?v=oM_wcCJzhe4`, 10:03). Both were read in full; the
+  video was taken apart into frames rather than skimmed, so the screens
+  below are what the product actually does, not a paraphrase of marketing.
+- Hard capture numbers, from the PDF rather than comparison sites: a digital
+  twin trains from **15 to 120 seconds** of 1080p/4K footage at 30 or 60 fps,
+  flat diffused lighting, torso stable, natural gestures inside frame,
+  periodic blinks. A voice clone needs **30 seconds minimum, 2 to 5 minutes
+  recommended**, clean monologue, music and ambience separated from dialogue.
+- The real screen sequence, at `app.heygen.com/avatars/create/digital-twin/lite-record`:
+  _Create a new avatar_ (clone a real person / create a virtual character) →
+  _Create your Avatar in 15 seconds_ with three routes, **record via webcam**,
+  **record via phone** (QR code, copyable link, 20-minute expiry, refresh),
+  and **upload footage** → voice clone (record or upload, scripted read) →
+  _Design new looks_ from a prompt or a scene → AI Studio, with a Motion
+  Engine picker where Avatar V is one option among older engines.
+- Worth copying, not just noting: the webcam route offers a **microphone**
+  picker beside the camera one, and names the device. A twin recorder that
+  cannot say which microphone it is using is the one that records silence.
+
+**Still not answerable here, unchanged:**
+
+1. The HeyGen API key. The owner confirmed on 2026-09-01 that it is coming
+   but not yet available, so steps 4 and 5 of the build order stay behind an
+   `isHeygenConfigured()` no-op, exactly as `docs/live-avatar/DESIGN.md`
+   says.
+2. A real per-minute rate, and how it maps to this app's integer credit
+   ledger. Unchanged rule: nothing goes active on a guessed price.
+3. The consent and biometric retention policy. Still owner-only, and now
+   more pressing rather than less: a digital twin of a real person is the
+   case that section was written for.
+
+**Shipped 2026-09-01 (feat/token-accounting):** step 3's recorder,
+`features/live-avatar/hooks/use-twin-recorder.ts`. Captures camera and
+microphone into one file, 20 to 120 seconds, both device pickers, and a live
+level meter so a dead microphone is visible before somebody records two
+minutes rather than after. Refuses to start with no audio track.
+
+**Diagnosed, and not a bug:** the owner reported that recording on the site
+captures no audio. `live-capture-dialog.tsx` opens the camera with
+`audio: false` on purpose. The model behind it, `kling/ai-avatar-pro`, takes
+a photo plus a separate voice clip, so a microphone track would have been
+captured and thrown away. It is a still-frame capture wearing a recorder's
+clothes. It should not be "fixed" in place; it is replaced by the Live entry
+point, and the note below about not building a second capture path still
+holds.
+
+**Next, in order:** the record screen UI (webcam, phone handoff, upload),
+then the HeyGen client and training kickoff behind the no-op guard. The
+phone route needs a short-lived handoff token and a mobile record page
+before its QR means anything, so it is a backend unit as much as a UI one.
+
 ## Reconciliation, 2026-08-30: a live owner session shipped an interim step on the Live feature
 
 The owner gave the same "Live" recording brief described below directly to a
