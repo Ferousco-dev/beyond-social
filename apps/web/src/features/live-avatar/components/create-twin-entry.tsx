@@ -1,37 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+
+import { env } from "@/lib/env";
 
 import { mintHandoff } from "../handoff-actions";
+import { startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
 import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
+import { TwinStatusPanel, type Phase } from "./twin-status-panel";
 
 /**
- * The client half of the Live entry point: holds what was captured, and says
- * what happens to it.
+ * The client half of the Live entry point: what happens to a recording once it
+ * exists, wherever it came from.
  *
- * Deliberately stops at "captured". Uploading the clip and starting training
- * are the next unit, and this screen is independently useful before them: the
- * recording flow, the prompts, and the consent reading are the parts that need
- * to be right in front of a real person, and none of them need a provider to
- * be exercised.
- *
- * Saying that out loud in the UI, rather than showing a spinner that goes
- * nowhere, is the difference between an unfinished feature and a dishonest one.
+ * Both routes end in the same two calls, upload then train, because a twin is a
+ * twin whether the camera was in the laptop or in the hand. The phone cannot
+ * make the second call itself, having no session, so it uploads and this side
+ * notices and finishes the job.
  */
+
+/** Fast enough to feel immediate, slow enough not to hammer while nothing changes. */
+const POLL_MS = 4000;
+
 export function CreateTwinEntry({ name }: { name: string }): ReactNode {
-  const [captured, setCaptured] = useState<TwinFootage | null>(null);
+  const [phase, setPhase] = useState<Phase>("recording");
+  const [message, setMessage] = useState<string | null>(null);
   const [handoff, setHandoff] = useState<{ url: string | null; expiresAt: number | null }>({
     url: null,
     expiresAt: null,
   });
 
-  /*
-   * Minted on load rather than when the phone tab is opened.
-   *
-   * The link takes a round trip, and the moment somebody switches to that tab
-   * they are already holding a phone. Having it waiting is the difference
-   * between scanning a code and watching a spinner with a phone in one hand.
-   */
+  // Guards the phone pickup: without it, two polls four seconds apart both see
+  // the same claimed handoff and start training on it twice.
+  const claiming = useRef(false);
+
   const refresh = useCallback(async () => {
     const result = await mintHandoff();
     setHandoff(
@@ -45,33 +48,107 @@ export function CreateTwinEntry({ name }: { name: string }): ReactNode {
     void refresh();
   }, [refresh]);
 
-  if (captured) {
-    const size = (captured.file.size / (1024 * 1024)).toFixed(1);
+  const train = useCallback(async (path: string) => {
+    setPhase("training");
+    const started = await startTwinTraining(path);
+    if (started.status === "error") {
+      setMessage(started.message);
+      setPhase("failed");
+      return;
+    }
+    setMessage(null);
+    setPhase(started.training === "failed" ? "failed" : "training");
+  }, []);
+
+  /** Uploads a local recording, then trains from it. */
+  const submit = useCallback(
+    async (footage: TwinFootage) => {
+      setPhase("uploading");
+      setMessage(null);
+      try {
+        const ticketed = await ticketTwinFootage(footage.file.type);
+        if (ticketed.status === "error") throw new Error(ticketed.message);
+
+        const storage = createClient(
+          env.NEXT_PUBLIC_SUPABASE_URL,
+          env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
+        const { error } = await storage.storage
+          .from("uploads")
+          .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
+            contentType: footage.file.type,
+          });
+        if (error) throw new Error(error.message);
+
+        await train(ticketed.ticket.path);
+      } catch (error) {
+        setMessage(error instanceof Error ? error.message : "That upload did not finish.");
+        setPhase("failed");
+      }
+    },
+    [train],
+  );
+
+  /*
+   * Watches for two things at once: a phone finishing, and training finishing.
+   *
+   * Polled rather than pushed because neither event has a channel to arrive on:
+   * the phone talks to the server, not to this page, and HeyGen answers a poll
+   * rather than calling back for training.
+   */
+  useEffect(() => {
+    if (phase === "ready" || phase === "failed") return;
+    let live = true;
+
+    const tick = async (): Promise<void> => {
+      const status = await twinStatus();
+      if (!live) return;
+
+      if (status.training === "ready") {
+        setPhase("ready");
+        return;
+      }
+      if (status.training === "failed") {
+        setMessage(status.error);
+        setPhase("failed");
+        return;
+      }
+      if (status.training === "pending" && phase === "recording") setPhase("training");
+
+      // A claimed handoff means the phone has sent something and is waiting for
+      // this side to turn it into a twin.
+      if (status.handoffPath && status.training === null && !claiming.current) {
+        claiming.current = true;
+        await train(status.handoffPath);
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(() => void tick(), POLL_MS);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, [phase, train]);
+
+  if (phase !== "recording") {
     return (
-      <div className="mx-auto w-full max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Footage captured</h1>
-        <p className="mt-3 text-sm text-ink-soft">
-          {captured.seconds === null
-            ? `${captured.file.name}, ${size}MB.`
-            : `${captured.seconds} seconds, ${size}MB.`}{" "}
-          Training your avatar from it is the next step, and is not connected yet, so nothing has
-          been uploaded or sent anywhere.
-        </p>
-        <button
-          type="button"
-          onClick={() => setCaptured(null)}
-          className="mt-6 inline-flex h-10 cursor-pointer items-center rounded-lg border border-hairline px-4 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          Record something else
-        </button>
-      </div>
+      <TwinStatusPanel
+        phase={phase}
+        message={message}
+        onRetry={() => {
+          claiming.current = false;
+          setMessage(null);
+          setPhase("recording");
+        }}
+      />
     );
   }
 
   return (
     <CreateTwinScreen
       name={name}
-      onFootage={setCaptured}
+      onFootage={(footage) => void submit(footage)}
       phone={{ ...handoff, onRefresh: () => void refresh() }}
     />
   );
