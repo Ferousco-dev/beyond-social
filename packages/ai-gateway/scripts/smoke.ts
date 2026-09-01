@@ -23,6 +23,13 @@ import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orches
 import { MemoryUsageSink } from "../src/usage";
 import { estimateTokens } from "../src/tokens";
 import { BudgetExceededError, SpendBudget } from "../src/budget";
+import {
+  ContextTooLargeError,
+  contextBudget,
+  packContext,
+  truncateToTokens,
+} from "../src/context";
+import { MODELS } from "../src/models";
 
 const results: string[] = [];
 let failures = 0;
@@ -256,6 +263,97 @@ async function main(): Promise<void> {
       "a flag carries categories, never the prompt",
       !JSON.stringify(flags).includes("sk-abcdefghijklmnopqrstuvwxyz012345"),
     );
+  }
+
+  /*
+   * 5g. A prompt is fitted to the window on purpose.
+   *
+   * Every part of a chat prompt was bounded on its own, by a count of messages
+   * or a slice of characters, and nothing bounded the total. Bounding the parts
+   * does not bound the whole, and characters are not what a window is
+   * denominated in.
+   */
+  {
+    const packed = packContext(
+      [
+        { name: "system", text: "You direct video.", priority: 100, required: true },
+        { name: "memories", text: "- prefers vertical 9:16\n- films at closing time", priority: 60 },
+        { name: "history", text: "user: make it slower\n".repeat(400), priority: 40, truncable: true },
+        { name: "message", text: "now make it brighter", priority: 100, required: true },
+      ],
+      200,
+    );
+    const byName = new Map(packed.sections.map((section) => [section.name, section]));
+    check(
+      "required sections always survive",
+      byName.get("system")?.outcome === "full" && byName.get("message")?.outcome === "full",
+    );
+    check(
+      "a large low-value section is trimmed, not the valuable one",
+      byName.get("memories")?.outcome === "full" && byName.get("history")?.outcome === "truncated",
+      `memories=${byName.get("memories")?.outcome}, history=${byName.get("history")?.outcome}`,
+    );
+    check(
+      "the packed total respects the budget",
+      packed.tokens <= 200 && packed.trimmed,
+      `${packed.tokens}/200`,
+    );
+    check(
+      "sections keep the order they were given in",
+      packed.sections.map((section) => section.name).join(",") ===
+        "system,memories,history,message",
+    );
+  }
+
+  {
+    // A list of discrete facts is dropped whole: half of one is a claim that
+    // stops mid-sentence, which is worse than not having it.
+    const packed = packContext(
+      [
+        { name: "keep", text: "short", priority: 10, required: true },
+        { name: "facts", text: "- one fact that is quite long indeed\n".repeat(50), priority: 5 },
+      ],
+      40,
+    );
+    check(
+      "a list of facts is dropped rather than half-said",
+      packed.sections.find((section) => section.name === "facts")?.outcome === "dropped",
+    );
+  }
+
+  {
+    // Truncation lands on a boundary, so a section never stops mid-word.
+    const prose = "The first paragraph says something.\n\nThe second paragraph says more.\n\nThe third continues at length beyond the budget.";
+    const cut = truncateToTokens(prose, 12);
+    check(
+      "truncation stops on a boundary, not mid-word",
+      cut.length > 0 && !prose.slice(cut.length).startsWith("x") && /[.\n]$|[a-z]$/i.test(cut),
+      JSON.stringify(cut.slice(-40)),
+    );
+  }
+
+  {
+    // Nothing to trim: the parts that cannot be given up do not fit.
+    let refused = false;
+    try {
+      packContext([{ name: "huge", text: "word ".repeat(5_000), priority: 1, required: true }], 100);
+    } catch (error) {
+      refused = error instanceof ContextTooLargeError;
+    }
+    check("says so when the required context cannot fit", refused);
+  }
+
+  {
+    // The window is shared with the answer, so the budget accounts for both.
+    const spec = MODELS["claude-sonnet-5"];
+    if (spec) {
+      const budget = contextBudget(spec, 4_096);
+      check(
+        "the context budget leaves room for the answer",
+        budget > 0 && budget < spec.contextWindow - 4_096 + 1,
+        `${budget} of ${spec.contextWindow}`,
+      );
+    }
   }
 
   /*

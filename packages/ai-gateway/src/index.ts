@@ -9,5 +9,6 @@ export * from "./retry";
 export * from "./tokens";
 export * from "./usage";
 export * from "./budget";
+export * from "./context";
 export * from "./gateway";
 export { GatewayLlm, type GatewayAttribution } from "./llm-adapter";
