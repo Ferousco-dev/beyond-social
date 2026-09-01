@@ -93,6 +93,25 @@ fronts now, not one: settle the merge/deploy question, and note that
 `billing_apply_subscription` has been live with a real double-grant race
 since 2026-08-30 regardless of what this system does next.
 
+**Update, 2026-09-01, thirteenth scheduled session:** the six held PRs
+above are resolved, not by an answer to this section's question: the
+owner merged all seven open PRs (#175, #181-186) personally through the
+Telegram engineering bot on 2026-08-31, and told that bot to switch to a
+one-branch-per-session policy going forward (`docs/telegram-agent/
+JOURNAL.md`'s 2026-08-31 entry). Zero PRs were in flight at the start of
+this session. Separately, `.ilana/defects.md`'s DEF-002 records the
+owner's resolution as "keep CI's auto-deploy as the intended path,"
+which is the closest thing to a considered answer on record, but it is
+a decision about the owner's own manual-deploy habit, not a statement
+addressed to this system's unattended merges, and DEF-002 is still
+listed `Open` rather than closed by that resolution. This session's own
+instructions were unambiguous regardless of any of the above ("never
+deploy to production... no exceptions"), and merging still deploys, so
+the hold continues on that basis alone. Not repeating the fuller
+reasoning a fourth time; see the twelfth session's entry above for it.
+This session's own new work (PRs #188-190) is left open under the same
+hold.
+
 ## Reconciliation, 2026-08-30: a live owner session shipped an interim step on the Live feature
 
 The owner gave the same "Live" recording brief described below directly to a
@@ -321,6 +340,17 @@ your real voice, saying something new," not the full "reconstructs your
 real environment and movement from the recording" version the owner
 originally described, which was not confirmed to exist anywhere in kie.ai's
 documented market. Whether that gap matters is decision (2) below.
+
+**Note, 2026-09-01, thirteenth session:** item 2 below is no longer open.
+The owner decided HeyGen directly, live, and merged the schema foundation
+themselves: PR #174 (`supabase/migrations/0079_heygen_avatars.sql`,
+2026-08-29), followed by PR reconciling the in-progress capture-dialog
+work against the HeyGen design. `docs/live-avatar/DESIGN.md` is the
+current design doc for this feature; a session picking this up next
+should read that file directly rather than the research summary below,
+which predates the owner's decision. Not investigated further this
+session beyond confirming the decision is made; items 1 and 3 below were
+not re-checked and should be treated as still open until read fresh.
 
 **Blocked on the owner, do not guess at these:**
 
@@ -699,28 +729,120 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Six PRs open, all verified locally and deliberately not merged, same
+Three PRs open, all verified locally and deliberately not merged, same
 reasoning as every session since the tenth (see the critical section
-above): #175 (shows which country a Discover search was biased to, opened
-by the eleventh session), and five from this, the twelfth session, all
-found by auditing the owner's unreviewed 2026-08-30 commits:
+above), all from this, the thirteenth session:
 
-- #181: locks the subscription row before granting renewal credits, the
-  most severe finding (see the critical section above).
-- #182: stops a camera stream leak on "Retake" in the live capture dialog.
-- #183: resets the avatar-consent double-submit guard if the server
-  action throws rather than resolves.
-- #184: stops Library pagination from re-showing a smaller source's rows.
-- #185: dedupes concurrent OAuth token refreshes for the same social
-  connection in the publish worker.
+- #188: stops a stalled mail delivery claim from being reclaimed
+  mid-send (`claim_delivery_for_send`, `services/mail`).
+- #189: stops a Resend response that was accepted but unparseable from
+  being retried, which would mail a real second copy.
+- #190: checks two previously-unchecked Supabase writes in the render
+  worker and gives its shutdown drain enough time to actually run
+  (`fly.toml` had no `kill_timeout`).
 
-All six are independent of each other and safe to merge in any order once
-the owner has weighed in on the critical section's question. PR #176 (the
-eleventh session's own backlog update) was closed, not merged: `main` had
-moved too far past it by the time this session ran, and this update
-supersedes its content.
+All three are independent of each other and safe to merge in any order
+once the owner weighs in on the critical section's question. The six
+PRs previously listed here (#175, #181-186) are no longer in flight: the
+owner merged them all directly on 2026-08-31, see the critical section's
+2026-09-01 update above.
 
 ## Session log
+
+- **2026-09-01, thirteenth scheduled session.** Read the critical section
+  first, as always. Found the repo had moved since the twelfth session's
+  own entry: the owner personally merged all seven PRs it left open
+  (#175, #181-186) through the Telegram engineering bot on 2026-08-31,
+  and told that bot to adopt a one-branch-per-session policy going
+  forward (see the critical section's 2026-09-01 update above for the
+  full reasoning on why this still doesn't answer the standing merge
+  question for this system). Zero PRs in flight at the start of this
+  session, CI green on `main`'s head, latest deploy healthy.
+
+  No Docker daemon, no `KIE_API_KEY`, and no browser/computer-use tool
+  available this session (same limitations as most recent sessions), so
+  local Supabase, kie.ai's free-verification technique, and a UI
+  walkthrough were all off the table again. Worked a correctness sweep
+  instead, targeting two areas with no full prior audit: `services/mail`
+  (a first pass on 2026-08-27 covered everything except
+  `lib/providers/resend.ts` and `queues/mail.ts`) and `services/render`
+  (only checked once, shallowly, for temp-file collisions under
+  concurrency). Both found real, independently verified bugs; each
+  fixed, its own branch, own PR, `pnpm --filter <pkg> typecheck/lint/
+build` plus a full-repo `pnpm exec turbo run typecheck lint build`
+  (23/23 tasks) run before every push, and GitHub CI's `Verify` and
+  `Migrations and schema` checks watched independently after:
+
+  - **PR #188**: `claim_delivery_for_send` (`0031_mail.sql`) let a
+    `'sending'` row back into its own claimable set with no staleness
+    check. BullMQ can reassign a stalled job to a new worker while the
+    original is still genuinely mid-`provider.send()` (a missed lock
+    renewal under load, not just a crash), and the second worker's claim
+    call matched the same row, so both could call Resend for the same
+    delivery and mail a real duplicate. Migration `0082` only allows
+    reclaiming a `'sending'` row once `send_started_at` is older than 5
+    minutes, matching the staleness window `admin_stuck_work` (`0035`)
+    already uses for the same shape of problem elsewhere. CI green
+    (`Verify`, `Migrations and schema` both passed against a real
+    Supabase stack).
+  - **PR #189**: `ResendProvider.send()` threw a plain `Error`, not
+    `PermanentSendError`, when Resend returned 2xx with an unparseable or
+    id-less body. `send-mail.ts` only treats `PermanentSendError`/
+    `SendBlockedError` as terminal, so this one retried, and since
+    `provider_message_id` is only recorded after a successful return, a
+    retry called `provider.send()` again and mailed a real second copy
+    of a message Resend had already accepted. The file's own comment
+    already correctly reasoned this case is a failure; it just used the
+    wrong error class. Fixed by throwing `PermanentSendError` instead.
+    CI green.
+  - **PR #190**: two bugs in `services/render`, found by the same
+    background audit pass. `jobs.ts`'s two terminal `project_renders`
+    writes (marking a render `ready`, marking one `failed`) both
+    discarded the Supabase error they got back, so a failed settle write
+    either logged "job done" on a row that never flipped to `ready`, or
+    left a real failure with no reason recorded at all, the one thing
+    that write exists to do. Both now log loudly on a settle failure,
+    the same pattern used in `apps/worker`'s `publish-post.ts` and, as of
+    this session, `services/mail`. Separately, `fly.toml` set no
+    `kill_timeout`, so Fly's 5s default applied on every deploy even
+    though `index.ts`'s shutdown handler correctly waits for the job in
+    hand to finish and a join alone is allowed up to 8 minutes
+    (`ffmpeg.ts`'s `TIMEOUT_MS`); a rolling deploy could SIGKILL an
+    in-flight render regardless of the drain logic, contradicting
+    `docs/going-live.md`'s documented "drains rather than dropping a job
+    halfway" behaviour. Set to `600s`. `Verify` passed; `Migrations and
+    schema` was still running when this entry was drafted, watched via
+    the same PR-activity subscription as #188/#189 rather than left
+    unchecked.
+
+  None of the three were verified against a live database, a real
+  Resend account, or a real Fly deploy (unavailable this session, as
+  above); each was traced by hand against the exact failure sequence,
+  consistent with how every recent session has verified a fix it could
+  not run end to end.
+
+  Also, in passing while re-reading the owner-priority section: item 2
+  of the avatar feature's "blocked on the owner" list is resolved and
+  was stale in this file. The owner already decided HeyGen and merged
+  the schema foundation themselves (PR #174, 2026-08-29); noted inline
+  there rather than left to mislead a future session into re-researching
+  a decision that's already made. Items 1 and 3 of that list were not
+  re-checked and should still be treated as open.
+
+  Three PRs opened this session (#188-190), zero left genuinely
+  unfinished (#190's CI was in flight, not unresolved, when this entry
+  was written; confirm it landed green before trusting it un-watched).
+  All three held unmerged under the same critical-section hold as every
+  session since the tenth. Next session: `services/mail` and
+  `services/render` have now had a real pass end to end; a fresh corner
+  worth trying next is `services/telegram-agent`'s `lib/tasks.py` state
+  handling beyond what this session's own audit already cleared (found
+  clean: every Telegram/GitHub HTTP response is checked, no unread error
+  values, `_BRANCH_RE` is already tracked separately under "Needs the
+  owner"). Otherwise the standing items are unchanged: CSP nonce,
+  observability, and rate limiting still need the owner or a new
+  dependency; a real browser/UI pass is worth trying fresh again given
+  how much it has varied session to session.
 
 - **2026-08-31, twelfth scheduled session.** Read the critical CI/deploy
   section above first, as always. Confirmed the hold still stands: no
