@@ -12,7 +12,7 @@
       "outputs": [".next/types/**"]
     },
     "typecheck": {
-      "dependsOn": ["typegen"]
+      "dependsOn": ["typegen", "build"]
     },
     "format:check": {},
     "dev": {
