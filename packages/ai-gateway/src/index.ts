@@ -9,4 +9,4 @@ export * from "./retry";
 export * from "./tokens";
 export * from "./usage";
 export * from "./gateway";
-export { GatewayLlm } from "./llm-adapter";
+export { GatewayLlm, type GatewayAttribution } from "./llm-adapter";

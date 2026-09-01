@@ -5,6 +5,7 @@ import {
   AnthropicClient,
   GeminiClient,
   GatewayLlm,
+  type GatewayAttribution,
   MemoryResponseCache,
   MemoryUsageSink,
   OpenAiClient,
@@ -30,6 +31,8 @@ import {
 } from "@beyond-social/prompt-engine";
 
 import { currentAiUser } from "@/lib/ai/request-user";
+import { currentTrace } from "@/lib/observability/trace";
+import { logger } from "@/lib/logger";
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
 import { serverEnv } from "@/lib/server-env";
 import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
@@ -159,6 +162,19 @@ function getGateway(): AiGateway {
       new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
       new SupabaseRateLimiter({ bucket: "ai", limit: 150, windowSeconds: 600 }),
     ]),
+    /*
+     * Usage rows, cache writes and limiter settlement all run beside the
+     * response so they cannot slow a call that has already been paid for. That
+     * makes their failures silent unless something listens: a usage sink that
+     * has been rejecting every insert for a week looks exactly like a quiet
+     * week, and the cost dashboard reads as an empty one.
+     */
+    onError: (source, error) => {
+      logger.warn("ai gateway bookkeeping failed", {
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    },
   });
   return gatewayRef;
 }
@@ -172,14 +188,30 @@ function getGateway(): AiGateway {
  * have one to hand.
  */
 
+/**
+ * Attribution for one call: who it is for, and what it is part of.
+ *
+ * The trace id comes from the request context the logger already reads, so a
+ * row in `ai_usage` and the log lines around it carry the same id. One chat
+ * message fans out into four or five model calls, and this is what lets them
+ * be added up as the message rather than read as five unrelated charges.
+ */
+function attribution(userId: string | undefined): GatewayAttribution {
+  const traceId = currentTrace()?.traceId;
+  return {
+    ...(userId === undefined ? {} : { userId }),
+    ...(traceId === undefined ? {} : { traceId }),
+  };
+}
+
 /** The generation model chain for a task; falls back across providers. */
 export function getGenerator(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "generation", userId);
+  return new GatewayLlm(getGateway(), "generation", attribution(userId));
 }
 
 /** A cheaper chain for grading and extraction. */
 export function getJudge(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "judge", userId);
+  return new GatewayLlm(getGateway(), "judge", attribution(userId));
 }
 
 /**
@@ -189,7 +221,7 @@ export function getJudge(userId: string | undefined = currentAiUser()): Llm {
  * directed video prompt is worth waiting on, a two-sentence reply is not.
  */
 export function getChat(userId: string | undefined = currentAiUser()): Llm {
-  return new GatewayLlm(getGateway(), "chat", userId);
+  return new GatewayLlm(getGateway(), "chat", attribution(userId));
 }
 
 /** System layers referenced by the default recipe, kept in sync with prompts/system. */
