@@ -4,6 +4,8 @@ import { type z } from "zod";
 
 import { runWithAiUser } from "@/lib/ai/request-user";
 import { sendSchema, runTurn, type SendResult } from "@/lib/chat/turn";
+import { aiLimitMessage } from "@/lib/ai/limit-message";
+import { logger } from "@/lib/logger";
 import { isSupabaseConfigured } from "@/lib/env";
 import { withActionTrace } from "@/lib/observability/trace";
 import { createClient } from "@/lib/supabase/server";
@@ -47,5 +49,15 @@ async function send(input: z.input<typeof sendSchema>): Promise<SendResult> {
   const metadataName = user.user_metadata?.full_name;
   const name = typeof metadataName === "string" ? metadataName : "";
 
-  return runWithAiUser(user.id, () => runTurn(parsed.data, user.id, supabase, name));
+  try {
+    return await runWithAiUser(user.id, () => runTurn(parsed.data, user.id, supabase, name));
+  } catch (error) {
+    // The gateway refuses on rate and on spend by design. Both reach here as
+    // exceptions, and reporting them as a generic failure invites an immediate
+    // retry that is refused in exactly the same way.
+    const refusal = aiLimitMessage(error);
+    if (!refusal) throw error;
+    logger.info("turn refused", { reason: (error as Error).name });
+    return { status: "error", message: refusal };
+  }
 }

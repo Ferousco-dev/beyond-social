@@ -5,6 +5,7 @@ import {
   AnthropicClient,
   GeminiClient,
   GatewayLlm,
+  SpendBudget,
   type GatewayAttribution,
   MemoryResponseCache,
   MemoryUsageSink,
@@ -34,6 +35,7 @@ import { currentAiUser } from "@/lib/ai/request-user";
 import { currentTrace } from "@/lib/observability/trace";
 import { logger } from "@/lib/logger";
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
+import { SupabaseSpendReader } from "@/lib/ai/spend-reader";
 import { serverEnv } from "@/lib/server-env";
 import { SupabaseEmbeddingCache, SupabaseResponseCache } from "./shared-cache";
 import { SupabaseUsageSink } from "./usage-sink";
@@ -175,6 +177,29 @@ function getGateway(): AiGateway {
         error: error instanceof Error ? error.message : String(error),
       });
     },
+    /*
+     * A ceiling on spend, which the limiter cannot express.
+     *
+     * Requests and prompt tokens are not what the invoice is denominated in: a
+     * few long calls to an expensive model cost more than a flood of cheap
+     * ones. Needs a database to read spend from, so without one there is
+     * nothing to enforce against and the ceiling is simply absent.
+     */
+    ...(serverEnv.AI_SPEND_LIMIT_USD > 0 && serverEnv.SUPABASE_SERVICE_ROLE_KEY !== ""
+      ? {
+          budget: new SpendBudget({
+            reader: new SupabaseSpendReader(),
+            limitUsd: serverEnv.AI_SPEND_LIMIT_USD,
+            windowMs: serverEnv.AI_SPEND_WINDOW_HOURS * 60 * 60 * 1000,
+            onReadError: (key, error) => {
+              logger.warn("ai spend ceiling could not read usage", {
+                key,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            },
+          }),
+        }
+      : {}),
   });
   return gatewayRef;
 }

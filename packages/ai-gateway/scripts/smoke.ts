@@ -22,6 +22,7 @@ import {
 import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orchestration";
 import { MemoryUsageSink } from "../src/usage";
 import { estimateTokens } from "../src/tokens";
+import { BudgetExceededError, SpendBudget } from "../src/budget";
 
 const results: string[] = [];
 let failures = 0;
@@ -160,6 +161,68 @@ async function main(): Promise<void> {
     settledRefusal = error instanceof RateLimitedError;
   }
   check("charges the completion, not just the prompt", settledRefusal);
+
+  /*
+   * 5e. Spend is bounded in dollars, not only in calls.
+   *
+   * The limiter counts requests and tokens, which is not what the invoice is
+   * denominated in: a handful of long calls to an expensive model costs more
+   * than a flood of cheap ones. These three cases are the ones that matter.
+   */
+  {
+    // Reads the store once, then refuses everything past the ceiling.
+    let reads = 0;
+    const budget = new SpendBudget({
+      reader: {
+        async spentUsd() {
+          reads += 1;
+          return 0;
+        },
+      },
+      limitUsd: 0.005,
+      windowMs: 60_000,
+      now: () => 0,
+    });
+    // 1000 in + 1000 out on gpt-4o is $0.0125, comfortably over the ceiling.
+    const pricey = new AiGateway({ clients: { openai: flaky(0, 1_000) }, budget });
+    await pricey.complete({ task: "generation", system: "s", messages: [] });
+    let stopped = false;
+    try {
+      await pricey.complete({ task: "generation", system: "s", messages: [] });
+    } catch (error) {
+      stopped = error instanceof BudgetExceededError;
+    }
+    check("stops a caller who is over the spend ceiling", stopped);
+
+    /*
+     * Spend inside one refresh window still counts. Usage reaches the store
+     * asynchronously, so a loop running many calls between two readings would
+     * otherwise be measured against a reading that says nothing was spent:
+     * exactly the runaway the ceiling exists to stop.
+     */
+    check("a single reading covers the whole window", reads === 1, `${reads} read(s)`);
+  }
+
+  {
+    // A store that cannot be read must not take the product down with it.
+    let refusedOnOutage = false;
+    const blind = new SpendBudget({
+      reader: {
+        async spentUsd() {
+          throw new Error("spend store unreachable");
+        },
+      },
+      limitUsd: 0.01,
+      windowMs: 60_000,
+    });
+    const resilient = new AiGateway({ clients: { anthropic: flaky(0) }, budget: blind });
+    try {
+      await resilient.complete({ task: "generation", system: "s", messages: [] });
+    } catch {
+      refusedOnOutage = true;
+    }
+    check("an unreadable spend store does not block every call", !refusedOnOutage);
+  }
 
   /*
    * 5c. Counting is script-aware.

@@ -43,6 +43,18 @@ const serverEnvSchema = z.object({
    * rather than storing something it cannot use.
    */
   WEBHOOK_SECRET_KEY: z.string().default(""),
+  /**
+   * Ceiling on what one user may spend on model calls, in dollars, over
+   * AI_SPEND_WINDOW_HOURS. The rate limiter bounds how often somebody may ask;
+   * this bounds what those asks may cost, which is the half that reaches the
+   * invoice. Zero disables the ceiling.
+   *
+   * The default is deliberately far above real use rather than near it: a heavy
+   * day of chat measures in tens of cents, so this catches a runaway loop or a
+   * scripted abuser without ever being felt by somebody working normally.
+   */
+  AI_SPEND_LIMIT_USD: z.coerce.number().nonnegative().default(5),
+  AI_SPEND_WINDOW_HOURS: z.coerce.number().positive().default(24),
 });
 
 export const serverEnv = parseEnv(serverEnvSchema, {
@@ -67,6 +79,8 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
   WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
+  AI_SPEND_LIMIT_USD: process.env.AI_SPEND_LIMIT_USD,
+  AI_SPEND_WINDOW_HOURS: process.env.AI_SPEND_WINDOW_HOURS,
 });
 
 /**

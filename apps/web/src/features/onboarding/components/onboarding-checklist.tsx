@@ -11,11 +11,23 @@ import { ChecklistItem } from "./checklist-item";
 import { ProgressRing } from "./progress-ring";
 
 /*
- * Both states share the same corner. They are written out rather than shared
- * through one constant: `inset-x-auto` and `right-4` are different properties
- * resolving the same edge, and which one wins is decided by the order Tailwind
- * emits them, not the order they are listed here. Composing the two states
- * from a common string is how the expanded panel ended up pinned to the left.
+ * Docked to the top on a phone, to the bottom everywhere else.
+ *
+ * It used to be `hidden` below `sm`, on the reasoning that a panel anchored
+ * bottom-right covers the send button and, on the discover feed, the one
+ * control the screen exists for. That part was right; the conclusion was not.
+ * This component is the only place the steps are rendered, so hiding it meant
+ * a first-time user on a phone got no guidance at all, which is most
+ * first-time users of a short-form video product.
+ *
+ * The top edge is the one place nothing is anchored, so it goes there
+ * instead: below the header, above the content, clear of the composer.
+ *
+ * The two states are written out rather than composed from one shared string:
+ * `inset-x-auto` and `right-4` are different properties resolving the same
+ * edge, and which one wins is decided by the order Tailwind emits them, not the
+ * order they are listed here. Sharing a base string is how the expanded panel
+ * ended up pinned to the left of the page.
  */
 const ANCHOR_COLLAPSED =
   "pointer-events-auto fixed z-40 right-3 top-[4.5rem] sm:bottom-4 sm:right-4 sm:top-auto";
@@ -53,20 +65,6 @@ export function OnboardingChecklist({ done }: { done: readonly OnboardingStepId[
   if (!ready || dismissed || completed.size === ONBOARDING_STEPS.length) return null;
 
   const percent = Math.round((completed.size / ONBOARDING_STEPS.length) * 100);
-
-  /*
-   * Docked to the top on a phone, to the bottom everywhere else.
-   *
-   * It used to be `hidden` below `sm`, on the reasoning that a panel anchored
-   * bottom-right covers the send button and, on the discover feed, the one
-   * control the screen exists for. That part was right; the conclusion was not.
-   * This component is the only place the steps are rendered, so hiding it meant
-   * a first-time user on a phone got no guidance at all, which is most
-   * first-time users of a short-form video product.
-   *
-   * The top edge is the one place nothing is anchored, so it goes there
-   * instead: below the header, above the content, clear of the composer.
-   */
 
   if (collapsed) {
     return (

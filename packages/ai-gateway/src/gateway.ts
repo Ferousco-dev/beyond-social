@@ -26,6 +26,7 @@ import {
   type InjectionSeverity,
 } from "./safety";
 import { NoopUsageSink, type UsageRecord, type UsageSink } from "./usage";
+import { type SpendBudget } from "./budget";
 
 export interface GatewayOptions {
   clients: Partial<Record<Provider, ProviderClient>>;
@@ -73,6 +74,13 @@ export interface GatewayOptions {
    * rejecting every insert for a week looks exactly like a quiet week.
    */
   onError?: (source: "usage" | "cache" | "limiter", error: unknown) => void;
+  /**
+   * A ceiling on what one caller may spend over a window, in dollars.
+   *
+   * The limiter bounds how often a caller may ask; this bounds what those asks
+   * may cost, which is the half that shows up on the invoice.
+   */
+  budget?: SpendBudget;
 }
 
 export interface GatewayRequest extends CompletionRequest {
@@ -259,6 +267,7 @@ export class AiGateway {
 
         const latencyMs = this.now() - startedAt;
         const cost = costUsd(spec, result.inputTokens, result.outputTokens);
+        this.options.budget?.record(limiterKey, cost);
         this.record(
           this.buildRecord(requestId, request, spec, {
             result,
@@ -405,6 +414,7 @@ export class AiGateway {
         const latencyMs = this.now() - startedAt;
         const result = { text, ...usage };
         const cost = costUsd(spec, usage.inputTokens, usage.outputTokens);
+        this.options.budget?.record(limiterKey, cost);
         this.record(
           this.buildRecord(requestId, request, spec, {
             result,
@@ -456,6 +466,9 @@ export class AiGateway {
    */
   private async admit(request: GatewayRequest): Promise<{ key: string; promptTokens: number }> {
     const key = request.userId ?? "anonymous";
+    // Spend first: refusing on cost before the bucket is charged means a caller
+    // who is already over budget does not also lose throughput they cannot use.
+    await this.options.budget?.check(key);
     const promptTokens = countRequestTokens(request.system, request.messages);
     const decision = await this.limiter.take(key, Math.max(1, promptTokens));
     if (!decision.allowed) throw new RateLimitedError(decision.retryAfterMs);

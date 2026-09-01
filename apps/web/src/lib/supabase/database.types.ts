@@ -63,10 +63,12 @@ export type Database = {
           latency_ms: number;
           model: string;
           ok: boolean;
+          org_id: string | null;
           output_tokens: number;
           provider: string;
           request_id: string;
           task: string;
+          trace_id: string | null;
           user_id: string | null;
         };
         Insert: {
@@ -81,10 +83,12 @@ export type Database = {
           latency_ms?: number;
           model: string;
           ok?: boolean;
+          org_id?: string | null;
           output_tokens?: number;
           provider: string;
           request_id: string;
           task: string;
+          trace_id?: string | null;
           user_id?: string | null;
         };
         Update: {
@@ -99,10 +103,12 @@ export type Database = {
           latency_ms?: number;
           model?: string;
           ok?: boolean;
+          org_id?: string | null;
           output_tokens?: number;
           provider?: string;
           request_id?: string;
           task?: string;
+          trace_id?: string | null;
           user_id?: string | null;
         };
         Relationships: [];
@@ -2352,6 +2358,10 @@ export type Database = {
         Returns: {
           day: string;
         }[];
+      };
+      ai_spend_usd: {
+        Args: { p_since: string; p_user: string };
+        Returns: number;
       };
       ai_usage_record: { Args: { p_usage: Json }; Returns: undefined };
       ai_usage_summary: {
