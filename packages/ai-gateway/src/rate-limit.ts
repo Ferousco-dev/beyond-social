@@ -21,6 +21,21 @@ export interface RateLimiter {
    * synchronous is what pushes people into keeping limits per instance.
    */
   take(key: string, cost?: number): RateLimitDecision | Promise<RateLimitDecision>;
+
+  /**
+   * Charges tokens that were spent after the fact, without the option of
+   * refusing. Optional, so a limiter written before this existed still works.
+   *
+   * A request is admitted on the size of its prompt, because that is all that
+   * is known beforehand. The completion is the other half of the bill and is
+   * frequently the larger one, so a limiter that only ever charges the prompt
+   * lets a caller spend an unbounded amount from a small ask. `take` cannot do
+   * this job: when the bucket is short it refuses and deducts nothing, which is
+   * right for admission and wrong for a debt that has already been incurred.
+   * Settling drives the bucket negative instead, and the next caller waits for
+   * it to climb back.
+   */
+  settle?(key: string, cost: number): void | Promise<void>;
 }
 
 /**
@@ -41,6 +56,17 @@ export class TieredLimiter implements RateLimiter {
       if (!decision.allowed) return decision;
     }
     return { allowed: true, retryAfterMs: 0 };
+  }
+
+  /**
+   * Settles against every tier, unlike `take`, which stops at the first
+   * refusal. A tier that admitted the request has to be told what it really
+   * cost, and there is no refusal to short-circuit on.
+   */
+  async settle(key: string, cost: number): Promise<void> {
+    for (const limiter of this.limiters) {
+      await limiter.settle?.(key, cost);
+    }
   }
 }
 
@@ -63,15 +89,29 @@ export class TokenBucketLimiter implements RateLimiter {
     this.now = options.now ?? Date.now;
   }
 
+  /** Tokens available now, after continuous refill since the last touch. */
+  private refill(key: string, now: number): number {
+    const bucket = this.buckets.get(key) ?? { tokens: this.options.capacity, updatedAt: now };
+    const elapsedSec = Math.max(0, now - bucket.updatedAt) / 1000;
+    return Math.min(this.options.capacity, bucket.tokens + elapsedSec * this.options.refillPerSec);
+  }
+
+  settle(key: string, cost: number): void {
+    if (cost <= 0) return;
+    const now = this.now();
+    /*
+     * Floored at one capacity of debt. An unbounded negative balance would let
+     * a single enormous completion lock a caller out for hours, which punishes
+     * far past the point of shedding load; a full bucket's worth of waiting is
+     * already a strong signal.
+     */
+    const tokens = Math.max(-this.options.capacity, this.refill(key, now) - cost);
+    this.buckets.set(key, { tokens, updatedAt: now });
+  }
+
   take(key: string, cost = 1): RateLimitDecision {
     const now = this.now();
-    const bucket = this.buckets.get(key) ?? { tokens: this.options.capacity, updatedAt: now };
-
-    const elapsedSec = Math.max(0, now - bucket.updatedAt) / 1000;
-    const refilled = Math.min(
-      this.options.capacity,
-      bucket.tokens + elapsedSec * this.options.refillPerSec,
-    );
+    const refilled = this.refill(key, now);
 
     if (refilled < cost) {
       this.buckets.set(key, { tokens: refilled, updatedAt: now });
@@ -92,6 +132,8 @@ export class NoopLimiter implements RateLimiter {
   take(): RateLimitDecision {
     return { allowed: true, retryAfterMs: 0 };
   }
+
+  settle(): void {}
 }
 
 export class RateLimitedError extends Error {

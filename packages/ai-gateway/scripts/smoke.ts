@@ -21,6 +21,7 @@ import {
 } from "../src/safety";
 import { defineTool, parseToolCalls, runAgent, runToolCall } from "../src/orchestration";
 import { MemoryUsageSink } from "../src/usage";
+import { estimateTokens } from "../src/tokens";
 
 const results: string[] = [];
 let failures = 0;
@@ -135,6 +136,63 @@ async function main(): Promise<void> {
     refused = error instanceof RateLimitedError;
   }
   check("rate limits oversized requests", refused);
+
+  /*
+   * 5b. The completion is charged too, not just the prompt.
+   *
+   * A limiter that only ever charges what it can see beforehand lets a one-word
+   * prompt pull an unbounded completion for almost nothing, which is the shape
+   * of the expensive mistake: the bill is dominated by output tokens. The first
+   * call here is admitted on a tiny prompt and returns 5,000 output tokens; the
+   * second must be refused because the first has been settled against a bucket
+   * that cannot cover it.
+   */
+  const settling = new TokenBucketLimiter({ capacity: 1_000, refillPerSec: 0, now: () => 0 });
+  const chatty = new AiGateway({
+    clients: { anthropic: flaky(0, 5_000) },
+    limiter: settling,
+  });
+  await chatty.complete({ task: "generation", system: "hi", messages: [] });
+  let settledRefusal = false;
+  try {
+    await chatty.complete({ task: "generation", system: "hi", messages: [] });
+  } catch (error) {
+    settledRefusal = error instanceof RateLimitedError;
+  }
+  check("charges the completion, not just the prompt", settledRefusal);
+
+  /*
+   * 5c. Counting is script-aware.
+   *
+   * The character heuristic this replaced undercounts Yoruba by about half and
+   * CJK by rather more, so a prompt measured as fitting was rejected by the
+   * provider. Asserting the direction rather than an exact number keeps this
+   * from breaking every time an encoding is updated.
+   */
+  const yoruba = "Mo fẹ́ fi ₦5,000 ránṣẹ́ sí màmá mi lónìí. ".repeat(20);
+  const cjk = "前三秒决定一切".repeat(60);
+  check(
+    "counts non-Latin scripts above the old four-chars-per-token guess",
+    estimateTokens(yoruba) > yoruba.length / 4 && estimateTokens(cjk) > cjk.length / 4,
+    `yoruba ${estimateTokens(yoruba)} vs ${Math.ceil(yoruba.length / 4)}, cjk ${estimateTokens(cjk)} vs ${Math.ceil(cjk.length / 4)}`,
+  );
+
+  /*
+   * 5d. A pathological prompt is counted in bounded time.
+   *
+   * BPE merging is superlinear in one unbroken run of characters, so a pasted
+   * document used to take the counter from milliseconds to minutes and hang the
+   * request. Slicing bounds it.
+   */
+  const pathological = "x".repeat(760_000);
+  const countStartedAt = Date.now();
+  const pathologicalTokens = estimateTokens(pathological);
+  const countMs = Date.now() - countStartedAt;
+  check(
+    "counts a pasted document without hanging",
+    countMs < 1_000 && pathologicalTokens > 0,
+    `${countMs}ms for ${pathological.length} chars`,
+  );
 
   // 6. A task with no configured provider fails loudly rather than silently.
   let explained = false;
@@ -503,7 +561,13 @@ async function main(): Promise<void> {
 
   // A prompt that fits but leaves no room for the answer must be treated as too
   // long. Checking the prompt alone sends it and collects a provider 400.
-  const bigPrompt = "x".repeat(4 * 190_000);
+  //
+  // Built from prose and measured, rather than from a character count standing
+  // in for a token count. This was `"x".repeat(4 * 190_000)`, which assumed the
+  // four-characters-per-token heuristic the counter no longer uses: a long run
+  // of one character merges into very few tokens, so that prompt is about 95k
+  // tokens and genuinely fits a 200k window.
+  const bigPrompt = "The quick brown fox jumps over the lazy dog. ".repeat(19_500);
   let windowError = "";
   try {
     await new AiGateway({ clients: { anthropic: standby } }).complete({
