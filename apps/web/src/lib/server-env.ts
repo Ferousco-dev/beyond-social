@@ -61,6 +61,14 @@ const serverEnvSchema = z.object({
    * are worth reading before anything acts on them, and enabling deletion
    * should not require a deploy to undo.
    */
+  /**
+   * Shared secret for server-to-server calls from the admin console.
+   *
+   * Unset closes those routes rather than opening them: a deployment that has
+   * not been given a secret should refuse the call, not accept every caller who
+   * also sends nothing.
+   */
+  INTERNAL_API_SECRET: z.string().default(""),
   RETENTION_APPLY: z.string().default(""),
   AI_SPEND_LIMIT_USD: z.coerce.number().nonnegative().default(5),
   AI_SPEND_WINDOW_HOURS: z.coerce.number().positive().default(24),
@@ -88,6 +96,7 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
   WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
+  INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
   RETENTION_APPLY: process.env.RETENTION_APPLY,
   AI_SPEND_LIMIT_USD: process.env.AI_SPEND_LIMIT_USD,
   AI_SPEND_WINDOW_HOURS: process.env.AI_SPEND_WINDOW_HOURS,

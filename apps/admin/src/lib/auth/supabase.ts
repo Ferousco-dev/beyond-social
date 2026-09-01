@@ -53,3 +53,24 @@ export function createAuditWriter(): AuthClient {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
+
+/**
+ * Service-role client for privileged reads the console is entitled to make.
+ *
+ * Distinct from `createAuditWriter` on purpose. That one exists to record a
+ * refused access attempt, which has no session by definition, and its comment
+ * rightly forbids using it to decide what a visitor may see. This one is for
+ * data the database exposes to `service_role` alone, such as the learning
+ * review queue, where there is no user-scoped path to the same rows.
+ *
+ * The rule that makes it safe is that every caller must have passed
+ * `requireAdmin()` first: access control happens in the page, and this client
+ * carries none of its own.
+ */
+export function createPrivilegedClient(): AuthClient {
+  return createSupabaseClient<AuthDatabase>(
+    env().NEXT_PUBLIC_SUPABASE_URL,
+    serverEnv().SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
