@@ -53,6 +53,15 @@ const serverEnvSchema = z.object({
    * day of chat measures in tens of cents, so this catches a runaway loop or a
    * scripted abuser without ever being felt by somebody working normally.
    */
+  /**
+   * Turns the nightly retention job from a dry run into a real one.
+   *
+   * Off by default, and deliberately a setting rather than a code change: the
+   * scheduled run has been a dry run since it shipped, so the counts it reports
+   * are worth reading before anything acts on them, and enabling deletion
+   * should not require a deploy to undo.
+   */
+  RETENTION_APPLY: z.string().default(""),
   AI_SPEND_LIMIT_USD: z.coerce.number().nonnegative().default(5),
   AI_SPEND_WINDOW_HOURS: z.coerce.number().positive().default(24),
 });
@@ -79,6 +88,7 @@ export const serverEnv = parseEnv(serverEnvSchema, {
   APIFY_INSTAGRAM_ACTOR: process.env.APIFY_INSTAGRAM_ACTOR,
   CRON_SECRET: process.env.CRON_SECRET,
   WEBHOOK_SECRET_KEY: process.env.WEBHOOK_SECRET_KEY,
+  RETENTION_APPLY: process.env.RETENTION_APPLY,
   AI_SPEND_LIMIT_USD: process.env.AI_SPEND_LIMIT_USD,
   AI_SPEND_WINDOW_HOURS: process.env.AI_SPEND_WINDOW_HOURS,
 });
