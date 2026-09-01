@@ -125,7 +125,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
 
             <MakeVideoButton
               asset={product}
-              className="mt-1 text-[11px] text-ink-soft hover:text-ink"
+              className="mt-1 text-xs text-ink-soft hover:text-ink"
             >
               Make video
             </MakeVideoButton>

@@ -39,7 +39,7 @@ export function ChecklistItem({
         aria-expanded={done ? undefined : expanded}
         aria-controls={done ? undefined : panelId}
         className={cn(
-          "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
+          "flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
           done ? "cursor-default" : "cursor-pointer hover:bg-cloud",
         )}

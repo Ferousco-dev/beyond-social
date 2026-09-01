@@ -216,7 +216,7 @@ export function CommandPalette({
             )}
           </div>
 
-          <div className="flex items-center gap-4 border-t border-hairline px-4 py-2 text-[11px] text-ink-soft">
+          <div className="flex items-center gap-4 border-t border-hairline px-4 py-2 text-xs text-ink-soft">
             <span className="flex items-center gap-1">
               <kbd className="rounded border border-hairline px-1">↑</kbd>
               <kbd className="rounded border border-hairline px-1">↓</kbd> navigate

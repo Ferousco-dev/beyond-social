@@ -39,7 +39,7 @@ function Unavailable({ icon: Icon, label }: { icon: LucideIcon; label: string })
   return (
     <div className="flex size-full flex-col items-center justify-center gap-1.5 bg-muted px-2 text-center">
       <Icon className="size-6 text-ink-soft" aria-hidden />
-      <span className="text-[11px] leading-tight text-ink-soft">{label}</span>
+      <span className="text-xs leading-tight text-ink-soft">{label}</span>
     </div>
   );
 }

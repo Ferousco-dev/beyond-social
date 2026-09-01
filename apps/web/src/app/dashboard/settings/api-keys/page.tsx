@@ -50,7 +50,7 @@ export default async function ApiKeysPage() {
             call
           </li>
         </ul>
-        <pre className="mt-4 overflow-x-auto rounded-lg border border-hairline bg-canvas p-3 text-[11px] text-ink-soft">
+        <pre className="mt-4 overflow-x-auto rounded-lg border border-hairline bg-canvas p-3 text-xs text-ink-soft">
           {`curl https://beyondsocial.app/api/v1/generations \\
   -H "Authorization: Bearer bsk_your_key_here"`}
         </pre>

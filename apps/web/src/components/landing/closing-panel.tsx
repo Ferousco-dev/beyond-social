@@ -118,7 +118,11 @@ export function ClosingPanel(): ReactNode {
           <footer>
             <div className="grid gap-8 pb-10 sm:grid-cols-2 sm:gap-10 sm:pb-14 lg:grid-cols-6">
               <div className="lg:col-span-2">
-                <Link href="/" aria-label="Beyond Social home" className="inline-flex">
+                <Link
+                  href="/"
+                  aria-label="Beyond Social home"
+                  className="inline-flex items-center pointer-coarse:min-h-11"
+                >
                   <Logo />
                 </Link>
                 <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-soft">
@@ -135,9 +139,15 @@ export function ClosingPanel(): ReactNode {
                   <ul className="mt-4 flex flex-col gap-2.5">
                     {column.links.map((link) => (
                       <li key={link.label}>
-                        {/* Padded to clear the 24px minimum target size; the
-                            negative margin keeps the list's visual rhythm. */}
-                        <a href={link.href} className={`${LINK} -my-1 inline-block py-1`}>
+                        {/* Padded to a 44px target: at 28px these were the
+                            smallest tap targets in the product, and a footer on
+                            a phone is a column of them. The negative margin
+                            absorbs the extra height so the list keeps its
+                            visual rhythm. */}
+                        <a
+                          href={link.href}
+                          className={`${LINK} -my-2 inline-flex min-h-11 items-center py-2`}
+                        >
                           {link.label}
                         </a>
                       </li>

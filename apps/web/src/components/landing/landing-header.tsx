@@ -48,7 +48,11 @@ export function LandingHeader() {
             shrunk ? "h-12 pl-4 pr-1.5" : "h-14 px-2",
           )}
         >
-          <Link href="/" aria-label="Beyond Social home" className="shrink-0">
+          <Link
+            href="/"
+            aria-label="Beyond Social home"
+            className="inline-flex shrink-0 items-center pointer-coarse:min-h-11"
+          >
             <Logo showWordmark={!shrunk} />
           </Link>
 
@@ -76,7 +80,7 @@ export function LandingHeader() {
             onClick={() => setOpen((value) => !value)}
             aria-label={open ? "Close menu" : "Open menu"}
             aria-expanded={open}
-            className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-ink transition-colors hover:bg-cloud md:hidden"
+            className="inline-flex size-10 cursor-pointer items-center justify-center rounded-full text-ink transition-colors pointer-coarse:size-11 hover:bg-cloud md:hidden"
           >
             {open ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
