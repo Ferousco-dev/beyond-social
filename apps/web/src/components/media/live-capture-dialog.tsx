@@ -182,6 +182,7 @@ export function LiveCaptureDialog({
   }
 
   function retake() {
+    stopStream();
     setShot((current) => {
       if (current) URL.revokeObjectURL(current.videoUrl);
       return null;

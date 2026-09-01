@@ -1,6 +1,6 @@
 import { logger } from "./logger";
 import { PermanentPublishError, publisherFor } from "./platforms";
-import { canRefresh, refreshAccessToken } from "./social-refresh";
+import { canRefresh, refreshAccessTokenOnce } from "./social-refresh";
 import { createServiceClient } from "./supabase";
 
 export interface PublishInput {
@@ -78,7 +78,11 @@ export async function publishPost(input: PublishInput): Promise<PublishResult> {
 
     let refreshed;
     try {
-      refreshed = await refreshAccessToken(input.platform, connection.refresh_token);
+      refreshed = await refreshAccessTokenOnce(
+        `${input.userId}:${input.platform}`,
+        input.platform,
+        connection.refresh_token,
+      );
     } catch {
       // The token that was actually revoked, or a refresh token the provider
       // has invalidated, looks identical to a transient network failure from

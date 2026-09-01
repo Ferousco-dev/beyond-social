@@ -63,7 +63,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
     const { platform } = parsed.data;
     const countryCode = await resolveCountryCode();
     const posts = await searchPosts(platform, parsed.data.query, RESULT_LIMIT, countryCode);
-    if (posts.length === 0) return { status: "ok", posts: [] };
+    if (posts.length === 0) return { status: "ok", posts: [], countryCode };
 
     /*
      * Posters only for the posts that arrived without one. The scraper returns a
@@ -91,7 +91,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
       transcript: post.transcript,
     }));
 
-    return { status: "ok", posts: results };
+    return { status: "ok", posts: results, countryCode };
   } catch (error) {
     logger.error("social search failed", {
       platform: parsed.data.platform,

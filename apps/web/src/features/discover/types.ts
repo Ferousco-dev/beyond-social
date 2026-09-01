@@ -32,7 +32,12 @@ export interface DiscoverPost {
 }
 
 export type DiscoverResult =
-  | { status: "ok"; posts: readonly DiscoverPost[] }
+  | {
+      status: "ok";
+      posts: readonly DiscoverPost[];
+      /** The country the search was biased to, or null for an unbiased, global search. */
+      countryCode: string | null;
+    }
   /** No search credentials, which is a different problem from finding nothing. */
   | { status: "unconfigured" }
   | { status: "error"; message: string };

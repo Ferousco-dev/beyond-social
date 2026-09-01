@@ -74,7 +74,7 @@ async function renderOne(client: SupabaseClient, job: ClaimedJob, spec: RenderSp
       } as never);
       if (error) throw new Error(`Upload failed: ${error.message}`);
 
-      await client
+      const { error: settleError } = await client
         .from("project_renders")
         .update({
           status: "ready",
@@ -86,7 +86,18 @@ async function renderOne(client: SupabaseClient, job: ClaimedJob, spec: RenderSp
         })
         .eq("id", job.id);
 
-      logger.info("job done", { job: job.id, kb: Math.round(size / 1024) });
+      // The file is genuinely in storage at this point, so this is not a
+      // failure to retry: logged loudly instead of thrown, since the row is
+      // otherwise left at "generating" forever with nothing to explain why.
+      if (settleError) {
+        logger.error("could not record a finished render", {
+          job: job.id,
+          path,
+          error: settleError.message,
+        });
+      } else {
+        logger.info("job done", { job: job.id, kb: Math.round(size / 1024) });
+      }
     } finally {
       await cleanup();
     }
@@ -108,9 +119,20 @@ export async function processJob(client: SupabaseClient, job: ClaimedJob): Promi
 
     // The user is watching this row. A failure with no reason on it shows as a
     // spinner that never stops.
-    await client
+    const { error: settleError } = await client
       .from("project_renders")
       .update({ status: "failed", error: message.slice(0, 500) })
       .eq("id", job.id);
+
+    // If even this write fails, the row is stuck at "generating" with no
+    // reason recorded at all, worse than the failure it was meant to surface.
+    // At least log it here instead of losing it silently a second time.
+    if (settleError) {
+      logger.error("could not record a failed render", {
+        job: job.id,
+        renderError: message,
+        error: settleError.message,
+      });
+    }
   }
 }
