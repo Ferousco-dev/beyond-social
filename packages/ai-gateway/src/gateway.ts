@@ -79,6 +79,14 @@ export interface GatewayRequest extends CompletionRequest {
   task: Task;
   /** Rate limiting and usage attribution key. */
   userId?: string;
+  /** Which organisation the spend belongs to, when the caller acts for one. */
+  orgId?: string;
+  /**
+   * Groups the calls that make up one piece of work. A single chat message
+   * fans out into several model calls; passing the same id through all of them
+   * is what makes "what did that message cost" answerable.
+   */
+  traceId?: string;
 }
 
 export interface GatewayResponse extends CompletionResult {
@@ -195,6 +203,8 @@ export class AiGateway {
           ok: true,
           error: null,
           userId: request.userId ?? null,
+          orgId: request.orgId ?? null,
+          traceId: request.traceId ?? null,
           createdAt: new Date(this.now()).toISOString(),
         });
         return {
@@ -624,6 +634,8 @@ export class AiGateway {
       ok: outcome.ok,
       error: outcome.error,
       userId: request.userId ?? null,
+      orgId: request.orgId ?? null,
+      traceId: request.traceId ?? null,
       createdAt: new Date(this.now()).toISOString(),
     };
   }
