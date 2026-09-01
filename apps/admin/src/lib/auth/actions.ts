@@ -8,6 +8,7 @@ import { AUTH_AUDIT_ACTIONS, recordAdminAction, recordRefusal } from "./audit";
 import { clientIp } from "./request";
 import { SIGN_IN_PATH, CONSOLE_HOME } from "./session";
 import { createClient } from "./supabase";
+import { throttleSignIn } from "./throttle";
 
 export type SignInState = { status: "idle" } | { status: "error"; message: string };
 
@@ -15,6 +16,20 @@ export type SignInState = { status: "idle" } | { status: "error"; message: strin
 // is not an admin. Any difference between them is a way to enumerate who has
 // access to the console.
 const REFUSED = "Those details are not valid for this console.";
+
+// Said the same way whether the IP or the account hit its limit, so the message
+// cannot be used to work out which accounts exist or which are under attack.
+const THROTTLED = "Too many sign-in attempts. Wait a few minutes and try again.";
+
+/*
+ * Deliberately different from the message above.
+ *
+ * When the limiter cannot answer we deny, which is right for auth. But saying
+ * "wait a few minutes" would be a lie: nothing counted the attempt, so waiting
+ * changes nothing and the person retries forever. This says the service is the
+ * problem, which is both true and actionable by whoever is on call.
+ */
+const THROTTLE_UNAVAILABLE = "Sign-in is unavailable right now. Try again shortly.";
 
 const signInSchema = z.object({
   email: z
@@ -49,6 +64,29 @@ export async function signInAction(
 
   const { email, password, redirectTo } = parsed.data;
   const ip = clientIp(await headers());
+
+  // Counted before the password is checked, not after. A limiter that only
+  // counts failures still lets an attacker make unlimited attempts as long as
+  // the provider is the one refusing them.
+  const refused = await throttleSignIn(ip, email);
+  if (refused) {
+    const unavailable = refused.outcome.reason === "unavailable";
+    if (refused.audit) {
+      await recordRefusal({
+        action: AUTH_AUDIT_ACTIONS.signInThrottled,
+        targetType: "admin_session",
+        targetId: null,
+        summary: unavailable
+          ? "Sign-in denied because the rate limiter was unavailable"
+          : "Sign-in refused by the rate limit",
+        actorId: null,
+        actorEmail: email,
+        ip,
+      });
+    }
+    return { status: "error", message: unavailable ? THROTTLE_UNAVAILABLE : THROTTLED };
+  }
+
   const supabase = await createClient();
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });

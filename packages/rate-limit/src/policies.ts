@@ -27,6 +27,17 @@ export const RATE_LIMIT_POLICIES = {
     windowSeconds: 900,
     onUnavailable: "closed",
   },
+  /** How often a throttled admin sign-in may write an audit row, keyed per IP.
+   *  Without it a flood of refused attempts becomes a flood of audit rows, and
+   *  the log an incident is read from is the wrong thing to let an attacker
+   *  grow. Fails closed, meaning it stays quiet, because the refusal itself is
+   *  already logged by the limiter. */
+  adminSignInAudit: {
+    bucket: "admin-signin-audit",
+    limit: 1,
+    windowSeconds: 900,
+    onUnavailable: "closed",
+  },
   /** Public API, keyed per calling user. Read endpoints are cheap but not free.
    *  Sized to match the sustained rate of the in-process bucket it now backs,
    *  one request a second, so no existing integration starts being refused. */

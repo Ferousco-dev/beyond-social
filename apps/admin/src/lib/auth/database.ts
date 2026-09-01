@@ -1,8 +1,8 @@
 /**
  * The slice of the database this module is allowed to touch.
  *
- * The console does not ship the generated `database.types.ts`: auth needs
- * exactly two functions and one append-only table, and a narrow hand-written
+ * The console does not ship the generated `database.types.ts`: auth needs a
+ * handful of functions and one append-only table, and a narrow hand-written
  * type keeps the surface honest. Anything wider belongs to the feature modules
  * that own those tables.
  */
@@ -35,6 +35,18 @@ export type AuthDatabase = {
       is_admin: {
         Args: Record<never, never>;
         Returns: boolean;
+      };
+      rate_limit_hit: {
+        Args: {
+          p_key: string;
+          p_limit: number;
+          p_window_seconds: number;
+        };
+        Returns: {
+          allowed: boolean;
+          remaining: number;
+          retry_after_seconds: number;
+        }[];
       };
       admin_log_action: {
         Args: {

@@ -9,6 +9,7 @@ export const AUTH_AUDIT_ACTIONS = {
   signIn: "admin.sign_in",
   signInFailed: "admin.sign_in_failed",
   signInDenied: "admin.sign_in_denied",
+  signInThrottled: "admin.sign_in_throttled",
   signOut: "admin.sign_out",
   accessDenied: "admin.access_denied",
 } as const;
