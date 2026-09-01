@@ -534,12 +534,48 @@ export type Database = {
         };
         Relationships: [];
       };
+      avatar_handoffs: {
+        Row: {
+          claimed_at: string | null;
+          created_at: string;
+          expires_at: string;
+          id: string;
+          storage_path: string | null;
+          token_hash: string;
+          user_id: string;
+        };
+        Insert: {
+          claimed_at?: string | null;
+          created_at?: string;
+          expires_at: string;
+          id?: string;
+          storage_path?: string | null;
+          token_hash: string;
+          user_id: string;
+        };
+        Update: {
+          claimed_at?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          id?: string;
+          storage_path?: string | null;
+          token_hash?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       heygen_avatars: {
         Row: {
           consent_version: number;
           created_at: string;
           id: string;
           provider_avatar_id: string | null;
+          poll_count: number;
+          trained_at: string | null;
+          provider_voice_id: string | null;
+          provider_look_id: string | null;
+          provider_error: string | null;
+          provider_consent_status: string | null;
           storage_path: string;
           training_status: string;
           updated_at: string;
@@ -550,6 +586,12 @@ export type Database = {
           created_at?: string;
           id?: string;
           provider_avatar_id?: string | null;
+          poll_count?: number;
+          trained_at?: string | null;
+          provider_voice_id?: string | null;
+          provider_look_id?: string | null;
+          provider_error?: string | null;
+          provider_consent_status?: string | null;
           storage_path: string;
           training_status?: string;
           updated_at?: string;
@@ -560,6 +602,12 @@ export type Database = {
           created_at?: string;
           id?: string;
           provider_avatar_id?: string | null;
+          poll_count?: number;
+          trained_at?: string | null;
+          provider_voice_id?: string | null;
+          provider_look_id?: string | null;
+          provider_error?: string | null;
+          provider_consent_status?: string | null;
           storage_path?: string;
           training_status?: string;
           updated_at?: string;
@@ -2370,6 +2418,10 @@ export type Database = {
       claim_avatar_handoff: {
         Args: { p_path: string; p_token_hash: string };
         Returns: { user_id: string }[];
+      };
+      pending_heygen_avatars: {
+        Args: { p_limit?: number };
+        Returns: { user_id: string; provider_avatar_id: string; poll_count: number }[];
       };
       ai_spend_usd: {
         Args: { p_since: string; p_user: string };
