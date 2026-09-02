@@ -53,13 +53,38 @@ async function loadFonts() {
   ];
 }
 
-/** The domain shown along the bottom, taken from wherever this is deployed. */
+/**
+ * The domain shown along the bottom.
+ *
+ * `NEXT_PUBLIC_APP_URL` first, since that is the address we mean to be known
+ * by, but it is only set on production and falls back to localhost silently
+ * everywhere else. A preview card reading "localhost:3000" is worse than no
+ * card, so Vercel's own hostname is the second answer: it is injected into
+ * every deployment, including previews, and is at least somewhere real.
+ *
+ * Read at build time, not per request, because these images are static. The
+ * host changes on the next deploy, not the next save.
+ */
 function displayHost(): string {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").host;
-  } catch {
-    return "beyondsocial.app";
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+    process.env.VERCEL_URL,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    // The VERCEL_* pair are bare hostnames; NEXT_PUBLIC_APP_URL is a full URL.
+    const withScheme = candidate.includes("://") ? candidate : `https://${candidate}`;
+    try {
+      const { host } = new URL(withScheme);
+      if (host !== "localhost:3000") return host;
+    } catch {
+      continue;
+    }
   }
+
+  return "beyondsocial.app";
 }
 
 /**
