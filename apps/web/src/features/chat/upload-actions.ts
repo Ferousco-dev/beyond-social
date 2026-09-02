@@ -36,6 +36,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
 /** The generator takes a small number of reference frames, not an album. */
 const MAX_FILES = 4;
 
+/** Said when the photo check itself is throttled, which is not the same as the
+ *  photo being rejected. */
+const CHECK_LIMIT_REACHED =
+  "Too many photos checked just now. Wait a few minutes and attach it again.";
+
 /** Comfortably longer than a generation, so a slow queue cannot expire the link. */
 const SIGNED_URL_TTL_SECONDS = 2 * 60 * 60;
 
@@ -178,9 +183,19 @@ export async function attachUploadedPhotos(
        * with nothing recorded.
        */
       const { data: object } = await supabase.storage.from("uploads").download(path);
-      const subject = object
-        ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type)
-        : "person";
+      const classified = object
+        ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type, {
+            userId: user.id,
+          })
+        : ({ status: "ok", subject: "person" } as const);
+
+      // Refused rather than guessed at. Attaching the photo anyway would mean
+      // recording a subject nothing established, and the consent gate reads
+      // that record.
+      if (classified.status === "rate_limited") {
+        return { status: "error", message: CHECK_LIMIT_REACHED };
+      }
+      const subject = classified.subject;
 
       /*
        * Recorded so a thread can be rebuilt with the photos that fed it, and so
