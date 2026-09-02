@@ -1,6 +1,6 @@
 # Social sign-in
 
-Google, GitHub and Facebook sign-in, set up so that moving to a real domain
+Google and Facebook sign-in, set up so that moving to a real domain
 later is a change in two consoles and never a change in this repository.
 
 ## Why no code changes when the domain moves
@@ -14,8 +14,8 @@ https://rluswrevtevrrijaqowu.supabase.co/auth/v1/callback
 ```
 
 That address belongs to the Supabase project. It does not contain our domain,
-so it stays correct forever. Paste it into Google, GitHub and Facebook once and
-never touch it again.
+so it stays correct forever. Paste it into Google and Facebook once and never
+touch it again.
 
 **Supabase** then redirects back to us, at whatever origin the browser was
 already on. `SocialButtons` builds that from `window.location.origin`, so
@@ -30,7 +30,7 @@ which is a setting in its dashboard.
 One environment variable decides which buttons appear:
 
 ```
-NEXT_PUBLIC_AUTH_PROVIDERS=google,github,facebook
+NEXT_PUBLIC_AUTH_PROVIDERS=google,facebook
 ```
 
 Empty or unset means password sign-in only, and the buttons and their divider
@@ -52,13 +52,6 @@ application.
 - Authorised JavaScript origins: the app's origin, updated when the domain
   changes
 
-### GitHub
-
-Settings → Developer settings → OAuth Apps → New OAuth App.
-
-- Authorization callback URL: the Supabase callback above
-- Homepage URL: the app's origin, cosmetic, update it when convenient
-
 ### Facebook
 
 developers.facebook.com → your app → Facebook Login → Settings.
@@ -67,6 +60,12 @@ developers.facebook.com → your app → Facebook Login → Settings.
 - Facebook requires a privacy policy URL and a live HTTPS domain before the app
   leaves development mode, so only your own test users can sign in until a real
   domain exists.
+
+### GitHub, and why it is not here
+
+Removed on purpose. It is a developer's account, and the people who make
+short-form video for a living are not developers. A sign-in row costs attention
+whether or not it is used.
 
 ### TikTok, and why it is not here
 
