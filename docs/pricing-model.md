@@ -59,29 +59,47 @@ strategy question, not a rounding error.
 
 ## Recommendation
 
-### 1. Make the everyday model cheap, and sell the good one as an upgrade
+The paid tiers run a premium model. That is a positioning decision, not an
+economic one: quality is what is being sold, and a paying account should never
+be served the model the free tier gets.
 
-`WORKHORSE` currently points paid plans at `kling-3.0/video`, $1.50 a render.
-A premium model as the default is what makes a hundred videos cost a hundred
-and fifty dollars.
+It has one consequence that has to be accepted rather than worked around. At
+$1.50 a render, **a hundred premium videos costs $150 in provider fees alone**,
+so at sixty per cent margin that plan would have to sell for $375 a month. The
+lever is therefore the number of videos, not the model. Paid plans get fewer,
+better videos.
 
-Point the everyday model at `veo3_lite` (3 credits, $0.15) and let Kling,
-motion control and the twin be confirmed upgrades. The confirmation flow now
-exists, so a costlier model is a choice somebody makes and pays for, rather
-than the floor everybody pays.
+The advertised "100 videos a month" cannot survive this and should be rewritten.
 
-### 2. Set allowances at three credits per advertised video
+### 1. A quality ladder, one model per tier
 
-That makes the advertised numbers true rather than aspirational:
+| Tier    | Model             | Cost per video |
+| ------- | ----------------- | -------------- |
+| Free    | `veo3_lite`       | $0.15          |
+| Creator | `veo3`            | $0.60          |
+| Studio  | `kling-3.0/video` | $1.50          |
 
-| Plan    | Videos | Credits | Provider cost | Recommended price | Gross margin |
-| ------- | ------ | ------- | ------------- | ----------------- | ------------ |
-| Free    | 15     | 45      | $2.25         | $0                | acquisition  |
-| Creator | 100    | 300     | $15.00        | **$39**           | 62%          |
-| Studio  | 400    | 1200    | $60.00        | **$149**          | 60%          |
+Free gets the cheap model. Creator gets Veo 3, which is a name customers
+recognise. Studio gets the flagship. Nobody paying is ever served the free
+tier's model, and each step up is a real difference rather than a bigger
+number.
 
-Sixty per cent gross is normal for a product with real inference costs, and it
-survives customers who spend their whole allowance, which most will not.
+Motion control at $3.00 and the twin stay above all of this, reached through
+the confirmation card, which is what that card is for.
+
+### 2. Allowances and prices
+
+| Plan    | Videos | Credits | Provider cost | Price    | Gross margin |
+| ------- | ------ | ------- | ------------- | -------- | ------------ |
+| Free    | 15     | 45      | $2.25         | $0       | acquisition  |
+| Creator | 30     | 360     | $18.00        | **$49**  | 63%          |
+| Studio  | 40     | 1200    | $60.00        | **$169** | 64%          |
+
+Both paid tiers can be stretched at the same margin if the counts should be
+higher: fifty Creator videos supports $79, fifty Studio videos supports $199.
+The margin holds; what changes is how the product is positioned against
+HeyGen's $29 entry plan, which buys avatars only and not generation,
+scheduling and publishing.
 
 ### 3. Price the twin off HeyGen's standard rate, not Avatar IV
 
