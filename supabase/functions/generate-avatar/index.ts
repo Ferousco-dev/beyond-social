@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
+import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
@@ -153,8 +154,7 @@ Deno.serve(async (req) => {
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
-  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
+  const callBackUrl = callbackUrl();
 
   /*
    * Both inputs are handed to the provider as bytes rather than as links to

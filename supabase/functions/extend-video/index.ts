@@ -15,6 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { corsHeaders, json } from "../_shared/http.ts";
+import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createMarketVideoTask, extendVideoTask } from "../_shared/kie.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 import { capabilityOf, resolveDuration } from "../_shared/video-capabilities.ts";
@@ -131,10 +132,7 @@ Deno.serve(async (req) => {
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
-  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const callBackUrl = callbackSecret
-    ? `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`
-    : undefined;
+  const callBackUrl = callbackUrl();
 
   let taskId: string;
   try {
