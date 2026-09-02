@@ -71,6 +71,21 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  /*
+   * Development builds into its own directory.
+   *
+   * `next dev` and `next build` both write to `.next` by default, so running
+   * the build, or `pnpm verify` which runs it, while a dev server is up
+   * replaces the chunks that server is serving. The running page then asks for
+   * files that no longer exist and the browser refuses what it does get,
+   * because a 404 from the dev server comes back as text/plain rather than as
+   * javascript. It reads as a corrupted app rather than as two tools writing to
+   * one folder, and the only cure was stopping everything and deleting `.next`.
+   *
+   * Production is untouched: Vercel builds with NODE_ENV=production, so the
+   * output directory there is still `.next`.
+   */
+  distDir: isDev ? ".next-dev" : ".next",
   experimental: {
     /**
      * Next 15 caches dynamic segments on the client for 0 seconds by default, so
