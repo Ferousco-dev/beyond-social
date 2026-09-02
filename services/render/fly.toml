@@ -49,10 +49,24 @@ kill_timeout = "600s"
     path = "/health"
 
 [[vm]]
-  # ffmpeg is CPU-bound and the encode is the whole job. Memory is for the clips
-  # on their way through rather than for the encode itself, which streams.
-  size = "performance-1x"
-  memory = "2gb"
+  # ffmpeg is CPU-bound and the encode is the whole job, but the encode is
+  # `veryfast` x264 at CRF 23 and the join afterwards is a stream copy that
+  # costs nothing. A shared core encodes a thirty second clip in well under a
+  # minute, and exports arrive a few times an hour into a queue that is already
+  # asynchronous, so latency here is not felt the way generation latency is.
+  #
+  # Fly has no free allowance, so this is the difference between about six
+  # dollars a month and about thirty two. Start small and raise it only if
+  # exports are actually slow, which the job duration in the logs will say:
+  #
+  #   size = "performance-1x"
+  #   memory = "2gb"
+  #
+  # Raise RENDER_CONCURRENCY above only alongside the CPU count, never on its
+  # own: two jobs on one core makes both slower rather than finishing either
+  # sooner.
+  size = "shared-cpu-1x"
+  memory = "1gb"
 
 # SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are secrets, never listed here:
 #   fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... --config services/render/fly.toml
