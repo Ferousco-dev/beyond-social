@@ -362,7 +362,6 @@ export const DEFAULT_RECIPE: Recipe = recipeSchema.parse({
       categories: ["video-prompting", "narrative", "short-form"],
       limit: 4,
       order: 0,
-      boost: 1.15,
     },
     {
       name: "Cinematography",
@@ -375,7 +374,7 @@ export const DEFAULT_RECIPE: Recipe = recipeSchema.parse({
     // Worked briefs sit last so the model sees the craft first, then how it is
     // applied end to end. Few-shot exemplars are the strongest single lever on
     // output quality, so they must have their own slot or they never retrieve.
-    { name: "Worked examples", categories: ["example"], limit: 2, order: 4, boost: 1.1 },
+    { name: "Worked examples", categories: ["example"], limit: 2, order: 4 },
   ],
   knowledgeTokenBudget: 3500,
   minSimilarity: 0.25,

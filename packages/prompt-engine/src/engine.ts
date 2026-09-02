@@ -16,7 +16,7 @@ export interface PromptEngineDeps {
   embedder: Embedder;
   store: VectorStore;
   reranker: Reranker;
-  /** Model used to produce the artifact (default: latest Opus via ClaudeLlm). */
+  /** Model used to produce the artifact. */
   generator: Llm;
   /** Model used to grade it (a cheaper model is fine and usually better value). */
   judge: Llm;

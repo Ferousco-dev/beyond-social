@@ -18,8 +18,19 @@ export const retrievalSlotSchema = z.object({
   limit: z.number().int().positive().max(50),
   /** Slots are assembled in ascending order; lower = earlier in the prompt. */
   order: z.number().int().nonnegative(),
-  /** Optional multiplier applied to this slot's candidates during ranking. */
-  boost: z.number().positive().default(1),
+  /*
+   * There was a `boost` here, a per-slot multiplier "applied during ranking".
+   * Nothing applied it. `assignToSlots` and `rankCandidates` never read the
+   * field, so the two recipes that set it, Foundations at 1.15 and Worked
+   * examples at 1.1, were expressing a preference that has never once affected
+   * what was retrieved.
+   *
+   * Removed rather than implemented. Implementing it changes what every
+   * generation retrieves, which is a ranking change that wants measuring
+   * against the golden queries rather than being switched on because a field
+   * happened to exist. A setting that silently does nothing is worse than no
+   * setting: somebody tuned these numbers and believed them.
+   */
 });
 export type RetrievalSlot = z.infer<typeof retrievalSlotSchema>;
 
