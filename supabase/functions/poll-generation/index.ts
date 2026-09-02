@@ -3,13 +3,12 @@
 // webhook cannot reach the machine.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { getJobInfo, getRecordInfo } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
 import { log } from "../_shared/trace.ts";
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");

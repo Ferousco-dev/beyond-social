@@ -4,7 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
 import { handToProvider } from "../_shared/reference.ts";
@@ -49,8 +49,7 @@ interface AvatarBody {
   model?: string;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");
