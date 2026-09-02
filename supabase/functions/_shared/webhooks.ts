@@ -131,7 +131,24 @@ export async function deliverEvent(
     if (endpoints.length === 0) return;
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const body = JSON.stringify({ event, created_at: new Date().toISOString(), data: payload });
+    /*
+     * A stable id for the thing that happened, derived from the subject and the
+     * event rather than generated per attempt.
+     *
+     * Delivery is at-least-once by design, and the emitters are now gated on
+     * the database transition so a duplicate should not leave here at all. This
+     * is the receiver's half of that: a customer who does get two of these can
+     * tell they are the same event, which a random id per send would not let
+     * them do.
+     */
+    const subject = typeof payload.generation_id === "string" ? payload.generation_id : userId;
+    const eventId = `${event}:${subject}`;
+    const body = JSON.stringify({
+      event_id: eventId,
+      event,
+      created_at: new Date().toISOString(),
+      data: payload,
+    });
 
     await Promise.all(
       endpoints.map((endpoint) => deliver(admin, endpoint, event, body, timestamp, key, traceId)),

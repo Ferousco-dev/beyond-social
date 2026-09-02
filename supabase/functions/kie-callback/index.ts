@@ -66,7 +66,7 @@ serve(async (req) => {
     const resultUrl = generation
       ? await persistRender(admin, generation.user_id, taskId, urls[0])
       : urls[0];
-    const { error } = await admin.rpc("complete_generation", {
+    const { data: transitioned, error } = await admin.rpc("complete_generation", {
       p_provider_task_id: taskId,
       p_result_url: resultUrl,
     });
@@ -83,6 +83,18 @@ serve(async (req) => {
       });
       return json({ error: "Could not complete the generation" }, 500);
     }
+
+    /*
+     * The database side was already idempotent, so a redelivered callback
+     * changed nothing there. This is what was not: the outbound webhook fired
+     * whether or not the row had transitioned, so a provider retry, and kie.ai
+     * retries three times, told a customer the same render finished again.
+     */
+    if (transitioned !== true) {
+      log("info", "callback ignored for an already completed generation", { traceId, taskId });
+      return json({ received: true });
+    }
+
     log("info", "generation completed", { traceId, taskId });
     if (generation) {
       await deliverEvent(

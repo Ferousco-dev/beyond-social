@@ -2574,7 +2574,7 @@ export type Database = {
       };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
-        Returns: undefined;
+        Returns: boolean;
       };
       count_webhook_failure: { Args: { p_webhook: string }; Returns: undefined };
       create_organization: {
