@@ -104,6 +104,30 @@ serve(async (request) => {
     return json({ status: "pending", trained: false, reason: "provider_unconfigured" });
   }
 
+  /*
+   * The claim is taken before anything is dispatched, and it is the whole
+   * defence. A retry, a double submit, or a client that gave up on a slow
+   * response used to dispatch a second training job, and each one is a
+   * separately trained copy of somebody's face and voice at a third party.
+   * Only the last id ever reached the row, so the rest became orphans the
+   * deletion path could not name.
+   */
+  const requestId = crypto.randomUUID();
+  const { data: claimed, error: claimError } = await admin.rpc("claim_twin_training", {
+    p_user: user.id,
+    p_request: requestId,
+  });
+  if (claimError) {
+    log("error", "could not claim twin training", { traceId, error: claimError.message });
+    return json({ error: "could_not_save" }, 500);
+  }
+  if (claimed !== true) {
+    // Not an error to the caller: their training is already running. Answering
+    // 409 rather than 200 keeps a retry loop from reading this as "start again".
+    log("info", "twin training already in flight", { traceId });
+    return json({ status: "pending", trained: false, reason: "already_training" }, 409);
+  }
+
   const { data: signed, error: signError } = await admin.storage
     .from("uploads")
     .createSignedUrl(storagePath, FOOTAGE_URL_SECONDS);
@@ -115,8 +139,26 @@ serve(async (request) => {
   const file = { type: "url", url: signed.signedUrl } as const;
   const name = (body.name ?? "").trim() || `Twin ${user.id.slice(0, 8)}`;
 
+  // Read before the dispatch so a group that gets displaced can be recorded
+  // rather than silently left at the provider.
+  const { data: existing } = await admin
+    .from("heygen_avatars")
+    .select("provider_avatar_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   try {
-    const created = await createDigitalTwin(name, file);
+    const created = await createDigitalTwin(name, file, requestId);
+
+    const previous = (existing as { provider_avatar_id?: string | null } | null)
+      ?.provider_avatar_id;
+    if (previous && created.groupId && previous !== created.groupId) {
+      await admin.rpc("orphan_twin_avatar", { p_user: user.id, p_avatar_id: previous });
+      log("warn", "a previous twin avatar was displaced and recorded as an orphan", {
+        traceId,
+        previous,
+      });
+    }
 
     // Consent is registered against the group HeyGen just created, using the
     // same footage: the recording opens with the statement read aloud, so it is

@@ -105,10 +105,20 @@ function describeError(value: unknown): string | null {
 export async function createDigitalTwin(
   name: string,
   file: HeygenFile,
+  /**
+   * Sent as `Idempotency-Key`, the same header the consent call already uses.
+   *
+   * Belt and braces rather than the defence itself. HeyGen documents the header
+   * for mutation endpoints but not specifically for this one, so the caller's
+   * durable dispatch claim is what actually stops a second training job; this
+   * only helps if the provider honours it. An unrecognised header is ignored.
+   */
+  idempotencyKey?: string,
 ): Promise<HeygenAvatarResult> {
   const body = await call<CreateAvatarResponse>("/avatars", {
     method: "POST",
     body: JSON.stringify({ type: "digital_twin", name, file }),
+    ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
   });
 
   const item = body.data?.avatar_item ?? null;
