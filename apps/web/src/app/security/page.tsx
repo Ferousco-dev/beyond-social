@@ -5,6 +5,9 @@ import { PageShell, Prose } from "@/components/landing/page-shell";
 
 export const metadata: Metadata = { title: "Security" };
 
+const linkClass =
+  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
 function Section({ title, children }: { title: string; children: ReactNode }): ReactNode {
   return (
     <section className="border-t border-hairline pt-8">
@@ -94,10 +97,13 @@ export default function Page(): ReactNode {
 
         <Section title="Reporting a vulnerability">
           <p>
-            Email security@beyondsocial.app with what you found and how to reproduce it. We will
-            acknowledge it and tell you what we are doing about it. Please give us a chance to fix
-            the issue before you publish it, and please do not access, alter, or delete data that is
-            not yours while testing.
+            Email{" "}
+            <a className={linkClass} href="mailto:security@beyondsocial.app">
+              security@beyondsocial.app
+            </a>{" "}
+            with what you found and how to reproduce it. We will acknowledge it and tell you what we
+            are doing about it. Please give us a chance to fix the issue before you publish it, and
+            please do not access, alter, or delete data that is not yours while testing.
           </p>
           <p>We do not run a paid bounty programme, and we would rather say that than imply one.</p>
         </Section>

@@ -5,6 +5,9 @@ import { PageShell, Prose } from "@/components/landing/page-shell";
 
 export const metadata: Metadata = { title: "Help centre" };
 
+const linkClass =
+  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
 /** One question and its answer. Headings rather than a toggle, so everything is readable and findable at once. */
 function Question({ q, children }: { q: string; children: ReactNode }): ReactNode {
   return (
@@ -116,8 +119,12 @@ export default function Page(): ReactNode {
       <div className="mt-12">
         <Prose>
           <p>
-            If your question is not here, email hello@beyondsocial.app. We would rather answer it
-            directly and then add it to this page than leave you guessing.
+            If your question is not here, email{" "}
+            <a className={linkClass} href="mailto:hello@beyondsocial.app">
+              hello@beyondsocial.app
+            </a>
+            . We would rather answer it directly and then add it to this page than leave you
+            guessing.
           </p>
         </Prose>
       </div>
