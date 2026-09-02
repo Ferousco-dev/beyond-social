@@ -89,6 +89,56 @@ generating a video the voice is absent from.
 - **`HEYGEN_API_KEY` is unset.** Without it every HeyGen path returns
   `provider_unconfigured` (503), including training, which already works.
 
+## Research: what HeyGen actually costs, and one thing to check before paying
+
+Researched 2 September 2026 against HeyGen's own pages.
+
+**Rates, from HeyGen's help centre**, which states them in dollars rather than
+its own credits:
+
+| Output                         | Rate          |
+| ------------------------------ | ------------- |
+| Standard avatar, 720p or 1080p | $1 per minute |
+| Avatar IV, 1080p               | $4 per minute |
+| Video translation              | $2 per minute |
+| Video Agent                    | $2 per minute |
+
+The API is pay as you go, with no subscription: "purchase the exact amount of
+API credits you like".
+
+### Why this still does not settle `HEYGEN_CREDIT_COST`
+
+A dollar rate only converts into this app's credits once a credit has a dollar
+value, and it does not have one yet. Every plan in `lib/billing/plans.ts`
+carries `priceUsd: 0`. So the blocker is not the HeyGen rate, which is now
+known; it is that **this product's own pricing is undecided**, and the twin
+credit cost cannot be derived before it.
+
+### Check this before buying an API key
+
+HeyGen's API pricing page lists **"Digital Twin Creation API"** as
+**Enterprise only**, and secondary sources agree that pay-as-you-go accounts
+can create Photo Avatars but not Digital Twins, while _existing_ Digital Twins
+can be driven by the API on lower tiers.
+
+HeyGen's own help centre contradicts this, saying "any user, including free
+users, can unlock powerful avatar and video features by purchasing any amount
+of API credits", but it does not mention Digital Twins specifically.
+
+The two sources genuinely conflict and neither is conclusive. This matters
+because `functions/train-heygen-avatar` creates a `digital_twin`, which is the
+whole recording flow. **Confirm with HeyGen sales that a pay-as-you-go key can
+call `POST /v3/avatars` with `type: digital_twin` before paying for one.** If it
+cannot, the recording feature needs either an Enterprise contract or a rebuild
+onto Photo Avatars.
+
+### A separate inconsistency this turned up
+
+Plan features advertise "15 videos a month", "100 videos a month" and "400
+videos a month", but the catalogue prices a generation at 3 to 60 credits, so
+100 credits buys roughly sixteen ordinary videos and as few as one or two
+premium ones. The marketing copy and the ledger disagree about what a credit is.
+
 ## Blocked on one paid provider call
 
 `wan/2-6-video-to-video` (restyle) is inserted `is_active = false` in migration
