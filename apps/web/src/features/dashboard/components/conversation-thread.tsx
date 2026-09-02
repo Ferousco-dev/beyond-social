@@ -359,7 +359,13 @@ export function ConversationThread({ thread }: { thread: Thread }) {
                 // dialog the user has already agreed to.
                 result.status === "consent"
                 ? "That confirmation did not save. Try sending again."
-                : result.message,
+                : // The first attempt is still running or already finished, so
+                  // this one created nothing. Refreshing shows the turn that
+                  // did land rather than reporting a failure that did not
+                  // happen.
+                  result.status === "duplicate"
+                  ? "That message was already sent. Refresh to see it."
+                  : result.message,
           );
           return;
         }

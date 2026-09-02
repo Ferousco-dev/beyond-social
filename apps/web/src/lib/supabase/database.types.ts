@@ -2572,6 +2572,10 @@ export type Database = {
           user_id: string;
         }[];
       };
+      claim_idempotency_key: {
+        Args: { p_key: string; p_scope: string; p_stale_after?: unknown };
+        Returns: boolean;
+      };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
         Returns: boolean;
