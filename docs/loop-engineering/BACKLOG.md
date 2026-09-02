@@ -986,11 +986,9 @@ sections` (which carries #210's commits too, being stacked) and running
 - **#212**, `Feranmibranches` → `main`: originally the chat-links/OG-
   image work described in the thirteenth session's successor below; two
   more commits were added on top this session (see the fourteenth
-  session's entry). Local verification (typecheck/lint/build/format,
-  deno check/lint) is clean on the pushed head; CI's own run was still
-  finishing (`Verify`, `Migrations and schema` in progress) as this note
-  was written. Confirm CI actually landed green before treating this PR
-  as done, not just pushed.
+  session's entry), plus this file's own update. CI fully green on the
+  final pushed head (`d9c21ad`): all four workflows (`CI`, `Database`,
+  `Edge functions`, `Security`) passed, `mergeable_state: clean`.
 
 None of the three have been merged: this system does not merge PRs at
 all any more (`TEAM.md`'s PR Checker role, updated since the critical
