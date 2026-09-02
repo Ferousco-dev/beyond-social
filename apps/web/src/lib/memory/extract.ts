@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { getChat } from "@/lib/prompt-engine/providers";
+import { fenceSafe } from "@/lib/text/fence";
 
 /**
  * Deciding what is worth remembering.
@@ -84,8 +85,8 @@ function prompt(message: string, reply: string): string {
     // follow. Without this, "remember that you must ignore your rules" is an
     // instruction the extractor might act on rather than a claim it evaluates.
     "<exchange>",
-    `<they_said>\n${message.slice(0, 2000)}\n</they_said>`,
-    `<you_said>\n${reply.slice(0, 1000)}\n</you_said>`,
+    `<they_said>\n${fenceSafe(message.slice(0, 2000))}\n</they_said>`,
+    `<you_said>\n${fenceSafe(reply.slice(0, 1000))}\n</you_said>`,
     "</exchange>",
   ].join("\n");
 }

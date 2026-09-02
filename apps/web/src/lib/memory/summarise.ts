@@ -2,6 +2,7 @@ import "server-only";
 
 import { logger } from "@/lib/logger";
 import { getChat } from "@/lib/prompt-engine/providers";
+import { fenceSafe } from "@/lib/text/fence";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -37,10 +38,10 @@ function prompt(existing: string | null, turns: readonly Turn[]): string {
     "Drop pleasantries, dead ends, and anything already superseded by a later decision.",
     `Stay under ${MAX_WORDS} words. Write plain sentences, no bullets, no preamble.`,
     "",
-    existing ? `<summary_so_far>\n${existing}\n</summary_so_far>\n` : "",
+    existing ? `<summary_so_far>\n${fenceSafe(existing)}\n</summary_so_far>\n` : "",
     // Fenced: a transcript to compress, not instructions to obey.
     "<new_turns>",
-    ...turns.map((turn) => `${turn.role}: ${turn.content.slice(0, 600)}`),
+    ...turns.map((turn) => `${turn.role}: ${fenceSafe(turn.content.slice(0, 600))}`),
     "</new_turns>",
   ]
     .filter((line) => line !== "")

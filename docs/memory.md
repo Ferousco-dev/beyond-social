@@ -90,11 +90,19 @@ model call per turn to restate what is already stored.
 ## Injection safety
 
 Memories and summaries are derived from the user's own messages and then placed
-in a prompt, which is a path from user input to instruction. Both are fenced and
-labelled as things the model is told _about_ rather than told to do, and the
-extractor is given the transcript inside tags as content to evaluate.
+in a prompt, which is a path from user input to instruction. Both are wrapped in
+labelled tags, so the model is told _about_ them rather than told to do them, and
+the extractor is given the transcript inside tags as content to evaluate.
 
-Fencing is not a guarantee on its own. The reason it is safe enough here is that
+A tag on its own is not a fence. Until 2026-09-02 this section claimed both were
+fenced when only the wrapper existed: the text inside it was interpolated raw, so
+a stored memory containing a closing tag closed its own block early and everything
+after it landed where the model reads our instructions. Every one of those sites
+now passes its text through `fenceSafe`, which is what actually holds the
+boundary. If you add a new place where recalled text reaches a prompt, it goes
+through `fenceSafe` too.
+
+Fencing is still not a guarantee on its own. What limits the blast radius is that
 a memory can only ever influence that same user's own generations: there is no
 path by which one person's stored text reaches another person's prompt.
 
