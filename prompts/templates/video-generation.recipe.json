@@ -8,43 +8,37 @@
       "name": "Foundations and story",
       "categories": ["video-prompting", "narrative", "short-form"],
       "limit": 4,
-      "order": 0,
-      "boost": 1.15
+      "order": 0
     },
     {
       "name": "Cinematography and camera",
       "categories": ["cinematography", "camera-movement", "lighting", "color-grading"],
       "limit": 5,
-      "order": 1,
-      "boost": 1
+      "order": 1
     },
     {
       "name": "Style and format",
       "categories": ["video-style", "video-pattern"],
       "limit": 3,
-      "order": 2,
-      "boost": 1
+      "order": 2
     },
     {
       "name": "Pacing, audio, and edit",
       "categories": ["pacing", "audio", "editing"],
       "limit": 3,
-      "order": 3,
-      "boost": 0.95
+      "order": 3
     },
     {
       "name": "Platform and quality guardrails",
       "categories": ["platform-format", "video-quality"],
       "limit": 3,
-      "order": 4,
-      "boost": 1.05
+      "order": 4
     },
     {
       "name": "Worked examples",
       "categories": ["example"],
       "limit": 2,
-      "order": 5,
-      "boost": 1.1
+      "order": 5
     }
   ],
   "weights": {

@@ -13,7 +13,8 @@ export const generationRequestSchema = z.object({
   platform: platformSchema.optional(),
   styles: z.array(z.string()).default([]),
   brandId: z.string().optional(),
-  /** Free-form section hints, e.g. ["hero", "pricing"], boost matching chunks. */
+  /** Free-form section hints, e.g. ["hero", "pricing"]. They widen the retrieval
+   *  query; there is no separate boost mechanism behind them. */
   sections: z.array(z.string()).default([]),
 });
 export type GenerationRequest = z.infer<typeof generationRequestSchema>;
