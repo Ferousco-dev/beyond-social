@@ -1,47 +1,74 @@
 "use client";
 
-import { type ComponentType, type SVGProps } from "react";
+import { useState } from "react";
 
-import { GitHubIcon, GoogleIcon } from "./brand-icons";
+import { createClient } from "@/lib/supabase/client";
 
-interface ProviderConfig {
-  readonly provider: string;
-  readonly label: string;
-  readonly Icon: ComponentType<SVGProps<SVGSVGElement>>;
-}
+import { enabledProviders, type AuthProvider } from "../providers";
 
 /**
- * Only the providers actually enabled in Supabase.
+ * Signing in with an account somebody already has.
  *
- * Apple and Microsoft buttons used to sit here too. A button for a provider
- * that is not configured does not fail politely: it sends the user to an error
- * page or does nothing, which reads as a broken product rather than an absent
- * feature. Adding one back is a two-line change once its provider is enabled.
+ * These buttons were disabled placeholders wearing a "Soon" pill. They work
+ * now, and which ones exist comes from `NEXT_PUBLIC_AUTH_PROVIDERS` rather than
+ * from a list in this file, so enabling a provider is an environment change.
+ * The old comment here was right about the reason: a button for a provider that
+ * is not configured does not fail politely, it sends somebody to an error page,
+ * which reads as a broken product rather than an absent feature.
+ *
+ * The redirect is built from `window.location.origin`, never from a configured
+ * URL, so this follows the app onto whatever domain serves it with no change
+ * here and none to the environment. See docs/oauth.md.
  */
-const PROVIDERS: readonly ProviderConfig[] = [
-  { provider: "google", label: "Google", Icon: GoogleIcon },
-  { provider: "github", label: "GitHub", Icon: GitHubIcon },
-];
-
 export function SocialAuthButtons() {
+  const providers = enabledProviders();
+  const [busy, setBusy] = useState<AuthProvider | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (providers.length === 0) return null;
+
+  const start = async (provider: AuthProvider): Promise<void> => {
+    setBusy(provider);
+    setError(null);
+    try {
+      const { error: failed } = await createClient().auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: `${window.location.origin}/auth/callback` },
+      });
+      // A success navigates away, so arriving here means it did not.
+      if (failed) throw new Error(failed.message);
+    } catch (caught) {
+      setBusy(null);
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : "That sign-in could not be started.",
+      );
+    }
+  };
+
   return (
     <div>
       <div className="grid grid-cols-1 gap-3">
-        {PROVIDERS.map(({ provider, label, Icon }) => (
+        {providers.map(({ id, label, Icon }) => (
           <button
-            key={provider}
+            key={id}
             type="button"
-            disabled
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium opacity-50 disabled:cursor-not-allowed"
+            disabled={busy !== null}
+            onClick={() => void start(id)}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon className="size-4" aria-hidden />
-            Continue with {label}
-            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-              Soon
-            </span>
+            {busy === id ? "Redirecting" : `Continue with ${label}`}
           </button>
         ))}
       </div>
+
+      {error ? (
+        <p role="alert" className="mt-3 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
