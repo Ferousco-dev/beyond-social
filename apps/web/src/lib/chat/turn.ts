@@ -636,11 +636,23 @@ export async function runTurn(
     return { status: "error", message: "Could not save that message" };
   }
 
+  // The row that was actually written, so the learning candidate and the
+  // conversation index are both keyed on an id that exists.
+  const persistedUserMessage = (turnRows as { id: string; role: string }[] | null)?.find(
+    (row) => row.role === "user",
+  );
+
   // Only a fresh brief teaches the engine anything: an adjustment is a delta
   // and a question is not a prompt at all.
   // Same reasoning as the writes below: worth doing after the reply, worthless
   // if the process is gone before it runs.
-  if (intent.intent === "create") after(() => learnFromPrompt(prompt, finalPrompt));
+  //
+  // Keyed on the persisted message, so a retried ingestion refiles the same
+  // candidate rather than filling the review queue with copies of one prompt.
+  if (intent.intent === "create") {
+    const sourceRef = persistedUserMessage ? `message:${persistedUserMessage.id}` : undefined;
+    after(() => learnFromPrompt(prompt, finalPrompt, sourceRef));
+  }
 
   /*
    * The same judgement applies afterwards, and matters more here: these are
@@ -677,9 +689,7 @@ export async function runTurn(
     // Makes this turn findable by a later "continue what we started". Indexed
     // from the row that was actually written, so the embedding can never point
     // at a message id that does not exist.
-    const userMessage = (turnRows as { id: string; role: string }[] | null)?.find(
-      (row) => row.role === "user",
-    );
+    const userMessage = persistedUserMessage;
     if (userMessage) after(() => indexMessage(userMessage.id, projectId, prompt));
 
     // Also after the fact: the summary is for the *next* turn, so making this

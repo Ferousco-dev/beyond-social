@@ -74,7 +74,10 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
   // Best-effort: let the system learn from the original prompt in the background.
   // `after` rather than a floating promise: this runs once the response is on
   // its way, and on serverless a floating one can be torn down before it does.
-  after(() => learnFromPrompt(prompt, enhanced?.text));
+  // Keyed on the generation, which is already persisted, so a retried
+  // ingestion refiles the same candidate rather than adding another to the
+  // review queue for the same prompt.
+  after(() => learnFromPrompt(prompt, enhanced?.text, `generation:${generationId}`));
 
   return { status: "ok", generationId, sourceChunks: enhanced?.chunkIds ?? [] };
 }

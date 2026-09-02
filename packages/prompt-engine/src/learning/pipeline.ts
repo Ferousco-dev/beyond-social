@@ -32,7 +32,25 @@ export interface IngestPromptInput {
   context?: EvaluationContext;
   policy?: Partial<LearningPolicy>;
   workspaceId?: string;
+  /**
+   * Where this came from, durably. A persisted message or generation id, not a
+   * value invented per attempt: it is both the provenance a reviewer needs to
+   * trace a promoted chunk back to its source, and the seed that makes a
+   * retried ingestion overwrite its own candidates instead of adding more.
+   */
   sourceRef?: string;
+  /**
+   * Who wrote the prompt.
+   *
+   * `user` means attacker-controllable text, and no policy can auto-promote it
+   * into the shared corpus. The knowledge base is read by everybody, so a chunk
+   * derived from one person's prompt reaching it without a human reading it
+   * first is one flag flip away from cross-tenant prompt injection.
+   *
+   * Defaults to `curated`, which is what internal or already-reviewed
+   * ingestion is.
+   */
+  origin?: "user" | "curated";
 }
 
 export interface IngestResult {
@@ -40,6 +58,13 @@ export interface IngestResult {
   candidates: LearningCandidate[];
   autoPromoted: string[];
 }
+
+/**
+ * Bumped when a change to extraction or merging means a re-ingested candidate
+ * should be filed alongside an old one rather than overwriting it. Part of the
+ * derived candidate id below.
+ */
+const CANDIDATE_KEY_VERSION = "v1";
 
 /**
  * The learning loop. Turns a submitted prompt into zero or more reviewed
@@ -74,7 +99,7 @@ export class LearningPipeline {
 
     const candidates: LearningCandidate[] = [];
     const autoPromoted: string[] = [];
-    for (const draft of drafts) {
+    for (const [position, draft] of drafts.entries()) {
       const resolved = await this.resolveAgainstCorpus(draft, policy);
       if (resolved === null) continue; // dropped as duplicate
 
@@ -84,6 +109,7 @@ export class LearningPipeline {
         evaluation,
         input,
         now,
+        position,
       );
       await this.deps.learningStore.recordCandidate(candidate);
       await this.audit(
@@ -94,7 +120,7 @@ export class LearningPipeline {
         {},
       );
 
-      if (this.shouldAutoPromote(evaluation, policy)) {
+      if (this.shouldAutoPromote(evaluation, policy, input.origin)) {
         await this.promoteCandidate(candidate);
         autoPromoted.push(candidate.id);
       }
@@ -218,9 +244,25 @@ export class LearningPipeline {
     evaluation: PromptEvaluation,
     input: IngestPromptInput,
     now: string,
+    position: number,
   ): LearningCandidate {
     return {
-      id: this.deps.newId(),
+      /*
+       * Derived from the source rather than random, when there is a source.
+       *
+       * Ingestion is best effort and runs after the response is on its way, so
+       * it gets retried, and a random id turned every retry into another row in
+       * the review queue for the same message. The store upserts on id, so a
+       * derived one makes a retry idempotent with no migration.
+       *
+       * Keyed by position in the batch rather than by the draft's body, which
+       * an extractor rewrites slightly on every run. A retry that extracts a
+       * different draft at the same position overwrites rather than duplicates,
+       * which is the direction to fail in for a review queue.
+       */
+      id: input.sourceRef
+        ? `${CANDIDATE_KEY_VERSION}:${input.sourceRef}:${position}`
+        : this.deps.newId(),
       draft,
       status: "pending",
       evaluation,
@@ -232,7 +274,20 @@ export class LearningPipeline {
     };
   }
 
-  private shouldAutoPromote(evaluation: PromptEvaluation, policy: LearningPolicy): boolean {
+  private shouldAutoPromote(
+    evaluation: PromptEvaluation,
+    policy: LearningPolicy,
+    origin: IngestPromptInput["origin"],
+  ): boolean {
+    /*
+     * User-originated content is never auto-promoted, whatever the policy says.
+     *
+     * Above the policy check on purpose. The flag that used to decide this is
+     * one toggle, and on the other side of it is attacker-controlled text
+     * entering a corpus every other tenant reads. A rule nobody can
+     * misconfigure beats a default that happens to be safe.
+     */
+    if (origin === "user") return false;
     if (policy.reviewByDefault) return false;
     return (
       evaluation.overall >= policy.autoPromoteAbove &&
