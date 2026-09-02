@@ -42,6 +42,7 @@
     "@beyond-social/ai-gateway": "workspace:*",
     "@beyond-social/env": "workspace:*",
     "@beyond-social/prompt-engine": "workspace:*",
+    "@beyond-social/rate-limit": "workspace:*",
     "@hookform/resolvers": "^5.4.0",
     "@number-flow/react": "^0.6.2",
     "@radix-ui/react-dialog": "^1.1.19",
