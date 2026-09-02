@@ -2,6 +2,7 @@ import "server-only";
 
 import { logger } from "@/lib/logger";
 import { getEmbedder } from "@/lib/prompt-engine/providers";
+import { fenceSafe } from "@/lib/text/fence";
 
 import { type LazyEmbedding } from "./embed-once";
 import { createClient } from "@/lib/supabase/server";
@@ -144,7 +145,7 @@ export function renderRelated(conversations: readonly RelatedConversation[]): st
     "Other work this person has done before, in separate conversations.",
     "Mention it only if they are clearly referring to it, and never assume this message is about it:",
     "<earlier_work>",
-    ...conversations.map((item) => `- ${item.title}: ${item.snippet}`),
+    ...conversations.map((item) => `- ${fenceSafe(item.title)}: ${fenceSafe(item.snippet)}`),
     "</earlier_work>",
   ].join("\n");
 }

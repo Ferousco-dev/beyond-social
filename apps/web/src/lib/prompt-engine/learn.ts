@@ -13,7 +13,6 @@ import {
   type SupabaseRpcClient,
 } from "@beyond-social/prompt-engine";
 
-import { isFlagEnabled } from "@/lib/flags";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 import { logger } from "@/lib/logger";
 import { createServiceClient } from "@/lib/supabase/service";
@@ -52,24 +51,32 @@ function getPipeline(): LearningPipeline {
 
 /**
  * Feeds a submitted prompt (and its output) into the learning pipeline, which
- * evaluates, gates, and, if valuable, files a reviewed candidate. Review-by-
- * default, so nothing enters the base automatically. Best-effort: failures are
- * logged, never thrown, and callers should not await it in the critical path.
+ * evaluates, gates, and, if valuable, files a candidate for review.
+ *
+ * Everything reaching this function was written by a user, so it is marked
+ * `origin: "user"` and the pipeline refuses to auto-promote it at all. That
+ * used to be the `learning_autopromote` flag, defaulting to off. A default is
+ * not a control: on the other side of that toggle was attacker-controlled text
+ * entering the shared corpus every other tenant's prompts retrieve from, which
+ * is cross-tenant prompt injection with a config change in front of it. The
+ * console at `/learning` is where these are read and accepted instead.
+ *
+ * Best-effort: failures are logged, never thrown, and callers should not await
+ * it in the critical path.
  */
 export async function learnFromPrompt(
   prompt: string,
   output?: string,
+  /**
+   * A persisted id for whatever produced this, so a retried ingestion refiles
+   * the same candidate rather than adding a second one, and a reviewer can
+   * trace a promoted chunk back to the message it came from.
+   */
+  sourceRef?: string,
 ): Promise<IngestResult | null> {
   if (!isPromptEngineConfigured) return null;
   try {
-    // Auto-promotion defaults to off: letting learned chunks into the base
-    // without review is the riskier setting, so it must be chosen explicitly.
-    const autoPromote = await isFlagEnabled("learning_autopromote", false);
-    return await getPipeline().ingest({
-      prompt,
-      output,
-      policy: { reviewByDefault: !autoPromote },
-    });
+    return await getPipeline().ingest({ prompt, output, sourceRef, origin: "user" });
   } catch (error) {
     logger.warn("learning ingestion failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -82,9 +89,10 @@ export async function learnFromPrompt(
  * The candidates waiting for a human decision.
  *
  * The pipeline gates everything it does not auto-promote into `pending`, and
- * auto-promotion is off by default, so this queue is where learned knowledge
- * actually goes. It had no reader: the pipeline filed candidates that nothing
- * could list, which is a review step that cannot be performed.
+ * user-originated content can no longer be auto-promoted at all, so this queue
+ * is the only way learned knowledge reaches the base. It had no reader once:
+ * the pipeline filed candidates that nothing could list, which is a review step
+ * that cannot be performed.
  */
 export async function pendingCandidates(): Promise<LearningCandidate[]> {
   if (!isPromptEngineConfigured) return [];

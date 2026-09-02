@@ -51,10 +51,22 @@ export function useStreamedTurn(
   }, []);
 
   const send = useCallback(
-    async (payload: Parameters<typeof sendMessage>[0]): Promise<SendResult> => {
+    async (input: Parameters<typeof sendMessage>[0]): Promise<SendResult> => {
       setSending(true);
       setPartial("");
       setStage(null);
+
+      /*
+       * One key per submission, stamped here so the stream attempt and the
+       * fallback below carry the same one.
+       *
+       * That pairing is the point. The route keeps a disconnected turn running
+       * to completion, deliberately, so the render it started is not orphaned.
+       * Without a shared key the fallback then runs the whole turn again and
+       * pays for a second render; with it, the server recognises the retry and
+       * refuses.
+       */
+      const payload = { ...input, idempotencyKey: input.idempotencyKey ?? crypto.randomUUID() };
 
       const controller = new AbortController();
       abort.current = controller;

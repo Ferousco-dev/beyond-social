@@ -80,11 +80,23 @@ export async function saveBrandAsset(input: z.input<typeof saveSchema>): Promise
      * face kept with nothing recorded.
      */
     const { data: object } = await supabase.storage.from("uploads").download(path);
-    const subject = object
-      ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type)
-      : "person";
+    const classified = object
+      ? await classifySubject(new Uint8Array(await object.arrayBuffer()), object.type, {
+          userId: user.id,
+        })
+      : ({ status: "ok", subject: "person" } as const);
 
-    if (subject === "person") {
+    // Said plainly rather than folded into the message below. Nothing was
+    // asked about this image, so telling someone it looks like a person would
+    // be a refusal they cannot act on.
+    if (classified.status === "rate_limited") {
+      return {
+        status: "error",
+        message: "Too many photos checked just now. Wait a few minutes and try again.",
+      };
+    }
+
+    if (classified.subject === "person") {
       return {
         status: "error",
         message: "That looks like a person. Save it as your avatar instead.",

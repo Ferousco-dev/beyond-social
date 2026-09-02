@@ -26,7 +26,7 @@
 // this closes, without a live provider call anywhere in the loop.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
 import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
@@ -55,8 +55,7 @@ interface StuckGeneration {
   trace_id: string | null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const expected = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -101,7 +100,7 @@ Deno.serve(async (req) => {
 
   let failed = 0;
   for (const row of stuck) {
-    const { error } = await admin.rpc("fail_generation_by_id", {
+    const { data: transitioned, error } = await admin.rpc("fail_generation_by_id", {
       p_generation: row.id,
       p_error: FAIL_REASON,
     });
@@ -110,6 +109,20 @@ Deno.serve(async (req) => {
         traceId: row.trace_id,
         generationId: row.id,
         reason: error.message,
+      });
+      continue;
+    }
+
+    /*
+     * The row settled between the query that found it and this call, which is
+     * the ordinary case for a sweep and not an error. Skipping it here is what
+     * stops a finished render being announced as failed, and before the guard
+     * in `fail_generation_by_id` it was also what refunded one.
+     */
+    if (transitioned !== true) {
+      log("info", "reconcile-generations: candidate settled before it was reconciled", {
+        traceId: row.trace_id,
+        generationId: row.id,
       });
       continue;
     }

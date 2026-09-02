@@ -41,8 +41,10 @@ session used:
    unit at a time, dispatched as real subagents where the work genuinely
    parallelizes (see the Agent/Workflow patterns the marathon session used
    for research-then-build tasks).
-3. Every shipped unit is committed, pushed, opened as a PR, independently
-   re-verified, and merged, per `RULES.md`.
+3. Every shipped unit is committed and pushed to the one shared branch
+   (`Feranmibranches`, see `RULES.md`'s "Branching" section), rolled into
+   that branch's single PR, and independently re-verified, per `RULES.md`.
+   The owner reviews and merges it themselves.
 4. Anything hitting a rule in `RULES.md`'s "always needs the owner" list is
    logged in `BACKLOG.md` under "Needs the owner" and the session moves on.
 5. Before the window ends, `BACKLOG.md` is updated to a true, current state:

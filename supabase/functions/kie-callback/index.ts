@@ -4,7 +4,7 @@
 // charge the credit atomically.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { authenticateCallback } from "../_shared/kie-callback-auth.ts";
 import { parseUrls } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
@@ -20,8 +20,7 @@ interface CallbackBody {
   };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   let body: CallbackBody;
@@ -67,7 +66,7 @@ Deno.serve(async (req) => {
     const resultUrl = generation
       ? await persistRender(admin, generation.user_id, taskId, urls[0])
       : urls[0];
-    const { error } = await admin.rpc("complete_generation", {
+    const { data: transitioned, error } = await admin.rpc("complete_generation", {
       p_provider_task_id: taskId,
       p_result_url: resultUrl,
     });
@@ -84,6 +83,18 @@ Deno.serve(async (req) => {
       });
       return json({ error: "Could not complete the generation" }, 500);
     }
+
+    /*
+     * The database side was already idempotent, so a redelivered callback
+     * changed nothing there. This is what was not: the outbound webhook fired
+     * whether or not the row had transitioned, so a provider retry, and kie.ai
+     * retries three times, told a customer the same render finished again.
+     */
+    if (transitioned !== true) {
+      log("info", "callback ignored for an already completed generation", { traceId, taskId });
+      return json({ received: true });
+    }
+
     log("info", "generation completed", { traceId, taskId });
     if (generation) {
       await deliverEvent(
@@ -101,7 +112,7 @@ Deno.serve(async (req) => {
     }
   } else {
     const reason = body.msg ?? "Generation failed";
-    const { error } = await admin.rpc("fail_generation", {
+    const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: taskId,
       p_error: reason,
     });
@@ -114,6 +125,18 @@ Deno.serve(async (req) => {
       });
       return json({ error: "Could not record the generation failure" }, 500);
     }
+
+    /*
+     * A redelivered or late callback for a run that already settled is not a
+     * failure to report. Announcing one would tell a customer their finished
+     * render failed, and the refund it used to trigger was money leaving on a
+     * video the user already has.
+     */
+    if (transitioned !== true) {
+      log("info", "callback ignored for an already settled generation", { traceId, taskId });
+      return json({ received: true });
+    }
+
     log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
     if (generation) {
       await deliverEvent(

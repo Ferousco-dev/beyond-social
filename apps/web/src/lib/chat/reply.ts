@@ -215,7 +215,7 @@ function planReply(
   // are still sent verbatim, because "make it slower" refers to something a
   // summary would have flattened away.
   const summaryText = context.summary
-    ? `Earlier in this conversation, summarised:\n<summary>\n${context.summary}\n</summary>\n`
+    ? `Earlier in this conversation, summarised:\n<summary>\n${fenceSafe(context.summary)}\n</summary>\n`
     : "";
 
   /*

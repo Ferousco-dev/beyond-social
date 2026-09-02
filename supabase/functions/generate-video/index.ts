@@ -8,7 +8,7 @@
 // balance would still be a moment later.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { buildMarketInput, UnsupportedModelError } from "../_shared/kie-models.ts";
@@ -43,8 +43,7 @@ interface GenerateBody {
   shots?: { prompt?: string; duration?: number }[];
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");

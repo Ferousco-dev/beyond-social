@@ -3,13 +3,12 @@
 // webhook cannot reach the machine.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { corsHeaders, json } from "../_shared/http.ts";
+import { json, serve } from "../_shared/http.ts";
 import { getJobInfo, getRecordInfo } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
 import { log } from "../_shared/trace.ts";
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const authHeader = req.headers.get("Authorization");
@@ -96,7 +95,7 @@ Deno.serve(async (req) => {
     return json({ status: "ready", resultUrl });
   }
   if (info.successFlag === 2 || info.successFlag === 3) {
-    const { error } = await admin.rpc("fail_generation", {
+    const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_error: "Generation failed",
     });
@@ -107,6 +106,24 @@ Deno.serve(async (req) => {
         reason: error.message,
       });
       return json({ error: "Could not sync this generation" }, 500);
+    }
+
+    /*
+     * The provider says failed and the row refused the transition, because the
+     * callback settled it while this poll was in flight. The row is the record,
+     * so it is re-read rather than reported from the copy taken before the call,
+     * which still says `generating`.
+     */
+    if (transitioned !== true) {
+      const { data: settled } = await admin
+        .from("video_generations")
+        .select("status, result_url")
+        .eq("id", generation.id)
+        .single();
+      return json({
+        status: settled?.status ?? generation.status,
+        resultUrl: settled?.result_url ?? null,
+      });
     }
     return json({ status: "failed", resultUrl: null });
   }

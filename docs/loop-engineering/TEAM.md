@@ -108,28 +108,34 @@ without a verification run attached does not ship.
 
 The only role that touches git state. Commits one complete, reviewed unit of
 work at a time with a clear message (no em dashes, no AI attribution, see
-`/CLAUDE.md`). Never commits directly to `main`. Pushes and opens a PR for
-each scoped change rather than batching unrelated work into one.
+`/CLAUDE.md`). Never commits directly to `main`. Since 2026-09-01, per the
+owner's direct instruction (see `RULES.md`'s "Branching" section), all work
+commits and pushes to the single shared branch `Feranmibranches` rather than
+a new branch per scoped change; a PR from that branch is opened (or updated)
+for the owner to review and merge themselves.
 
-## PR Checker (merger)
+## PR Checker
 
-Since CI is currently blocked on the owner's account billing
-(`docs/marathon/SCOPE.md` item 1), this role stands in for the missing gate:
-re-runs the same verification the Tester already ran, independently,
-against the actual pushed branch, before merging. Never merges on the
-strength of the Coder's or Debugger's own claim that it works. Merges only
-what a real senior reviewer would approve on sight. The moment CI is
-unblocked, this role's job shrinks to confirming CI is green rather than
-re-deriving the verification itself, but the merge-only-after-independent-
-confirmation discipline does not go away.
+CI is no longer blocked (confirmed 2026-08-23) and this role no longer
+merges: merging is the owner's, both under the standing critical-section
+hold on unattended merges (`BACKLOG.md`, since merging to `main` triggers a
+real production deploy) and now under the owner's direct instruction that
+they review the PR themselves. This role's job is independent verification
+before handing off: re-runs the same checks the Tester already ran against
+the actual pushed branch and confirms CI is green, so the PR the owner
+opens `Feranmibranches` against is one a real senior reviewer would approve
+on sight, never merged on the strength of the Coder's or Debugger's own
+claim.
 
 ## Handoff order
 
 Task Manager picks the work → Designer/UX or Coder implements (Debugger
 instead, if the work is a bug) → AI-Slop Auditor and Code Reviewer both
-check the diff → Tester verifies → Git Manager commits, pushes, opens the PR
-→ PR Checker independently re-verifies and merges → Task Manager picks the
-next item. The Billing/Growth Designer lens applies inside any UX pass, not
-as a separate stage. A role can send work backward (Reviewer to Coder,
-Tester to Debugger) rather than forcing something through that is not
+check the diff → Tester verifies → Git Manager commits and pushes to
+`Feranmibranches`, opens or updates the one PR from it → PR Checker
+independently re-verifies and leaves it for the owner to merge → Task
+Manager picks the next item. The Billing/Growth Designer lens applies
+inside any UX pass, not as a separate stage. A role can send work backward
+(Reviewer to Coder, Tester to Debugger) rather than forcing something
+through that is not
 ready.

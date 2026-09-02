@@ -2572,9 +2572,13 @@ export type Database = {
           user_id: string;
         }[];
       };
+      claim_idempotency_key: {
+        Args: { p_key: string; p_scope: string; p_stale_after?: unknown };
+        Returns: boolean;
+      };
       complete_generation: {
         Args: { p_provider_task_id: string; p_result_url: string };
-        Returns: undefined;
+        Returns: boolean;
       };
       count_webhook_failure: { Args: { p_webhook: string }; Returns: undefined };
       create_organization: {
@@ -2597,11 +2601,21 @@ export type Database = {
       };
       fail_generation: {
         Args: { p_error: string; p_provider_task_id: string };
-        Returns: undefined;
+        Returns: boolean;
       };
       fail_generation_by_id: {
         Args: { p_error: string; p_generation: string };
-        Returns: undefined;
+        Returns: boolean;
+      };
+      upsert_conversation_summary: {
+        Args: {
+          p_covered_through: string;
+          p_message_count: number;
+          p_project: string;
+          p_summary: string;
+          p_user: string;
+        };
+        Returns: boolean;
       };
       grant_credits: {
         Args: {

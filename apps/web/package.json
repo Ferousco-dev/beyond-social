@@ -18,6 +18,7 @@
     "test:brief": "tsx --tsconfig scripts/tsconfig.json scripts/brief-smoke.ts",
     "test:script": "tsx --tsconfig scripts/tsconfig.json scripts/script-smoke.ts",
     "test:fence": "tsx --tsconfig scripts/tsconfig.json scripts/fence-smoke.ts",
+    "test:memory-poisoning": "tsx --tsconfig scripts/tsconfig.json scripts/memory-poisoning-smoke.ts",
     "test:credit-warning": "tsx --tsconfig scripts/tsconfig.json scripts/credit-warning-smoke.ts",
     "test:hook-score": "tsx --tsconfig scripts/tsconfig.json scripts/hook-score-smoke.ts",
     "test:hook-taxonomy": "tsx --tsconfig scripts/tsconfig.json scripts/hook-taxonomy-smoke.ts",

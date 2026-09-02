@@ -58,6 +58,13 @@ export async function abandonRun(
   admin: SupabaseClient,
   generationId: string,
   reason: string,
-): Promise<void> {
-  await admin.rpc("fail_generation_by_id", { p_generation: generationId, p_error: reason });
+): Promise<boolean> {
+  // False means the run had already settled, so nothing was refunded. Returned
+  // rather than swallowed: a caller that announces a failure needs to know
+  // whether one actually happened.
+  const { data } = await admin.rpc("fail_generation_by_id", {
+    p_generation: generationId,
+    p_error: reason,
+  });
+  return data === true;
 }
