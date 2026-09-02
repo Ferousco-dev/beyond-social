@@ -55,6 +55,31 @@ So three rows that read "partially wired" are one missing dialog.
 the one-avatar-per-user constraint and added `is_default`. Any user with two
 avatars now makes that call error. It must select the default.
 
+## Voice-only is not a wiring job, and has a better answer
+
+The earlier summary said audio "is stored/attached but is not supplied to the
+normal video model", implying it only needs connecting. It does not.
+
+Every avatar model this app can run requires **both** a photo and audio.
+`functions/generate-avatar/index.ts:78` refuses outright without both, and the
+three models it accepts (`infinitalk/from-audio`, `kling/ai-avatar-standard`,
+`kling/ai-avatar-pro`) are all image plus audio. No video model in
+`kie-models.ts` takes an audio field at all.
+
+So "prompt + voice, no photo" cannot be served by connecting an existing wire.
+It would need either a provider capability nobody has, or generating the video
+and muxing the audio afterwards, which is a job for `services/render`, which is
+not deployed.
+
+There is a better answer that works today. A person who attaches a voice clip
+and no photo usually **has a saved photo already**: `lib/assets/brand.ts:93`
+returns their saved avatar. Falling back to it turns an impossible request into
+a correct avatar render, using only what is already wired.
+
+That leaves one genuinely empty case, a voice with no photo saved and none
+attached, which should say so and offer to save one rather than silently
+generating a video the voice is absent from.
+
 ## Blocked on a decision only the owner can make
 
 - **`HEYGEN_CREDIT_COST` is unset**, so twin generation refuses with `unpriced`.
