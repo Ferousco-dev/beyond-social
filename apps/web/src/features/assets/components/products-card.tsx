@@ -59,7 +59,33 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
   }
 
   return (
-    <section className="rounded-2xl border border-hairline bg-paper p-6">
+    <section className="relative isolate overflow-hidden rounded-2xl border border-hairline bg-paper p-6">
+      {/*
+       * A still life behind the empty state, and only behind the empty state.
+       *
+       * It is set dressing for a shelf with nothing on it yet, so it is heavily
+       * washed out and sits under the copy rather than beside it. The moment a
+       * real product is saved it disappears: a photographed bottle in a panel
+       * headed "your products" would otherwise read as a product somebody has,
+       * and this panel must only ever show pictures they actually uploaded.
+       */}
+      {shelf.items.length === 0 ? (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/product-still.jpg"
+            alt=""
+            className="absolute inset-0 size-full object-cover opacity-25"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(to right, var(--paper) 12%, color-mix(in srgb, var(--paper) 78%, transparent) 52%, color-mix(in srgb, var(--paper) 55%, transparent) 100%)",
+            }}
+          />
+        </div>
+      ) : null}
       <div className="flex items-center gap-3">
         <span
           aria-hidden
