@@ -6,6 +6,7 @@ import { type ChatMessage } from "@/lib/chat/thread";
 import { CopyButton } from "./copy-button";
 import { GeneratingDraft } from "./generating-draft";
 import { MessageAttachments } from "./message-attachments";
+import { ReplyText } from "./reply-text";
 import { VideoDraftCard } from "./video-draft-card";
 
 export function MessageBubble({
@@ -43,7 +44,7 @@ export function MessageBubble({
     <div className="group/message text-ink">
       {message.content ? (
         <>
-          <p className="whitespace-pre-wrap leading-7">{message.content}</p>
+          <ReplyText reply={message.content} />
           {/* Revealed on hover so the thread stays quiet while reading, and shown
               outright where there is no hover, because otherwise a phone has no way
               to copy a reply. */}
