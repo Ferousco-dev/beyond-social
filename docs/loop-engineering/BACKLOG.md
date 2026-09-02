@@ -8,6 +8,23 @@ real repo state before acting on it.
 Seeded 2026-08-22, right after the 2026-08-21 marathon session (17+ PRs
 merged that day, `docs/marathon/SCOPE.md` has the full record).
 
+## Policy, 2026-09-01: one shared branch, `Feranmibranches`
+
+The owner gave this directly, live, in conversation (not through a
+scheduled session): stop creating a new branch per task or per fix, too
+many branches is itself a problem. All work, from any session, now
+commits and pushes to one shared branch, literally named
+`Feranmibranches`, with a single PR opened from it that the owner reviews
+and merges themselves. `CLAUDE.md`, `RULES.md`, `TEAM.md`, and
+`START_HERE.md` are all updated to match; `RULES.md`'s "Branching"
+section is the fullest statement of it. As of this note the branch had
+not been created yet ("will be created soon", the owner's words); the
+first session to run after it exists should confirm it's there before
+pushing, and flag here if it still isn't. This does not relax the
+existing hold on unattended merges (see the critical section right
+below): it was already true that the owner merges, this just also
+changes how branches are cut before that point.
+
 ## Critical, found 2026-08-29: merging to `main` now deploys to production
 
 `.github/workflows/ci.yml`'s `deploy-production` job runs `vercel deploy
