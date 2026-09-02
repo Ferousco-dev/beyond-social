@@ -45,8 +45,9 @@ export async function guardApiRequest(request: Request): Promise<Guarded> {
     };
   }
 
-  // Throttled per key: an authenticated caller can still exhaust the database.
-  const limit = checkApiRateLimit(caller.userId);
+  // Throttled per key, and across instances: an authenticated caller can still
+  // exhaust the database, and a per-instance counter is no obstacle on serverless.
+  const limit = await checkApiRateLimit(caller.userId);
   if (!limit.allowed) {
     return {
       ok: false,
