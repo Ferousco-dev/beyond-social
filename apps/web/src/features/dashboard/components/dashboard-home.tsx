@@ -1,5 +1,8 @@
 "use client";
 
+import { type Route } from "next";
+import Link from "next/link";
+
 import { Radio } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -124,17 +127,20 @@ export function DashboardHome({
       ) : null}
 
       <div className="mt-5 flex flex-wrap justify-center gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            setLiveError(null);
-            setLive(true);
-          }}
+        {/*
+         * Goes to the avatar screen rather than opening the camera dialog
+         * beside it. That dialog grabs a single still frame for a photo-plus-
+         * voice render, which is a different feature that happens to also use a
+         * camera; "Go live" reads as the reusable likeness, and sending it to a
+         * still capture is why nobody could find the recorder.
+         */}
+        <Link
+          href={"/dashboard/avatar/new" as Route}
           className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
         >
           <Radio className="size-4" aria-hidden />
           Go live
-        </button>
+        </Link>
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion.label}

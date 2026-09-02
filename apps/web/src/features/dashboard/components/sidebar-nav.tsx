@@ -7,6 +7,7 @@ import {
   PenSquare,
   Shapes,
   TrendingUp,
+  UserRoundCheck,
   type LucideIcon,
 } from "lucide-react";
 import { type Route } from "next";
@@ -63,6 +64,13 @@ const LINKS: readonly NavLink[] = [
     icon: Shapes,
     // The shapes settling into place, which is what saving one of these does.
     motion: "group-hover:scale-110 group-hover:-rotate-6",
+  },
+  {
+    href: "/dashboard/avatar/new" as Route,
+    label: "Your avatar",
+    icon: UserRoundCheck,
+    // The tick settling, which is what finishing a recording does.
+    motion: "group-hover:scale-110",
   },
   {
     href: "/dashboard/schedule" as Route,
