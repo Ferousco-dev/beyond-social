@@ -1,13 +1,11 @@
 "use client";
 
 import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { type Theme } from "@/lib/theme";
-import { applyTheme } from "@/lib/theme-client";
+import { applyTheme, writeTheme } from "@/lib/theme-client";
 import { cn } from "@/lib/utils";
-
-import { saveTheme } from "../actions";
 
 const OPTIONS: readonly { value: Theme; label: string; hint: string; icon: LucideIcon }[] = [
   { value: "light", label: "Light", hint: "The default", icon: Sun },
@@ -17,22 +15,18 @@ const OPTIONS: readonly { value: Theme; label: string; hint: string; icon: Lucid
 
 export function ThemePicker({ current }: { current: Theme }) {
   const [selected, setSelected] = useState<Theme>(current);
-  const [pending, startTransition] = useTransition();
 
   function choose(theme: Theme): void {
     setSelected(theme);
 
-    // Applied immediately rather than waiting for the round trip. The cookie is
-    // what makes it survive a return visit; this is what makes it feel instant.
+    // Both halves happen here: the class is what makes the click instant, the
+    // cookie is what makes it survive a return visit.
     applyTheme(theme);
-
-    startTransition(async () => {
-      await saveTheme({ theme });
-    });
+    writeTheme(theme);
   }
 
   return (
-    <fieldset className="rounded-xl border border-hairline bg-paper p-5" disabled={pending}>
+    <fieldset className="rounded-xl border border-hairline bg-paper p-5">
       <legend className="px-1 text-sm font-semibold text-ink">Theme</legend>
       <p className="mt-1 text-xs text-ink-soft">
         Saved to this browser, so it is still set when you come back.
