@@ -214,3 +214,17 @@
     transform: rotate(1turn);
   }
 }
+
+/*
+ * Slowed rather than stopped when motion is reduced.
+ *
+ * A spinner is the one animation that carries meaning: it is the only thing on
+ * screen saying the wait is normal, so removing it leaves somebody staring at a
+ * frozen mark wondering if it broke. Reducing motion sickness is served by
+ * taking the speed out, not the signal.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}
