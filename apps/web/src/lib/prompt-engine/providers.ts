@@ -33,11 +33,13 @@ import {
   type SupabaseRpcClient,
   type VectorStore,
 } from "@beyond-social/prompt-engine";
+import { RATE_LIMIT_POLICIES } from "@beyond-social/rate-limit";
 
 import { currentAiUser } from "@/lib/ai/request-user";
 import { currentAiOrg } from "@/lib/ai/request-org";
 import { currentTrace } from "@/lib/observability/trace";
 import { logger } from "@/lib/logger";
+
 import { SupabaseRateLimiter } from "@/lib/ai/shared-limiter";
 import { SupabaseSpendReader } from "@/lib/ai/spend-reader";
 import { serverEnv } from "@/lib/server-env";
@@ -189,7 +191,7 @@ function getGateway(): AiGateway {
      */
     limiter: new TieredLimiter([
       new TokenBucketLimiter({ capacity: 120_000, refillPerSec: 400 }),
-      new SupabaseRateLimiter({ bucket: "ai", limit: 150, windowSeconds: 600 }),
+      new SupabaseRateLimiter(RATE_LIMIT_POLICIES.aiGateway),
     ]),
     /*
      * Usage rows, cache writes and limiter settlement all run beside the

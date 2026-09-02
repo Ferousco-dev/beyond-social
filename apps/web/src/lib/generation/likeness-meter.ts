@@ -25,19 +25,27 @@ const CLASSIFIER_MODEL = "gemini-2.5-flash";
 const limiter = new SharedRateLimiter({
   store: supabaseRateLimitStore(),
   onUnavailable: ({ error }) => {
-    logger.warn("image classification limit unavailable, allowing", { error });
+    logger.error("image classification limit unavailable, skipping the model", { error });
   },
 });
+
+export type ClassifyPermission = "allowed" | "throttled" | "unavailable";
 
 /**
  * Whether this user may spend another classification.
  *
- * Fails open, like the other spend controls and unlike the auth ones: a
- * database blip must not start refusing uploads, and the ceiling this protects
- * is a budget rather than a door.
+ * Fails closed on the model call, like the gateway: an unreachable counter
+ * means paid calls with nothing counting them, which is not a ceiling.
+ *
+ * Failing closed here does not mean failing the upload, and the distinction is
+ * what keeps a cost control from becoming an outage. `unavailable` is reported
+ * separately from `throttled` so the caller can skip the model and answer the
+ * likeness question the safe way instead: no money spent, nobody blocked.
  */
-export async function mayClassify(userId: string): Promise<boolean> {
-  return (await limiter.check("imageClassification", userId)).ok;
+export async function mayClassify(userId: string): Promise<ClassifyPermission> {
+  const outcome = await limiter.check("imageClassification", userId);
+  if (outcome.ok) return "allowed";
+  return outcome.reason === "unavailable" ? "unavailable" : "throttled";
 }
 
 export interface ClassifierUsage {

@@ -47,13 +47,32 @@ export const RATE_LIMIT_POLICIES = {
     windowSeconds: 60,
     onUnavailable: "open",
   },
-  /** Image classification on upload, keyed per user. A cost control, not an
-   *  auth control, so an unreachable counter must not break uploads. */
+  /** Every AI gateway call, keyed per user. The spend ceiling.
+   *
+   *  Fails closed. An unreachable counter here means model calls are being made
+   *  with nothing counting them, and a limiter that cannot count is not a
+   *  ceiling. The operational cost is real, a database blip stops the AI
+   *  features rather than degrading them, and it is the trade the audit asked
+   *  for: unmetered spend on a serverless fleet has no upper bound, and the
+   *  in-process bucket in front of this is per instance. */
+  aiGateway: {
+    bucket: "ai",
+    limit: 150,
+    windowSeconds: 600,
+    onUnavailable: "closed",
+  },
+  /** Image classification on upload, keyed per user.
+   *
+   *  Fails closed like the gateway, because it is the same kind of thing: a
+   *  paid model call. What the caller does with a refusal is what keeps this
+   *  from breaking uploads. See `likeness.ts`: an unavailable limiter skips the
+   *  model and resolves the likeness question the safe way instead, so no money
+   *  is spent and nobody is blocked. */
   imageClassification: {
     bucket: "classify-image",
     limit: 60,
     windowSeconds: 600,
-    onUnavailable: "open",
+    onUnavailable: "closed",
   },
 } as const satisfies Record<string, RateLimitPolicy>;
 

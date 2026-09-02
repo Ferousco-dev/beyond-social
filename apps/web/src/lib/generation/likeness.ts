@@ -83,9 +83,24 @@ export async function classifySubject(
     return { status: "ok", subject: "person" };
   }
 
-  if (!(await mayClassify(context.userId))) {
+  const permission = await mayClassify(context.userId);
+
+  /*
+   * Two refusals that mean different things.
+   *
+   * `throttled` is this person having asked too often, and saying so is
+   * actionable. `unavailable` is our own counter being unreachable, which they
+   * can do nothing about: refusing the upload over it would turn a cost control
+   * into an outage. So the model is skipped, no money is spent, and the
+   * likeness question resolves the way every other failure here resolves, which
+   * is towards asking for consent.
+   */
+  if (permission === "throttled") {
     logger.warn("image classification refused by the rate limit", { userId: context.userId });
     return { status: "rate_limited" };
+  }
+  if (permission === "unavailable") {
+    return { status: "ok", subject: "person" };
   }
 
   const startedAt = Date.now();

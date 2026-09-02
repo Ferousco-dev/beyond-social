@@ -15,27 +15,38 @@ import { supabaseRateLimitStore } from "@/lib/rate-limit-store";
  * pays for the expensive one.
  */
 
-export type SharedLimitOptions = Pick<RateLimitPolicy, "limit" | "windowSeconds" | "bucket">;
+export type SharedLimitOptions = Pick<RateLimitPolicy, "limit" | "windowSeconds" | "bucket"> &
+  Partial<Pick<RateLimitPolicy, "onUnavailable">>;
 
 export class SupabaseRateLimiter implements RateLimiter {
   private readonly limiter = new SharedRateLimiter({
     store: supabaseRateLimitStore(),
     onUnavailable: ({ bucket, error }) => {
-      logger.warn("shared rate limit unavailable, allowing", { bucket, error });
+      /*
+       * An error rather than a warning, and the severity is the point.
+       *
+       * This used to fail open and log a warning, arguing that a database blip
+       * should not take every AI feature offline. That argument loses to what
+       * failing open actually means here: model calls carry on with nothing
+       * counting them, on a fleet where the only remaining limiter is per warm
+       * instance. A ceiling that stops applying exactly when the database is
+       * unwell is not a ceiling, and the bill does not care.
+       *
+       * It denies now, and this line is what tells somebody why the AI features
+       * went quiet. The most likely cause is a service-role key that does not
+       * match the database it is pointed at.
+       */
+      logger.error("shared AI rate limit unavailable, denying", { bucket, error });
     },
   });
 
   constructor(private readonly options: SharedLimitOptions) {}
 
   async take(key: string): Promise<RateLimitDecision> {
-    /*
-     * Fails open, and this is the one judgement call in the file. Failing
-     * closed would turn a database blip into a total outage of every AI
-     * feature, which is a bigger incident than the one being prevented. The
-     * local token bucket is still in front of this, so an open failure degrades
-     * to a per-instance limit rather than to no limit at all.
-     */
-    const outcome = await this.limiter.checkPolicy({ ...this.options, onUnavailable: "open" }, key);
+    const outcome = await this.limiter.checkPolicy(
+      { onUnavailable: "closed", ...this.options },
+      key,
+    );
     return { allowed: outcome.ok, retryAfterMs: outcome.retryAfterMs };
   }
 }
