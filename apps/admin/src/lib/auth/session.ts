@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_AUDIT_ACTIONS, recordRefusal } from "./audit";
 import { type AuthDatabase } from "./database";
 import { env } from "./env";
+import { assuranceOf, mfaDestination, mfaRequired, MFA_PATHS } from "./mfa";
 import { notFoundResponse } from "./not-found";
 import { clientIp } from "./request";
 
@@ -78,6 +79,36 @@ export async function updateAdminSession(request: NextRequest): Promise<NextResp
       ip: clientIp(request.headers),
     });
     return notFoundResponse();
+  }
+
+  const onMfaPath = MFA_PATHS.includes(pathname);
+
+  /*
+   * Enrolment is reachable whether or not enforcement is on, and that ordering
+   * is what makes enforcement safe to turn on: an admin can set up a factor and
+   * confirm it works first. Gating enrolment behind the flag would mean the
+   * only way to enrol is to already be enforcing, which is the lockout.
+   */
+  if (mfaRequired() && !onMfaPath) {
+    const outcome = await assuranceOf(supabase);
+    const destination = mfaDestination(outcome);
+    if (destination) {
+      if (outcome.state === "unknown") {
+        await recordRefusal({
+          action: AUTH_AUDIT_ACTIONS.mfaUnresolved,
+          targetType: "admin_route",
+          targetId: pathname,
+          summary: `Assurance level could not be established: ${outcome.reason}`,
+          actorId: user.id,
+          actorEmail: user.email ?? "unknown",
+          ip: clientIp(request.headers),
+        });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = destination;
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   if (isSignIn) {
