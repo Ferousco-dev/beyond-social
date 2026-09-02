@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { ATTACHMENT_KINDS, type AttachmentKind } from "./attachment-kinds";
+
 import { logger } from "@/lib/logger";
 import { type createClient } from "@/lib/supabase/server";
 
@@ -19,8 +21,9 @@ import { type createClient } from "@/lib/supabase/server";
  * `asset_kind`: user video lives in a different bucket and this module signs
  * against `uploads` only.
  */
-export const ATTACHMENT_KINDS = ["photo", "audio"] as const;
-export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
+// Re-exported so existing server-side callers keep one import, while the
+// definition stays somewhere the client can reach.
+export { ATTACHMENT_KINDS, type AttachmentKind } from "./attachment-kinds";
 
 /** Mirrors the `jsonb_build_object` in `project_thread`. */
 export const attachmentRowSchema = z.object({

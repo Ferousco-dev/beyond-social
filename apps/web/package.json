@@ -26,6 +26,7 @@
     "test:prompt-registry": "tsx --tsconfig scripts/tsconfig.json scripts/prompt-registry-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
     "test:model": "tsx --tsconfig scripts/tsconfig.json scripts/model-smoke.ts",
+    "test:model-confirm": "tsx --tsconfig scripts/tsconfig.json scripts/model-confirm-smoke.ts",
     "test:followup": "tsx --tsconfig scripts/tsconfig.json scripts/followup-smoke.ts",
     "test:entitlements": "tsx --tsconfig scripts/tsconfig.json scripts/entitlements-smoke.ts",
     "test:history": "tsx --tsconfig scripts/tsconfig.json scripts/history-smoke.ts",

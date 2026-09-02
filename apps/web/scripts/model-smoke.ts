@@ -56,12 +56,15 @@ const CATALOG: readonly CatalogModel[] = [
 const choose = (
   prompt: string,
   plan: "free" | "creator" | "studio",
-  extra: { hasFaceAndVoice?: boolean; hasFootage?: boolean } = {},
+  extra: { hasFaceAndVoice?: boolean; hasVoice?: boolean; hasFootage?: boolean } = {},
 ) =>
   selectModel({
     prompt,
     plan,
     hasFaceAndVoice: extra.hasFaceAndVoice ?? false,
+    // A face and a voice implies the voice, so the caller only has to say so
+    // for the case that matters: a clip sent on its own.
+    hasVoice: extra.hasVoice ?? extra.hasFaceAndVoice ?? false,
     hasFootage: extra.hasFootage ?? false,
     catalog: CATALOG,
   });
@@ -200,6 +203,7 @@ const choose = (
     prompt: "anything",
     plan: "free",
     hasFaceAndVoice: false,
+    hasVoice: false,
     hasFootage: false,
     catalog: [],
   });
@@ -214,6 +218,7 @@ const choose = (
     prompt: "anything",
     plan: "free",
     hasFaceAndVoice: false,
+    hasVoice: false,
     hasFootage: false,
     catalog: offline,
   });
@@ -251,6 +256,7 @@ const choose = (
     prompt: "make this look like film",
     plan: "studio",
     hasFaceAndVoice: false,
+    hasVoice: false,
     hasFootage: true,
     catalog: withRestyle,
   });
@@ -258,6 +264,56 @@ const choose = (
     "an active restyle model is what footage reaches",
     out?.modelId === "wan/2-6-video-to-video",
     out?.modelId ?? "none",
+  );
+}
+
+{
+  // What a declined upgrade falls back to, and what the card quotes as the
+  // ordinary price. Reading the wrong one would put a number on screen that is
+  // not the one billed.
+  const out = choose("match the movement from this clip", "studio", { hasFootage: true });
+  check(
+    "a costlier choice carries the everyday model it is priced against",
+    out?.alternative?.modelId === "kling-3.0/video" && out.alternative.creditCost === 30,
+    `${out?.alternative?.modelId} ${out?.alternative?.creditCost}cr`,
+  );
+}
+
+{
+  const out = choose("a video about my coffee shop", "free");
+  check(
+    "the everyday model is its own alternative, so declining is always answerable",
+    out?.alternative?.modelId === "veo3_fast",
+    out?.alternative?.modelId ?? "none",
+  );
+}
+
+{
+  // Nothing in the catalogue speaks a clip without a face to put it on, so the
+  // audio is dropped. It used to be dropped without a word.
+  const out = choose("read this out for me", "free", { hasVoice: true });
+  check(
+    "a voice clip with no photo is reported as unusable",
+    out?.voiceIgnored === true && out.modelId === "veo3_fast",
+    `${out?.modelId} voiceIgnored=${out?.voiceIgnored}`,
+  );
+}
+
+{
+  const out = choose("say hello to the camera", "free", { hasFaceAndVoice: true });
+  check(
+    "a voice paired with a face is used, so nothing is reported dropped",
+    out?.voiceIgnored === false,
+    String(out?.voiceIgnored),
+  );
+}
+
+{
+  const out = choose("a video about my coffee shop", "free");
+  check(
+    "no voice attached reports nothing about one",
+    out?.voiceIgnored === false,
+    String(out?.voiceIgnored),
   );
 }
 
