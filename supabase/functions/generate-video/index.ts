@@ -9,6 +9,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
+import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { buildMarketInput, UnsupportedModelError } from "../_shared/kie-models.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
@@ -77,8 +78,7 @@ Deno.serve(async (req) => {
   const aspectRatio =
     body.aspectRatio === "16:9" || body.aspectRatio === "Auto" ? body.aspectRatio : "9:16";
 
-  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const callBackUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/kie-callback?token=${callbackSecret}`;
+  const callBackUrl = callbackUrl();
 
   let referenceUrls: string[] | undefined;
   try {

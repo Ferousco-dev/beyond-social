@@ -1,12 +1,12 @@
 // Public webhook that kie.ai calls when a generation finishes. It is not
-// JWT-protected (kie.ai cannot send a Supabase JWT), so it is guarded by a
-// shared secret in the query string and uses the service role to finalize
-// the generation and charge the credit atomically.
+// JWT-protected (kie.ai cannot send a Supabase JWT), so it authenticates the
+// caller itself and uses the service role to finalize the generation and
+// charge the credit atomically.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
+import { authenticateCallback } from "../_shared/kie-callback-auth.ts";
 import { parseUrls } from "../_shared/kie.ts";
-import { timingSafeEqual } from "../_shared/security.ts";
 import { persistRender } from "../_shared/store.ts";
 import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
@@ -24,13 +24,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  const url = new URL(req.url);
-  const expected = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const provided = url.searchParams.get("token") ?? "";
-  if (!expected || !timingSafeEqual(provided, expected)) {
-    return json({ error: "Forbidden" }, 403);
-  }
-
   let body: CallbackBody;
   try {
     body = (await req.json()) as CallbackBody;
@@ -40,6 +33,18 @@ Deno.serve(async (req) => {
 
   const taskId = body.data?.taskId;
   if (!taskId) return json({ error: "Missing taskId" }, 400);
+
+  /*
+   * Parsed before it is authenticated, because the provider signs the task id
+   * and the id lives in the body. Nothing has been acted on at this point: the
+   * body is still just text that claims a task id, and the signature is what
+   * decides whether that claim is worth anything.
+   */
+  const auth = await authenticateCallback(req, taskId);
+  if (!auth.ok) {
+    log("warn", "callback rejected", { taskId, reason: auth.reason });
+    return json({ error: "Forbidden" }, 403);
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
