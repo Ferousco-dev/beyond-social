@@ -55,7 +55,7 @@ So three rows that read "partially wired" are one missing dialog.
 the one-avatar-per-user constraint and added `is_default`. Any user with two
 avatars now makes that call error. It must select the default.
 
-## Voice-only is not a wiring job, and has a better answer
+## Voice-only: what it needed, and what was done (fixed)
 
 The earlier summary said audio "is stored/attached but is not supplied to the
 normal video model", implying it only needs connecting. It does not.
@@ -76,9 +76,14 @@ and no photo usually **has a saved photo already**: `lib/assets/brand.ts:93`
 returns their saved avatar. Falling back to it turns an impossible request into
 a correct avatar render, using only what is already wired.
 
-That leaves one genuinely empty case, a voice with no photo saved and none
-attached, which should say so and offer to save one rather than silently
-generating a video the voice is absent from.
+That is what now happens. The saved face is paired with the clip and the turn
+becomes an avatar render, and the face is drawn into the turn that used it
+rather than reached for silently. The server still re-checks path ownership and
+the likeness attestation, so the client offers a candidate rather than granting
+anything.
+
+The one genuinely empty case, a voice with no photo saved and none attached,
+says so and says where to fix it.
 
 ## Blocked on a decision only the owner can make
 
