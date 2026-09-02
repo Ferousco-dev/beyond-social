@@ -39,6 +39,31 @@ export async function reserveCredits(
   const { data, error } = await admin.rpc("reserve_generation_credits", {
     p_generation: generationId,
   });
+  return settle(data, error);
+}
+
+/**
+ * The same hold, at a price the caller states rather than one the catalogue
+ * knows.
+ *
+ * `model_catalog` prices the kie models, and a provider that is not billed per
+ * run has no row there to read. Rather than invent one, the price travels from
+ * whichever gate decided the run may happen at all, and lands in the same
+ * locked check-and-debit so the two paths cannot drift apart.
+ */
+export async function reserveCreditsAt(
+  admin: SupabaseClient,
+  generationId: string,
+  cost: number,
+): Promise<Reservation> {
+  const { data, error } = await admin.rpc("reserve_generation_credits_at", {
+    p_generation: generationId,
+    p_cost: cost,
+  });
+  return settle(data, error);
+}
+
+function settle(data: unknown, error: { message: string } | null): Reservation {
   if (error) {
     return { held: false, reason: "Could not reserve the credits for this video", status: 500 };
   }

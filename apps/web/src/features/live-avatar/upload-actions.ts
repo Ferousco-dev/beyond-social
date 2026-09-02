@@ -145,11 +145,19 @@ export async function twinStatus(): Promise<TwinStatus> {
   if (!user) return empty;
 
   const [avatar, handoff] = await Promise.all([
+    /*
+     * Ordered rather than fetched as the caller's one row. Since a person may
+     * hold several avatars, `.maybeSingle()` here threw the moment somebody
+     * recorded a second one; this screen is watching the recording that was
+     * just made, which is the newest, and the library orders itself the same
+     * way so the two never disagree about which avatar is being talked about.
+     */
     supabase
       .from("heygen_avatars")
       .select("training_status, provider_error")
       .eq("user_id", user.id)
-      .maybeSingle(),
+      .order("created_at", { ascending: false })
+      .limit(1),
     supabase
       .from("avatar_handoffs")
       .select("storage_path, claimed_at")
@@ -159,10 +167,12 @@ export async function twinStatus(): Promise<TwinStatus> {
       .maybeSingle(),
   ]);
 
-  const row = avatar.data as {
-    training_status: TrainingState;
-    provider_error: string | null;
-  } | null;
+  const row = (
+    (avatar.data ?? []) as {
+      training_status: TrainingState;
+      provider_error: string | null;
+    }[]
+  )[0];
   const claimed = handoff.data as { storage_path: string | null } | null;
 
   return {

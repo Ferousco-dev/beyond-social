@@ -8,7 +8,9 @@ import { AvatarCard } from "@/features/assets/components/avatar-card";
 import { ProductsCard } from "@/features/assets/components/products-card";
 import { VoiceCardSkeleton } from "@/features/assets/components/voice-card-skeleton";
 import { TwinLibrary } from "@/features/live-avatar/components/twin-library";
+import { TwinSpeak } from "@/features/live-avatar/components/twin-speak";
 import { listTwins } from "@/features/live-avatar/delete-actions";
+import { twinVideoReadiness } from "@/features/live-avatar/video-actions";
 import { EnrollSection } from "@/features/voice/enroll-section";
 import { getBrandLibrary } from "@/lib/assets/brand";
 
@@ -29,7 +31,11 @@ export const dynamic = "force-dynamic";
  * for one idea before they know what either holds.
  */
 export default async function AssetsPage() {
-  const [library, twins] = await Promise.all([getBrandLibrary(), listTwins()]);
+  const [library, twins, readiness] = await Promise.all([
+    getBrandLibrary(),
+    listTwins(),
+    twinVideoReadiness(),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
@@ -48,6 +54,13 @@ export default async function AssetsPage() {
       >
         <div className="flex flex-col gap-4">
           <TwinLibrary twins={twins} />
+
+          {/*
+           * Directly under the list, because a trained avatar and the thing it
+           * was trained for are one thought. Anywhere else and somebody reads
+           * "Ready to use" with nothing on the page that uses it.
+           */}
+          <TwinSpeak twins={twins} readiness={readiness} />
 
           <Link
             href={"/dashboard/avatar/new" as Route}
