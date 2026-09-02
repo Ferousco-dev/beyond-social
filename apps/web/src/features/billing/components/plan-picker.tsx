@@ -138,7 +138,16 @@ function PlanColumn({
         )}
       </p>
 
-      <p className="mt-2 text-xs tabular-nums text-ink">{plan.credits} videos a month</p>
+      {/*
+       * Credits, said as credits. This line read "{plan.credits} videos a
+       * month", which was true only while one credit was one video and has
+       * been wrong since credits were rebased to five cents of provider cost.
+       * The video count lives in the feature list, priced against the model
+       * that plan actually runs.
+       */}
+      <p className="mt-2 text-xs tabular-nums text-ink">
+        {plan.credits.toLocaleString()} credits a month
+      </p>
 
       <ul className="mt-4 flex-1 space-y-2">
         {plan.features.map((feature) => (

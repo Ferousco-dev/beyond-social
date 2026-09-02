@@ -43,10 +43,18 @@ export default async function AssetsPage() {
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-6 lg:px-8">
       <div className="pt-8 lg:pt-10">
-        <LibraryHeader hasTwin={twins.length > 0} />
+        <LibraryHeader
+          hasTwin={twins.length > 0}
+          assetCount={twins.length + library.products.length + (library.avatar ? 1 : 0)}
+        />
       </div>
 
-      <AssetSectionNav counts={{ avatar: twins.length, products: library.products.length }} />
+      <AssetSectionNav
+        counts={{
+          avatar: twins.length + (library.avatar ? 1 : 0),
+          products: library.products.length,
+        }}
+      />
 
       <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 lg:grid-cols-12">
         <AssetSection

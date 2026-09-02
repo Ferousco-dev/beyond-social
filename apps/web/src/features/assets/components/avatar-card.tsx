@@ -109,7 +109,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
   }
 
   return (
-    <section className="h-full rounded-2xl border border-hairline bg-paper p-6">
+    <section className="h-full overflow-hidden rounded-2xl border border-hairline bg-paper p-6">
       {dialog}
       <div className="flex items-center gap-3">
         <span
@@ -133,19 +133,23 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
         forward, well lit, nothing covering it.
       </p>
 
-      <div className="mt-5 flex flex-wrap items-center gap-4">
-        <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-hairline bg-cloud">
+      <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
+        <div className="relative flex aspect-[4/3] w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border border-hairline bg-cloud sm:w-40">
+          <div
+            aria-hidden
+            className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/10 to-transparent"
+          />
           {shown?.url ? (
             // Plain img: these are signed, short-lived URLs the image optimiser
             // cannot be configured for.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={shown.url} alt="Your saved avatar" className="size-full object-cover" />
           ) : (
-            <UserRound className="size-9 text-ink-soft" aria-hidden />
+            <UserRound className="relative size-10 text-ink-soft" aria-hidden />
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-1 flex-wrap gap-2">
           <input
             ref={fileRef}
             type="file"
