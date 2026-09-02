@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Check, Loader2, Trash2, UserRound } from "lucide-react";
+import { Camera, Check, Trash2, UserRound } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
@@ -12,6 +12,7 @@ import { type BrandAsset } from "@/lib/assets/brand";
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
 import { MakeVideoButton } from "./make-video-button";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The saved likeness.
@@ -158,7 +159,7 @@ export function AvatarCard({ avatar }: { avatar: BrandAsset | null }) {
             onClick={() => fileRef.current?.click()}
             className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-ink px-4 text-xs font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            {busy ? <Spinner className="size-3.5" /> : null}
             {shown ? "Replace photo" : "Upload a photo"}
           </button>
 

@@ -1,9 +1,10 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Loader2, Star, Trash2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Star, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { deleteTwin, makeDefaultTwin, type TwinSummary } from "../delete-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Every likeness somebody has recorded.
@@ -78,7 +79,7 @@ export function TwinLibrary({
                   ) : failed ? (
                     <CircleAlert className="size-3.5 text-destructive" aria-hidden />
                   ) : (
-                    <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    <Spinner className="size-3.5" />
                   )}
                   {ready
                     ? "Ready to use"
@@ -140,9 +141,7 @@ export function TwinLibrary({
                     onClick={() => void act(twin.id, () => deleteTwin(twin.id))}
                     className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-destructive px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {busy === twin.id ? (
-                      <Loader2 className="size-4 animate-spin" aria-hidden />
-                    ) : null}
+                    {busy === twin.id ? <Spinner className="size-4" /> : null}
                     Delete permanently
                   </button>
                 </div>

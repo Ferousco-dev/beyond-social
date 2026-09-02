@@ -1,10 +1,11 @@
 "use client";
 
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useId, useState, useTransition } from "react";
 
 import { WEBHOOK_EVENT_LABELS, WEBHOOK_EVENTS, type WebhookEvent } from "@/lib/webhooks/types";
 import { checkWebhookUrl, WEBHOOK_URL_MESSAGES } from "@/lib/webhooks/url";
+import { Spinner } from "@/components/ui/spinner";
 
 export interface WebhookFormProps {
   onCreated: (secret: string) => void;
@@ -108,11 +109,7 @@ export function WebhookForm({ onCreated, submit }: WebhookFormProps) {
         disabled={pending}
         className="mt-5 inline-flex h-11 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {pending ? (
-          <Loader2 className="size-3.5 animate-spin" aria-hidden />
-        ) : (
-          <Plus className="size-3.5" aria-hidden />
-        )}
+        {pending ? <Spinner className="size-3.5" /> : <Plus className="size-3.5" aria-hidden />}
         Add endpoint
       </button>
     </form>

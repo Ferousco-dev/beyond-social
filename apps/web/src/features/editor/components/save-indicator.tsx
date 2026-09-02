@@ -1,8 +1,9 @@
 "use client";
 
-import { AlertTriangle, Check, CloudOff, Loader2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, CloudOff, RefreshCw } from "lucide-react";
 
 import { type SaveState } from "../hooks/use-autosave";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Whether the work is safe.
@@ -46,7 +47,7 @@ export function SaveIndicator({
   if (state === "saving") {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-ink-soft">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+        <Spinner className="size-3.5" />
         Saving
       </span>
     );

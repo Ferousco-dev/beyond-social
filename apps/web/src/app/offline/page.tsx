@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
+import { Logo } from "@/components/brand/logo";
 export const metadata: Metadata = {
   title: "Offline",
 };
@@ -17,6 +18,7 @@ export default function Offline(): ReactNode {
       id="main"
       className="flex min-h-dvh flex-col items-center justify-center px-6 text-center"
     >
+      <Logo />
       <h1 className="text-lg font-semibold text-ink">You are offline</h1>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
         Beyond Social needs a connection to write and render video. Your saved work is on the

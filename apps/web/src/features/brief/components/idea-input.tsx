@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The rough concept, before anything is asked about it.
@@ -68,11 +69,7 @@ export function IdeaInput({
           disabled={value.trim().length < 10 || pending}
           className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-full bg-ink px-6 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40 sm:flex-none"
         >
-          {pending ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <Sparkles className="size-4" aria-hidden />
-          )}
+          {pending ? <Spinner className="size-4" /> : <Sparkles className="size-4" aria-hidden />}
           Refine this idea
         </button>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2, Mic, Pause, Play, Trash2 } from "lucide-react";
+import { Check, Mic, Pause, Play, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
@@ -9,6 +9,7 @@ import { useVoiceUpload } from "@/features/dashboard/hooks/use-voice-upload";
 import { PHRASE_SECONDS } from "@/lib/voice/phrase";
 
 import { deleteVoiceProfile, enrollVoice, type VoiceProfile } from "./actions";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Props {
   initial: VoiceProfile | null;
@@ -152,11 +153,7 @@ export function EnrollCard({ initial, phrase }: Props) {
                 disabled={busy}
                 className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-50"
               >
-                {deleting ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="size-3.5" />
-                )}
+                {deleting ? <Spinner className="size-3.5" /> : <Trash2 className="size-3.5" />}
                 Delete
               </button>
             </div>
@@ -202,7 +199,7 @@ export function EnrollCard({ initial, phrase }: Props) {
               className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {busy ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Spinner className="size-4" />
               ) : recorder.state === "recording" ? (
                 <>
                   <span className="size-2 animate-pulse rounded-full bg-destructive" />

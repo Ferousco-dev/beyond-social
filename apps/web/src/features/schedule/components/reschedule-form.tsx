@@ -1,9 +1,9 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 
 import { toLocalInput } from "../lib/instant";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Picking a new time for a post that has not gone out.
@@ -54,7 +54,7 @@ export function RescheduleForm({
         disabled={pending || value === ""}
         className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-ink px-3.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+        {pending ? <Spinner className="size-3.5" /> : null}
         Save time
       </button>
       <button

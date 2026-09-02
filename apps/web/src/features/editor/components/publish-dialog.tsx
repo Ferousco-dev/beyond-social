@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Clock, Loader2, Sparkles, X } from "lucide-react";
+import { Check, Clock, Sparkles, X } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { PLATFORMS } from "@/lib/publish/data";
 import { cn } from "@/lib/utils";
 
 import { PlatformScheduleCard, type PlatformScheduleValue } from "./platform-schedule-card";
+import { Spinner } from "@/components/ui/spinner";
 
 export function PublishDialog({
   children,
@@ -263,7 +264,7 @@ export function PublishDialog({
                       className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-hairline px-3.5 text-xs font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {writing ? (
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        <Spinner className="size-3.5" />
                       ) : (
                         <Sparkles className="size-3.5" aria-hidden />
                       )}
@@ -313,7 +314,7 @@ export function PublishDialog({
               >
                 {scheduling ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden />
+                    <Spinner className="size-4" />
                     Scheduling
                   </>
                 ) : (

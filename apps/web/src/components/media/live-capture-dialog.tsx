@@ -1,8 +1,9 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { AlertCircle, ChevronDown, Loader2, RotateCcw, Square, Video, X } from "lucide-react";
+import { AlertCircle, ChevronDown, RotateCcw, Square, Video, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Recording yourself, live, for a talking-avatar render.
@@ -264,7 +265,7 @@ export function LiveCaptureDialog({
 
             {stage === "loading" ? (
               <div className="flex aspect-square items-center justify-center rounded-xl bg-cloud">
-                <Loader2 className="size-5 animate-spin text-ink-soft" aria-hidden />
+                <Spinner className="size-5 text-ink-soft" />
               </div>
             ) : null}
 

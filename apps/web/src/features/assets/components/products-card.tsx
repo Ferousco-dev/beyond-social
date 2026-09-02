@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Package, Plus, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { type BrandAsset } from "@/lib/assets/brand";
@@ -9,6 +9,7 @@ import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
 import { MakeVideoButton } from "./make-video-button";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The product shelf.
@@ -143,11 +144,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             onClick={() => fileRef.current?.click()}
             className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-hairline text-ink-soft transition-colors hover:border-primary/50 hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? (
-              <Loader2 className="size-5 animate-spin" aria-hidden />
-            ) : (
-              <Plus className="size-5" aria-hidden />
-            )}
+            {busy ? <Spinner className="size-5" /> : <Plus className="size-5" aria-hidden />}
             <span className="text-xs">Add</span>
           </button>
         </li>

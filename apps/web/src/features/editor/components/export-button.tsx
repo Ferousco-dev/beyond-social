@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, Download, Loader2 } from "lucide-react";
+import { Check, Download } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Project } from "@/lib/editor/types";
 import { cn } from "@/lib/utils";
 
 import { getExportStatus, requestExport } from "../export-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Renders the cut into one file.
@@ -165,7 +166,7 @@ export function ExportButton({
         )}
       >
         {state.kind === "working" ? (
-          <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          <Spinner className="size-3.5" />
         ) : (
           <Download className="size-3.5" aria-hidden />
         )}

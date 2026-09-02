@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Square, X } from "lucide-react";
+import { Square, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -20,6 +20,7 @@ import { FootageChip } from "./footage-chip";
 import { RecordButton } from "./record-button";
 import { ShotListEditor, type PendingShot } from "./shot-list-editor";
 import { VoiceChip } from "./voice-chip";
+import { Spinner } from "@/components/ui/spinner";
 
 interface PromptComposerProps {
   value: string;
@@ -145,7 +146,7 @@ export function PromptComposer({
               />
               {photo.pending ? (
                 <span className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="size-4 animate-spin text-paper drop-shadow" aria-hidden />
+                  <Spinner className="size-4 text-paper drop-shadow" />
                   <span className="sr-only">Uploading</span>
                 </span>
               ) : null}

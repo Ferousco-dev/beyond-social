@@ -1,11 +1,12 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { IndustryPicker } from "@/components/ui/industry-picker";
 
 import { saveIndustry } from "../industry-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The industry, saved on selection.
@@ -60,7 +61,7 @@ export function IndustryForm({ industry }: { industry: string | null }) {
       <p role="status" className="mt-3 flex min-h-4 items-center gap-2 text-xs text-ink-soft">
         {pending ? (
           <>
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            <Spinner className="size-3.5" />
             Saving
           </>
         ) : message ? (

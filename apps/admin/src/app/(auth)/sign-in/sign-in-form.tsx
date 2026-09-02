@@ -1,9 +1,10 @@
 "use client";
 
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useActionState, useState, type ReactElement } from "react";
 
 import { signInAction, type SignInState } from "@/lib/auth/actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const FIELD_CLASS =
   "h-11 w-full rounded-md border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -75,7 +76,7 @@ export function SignInForm({ redirectTo }: { redirectTo?: string }): ReactElemen
         disabled={pending}
         className="mt-1 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-60"
       >
-        {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+        {pending ? <Spinner className="size-4" /> : null}
         {pending ? "Signing in" : "Sign in"}
       </button>
 

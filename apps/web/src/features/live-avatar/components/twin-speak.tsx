@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleAlert, Loader2, Sparkles } from "lucide-react";
+import { CircleAlert, Sparkles } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
@@ -8,6 +8,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useTwinVideo } from "../hooks/use-twin-video";
 import { type TwinSummary } from "../delete-actions";
 import { type TwinVideoReadiness } from "../video-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The thing a trained twin is for.
@@ -127,11 +128,7 @@ export function TwinSpeak({
             onClick={() => start({ avatarId, script })}
             className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {busy ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden />
-            ) : (
-              <Sparkles className="size-4" aria-hidden />
-            )}
+            {busy ? <Spinner className="size-4" /> : <Sparkles className="size-4" aria-hidden />}
             {busy ? "Rendering" : "Make the video"}
           </button>
 

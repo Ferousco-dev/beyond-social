@@ -1,12 +1,12 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 
 import { DELETION_GRACE_PERIOD_DAYS } from "@/lib/account/types";
 
 import { deleteAccount } from "../deletion-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const FIELD =
   "mt-1.5 w-full rounded-lg border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -103,7 +103,7 @@ export function DangerZone({ email }: { email: string }) {
                 disabled={pending || !matches}
                 className="inline-flex h-11 items-center gap-2 rounded-full bg-destructive px-4 text-xs font-medium text-destructive-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+                {pending ? <Spinner className="size-3.5" /> : null}
                 Delete my account
               </button>
               <button

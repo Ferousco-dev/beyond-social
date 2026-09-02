@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +9,7 @@ import { PLAN_CATALOGUE, isPriced, type Plan, type PlanId } from "@/lib/billing/
 import { cn } from "@/lib/utils";
 
 import { startCheckout } from "../actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const UPGRADEABLE: readonly PlanId[] = ["creator", "studio"];
 
@@ -192,7 +193,7 @@ function PlanCard({
           plan.featured ? "bg-primary text-primary-foreground" : "bg-ink text-canvas",
         )}
       >
-        {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+        {busy ? <Spinner className="size-3.5" /> : null}
         {current ? "Current plan" : `Get ${plan.name}`}
       </button>
     </div>

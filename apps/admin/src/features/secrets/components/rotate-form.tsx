@@ -1,10 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useActionState, useEffect, useRef, type ReactNode } from "react";
 
 import { rotateSecretAction, type SecretActionState } from "../actions";
 import { LOCATION_NOTES, type ManagedSecret } from "../types";
+import { Spinner } from "@/components/ui/spinner";
 
 const FIELD =
   "w-full rounded-lg border border-hairline bg-paper px-3 py-2 font-mono text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -75,7 +75,7 @@ export function RotateForm({ secret }: { secret: ManagedSecret }): ReactNode {
           disabled={pending}
           className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+          {pending ? <Spinner className="size-4" /> : null}
           {pending ? "Recording" : "Record rotation"}
         </button>
 

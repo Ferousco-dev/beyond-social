@@ -1,12 +1,13 @@
 "use client";
 
-import { ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ExternalLink, Sparkles } from "lucide-react";
 
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 
 import { PLATFORM_NAME, formatViews } from "../lib/platforms";
 import { type DiscoverPost } from "../types";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The post being studied.
@@ -100,7 +101,7 @@ export function PostDetail({
           className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
           {analysing ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            <Spinner className="size-3.5" />
           ) : (
             <Sparkles className="size-3.5" aria-hidden />
           )}
