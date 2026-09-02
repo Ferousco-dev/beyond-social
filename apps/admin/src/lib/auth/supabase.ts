@@ -41,8 +41,11 @@ export async function createClient(): Promise<AuthClient> {
 }
 
 /**
- * Service-role client. Used for exactly one thing in this module: recording a
- * refused access attempt, which by definition has no admin session to write it.
+ * Service-role client for the pre-authentication path: recording a refused
+ * access attempt, and counting sign-in attempts against the shared rate limit.
+ * Both happen when there is no admin session by definition, and both touch
+ * tables the database exposes to `service_role` alone.
+ *
  * It never carries a user session, so it must never be used to answer a
  * question about what the current visitor may see.
  */
