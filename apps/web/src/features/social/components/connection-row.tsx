@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { useTransition } from "react";
 
 import { PlatformLogo } from "@/components/brand/platform-logo";
@@ -9,6 +9,7 @@ import { type SocialConnection } from "@/lib/social/connections";
 import { cn } from "@/lib/utils";
 
 import { disconnectPlatform } from "../actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * One platform. Renders three distinct states rather than collapsing them:
@@ -94,7 +95,7 @@ export function ConnectionRow({
           }}
           className="inline-flex h-9 items-center gap-2 rounded-full border border-hairline px-3.5 text-xs font-medium text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50"
         >
-          {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+          {pending ? <Spinner className="size-3.5" /> : null}
           Disconnect
         </button>
       ) : (

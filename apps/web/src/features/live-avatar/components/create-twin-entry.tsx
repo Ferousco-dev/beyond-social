@@ -45,6 +45,13 @@ export function CreateTwinEntry({
   // the same claimed handoff and start training on it twice.
   const claiming = useRef(false);
 
+  // Set the moment somebody dismisses a failure to retry. Without it, the poll
+  // that fires immediately on the phase change back to "recording" still reads
+  // the old failed status from the server and snaps the screen right back to
+  // "failed" before a new recording is even possible. Cleared once a new
+  // attempt is actually submitted, so a genuine new failure still shows.
+  const retrying = useRef(false);
+
   const refresh = useCallback(async () => {
     const result = await mintHandoff();
     setHandoff(
@@ -59,6 +66,7 @@ export function CreateTwinEntry({
   }, [refresh]);
 
   const train = useCallback(async (path: string) => {
+    retrying.current = false;
     setPhase("training");
     const started = await startTwinTraining(path);
     if (started.status === "error") {
@@ -118,7 +126,7 @@ export function CreateTwinEntry({
         setPhase("ready");
         return;
       }
-      if (status.training === "failed") {
+      if (status.training === "failed" && !retrying.current) {
         setMessage(status.error);
         setPhase("failed");
         return;
@@ -148,6 +156,7 @@ export function CreateTwinEntry({
         message={message}
         onRetry={() => {
           claiming.current = false;
+          retrying.current = true;
           setMessage(null);
           setPhase("recording");
         }}

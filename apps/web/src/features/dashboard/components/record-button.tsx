@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2, Mic, Square } from "lucide-react";
+import { Mic, Square } from "lucide-react";
 
 import { useVoiceRecorder } from "../hooks/use-voice-recorder";
 import { useVoiceUpload, type PendingVoice } from "../hooks/use-voice-upload";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Recording a clip from the composer.
@@ -57,7 +58,7 @@ export function RecordButton({
       }
     >
       {busy ? (
-        <Loader2 className="size-4 animate-spin" aria-hidden />
+        <Spinner className="size-4" />
       ) : recording ? (
         <>
           <Square className="size-3.5 fill-current" aria-hidden />

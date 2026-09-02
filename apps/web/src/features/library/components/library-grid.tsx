@@ -1,6 +1,6 @@
 "use client";
 
-import { AudioLines, Film, ImageIcon, LibraryBig, Loader2 } from "lucide-react";
+import { AudioLines, Film, ImageIcon, LibraryBig } from "lucide-react";
 import { type Route } from "next";
 import { useMemo, useState, useTransition } from "react";
 
@@ -12,6 +12,7 @@ import { dayHeading, groupByDay } from "../lib/group";
 import { type LibraryCursor } from "../queries";
 import { type LibraryItem, type LibraryKind } from "../types";
 import { LibraryCard } from "./library-card";
+import { Spinner } from "@/components/ui/spinner";
 
 const ALL = "all";
 
@@ -106,7 +107,7 @@ export function LibraryGrid({
             disabled={pending}
             className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-hairline bg-paper px-4 text-[13px] font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {pending ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+            {pending ? <Spinner className="size-3.5" /> : null}
             Load more
           </button>
         </div>

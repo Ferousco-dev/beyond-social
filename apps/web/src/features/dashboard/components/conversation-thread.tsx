@@ -8,6 +8,9 @@ import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
 import { Coachmark } from "@/features/tips/components/coachmark";
 import { useClarification } from "../hooks/use-clarification";
+import { useModelConfirmation } from "../hooks/use-model-confirmation";
+import { ModelConfirmPrompt } from "@/features/generation/components/model-confirm-prompt";
+import { type ModelAnswer } from "@/lib/generation/confirm-model";
 import { TIPS } from "@/lib/tips/tips";
 import { followUpsFor } from "@/lib/generation/follow-ups";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
@@ -34,7 +37,19 @@ import { ThreadTranscript, type Notice } from "./thread-transcript";
  */
 type AttachmentRef = { kind: AttachmentKind; path: string };
 
-export function ConversationThread({ thread }: { thread: Thread }) {
+/** The face this person saved, for pairing with a voice clip they did not. */
+export interface SavedLikeness {
+  readonly path: string;
+  readonly url: string;
+}
+
+export function ConversationThread({
+  thread,
+  savedLikeness,
+}: {
+  thread: Thread;
+  savedLikeness: SavedLikeness | null;
+}) {
   const router = useRouter();
   const [notice, setNotice] = useState<Notice | null>(null);
   const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
@@ -219,6 +234,61 @@ export function ConversationThread({ thread }: { thread: Thread }) {
     [projectId, router, notify],
   );
 
+  /**
+   * Sends the held turn again, now that the cost is settled.
+   *
+   * The answer rides along whichever way it went. Its presence is what ends the
+   * exchange: a turn carrying one is never asked about the model again, so a
+   * decline cannot loop back into the same card.
+   */
+  const proceedWithModel = useCallback(
+    (payload: Parameters<typeof sendMessage>[0], modelAnswer: ModelAnswer) => {
+      setSending(true);
+      setNotice(null);
+
+      void (async () => {
+        const result = await sendMessage({ ...payload, modelAnswer });
+        setSending(false);
+
+        if (result.status !== "ok") {
+          notify(result.status === "error" ? result.message : "That could not be sent. Try again.");
+          return;
+        }
+
+        if (result.notice) notify(result.notice, result.noticeUpgrade);
+        router.refresh();
+        if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+      })();
+    },
+    [projectId, router, notify],
+  );
+
+  const modelChoice = useModelConfirmation(projectId, proceedWithModel);
+  // Destructured for the same reason as `hold` below: the object identity
+  // changes every render, the callback on it does not.
+  const { ask } = modelChoice;
+
+  /*
+   * The brief a restored offer is about, drawn back onto the screen.
+   *
+   * Nothing was persisted for a held turn, so a reload lands on a thread that
+   * does not contain the message the card is quoting a price for. Redrawing it
+   * is what makes the offer readable rather than a number about nothing. The
+   * server replaces it the moment the turn is actually saved.
+   */
+  const heldBrief = modelChoice.pending?.payload.prompt ?? null;
+  useEffect(() => {
+    if (heldBrief === null) return;
+    setMessages((current) =>
+      [...current].reverse().find((message) => message.role === "user")?.content === heldBrief
+        ? current
+        : [
+            ...current,
+            { id: nextId(), role: "user" as const, content: heldBrief, attachments: [] },
+          ],
+    );
+  }, [heldBrief, nextId, setMessages]);
+
   const clarify = useClarification(proceed);
   // Destructured because it is what `submit` depends on: the hook's object
   // identity changes every render, the callback on it does not.
@@ -243,24 +313,53 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
       const clip = draft.footage;
       const shotList = draft.shots;
+
+      /*
+       * The saved face is shown in the turn that used it.
+       *
+       * Reaching for it silently would put somebody's likeness in a video with
+       * nothing on screen saying which face went in, which is the one thing
+       * this feature should never do quietly. Drawn as an attachment because
+       * that is how every other input to the turn is shown, so it reads as
+       * something they sent rather than something that happened to them.
+       */
+      const usingSavedFace = voiceClip !== null && attached.length === 0 && savedLikeness !== null;
+      const shownAttachments = usingSavedFace
+        ? [
+            { kind: "photo" as const, path: savedLikeness.path, url: savedLikeness.url },
+            ...optimisticAttachments,
+          ]
+        : optimisticAttachments;
+
       clearDraft();
       setMessages((current) => [
         ...current,
-        { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
+        { id: optimisticId, role: "user", content: trimmed, attachments: shownAttachments },
       ]);
 
       void (async () => {
-        // A photo plus a voice clip means an avatar render rather than an
-        // ordinary generation: the two inputs together are the whole signal, so
-        // there is no separate mode to switch into.
-        if (voiceClip && attached.length > 0 && attached[0]) {
-          const outcome = await runAvatar(
-            trimmed,
-            attached[0],
-            voiceClip.url,
-            optimisticId,
-            attachmentRefs,
-          );
+        /*
+         * A photo plus a voice clip means an avatar render rather than an
+         * ordinary generation: the two inputs together are the whole signal, so
+         * there is no separate mode to switch into.
+         *
+         * The photo can be one they saved rather than one they just attached.
+         * Every avatar model needs a face and a voice together, and no video
+         * model reads audio at all, so a voice on its own used to generate a
+         * video the voice was absent from. Reaching for the saved face turns
+         * that into the render they meant.
+         *
+         * The path goes with it, not just the URL: the edge function reads the
+         * object from storage, and the server re-checks that the path belongs
+         * to the caller and that the likeness attestation exists, so this
+         * chooses a candidate rather than granting anything.
+         */
+        const face = attached[0] ?? savedLikeness?.url;
+        const faceRefs = usingSavedFace
+          ? [{ kind: "photo" as const, path: savedLikeness.path }, ...attachmentRefs]
+          : attachmentRefs;
+        if (voiceClip && face) {
+          const outcome = await runAvatar(trimmed, face, voiceClip.url, optimisticId, faceRefs);
           setSending(false);
           if (outcome) return;
           return;
@@ -346,6 +445,21 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           return;
         }
 
+        /*
+         * A model costlier than the everyday one suits this better, and the
+         * server stopped rather than either spending it or quietly dropping to
+         * the cheap one. Nothing was created and nothing was charged.
+         *
+         * The optimistic message stays, as it does for the clarifying
+         * questions: it is what the offer is about, and withdrawing it would
+         * leave a price quoted over an empty thread. The card says why it is
+         * asking, so nothing is posted alongside it.
+         */
+        if (result.status === "confirm") {
+          ask({ payload, upgrade: result.upgrade });
+          return;
+        }
+
         if (result.status !== "ok") {
           // The optimistic message is withdrawn: leaving it on screen would
           // imply the turn was recorded when it was not.
@@ -422,9 +536,11 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       sending,
       rendering,
       runAvatar,
+      savedLikeness,
       confirm,
       hold,
       sendTurn,
+      ask,
       nextId,
       setMessages,
       clearDraft,
@@ -448,7 +564,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
         seeded={draft.seeded}
         sending={sending}
         rendering={rendering}
-        awaitingAnswer={clarify.pending !== null}
+        awaitingAnswer={clarify.pending !== null || modelChoice.pending !== null}
         partial={turn.partial}
         stage={turn.stage}
         notice={notice}
@@ -465,11 +581,20 @@ export function ConversationThread({ thread }: { thread: Thread }) {
           an installed app without the padding doubling on a desktop. */}
       <div className="sticky bottom-0 bg-canvas pb-safe pt-2">
         {/*
-          The questions take the composer's place rather than sitting above it.
+          The question takes the composer's place rather than sitting above it.
           This turn is already written and waiting on one answer, so a text box
-          alongside would invite a second turn that cannot be sent yet.
+          alongside would invite a second turn that cannot be sent yet. The same
+          applies to the cost of a costlier model, which is one answer too.
         */}
-        {clarify.pending ? (
+        {modelChoice.pending ? (
+          <div className="pb-4">
+            <ModelConfirmPrompt
+              upgrade={modelChoice.pending.upgrade}
+              disabled={sending}
+              onAnswer={modelChoice.answer}
+            />
+          </div>
+        ) : clarify.pending ? (
           <div className="pb-4">
             <QuestionPrompt
               key={clarify.current?.label ?? "done"}

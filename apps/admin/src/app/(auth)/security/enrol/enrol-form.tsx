@@ -1,9 +1,9 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
 import { useActionState, useState, useTransition, type ReactElement } from "react";
 
 import { beginEnrolAction, confirmEnrolAction, type EnrolState } from "@/lib/auth/mfa-actions";
+import { Spinner } from "@/components/ui/spinner";
 
 const FIELD_CLASS =
   "h-11 w-full rounded-md border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -46,7 +46,7 @@ export function EnrolForm(): ReactElement {
           className={BUTTON_CLASS}
           onClick={() => startEnrol(async () => setStarted(await beginEnrolAction()))}
         >
-          {starting ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+          {starting ? <Spinner className="size-4" /> : null}
           {starting ? "Setting up" : "Set up an authenticator"}
         </button>
       </div>
@@ -99,7 +99,7 @@ export function EnrolForm(): ReactElement {
       </div>
 
       <button type="submit" disabled={pending} className={BUTTON_CLASS}>
-        {pending ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+        {pending ? <Spinner className="size-4" /> : null}
         {pending ? "Confirming" : "Confirm"}
       </button>
     </form>

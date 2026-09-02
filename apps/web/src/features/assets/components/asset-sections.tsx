@@ -1,48 +1,64 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { Mic, Package, UserRound } from "lucide-react";
+import { type ComponentType, type ReactNode } from "react";
 
 /**
  * Jumping between the three things this page holds.
  *
- * Anchors rather than routes. Settings splits into real routes because
- * connecting a social account leaves for an OAuth round trip and needs a URL to
- * come back to; nothing here leaves the page, and three short sections read
- * better as one scroll than as three navigations.
+ * Anchors rather than routes, and rather than tabs. Settings splits into real
+ * routes because connecting a social account leaves for an OAuth round trip and
+ * needs a URL to come back to; nothing here leaves the page. Tabs were the
+ * other option and were rejected for a plainer reason: with three sections,
+ * hiding two of them to show one is work for the reader, not less of it.
  *
- * Sticky, because the point of a section list is being able to reach it after
- * you have scrolled past it. It scrolls sideways on a phone rather than
- * wrapping, so the row stays one line at any width.
+ * The counts are real. A number here that did not match what is below it would
+ * be worse than no number, so a section with nothing saved shows nothing rather
+ * than a zero dressed up as a state.
  */
 
-export interface AssetSection {
+interface Section {
   readonly id: string;
   readonly label: string;
+  readonly icon: ComponentType<{ className?: string }>;
 }
 
-export const ASSET_SECTIONS: readonly AssetSection[] = [
-  { id: "avatar", label: "Avatar" },
-  { id: "voice", label: "Voice" },
-  { id: "products", label: "Products" },
+const SECTIONS: readonly Section[] = [
+  { id: "avatar", label: "Avatar", icon: UserRound },
+  { id: "voice", label: "Voice", icon: Mic },
+  { id: "products", label: "Products", icon: Package },
 ];
 
-export function AssetSectionNav(): ReactNode {
+export function AssetSectionNav({
+  counts,
+}: {
+  counts: Readonly<Record<string, number>>;
+}): ReactNode {
   return (
     <nav
       aria-label="Sections"
-      className="sticky top-0 z-10 -mx-4 mb-6 overflow-x-auto border-b border-hairline bg-paper/85 px-4 backdrop-blur sm:-mx-6 sm:px-6"
+      className="sticky top-0 z-10 -mx-4 overflow-x-auto border-b border-hairline bg-canvas/85 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
     >
-      <ul className="flex min-w-max items-center gap-1 py-2">
-        {ASSET_SECTIONS.map((section) => (
-          <li key={section.id}>
-            <a
-              href={`#${section.id}`}
-              className="inline-flex rounded-full px-3 py-1.5 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {section.label}
-            </a>
-          </li>
-        ))}
+      <ul className="flex min-w-max items-center gap-1 py-2.5">
+        {SECTIONS.map((section) => {
+          const count = counts[section.id] ?? 0;
+          return (
+            <li key={section.id}>
+              <a
+                href={`#${section.id}`}
+                className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <section.icon className="size-4" aria-hidden />
+                {section.label}
+                {count > 0 ? (
+                  <span className="rounded-full bg-cloud px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-ink-soft">
+                    {count}
+                  </span>
+                ) : null}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
@@ -58,19 +74,30 @@ export function AssetSection({
   id,
   title,
   description,
+  className,
   children,
 }: {
   id: string;
   title: string;
   description: string;
+  className?: string;
   children: ReactNode;
 }): ReactNode {
   return (
-    <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-20 pb-10">
-      <h2 id={`${id}-heading`} className="text-lg font-semibold tracking-tight text-ink">
-        {title}
-      </h2>
-      <p className="mt-1 mb-4 max-w-xl text-sm text-ink-soft">{description}</p>
+    <section
+      id={id}
+      aria-labelledby={`${id}-heading`}
+      className={`scroll-mt-24 ${className ?? ""}`}
+    >
+      <div className="mb-4">
+        <h2
+          id={`${id}-heading`}
+          className="text-xs font-medium uppercase tracking-[0.12em] text-ink-soft"
+        >
+          {title}
+        </h2>
+        <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-ink-soft/80">{description}</p>
+      </div>
       {children}
     </section>
   );

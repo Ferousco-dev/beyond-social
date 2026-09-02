@@ -107,6 +107,12 @@ verify_jwt = false
 [functions.poll-heygen-training]
 verify_jwt = false
 
+# Cron-triggered, not user-facing: guarded by CRON_SECRET the same way. Asks
+# HeyGen whether the twin videos it is rendering have finished, because HeyGen
+# does not call back for those either.
+[functions.poll-heygen-videos]
+verify_jwt = false
+
 # Cron-triggered, not user-facing: no JWT to verify. Guarded by comparing the
 # Authorization header against SUPABASE_SERVICE_ROLE_KEY itself, the one
 # secret the triggering cron route and this function already both hold.

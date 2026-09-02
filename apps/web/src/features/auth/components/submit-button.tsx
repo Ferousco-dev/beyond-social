@@ -1,7 +1,7 @@
-import { Loader2 } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 export function SubmitButton({
   pending,
@@ -10,7 +10,7 @@ export function SubmitButton({
 }: ButtonProps & { pending?: boolean; children: ReactNode }) {
   return (
     <Button type="submit" disabled={pending} aria-busy={pending} {...props}>
-      {pending ? <Loader2 className="size-4 animate-spin" /> : null}
+      {pending ? <Spinner className="size-4" /> : null}
       {children}
     </Button>
   );

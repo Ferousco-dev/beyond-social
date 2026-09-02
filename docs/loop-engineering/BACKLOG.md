@@ -961,25 +961,144 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Three PRs open, all verified locally and deliberately not merged, same
-reasoning as every session since the tenth (see the critical section
-above), all from this, the thirteenth session:
+Stale as of the thirteenth session's own writing: #188-190 above are no
+longer open, the owner merged them along with everything else through
+#209 (confirmed by walking `main`'s merge-commit history directly, not
+inferred). `main` is well past where this file's own log last described
+it; see the fourteenth session's entry below for what is actually open
+now.
 
-- #188: stops a stalled mail delivery claim from being reclaimed
-  mid-send (`claim_delivery_for_send`, `services/mail`).
-- #189: stops a Resend response that was accepted but unparseable from
-  being retried, which would mail a real second copy.
-- #190: checks two previously-unchecked Supabase writes in the render
-  worker and gives its shutdown drain enough time to actually run
-  (`fly.toml` had no `kill_timeout`).
+Three PRs open right now, 2026-09-02, all independently re-verified
+this session (typecheck/lint/build/format across all 26 turbo tasks,
+plus `deno check`/`deno lint` on all 26 edge functions where relevant):
 
-All three are independent of each other and safe to merge in any order
-once the owner weighs in on the critical section's question. The six
-PRs previously listed here (#175, #181-186) are no longer in flight: the
-owner merged them all directly on 2026-08-31, see the critical section's
-2026-09-01 update above.
+- **#210**, `feat/avatar-library` → `main`: lets somebody keep more than
+  one trained HeyGen avatar rather than one silently replacing another.
+  CI green.
+- **#211**, `feat/assets-sections` → `feat/avatar-library` (stacked on
+  #210, review that one first): folds the avatar screen into Assets as
+  three sections. No CI runs on this one directly, expected rather than
+  broken: `.github/workflows/ci.yml` only triggers on `pull_request`
+  against `main`, and this PR's base is `feat/avatar-library`, not
+  `main`. Re-verified locally instead by checking out `feat/assets-
+sections` (which carries #210's commits too, being stacked) and running
+  the full suite: 26/26 tasks pass.
+- **#212**, `Feranmibranches` → `main`: originally the chat-links/OG-
+  image work described in the thirteenth session's successor below; two
+  more commits were added on top this session (see the fourteenth
+  session's entry), plus this file's own update. CI fully green on the
+  final pushed head (`d9c21ad`): all four workflows (`CI`, `Database`,
+  `Edge functions`, `Security`) passed, `mergeable_state: clean`.
+
+None of the three have been merged: this system does not merge PRs at
+all any more (`TEAM.md`'s PR Checker role, updated since the critical
+section below was written: merging is the owner's, full stop). Left
+open for the owner.
 
 ## Session log
+
+- **2026-09-02, fourteenth scheduled session.** `main` had moved a lot since
+  the thirteenth session's own log entry, none of it written down here: five
+  more PRs merged (#205-209, dead code removal, real domain-independent
+  social sign-in replacing GitHub, an avatar-screen entry point), and before
+  that a large, entirely unlogged burst covering the full HeyGen live-avatar
+  build (#192-195: token accounting/context budgeting, mobile
+  responsiveness, HeyGen training and generation, twin upload) and eighteen
+  security/AI/idempotency findings (#196-204, already summarized in this
+  file's own "Security and reliability audits, 2026-09-02" section above,
+  which predates this log entry despite the date). None of that work was
+  this session's own; it is recorded here only so the next session does not
+  read the thirteenth session's log as the latest truth. `docs/live-avatar/
+DESIGN.md`'s build order is now complete end to end (all six steps exist in
+  code), correctly inert behind `isHeygenConfigured()` until the owner
+  supplies `HEYGEN_API_KEY` and a real per-minute rate; neither has arrived.
+
+  Three PRs were open at the start of this session: #210 (multiple avatars
+  per person), #211 (stacked on #210, folds the avatar screen into Assets),
+  #212 (chat now links to real in-app pages instead of naming them in
+  prose, plus drawn OG images so a pasted link does not arrive bare). All
+  three were independently re-verified this session rather than trusted on
+  the strength of their own PR bodies: checked out `feat/assets-sections`
+  (carries #210's and #211's commits both, being stacked) and ran the full
+  `pnpm exec turbo run typecheck lint build format:check`, 26/26 tasks
+  green. #211 correctly shows no CI of its own: its base is
+  `feat/avatar-library`, not `main`, and `ci.yml` only triggers against
+  `main`; not a bug, just a stacked-PR gap this local re-verification
+  covers instead.
+
+  Read both HeyGen edge functions closely on top of that (the "PR Checker
+  re-verifies before handoff" duty, taken further than a green CI check
+  alone) and found a real bug in the migration `0096` rewrite of
+  `train-heygen-avatar`, which turned out to already exist in the version
+  still live on `main` today: `submitConsent` runs, and can throw, before
+  the row is ever updated with the group id HeyGen just created and billed.
+  A thrown consent error left that group with nothing in the database
+  pointing at it, unreachable by `delete-heygen-avatar`, which can only act
+  on a recorded `provider_avatar_id` or an `orphaned_provider_avatar_ids`
+  entry. Fixed on `Feranmibranches` (the version live on `main` today) by
+  writing the group id the moment it is known, before consent is
+  attempted, so a consent failure now only fails consent, not the group's
+  own record. Flagged as a PR comment on #210 rather than pushed there
+  directly, since that branch is mid-flight outside this session's own
+  branch and the fix needs to carry over into its rewritten version before
+  it merges. A second, independent bug in the same feature: retrying a
+  failed twin training (`create-twin-entry.tsx`) set the UI back to
+  "recording", but the poll that fires immediately on that phase change
+  still read the server's stale `training_status: "failed"` until a new
+  attempt was actually submitted, snapping the screen straight back to the
+  failure panel before re-recording was even possible. Retry was
+  effectively dead for any twin that had failed once. Fixed with a ref that
+  suppresses that one stale read for the duration of a retry.
+
+  Both fixed and pushed to `Feranmibranches`, added to the existing #212
+  rather than opened as new PRs (this project's standing one-shared-branch,
+  one-PR policy). `deno check`/`deno lint` clean across all 26 edge
+  functions; `pnpm exec turbo run typecheck lint build format:check` clean,
+  26/26, on every push. One real process mistake worth recording plainly:
+  the first push had a prettier formatting issue CI's `Verify` job caught
+  and this session's own `turbo run format:check` did not, because
+  `supabase/functions` is Deno code, not a pnpm/turbo workspace member, so
+  turbo's per-package `format:check` task never reaches it; only the root
+  `pnpm run format:check` script's repo-wide glob does, and that is what
+  CI's `Verify` job actually runs as a separate step, not through turbo.
+  Caught from the failed CI run, reproduced locally with
+  `pnpm exec prettier --check`, fixed, and pushed as its own small commit
+  rather than rewritten into history (no force-push). Worth a future
+  session's note: run `pnpm run format:check` directly, not only the turbo
+  task, whenever a change touches `supabase/functions`.
+
+  Also fixed this session, before the git-authorship problem below was
+  understood: an environment-level git config default (`user.name`/
+  `user.email` set to an AI identity) would otherwise have put AI
+  attribution directly in the commit author field, a direct violation of
+  this project's explicit, repeatedly-stated "no AI or assistant
+  attribution anywhere" rule. Every commit this session used
+  `--author="Feranmi Oresajo <ferouslos6@gmail.com>"` explicitly, matching
+  the identity every other automated commit on this branch already uses,
+  rather than the environment default. Worth flagging plainly for whoever
+  configures future sessions' environments: check `git config user.name`/
+  `user.email` before committing, not after.
+
+  #210 and #211 are the owner's/another workflow's, not this session's own
+  work, and were left exactly as found beyond the PR comment on #210 and
+  the independent re-verification above. #212 is this session's own,
+  updated in place. Nothing merged, per the standing rule that this system
+  does not merge (see "In flight" above). No new dependency added, nothing
+  touching auth/RLS, no real money spent, no production deploy performed.
+
+  Not investigated this session, still accurate as of the thirteenth
+  session's own assessment: CSP nonce, observability, and rate limiting
+  still need the owner or a new dependency. The Telegram `_BRANCH_RE`
+  input-validation gap (see "Needs the owner" below) is still open and
+  still unowned. Next session: read this entry in full before trusting the
+  thirteenth session's "In flight" list above it, which is stale; #210 and
+  #211 are still open and still the owner's to merge if their author has
+  finished with them; a fresh correctness-sweep pass (the pattern that has
+  reliably found one real bug per unswept corner across most sessions this
+  month) has not yet touched `packages/ai-gateway`'s newly-rewritten
+  token-budgeting path (`gateway.ts`, `tokens.ts`, `usage.ts`, PR #192) or
+  the social sign-in redirect construction (#207), both landed today
+  without an independent review pass from this system.
 
 - **2026-09-01, thirteenth scheduled session.** Read the critical section
   first, as always. Found the repo had moved since the twelfth session's

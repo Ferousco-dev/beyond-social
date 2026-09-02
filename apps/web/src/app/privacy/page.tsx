@@ -5,6 +5,9 @@ import { PageShell, Prose } from "@/components/landing/page-shell";
 
 export const metadata: Metadata = { title: "Privacy" };
 
+const linkClass =
+  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
 function Section({ title, children }: { title: string; children: ReactNode }): ReactNode {
   return (
     <section className="border-t border-hairline pt-8">
@@ -124,8 +127,12 @@ export default function Page(): ReactNode {
 
         <Section title="Questions">
           <p>
-            Email hello@beyondsocial.app. If something here does not match what the product does,
-            tell us and we will fix the page or the product, whichever one is wrong.
+            Email{" "}
+            <a className={linkClass} href="mailto:hello@beyondsocial.app">
+              hello@beyondsocial.app
+            </a>
+            . If something here does not match what the product does, tell us and we will fix the
+            page or the product, whichever one is wrong.
           </p>
         </Section>
       </div>

@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2, CircleAlert, Loader2 } from "lucide-react";
+import { CheckCircle2, CircleAlert } from "lucide-react";
 import { type ReactNode } from "react";
+import { Spinner } from "@/components/ui/spinner";
 
 export type Phase = "recording" | "uploading" | "training" | "ready" | "failed";
 
@@ -53,7 +54,7 @@ export function TwinStatusPanel({
     <div className="mx-auto w-full max-w-xl px-4 py-16 text-center">
       <p className="flex justify-center" aria-hidden>
         {working ? (
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <Spinner className="size-8 text-primary" />
         ) : phase === "ready" ? (
           <CheckCircle2 className="size-8 text-success" />
         ) : (

@@ -1,12 +1,13 @@
 "use client";
 
-import { Check, Loader2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { PLAN_LIST, priceLabel, type Plan, type PlanId } from "@/lib/billing/plans";
 import { cn } from "@/lib/utils";
 
 import { startCheckout } from "../actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The plans, as one comparison.
@@ -155,7 +156,7 @@ function PlanColumn({
           disabled={disabled}
           className="mt-5 inline-flex h-9 items-center justify-center gap-2 rounded-full bg-ink px-4 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+          {busy ? <Spinner className="size-3.5" /> : null}
           Upgrade to {plan.name}
         </button>
       ) : (

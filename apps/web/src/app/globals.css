@@ -318,3 +318,76 @@
     transform: rotate(360deg);
   }
 }
+
+/*
+ * The loading spinner.
+ *
+ * Twelve segments stepped rather than swept, so it reads as a clock ticking
+ * round rather than a smooth sweep, which is what makes it feel like it is
+ * counting progress rather than idling.
+ *
+ * Drawn in `currentColor`, not the black the design was written in. A spinner
+ * inherits the colour of whatever is loading, so the same class works on a
+ * primary button, in muted body text, and on both themes, and none of it needs
+ * a variant. A hardcoded black would have been invisible in dark mode.
+ *
+ * No width here either. Every caller sizes it with the same `size-*` utility it
+ * used on the icon this replaced.
+ */
+.spinner {
+  aspect-ratio: 1;
+  display: grid;
+  border-radius: 50%;
+  background:
+    linear-gradient(
+        0deg,
+        color-mix(in srgb, currentColor 50%, transparent) 30%,
+        #0000 0 70%,
+        currentColor 0
+      )
+      50% / 8% 100%,
+    linear-gradient(
+        90deg,
+        color-mix(in srgb, currentColor 25%, transparent) 30%,
+        #0000 0 70%,
+        color-mix(in srgb, currentColor 75%, transparent) 0
+      )
+      50% / 100% 8%;
+  background-repeat: no-repeat;
+  animation: spinner-steps 1s infinite steps(12);
+}
+
+.spinner::before,
+.spinner::after {
+  content: "";
+  grid-area: 1/1;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0.915;
+  transform: rotate(30deg);
+}
+
+.spinner::after {
+  opacity: 0.83;
+  transform: rotate(60deg);
+}
+
+@keyframes spinner-steps {
+  100% {
+    transform: rotate(1turn);
+  }
+}
+
+/*
+ * Slowed rather than stopped when motion is reduced.
+ *
+ * A spinner is the one animation that carries meaning: it is the only thing on
+ * screen saying the wait is normal, so removing it leaves somebody staring at a
+ * frozen mark wondering if it broke. Reducing motion sickness is served by
+ * taking the speed out, not the signal.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 3s;
+  }
+}

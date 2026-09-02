@@ -29,6 +29,22 @@ export const metadata: Metadata = {
     icon: "/icons/favicon-32.png",
     apple: "/icons/apple-touch-icon.png",
   },
+  // Without these a pasted link renders as a bare grey URL, which reads as a
+  // link somebody is not sure about. The image itself is drawn per route by the
+  // nearest `opengraph-image` file; this is what tells readers to look for one.
+  openGraph: {
+    type: "website",
+    siteName: "Beyond Social",
+    title: "Beyond Social",
+    description: "AI-powered social media video platform, from idea to published short-form video.",
+    url: env.NEXT_PUBLIC_APP_URL,
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Beyond Social",
+    description: "AI-powered social media video platform, from idea to published short-form video.",
+  },
 };
 
 export const viewport: Viewport = {

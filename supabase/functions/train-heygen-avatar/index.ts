@@ -172,37 +172,55 @@ serve(async (request) => {
     const twin = await createDigitalTwin(name, file, requestId);
 
     /*
-     * Nothing is displaced any more. This used to upsert onto the owner's one
-     * row, so a second recording overwrote the first and left its trained group
-     * stranded at the provider with nothing pointing at it; that is what the
-     * orphan record was for. Each recording is its own row now, so the only way
-     * to strand a group is a retry dispatching twice, and the claim above is
-     * what stops that.
+    /*
+     * The group id is written the moment it is known, before consent is
+     * submitted. HeyGen has already created and will bill this group, and the
+     * catch block below only knows how to mark the row failed, not how to
+     * attach an id it was never given. Recording it first means a consent
+     * failure leaves the group findable and deletable rather than stranded at
+     * the provider with nothing pointing at it.
+     *
+     * Scoped to this row, not to the owner. Each recording is its own row now,
+     * so an update by user id would rewrite every avatar they have.
      */
-    // Consent is registered against the group HeyGen just created, using the
-    // same footage: the recording opens with the statement read aloud, so it is
-    // already the attestation on both sides and nobody is asked to repeat it.
-    let consentStatus: string | null = null;
-    if (twin.groupId) {
-      const consent = await submitConsent(twin.groupId, file, `${user.id}:${CONSENT_VERSION}`);
-      consentStatus = consent.consentStatus;
-    }
-
     await admin
       .from("heygen_avatars")
       .update({
         provider_avatar_id: twin.groupId,
         provider_look_id: twin.lookId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", avatarId);
+
+    // Consent is registered against the group HeyGen just created, using the
+    // same footage: the recording opens with the statement read aloud, so it is
+    // already the attestation on both sides and nobody is asked to repeat it.
+    let consentStatus: string | null = null;
+    let trainingError = twin.error;
+    if (twin.groupId) {
+      try {
+        const consent = await submitConsent(twin.groupId, file, `${user.id}:${CONSENT_VERSION}`);
+        consentStatus = consent.consentStatus;
+      } catch (consentError) {
+        // The group exists and is recorded above, so this is a failed twin
+        // rather than a lost one.
+        trainingError = consentError instanceof Error ? consentError.message : String(consentError);
+      }
+    }
+
+    await admin
+      .from("heygen_avatars")
+      .update({
         provider_consent_status: consentStatus,
         // Still pending: HeyGen accepted the job, it has not finished it.
-        training_status: twin.error ? "failed" : "pending",
-        provider_error: twin.error,
+        training_status: trainingError ? "failed" : "pending",
+        provider_error: trainingError,
         updated_at: new Date().toISOString(),
       })
       .eq("id", avatarId);
 
     log("info", "heygen training started", { traceId, groupId: twin.groupId ?? "" });
-    return json({ avatarId, status: twin.error ? "failed" : "pending", trained: true });
+    return json({ avatarId, status: trainingError ? "failed" : "pending", trained: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("error", "heygen training failed", { traceId, error: message });

@@ -46,6 +46,20 @@ export interface ModelChoice {
    * attachment on the floor is worse than a video that ignores it loudly.
    */
   readonly attachmentIgnored?: boolean;
+  /**
+   * True when a voice clip was attached with nothing here able to speak it: the
+   * avatar models need a photo of the person to pair it with, and every other
+   * model in the catalogue is silent. The generation still runs and the clip is
+   * dropped, so the caller has to say so, for the same reason
+   * `attachmentIgnored` exists.
+   */
+  readonly voiceIgnored?: boolean;
+  /**
+   * This plan's everyday generator: what `worthConfirming` was measured
+   * against, and what runs instead when a costlier choice is declined. Null
+   * only when the catalogue held nothing this plan could run at all.
+   */
+  readonly alternative: { readonly modelId: string; readonly creditCost: number } | null;
 }
 
 /** Which plans outrank which, for the `min_plan` check. */
@@ -76,6 +90,8 @@ export interface SelectionInput {
   readonly plan: PlanId;
   /** True when a photo of a person and a voice clip were both attached. */
   readonly hasFaceAndVoice: boolean;
+  /** True when a voice clip was attached, with or without a photo to pair it. */
+  readonly hasVoice: boolean;
   /** True when existing footage was attached to be transformed. */
   readonly hasFootage: boolean;
   readonly catalog: readonly CatalogModel[];
@@ -99,7 +115,7 @@ function firstUsable(
 }
 
 export function selectModel(input: SelectionInput): ModelChoice | null {
-  const { prompt, plan, hasFaceAndVoice, hasFootage, catalog } = input;
+  const { prompt, plan, hasFaceAndVoice, hasVoice, hasFootage, catalog } = input;
 
   const workhorse = firstUsable(
     // Falls back down the list rather than failing: a plan whose workhorse is
@@ -108,6 +124,10 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
     catalog,
     plan,
   );
+
+  // A clip with no face to put it on cannot be spoken by anything here, and
+  // which model is picked does not change that, so it is judged once.
+  const voiceIgnored = hasVoice && !hasFaceAndVoice;
 
   const pick = (
     model: CatalogModel | null,
@@ -124,6 +144,9 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
           // remarkable on one plan and ordinary on another.
           worthConfirming: model.creditCost > (workhorse?.creditCost ?? 0),
           attachmentIgnored,
+          voiceIgnored,
+          alternative:
+            workhorse === null ? null : { modelId: workhorse.id, creditCost: workhorse.creditCost },
         };
 
   /*

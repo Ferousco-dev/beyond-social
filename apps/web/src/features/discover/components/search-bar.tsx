@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { type FormEvent } from "react";
 
 import { PlatformLogo } from "@/components/brand/platform-logo";
@@ -8,6 +8,7 @@ import { SCRAPE_PLATFORMS, type ScrapePlatform } from "@/lib/social-scrape/types
 import { cn } from "@/lib/utils";
 
 import { PLATFORM_NAME } from "../lib/platforms";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * One row: which platform, and what to look for.
@@ -89,7 +90,7 @@ export function SearchBar({
           title={query.trim().length < 2 ? "Type at least two characters" : "Search"}
           className="absolute right-1 top-1/2 inline-flex h-7 -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-md bg-ink px-3 text-[13px] font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : null}
+          {busy ? <Spinner className="size-3.5" /> : null}
           Search
         </button>
       </div>

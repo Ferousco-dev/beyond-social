@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Package, Plus, Trash2 } from "lucide-react";
+import { Package, Plus, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 
 import { type BrandAsset } from "@/lib/assets/brand";
@@ -9,6 +9,7 @@ import { useOptimisticList } from "@/lib/hooks/use-optimistic-list";
 import { removeBrandAsset, saveBrandAsset } from "../actions";
 import { usePictureUpload } from "../hooks/use-picture-upload";
 import { MakeVideoButton } from "./make-video-button";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The product shelf.
@@ -81,10 +82,18 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
         message box.
       </p>
 
-      <ul className="mt-5 flex flex-wrap gap-4">
+      {/*
+       * A grid rather than a wrapped row of thumbnails.
+       *
+       * These are the only pictures on the page, and a product photo is the
+       * one asset somebody recognises at a glance rather than reads. Fixed
+       * ninety six pixel chips made them into a row of icons on a screen wide
+       * enough to show them as pictures.
+       */}
+      <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
         {shelf.items.map((product) => (
           <li key={product.id} className="group relative">
-            <div className="size-24 overflow-hidden rounded-2xl border border-hairline bg-cloud">
+            <div className="aspect-square w-full overflow-hidden rounded-xl border border-hairline bg-cloud">
               {product.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -120,7 +129,7 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             </button>
 
             {product.label ? (
-              <p className="mt-2 w-24 truncate text-xs font-medium text-ink">{product.label}</p>
+              <p className="mt-2 truncate text-xs font-medium text-ink">{product.label}</p>
             ) : null}
 
             <MakeVideoButton asset={product} className="mt-1 text-xs text-ink-soft hover:text-ink">
@@ -141,13 +150,9 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
             type="button"
             disabled={busy}
             onClick={() => fileRef.current?.click()}
-            className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-hairline text-ink-soft transition-colors hover:border-primary/50 hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex aspect-square w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-hairline text-ink-soft transition-colors hover:border-primary/50 hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {busy ? (
-              <Loader2 className="size-5 animate-spin" aria-hidden />
-            ) : (
-              <Plus className="size-5" aria-hidden />
-            )}
+            {busy ? <Spinner className="size-5" /> : <Plus className="size-5" aria-hidden />}
             <span className="text-xs">Add</span>
           </button>
         </li>

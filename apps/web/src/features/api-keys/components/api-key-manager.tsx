@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, KeyRound, Loader2, Plus } from "lucide-react";
+import { Check, Copy, KeyRound, Plus } from "lucide-react";
 import { useState, useTransition } from "react";
 
 import { EmptyState } from "@/components/ui/empty-state";
@@ -8,6 +8,7 @@ import { useConfirm } from "@/components/ui/use-confirm";
 import { type ApiKeySummary } from "@/lib/dashboard/api-keys";
 
 import { createApiKey, revokeApiKey } from "../actions";
+import { Spinner } from "@/components/ui/spinner";
 
 /** Creates and lists API keys. The plaintext is shown once and never again. */
 export function ApiKeyManager({ keys }: { keys: readonly ApiKeySummary[] }) {
@@ -54,11 +55,7 @@ export function ApiKeyManager({ keys }: { keys: readonly ApiKeySummary[] }) {
             disabled={pending || name.trim() === ""}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-3.5 text-sm font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pending ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Plus className="size-3.5" />
-            )}
+            {pending ? <Spinner className="size-3.5" /> : <Plus className="size-3.5" />}
             Create key
           </button>
           {message ? (

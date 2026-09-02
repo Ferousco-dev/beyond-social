@@ -12,6 +12,9 @@ export const metadata: Metadata = {
     "The Beyond Social API, webhooks, and MCP endpoint: authentication, the endpoints that exist today, and how to verify a delivery.",
 };
 
+const linkClass =
+  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
 /**
  * Everything a machine can do with an account, on one page.
  *
@@ -41,7 +44,11 @@ export default function Page(): ReactNode {
         <Prose>
           <p>
             If anything here does not match what the API returns, that is a bug in this page and we
-            want to know: hello@beyondsocial.app.
+            want to know:{" "}
+            <a className={linkClass} href="mailto:hello@beyondsocial.app">
+              hello@beyondsocial.app
+            </a>
+            .
           </p>
         </Prose>
       </div>

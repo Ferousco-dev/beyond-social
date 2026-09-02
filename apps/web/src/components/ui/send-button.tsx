@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowUp, Loader2 } from "lucide-react";
+import { ArrowUp } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * The control that sends a brief: a filled circle with an arrow.
@@ -47,10 +48,7 @@ export function SendButton({
       )}
     >
       {busy ? (
-        <Loader2
-          className={cn("animate-spin", size === "compact" ? "size-3.5" : "size-4")}
-          aria-hidden
-        />
+        <Spinner className={cn(size === "compact" ? "size-3.5" : "size-4")} />
       ) : (
         <ArrowUp className={cn(size === "compact" ? "size-3.5" : "size-4")} aria-hidden />
       )}

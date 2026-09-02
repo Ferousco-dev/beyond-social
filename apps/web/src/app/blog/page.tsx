@@ -5,6 +5,9 @@ import { PageShell, Prose } from "@/components/landing/page-shell";
 
 export const metadata: Metadata = { title: "Notes" };
 
+const linkClass =
+  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
 export default function Page(): ReactNode {
   return (
     <PageShell
@@ -23,7 +26,11 @@ export default function Page(): ReactNode {
           The subjects are already obvious to us: how craft knowledge is retrieved and assembled
           into a prompt, how to judge output quality without watching every frame by hand, what the
           generation actually costs to run, and the times a change made the video worse. If you want
-          to be told when the first note goes up, email hello@beyondsocial.app.
+          to be told when the first note goes up, email{" "}
+          <a className={linkClass} href="mailto:hello@beyondsocial.app">
+            hello@beyondsocial.app
+          </a>
+          .
         </p>
       </Prose>
     </PageShell>
