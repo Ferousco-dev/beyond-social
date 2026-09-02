@@ -6,10 +6,21 @@ owner not watching and not reachable. Everything in
 `docs/marathon/RULES.md`, not looser: a single 3-hour session had the owner
 one message away the whole time. A scheduled run does not.
 
+## Branching
+
+Since 2026-09-01, per the owner's direct instruction: one shared branch,
+`Feranmibranches`, for all work in this system. Do not cut a new branch per
+task or per fix, the pattern every prior session used (see the Session log
+below for the old convention). Commit and push to `Feranmibranches`
+directly; open a PR from it into `main` for the owner to review. This
+replaces `TEAM.md`'s "own branch per scoped change" description of the Git
+Manager role; treat that file's wording as superseded by this note until it
+is updated to match.
+
 ## What never needs the owner
 
-- Reading code, writing code, committing to a feature branch, pushing that
-  branch, opening a PR.
+- Reading code, writing code, committing to `Feranmibranches`, pushing it,
+  opening a PR from it.
 - Running the type checker, linter, build, and existing smoke tests to
   verify.
 - Merging a PR, but only after the PR Checker role has independently
