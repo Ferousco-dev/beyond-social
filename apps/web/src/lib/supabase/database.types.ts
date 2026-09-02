@@ -2597,11 +2597,11 @@ export type Database = {
       };
       fail_generation: {
         Args: { p_error: string; p_provider_task_id: string };
-        Returns: undefined;
+        Returns: boolean;
       };
       fail_generation_by_id: {
         Args: { p_error: string; p_generation: string };
-        Returns: undefined;
+        Returns: boolean;
       };
       grant_credits: {
         Args: {

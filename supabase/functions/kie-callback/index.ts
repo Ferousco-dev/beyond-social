@@ -100,7 +100,7 @@ serve(async (req) => {
     }
   } else {
     const reason = body.msg ?? "Generation failed";
-    const { error } = await admin.rpc("fail_generation", {
+    const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: taskId,
       p_error: reason,
     });
@@ -113,6 +113,18 @@ serve(async (req) => {
       });
       return json({ error: "Could not record the generation failure" }, 500);
     }
+
+    /*
+     * A redelivered or late callback for a run that already settled is not a
+     * failure to report. Announcing one would tell a customer their finished
+     * render failed, and the refund it used to trigger was money leaving on a
+     * video the user already has.
+     */
+    if (transitioned !== true) {
+      log("info", "callback ignored for an already settled generation", { traceId, taskId });
+      return json({ received: true });
+    }
+
     log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
     if (generation) {
       await deliverEvent(

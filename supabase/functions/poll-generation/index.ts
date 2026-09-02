@@ -95,7 +95,7 @@ serve(async (req) => {
     return json({ status: "ready", resultUrl });
   }
   if (info.successFlag === 2 || info.successFlag === 3) {
-    const { error } = await admin.rpc("fail_generation", {
+    const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_error: "Generation failed",
     });
@@ -106,6 +106,24 @@ serve(async (req) => {
         reason: error.message,
       });
       return json({ error: "Could not sync this generation" }, 500);
+    }
+
+    /*
+     * The provider says failed and the row refused the transition, because the
+     * callback settled it while this poll was in flight. The row is the record,
+     * so it is re-read rather than reported from the copy taken before the call,
+     * which still says `generating`.
+     */
+    if (transitioned !== true) {
+      const { data: settled } = await admin
+        .from("video_generations")
+        .select("status, result_url")
+        .eq("id", generation.id)
+        .single();
+      return json({
+        status: settled?.status ?? generation.status,
+        resultUrl: settled?.result_url ?? null,
+      });
     }
     return json({ status: "failed", resultUrl: null });
   }
