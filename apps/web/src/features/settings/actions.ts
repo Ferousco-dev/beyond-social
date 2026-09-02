@@ -1,12 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { THEME_COOKIE, THEME_COOKIE_MAX_AGE, THEMES } from "@/lib/theme";
 
 /** Account changes the owner can make about themselves. */
 
@@ -99,28 +97,4 @@ export async function updatePassword(
     return { status: "error", message: error.message };
   }
   return { status: "ok", message: "Password changed." };
-}
-
-const themeSchema = z.object({ theme: z.enum(THEMES) });
-
-/**
- * Stores the theme choice.
- *
- * A cookie rather than local storage, so the server can emit the right class in
- * the first byte instead of the page flashing the wrong colours before
- * JavaScript corrects it.
- */
-export async function saveTheme(input: z.input<typeof themeSchema>): Promise<SettingsResult> {
-  const parsed = themeSchema.safeParse(input);
-  if (!parsed.success) return { status: "error", message: "Unknown theme" };
-
-  (await cookies()).set(THEME_COOKIE, parsed.data.theme, {
-    maxAge: THEME_COOKIE_MAX_AGE,
-    path: "/",
-    sameSite: "lax",
-    // Readable by the picker so it can apply the class without a round trip.
-    httpOnly: false,
-  });
-
-  return { status: "ok", message: "Theme saved." };
 }

@@ -1,13 +1,11 @@
 "use client";
 
 import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 
 import { type Theme } from "@/lib/theme";
-import { applyTheme, readTheme } from "@/lib/theme-client";
+import { applyTheme, readTheme, writeTheme } from "@/lib/theme-client";
 import { cn } from "@/lib/utils";
-
-import { saveTheme } from "../actions";
 
 /**
  * The three-way theme switch, small enough to sit on one row of a menu.
@@ -28,7 +26,6 @@ export function ThemeToggle() {
   // Starts at the documented default and corrects on mount, because the cookie
   // is not readable while rendering.
   const [selected, setSelected] = useState<Theme>("light");
-  const [, startTransition] = useTransition();
 
   useEffect(() => {
     setSelected(readTheme());
@@ -37,9 +34,7 @@ export function ThemeToggle() {
   function choose(theme: Theme): void {
     setSelected(theme);
     applyTheme(theme);
-    startTransition(async () => {
-      await saveTheme({ theme });
-    });
+    writeTheme(theme);
   }
 
   return (
