@@ -31,10 +31,20 @@ serve(async (request) => {
   } = await supabase.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
+  const body = (await request.json().catch(() => ({}))) as { avatarId?: string };
+  const avatarId = (body.avatarId ?? "").trim();
+  if (avatarId === "") return json({ error: "missing_avatar" }, 400);
+
   const admin = adminClient();
+  /*
+   * Matched on the id and the owner together. The id alone would let anybody
+   * who learned a uuid delete somebody else's likeness, and this runs with the
+   * service role, so nothing further down would stop them.
+   */
   const { data, error } = await admin
     .from("heygen_avatars")
     .select("provider_avatar_id, orphaned_provider_avatar_ids, storage_path")
+    .eq("id", avatarId)
     .eq("user_id", user.id)
     .maybeSingle();
   if (error) {
@@ -48,7 +58,7 @@ serve(async (request) => {
     storage_path: string;
   } | null;
   // Nothing to delete is the same outcome as deleted, and saying so lets the
-  // settings screen be simple about a person pressing the button twice.
+  // library be simple about a person pressing the button twice.
   if (!twin) return json({ deleted: true, alreadyGone: true });
 
   /*
@@ -93,15 +103,28 @@ serve(async (request) => {
     log("warn", "could not remove twin footage", { traceId, error: storageError.message });
   }
 
-  const { error: deleteError } = await admin.from("heygen_avatars").delete().eq("user_id", user.id);
+  const { error: deleteError } = await admin
+    .from("heygen_avatars")
+    .delete()
+    .eq("id", avatarId)
+    .eq("user_id", user.id);
   if (deleteError) {
     log("error", "could not delete the twin row", { traceId, error: deleteError.message });
     return json({ error: "delete_failed" }, 500);
   }
 
-  // Any unclaimed handoff is a live capability pointing at an avatar that no
-  // longer exists, so it goes too.
-  await admin.from("avatar_handoffs").delete().eq("user_id", user.id);
+  /*
+   * Handoff links are cleared only when the last avatar goes. They are scoped
+   * to a person rather than to one likeness, so deleting one of several would
+   * otherwise revoke a link the owner is part way through using for another.
+   */
+  const { count } = await admin
+    .from("heygen_avatars")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  if ((count ?? 0) === 0) {
+    await admin.from("avatar_handoffs").delete().eq("user_id", user.id);
+  }
 
   log("info", "twin deleted", { traceId });
   return json({ deleted: true, alreadyGone: false });

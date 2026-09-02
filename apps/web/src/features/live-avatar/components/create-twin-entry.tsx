@@ -1,13 +1,16 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { env } from "@/lib/env";
 
 import { mintHandoff } from "../handoff-actions";
 import { startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
+import { type TwinSummary } from "../delete-actions";
 import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
+import { TwinLibrary } from "./twin-library";
 import { TwinStatusPanel, type Phase } from "./twin-status-panel";
 
 /**
@@ -23,7 +26,14 @@ import { TwinStatusPanel, type Phase } from "./twin-status-panel";
 /** Fast enough to feel immediate, slow enough not to hammer while nothing changes. */
 const POLL_MS = 4000;
 
-export function CreateTwinEntry({ name }: { name: string }): ReactNode {
+export function CreateTwinEntry({
+  name,
+  twins,
+}: {
+  name: string;
+  twins: readonly TwinSummary[];
+}): ReactNode {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("recording");
   const [message, setMessage] = useState<string | null>(null);
   const [handoff, setHandoff] = useState<{ url: string | null; expiresAt: number | null }>({
@@ -146,10 +156,28 @@ export function CreateTwinEntry({ name }: { name: string }): ReactNode {
   }
 
   return (
-    <CreateTwinScreen
-      name={name}
-      onFootage={(footage) => void submit(footage)}
-      phone={{ ...handoff, onRefresh: () => void refresh() }}
-    />
+    <div className="flex flex-col">
+      <CreateTwinScreen
+        name={name}
+        onFootage={(footage) => void submit(footage)}
+        phone={{ ...handoff, onRefresh: () => void refresh() }}
+      />
+
+      {/*
+       * Below the recorder rather than above it. Somebody arriving here either
+       * has no avatar and wants to make one, or has several and wants to manage
+       * them; only the first of those is blocked by scrolling past the other.
+       */}
+      {twins.length > 0 ? (
+        <section className="mx-auto w-full max-w-2xl px-4 pb-16">
+          <h2 className="text-sm font-medium text-ink">Your avatars</h2>
+          <p className="mt-1 mb-4 text-sm text-ink-soft">
+            Recorded once, reusable for every video. The default is the one used when a video does
+            not name another.
+          </p>
+          <TwinLibrary twins={twins} onChanged={() => router.refresh()} />
+        </section>
+      ) : null}
+    </div>
   );
 }

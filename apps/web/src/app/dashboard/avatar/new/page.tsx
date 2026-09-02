@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 
 import { CreateTwinEntry } from "@/features/live-avatar/components/create-twin-entry";
+import { listTwins } from "@/features/live-avatar/delete-actions";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Create your avatar" };
@@ -31,5 +32,7 @@ export default async function CreateAvatarPage() {
   const metadataName = user?.user_metadata?.full_name;
   const name = typeof metadataName === "string" ? metadataName : "";
 
-  return <CreateTwinEntry name={name} />;
+  const twins = await listTwins();
+
+  return <CreateTwinEntry name={name} twins={twins} />;
 }
