@@ -40,12 +40,33 @@ export interface Plan {
   readonly href: "/signup";
 }
 
+/*
+ * Allowances are credits, and a credit is five cents of provider cost.
+ *
+ * These read 15, 100 and 400 for a month, which is what they were on 26 July
+ * when one credit meant one veo3_fast render. Migration 0051 made a credit five
+ * cents on 2 August, multiplied the ledger and the model costs by six, and left
+ * these alone, so every plan quietly became a sixth of its intended size and
+ * Free delivered two of the fifteen videos it advertises.
+ *
+ * Restored against the model each tier actually runs, which is what makes the
+ * numbers on the pricing page true rather than aspirational:
+ *
+ *   Free      90cr   15 videos on veo3_fast at 6cr     $4.50 of provider cost
+ *   Creator  600cr   20 videos on kling-3.0 at 30cr   $30.00
+ *   Studio  1800cr   60 videos on kling-3.0 at 30cr   $90.00
+ *
+ * Creator advertised a hundred and cannot have one. The paid tiers run the top
+ * model deliberately, and a hundred renders of it is a hundred and fifty
+ * dollars of provider cost before any margin, so the count comes down rather
+ * than the model. See docs/pricing-model.md.
+ */
 export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
   free: {
     id: "free",
     name: "Free",
     description: "Enough to see whether the output is good.",
-    credits: 15,
+    credits: 90,
     priceUsd: 0,
     yearlyPriceUsd: 0,
     features: ["15 videos a month", "Every aspect ratio", "Editor and captions"],
@@ -57,12 +78,12 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     id: "creator",
     name: "Creator",
     description: "For one person publishing consistently.",
-    credits: 100,
+    credits: 600,
     priceUsd: 0,
     yearlyPriceUsd: 0,
     features: [
       "Everything in Free",
-      "100 videos a month",
+      "20 videos a month, on the top model",
       "Scheduling to every platform",
       "Trend discovery feed",
       "Priority generation queue",
@@ -75,12 +96,12 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     id: "studio",
     name: "Studio",
     description: "For a team running several brands.",
-    credits: 400,
+    credits: 1800,
     priceUsd: 0,
     yearlyPriceUsd: 0,
     features: [
       "Everything in Creator",
-      "400 videos a month",
+      "60 videos a month, on the top model",
       "Brand kits",
       "Batch scheduling",
       "API, webhooks, and MCP for your own tools",

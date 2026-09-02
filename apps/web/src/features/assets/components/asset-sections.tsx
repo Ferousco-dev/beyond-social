@@ -37,16 +37,16 @@ export function AssetSectionNav({
   return (
     <nav
       aria-label="Sections"
-      className="sticky top-0 z-10 -mx-4 overflow-x-auto border-b border-hairline bg-canvas/85 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+      className="sticky top-0 z-10 -mx-4 overflow-x-auto border-b border-hairline bg-canvas/90 px-4 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
     >
-      <ul className="flex min-w-max items-center gap-1 py-2.5">
+      <ul className="flex min-w-max items-center gap-1 py-3">
         {SECTIONS.map((section) => {
           const count = counts[section.id] ?? 0;
           return (
             <li key={section.id}>
               <a
                 href={`#${section.id}`}
-                className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex h-9 items-center gap-2 rounded-lg border border-transparent px-3 text-sm text-ink-soft transition-colors hover:border-hairline hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <section.icon className="size-4" aria-hidden />
                 {section.label}
@@ -92,7 +92,7 @@ export function AssetSection({
       <div className="mb-4">
         <h2
           id={`${id}-heading`}
-          className="text-xs font-medium uppercase tracking-[0.12em] text-ink-soft"
+          className="text-xs font-medium uppercase tracking-[0.14em] text-ink-soft"
         >
           {title}
         </h2>

@@ -90,16 +90,19 @@ export function ProductsCard({ products }: { products: readonly BrandAsset[] }) 
        * ninety six pixel chips made them into a row of icons on a screen wide
        * enough to show them as pictures.
        */}
-      <ul className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
-        {shelf.items.map((product) => (
-          <li key={product.id} className="group relative">
+      <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 xl:grid-cols-6">
+        {shelf.items.map((product, index) => (
+          <li
+            key={product.id}
+            className={`group relative ${index === 0 && shelf.items.length > 1 ? "sm:col-span-2 sm:row-span-2" : ""}`}
+          >
             <div className="aspect-square w-full overflow-hidden rounded-xl border border-hairline bg-cloud">
               {product.url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={product.url}
                   alt={product.label || "Saved product"}
-                  className="size-full object-cover"
+                  className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 />
               ) : (
                 <span className="flex size-full items-center justify-center">
