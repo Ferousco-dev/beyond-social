@@ -37,8 +37,12 @@ const FOOTAGE_URL_SECONDS = 60 * 60 * 24;
 interface TrainBody {
   storagePath?: string;
   consentVersion?: number;
+  /** What the owner calls this likeness in their library. */
   name?: string;
 }
+
+/** Kept short enough to read in a gallery tile. */
+const MAX_NAME = 60;
 
 serve(async (request) => {
   const traceId = traceIdFrom(request);
@@ -70,6 +74,13 @@ serve(async (request) => {
 
   const admin = adminClient();
 
+  // Whether this is their first, which decides if it becomes the default.
+  const { count } = await admin
+    .from("heygen_avatars")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  const hasAvatar = (count ?? 0) > 0;
+
   /*
    * The row is written before the provider is called, and regardless of whether
    * there is a provider to call.
@@ -78,8 +89,18 @@ serve(async (request) => {
    * deployment has credentials, and losing that because a key is missing would
    * mean asking them to do it again later. Training is what waits.
    */
-  const { error: upsertError } = await admin.from("heygen_avatars").upsert(
-    {
+  /*
+   * Inserted, not upserted onto the owner.
+   *
+   * This used to upsert on `user_id`, which was unique, so recording a second
+   * avatar silently replaced the first: the row moved to the new footage and
+   * the old likeness became unreachable while still trained at the provider.
+   * A person may hold several now, so each recording is its own row.
+   */
+  const trimmed = (body.name ?? "").trim().slice(0, MAX_NAME);
+  const { data: created, error: upsertError } = await admin
+    .from("heygen_avatars")
+    .insert({
       user_id: user.id,
       storage_path: storagePath,
       consent_version: CONSENT_VERSION,
@@ -88,12 +109,20 @@ serve(async (request) => {
       // longer exists.
       consent_at: new Date().toISOString(),
       training_status: "pending",
+      name: trimmed === "" ? null : trimmed,
+      // The first avatar somebody records is the one to use until they say
+      // otherwise. Later ones wait to be chosen.
+      is_default: !hasAvatar,
       updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
-  if (upsertError) {
-    log("error", "heygen avatar row could not be saved", { traceId, error: upsertError.message });
+    })
+    .select("id")
+    .single();
+  const avatarId = (created as { id: string } | null)?.id ?? "";
+  if (upsertError || avatarId === "") {
+    log("error", "heygen avatar row could not be saved", {
+      traceId,
+      error: upsertError?.message ?? "no id returned",
+    });
     return json({ error: "could_not_save" }, 500);
   }
 
@@ -101,7 +130,7 @@ serve(async (request) => {
     // Not an error. This deployment has no provider, the footage and the
     // consent are recorded, and training is picked up whenever a key exists.
     log("info", "heygen training skipped, provider unconfigured", { traceId });
-    return json({ status: "pending", trained: false, reason: "provider_unconfigured" });
+    return json({ avatarId, status: "pending", trained: false, reason: "provider_unconfigured" });
   }
 
   /*
@@ -139,51 +168,41 @@ serve(async (request) => {
   const file = { type: "url", url: signed.signedUrl } as const;
   const name = (body.name ?? "").trim() || `Twin ${user.id.slice(0, 8)}`;
 
-  // Read before the dispatch so a group that gets displaced can be recorded
-  // rather than silently left at the provider.
-  const { data: existing } = await admin
-    .from("heygen_avatars")
-    .select("provider_avatar_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
   try {
-    const created = await createDigitalTwin(name, file, requestId);
+    const twin = await createDigitalTwin(name, file, requestId);
 
-    const previous = (existing as { provider_avatar_id?: string | null } | null)
-      ?.provider_avatar_id;
-    if (previous && created.groupId && previous !== created.groupId) {
-      await admin.rpc("orphan_twin_avatar", { p_user: user.id, p_avatar_id: previous });
-      log("warn", "a previous twin avatar was displaced and recorded as an orphan", {
-        traceId,
-        previous,
-      });
-    }
-
+    /*
+     * Nothing is displaced any more. This used to upsert onto the owner's one
+     * row, so a second recording overwrote the first and left its trained group
+     * stranded at the provider with nothing pointing at it; that is what the
+     * orphan record was for. Each recording is its own row now, so the only way
+     * to strand a group is a retry dispatching twice, and the claim above is
+     * what stops that.
+     */
     // Consent is registered against the group HeyGen just created, using the
     // same footage: the recording opens with the statement read aloud, so it is
     // already the attestation on both sides and nobody is asked to repeat it.
     let consentStatus: string | null = null;
-    if (created.groupId) {
-      const consent = await submitConsent(created.groupId, file, `${user.id}:${CONSENT_VERSION}`);
+    if (twin.groupId) {
+      const consent = await submitConsent(twin.groupId, file, `${user.id}:${CONSENT_VERSION}`);
       consentStatus = consent.consentStatus;
     }
 
     await admin
       .from("heygen_avatars")
       .update({
-        provider_avatar_id: created.groupId,
-        provider_look_id: created.lookId,
+        provider_avatar_id: twin.groupId,
+        provider_look_id: twin.lookId,
         provider_consent_status: consentStatus,
         // Still pending: HeyGen accepted the job, it has not finished it.
-        training_status: created.error ? "failed" : "pending",
-        provider_error: created.error,
+        training_status: twin.error ? "failed" : "pending",
+        provider_error: twin.error,
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("id", avatarId);
 
-    log("info", "heygen training started", { traceId, groupId: created.groupId ?? "" });
-    return json({ status: created.error ? "failed" : "pending", trained: true });
+    log("info", "heygen training started", { traceId, groupId: twin.groupId ?? "" });
+    return json({ avatarId, status: twin.error ? "failed" : "pending", trained: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("error", "heygen training failed", { traceId, error: message });
@@ -194,7 +213,7 @@ serve(async (request) => {
         provider_error: message.slice(0, 500),
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("id", avatarId);
     return json({ error: "training_failed" }, 502);
   }
 });

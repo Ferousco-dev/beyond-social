@@ -38,6 +38,8 @@ const MAX_SCRIPT = 1500;
 interface GenerateBody {
   script?: string;
   title?: string;
+  /** Which likeness to speak it. Omitted means the owner's default. */
+  avatarId?: string;
 }
 
 serve(async (request) => {
@@ -70,11 +72,23 @@ serve(async (request) => {
   if (script.length > MAX_SCRIPT) return json({ error: "script_too_long", max: MAX_SCRIPT }, 400);
 
   const admin = adminClient();
-  const { data: avatar, error: avatarError } = await admin
+  /*
+   * A named avatar, or the one marked default.
+   *
+   * Ordering by is_default and taking the first is deliberate rather than
+   * filtering on it: somebody whose only avatar has never been made default,
+   * which is every row that predates the library, still gets a twin instead of
+   * being told they have none.
+   */
+  const requested = (body.avatarId ?? "").trim();
+  let query = admin
     .from("heygen_avatars")
     .select("provider_look_id, provider_voice_id, training_status")
-    .eq("user_id", user.id)
-    .maybeSingle();
+    .eq("user_id", user.id);
+  query =
+    requested === "" ? query.order("is_default", { ascending: false }) : query.eq("id", requested);
+
+  const { data: avatar, error: avatarError } = await query.limit(1).maybeSingle();
   if (avatarError) {
     log("error", "could not read the caller's twin", { traceId, error: avatarError.message });
     return json({ error: "lookup_failed" }, 500);

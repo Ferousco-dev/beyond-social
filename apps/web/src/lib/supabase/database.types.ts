@@ -571,6 +571,8 @@ export type Database = {
           id: string;
           provider_avatar_id: string | null;
           consent_at: string | null;
+          is_default: boolean;
+          name: string | null;
           poll_count: number;
           trained_at: string | null;
           provider_voice_id: string | null;
@@ -588,6 +590,8 @@ export type Database = {
           id?: string;
           provider_avatar_id?: string | null;
           consent_at?: string | null;
+          is_default?: boolean;
+          name?: string | null;
           poll_count?: number;
           trained_at?: string | null;
           provider_voice_id?: string | null;
@@ -605,6 +609,8 @@ export type Database = {
           id?: string;
           provider_avatar_id?: string | null;
           consent_at?: string | null;
+          is_default?: boolean;
+          name?: string | null;
           poll_count?: number;
           trained_at?: string | null;
           provider_voice_id?: string | null;
@@ -2425,6 +2431,10 @@ export type Database = {
       pending_heygen_avatars: {
         Args: { p_limit?: number };
         Returns: { user_id: string; provider_avatar_id: string; poll_count: number }[];
+      };
+      set_default_avatar: {
+        Args: { p_avatar: string };
+        Returns: boolean;
       };
       ai_spend_usd: {
         Args: { p_since: string; p_user: string };
