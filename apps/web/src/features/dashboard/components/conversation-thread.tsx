@@ -37,7 +37,19 @@ import { ThreadTranscript, type Notice } from "./thread-transcript";
  */
 type AttachmentRef = { kind: AttachmentKind; path: string };
 
-export function ConversationThread({ thread }: { thread: Thread }) {
+/** The face this person saved, for pairing with a voice clip they did not. */
+export interface SavedLikeness {
+  readonly path: string;
+  readonly url: string;
+}
+
+export function ConversationThread({
+  thread,
+  savedLikeness,
+}: {
+  thread: Thread;
+  savedLikeness: SavedLikeness | null;
+}) {
   const router = useRouter();
   const [notice, setNotice] = useState<Notice | null>(null);
   const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
@@ -301,24 +313,53 @@ export function ConversationThread({ thread }: { thread: Thread }) {
 
       const clip = draft.footage;
       const shotList = draft.shots;
+
+      /*
+       * The saved face is shown in the turn that used it.
+       *
+       * Reaching for it silently would put somebody's likeness in a video with
+       * nothing on screen saying which face went in, which is the one thing
+       * this feature should never do quietly. Drawn as an attachment because
+       * that is how every other input to the turn is shown, so it reads as
+       * something they sent rather than something that happened to them.
+       */
+      const usingSavedFace = voiceClip !== null && attached.length === 0 && savedLikeness !== null;
+      const shownAttachments = usingSavedFace
+        ? [
+            { kind: "photo" as const, path: savedLikeness.path, url: savedLikeness.url },
+            ...optimisticAttachments,
+          ]
+        : optimisticAttachments;
+
       clearDraft();
       setMessages((current) => [
         ...current,
-        { id: optimisticId, role: "user", content: trimmed, attachments: optimisticAttachments },
+        { id: optimisticId, role: "user", content: trimmed, attachments: shownAttachments },
       ]);
 
       void (async () => {
-        // A photo plus a voice clip means an avatar render rather than an
-        // ordinary generation: the two inputs together are the whole signal, so
-        // there is no separate mode to switch into.
-        if (voiceClip && attached.length > 0 && attached[0]) {
-          const outcome = await runAvatar(
-            trimmed,
-            attached[0],
-            voiceClip.url,
-            optimisticId,
-            attachmentRefs,
-          );
+        /*
+         * A photo plus a voice clip means an avatar render rather than an
+         * ordinary generation: the two inputs together are the whole signal, so
+         * there is no separate mode to switch into.
+         *
+         * The photo can be one they saved rather than one they just attached.
+         * Every avatar model needs a face and a voice together, and no video
+         * model reads audio at all, so a voice on its own used to generate a
+         * video the voice was absent from. Reaching for the saved face turns
+         * that into the render they meant.
+         *
+         * The path goes with it, not just the URL: the edge function reads the
+         * object from storage, and the server re-checks that the path belongs
+         * to the caller and that the likeness attestation exists, so this
+         * chooses a candidate rather than granting anything.
+         */
+        const face = attached[0] ?? savedLikeness?.url;
+        const faceRefs = usingSavedFace
+          ? [{ kind: "photo" as const, path: savedLikeness.path }, ...attachmentRefs]
+          : attachmentRefs;
+        if (voiceClip && face) {
+          const outcome = await runAvatar(trimmed, face, voiceClip.url, optimisticId, faceRefs);
           setSending(false);
           if (outcome) return;
           return;
@@ -495,6 +536,7 @@ export function ConversationThread({ thread }: { thread: Thread }) {
       sending,
       rendering,
       runAvatar,
+      savedLikeness,
       confirm,
       hold,
       sendTurn,

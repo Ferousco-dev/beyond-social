@@ -524,7 +524,7 @@ export async function runTurn(
    */
   if (choice?.voiceIgnored) {
     const voiceNotice =
-      "That voice clip isn't used for this yet. Add a photo of the person speaking and the video can speak in their voice; on its own the clip can't be used, so this one has no audio.";
+      "A voice needs a face to speak from, so this one has no audio. Attach a photo of the person, or save one under Assets and it will be used automatically next time.";
     notice = notice === undefined ? voiceNotice : `${notice} ${voiceNotice}`;
   }
 
