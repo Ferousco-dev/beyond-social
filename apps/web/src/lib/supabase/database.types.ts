@@ -2603,6 +2603,16 @@ export type Database = {
         Args: { p_error: string; p_generation: string };
         Returns: boolean;
       };
+      upsert_conversation_summary: {
+        Args: {
+          p_covered_through: string;
+          p_message_count: number;
+          p_project: string;
+          p_summary: string;
+          p_user: string;
+        };
+        Returns: boolean;
+      };
       grant_credits: {
         Args: {
           p_amount: number;

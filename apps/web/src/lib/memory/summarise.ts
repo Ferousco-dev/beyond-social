@@ -90,18 +90,31 @@ export async function updateSummary(projectId: string, turns: readonly Turn[]): 
     const trimmed = summary.trim();
     if (trimmed === "") return;
 
-    const { error } = await supabase.from("conversation_summaries").upsert(
-      {
-        project_id: projectId,
-        user_id: user.id,
-        summary: trimmed,
-        covered_through: new Date().toISOString(),
-        message_count: turns.length,
-        updated_at: new Date().toISOString(),
-      } as never,
-      { onConflict: "project_id" },
-    );
+    /*
+     * Through an RPC rather than an upsert, because the compare and the write
+     * have to happen together.
+     *
+     * The count read above was read before a model call that takes seconds. Two
+     * refreshes overlapping, which is ordinary here because this runs after the
+     * response is already on its way, both pass that check and the slower one
+     * lands last, replacing a newer summary with one describing less of the
+     * conversation. Versioning in this file would only move the race.
+     */
+    const { data: written, error } = await supabase.rpc("upsert_conversation_summary", {
+      p_project: projectId,
+      p_user: user.id,
+      p_summary: trimmed,
+      p_covered_through: new Date().toISOString(),
+      p_message_count: turns.length,
+    });
     if (error) throw new Error(error.message);
+
+    if (written !== true) {
+      // Not a failure. A newer summary is already stored, so this one is the
+      // stale writer and dropping it is the point.
+      logger.info("summary superseded before it was written", { projectId });
+      return;
+    }
 
     logger.info("conversation summarised", { projectId, turns: turns.length });
   } catch (error) {
