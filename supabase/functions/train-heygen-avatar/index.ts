@@ -172,7 +172,6 @@ serve(async (request) => {
     const twin = await createDigitalTwin(name, file, requestId);
 
     /*
-    /*
      * The group id is written the moment it is known, before consent is
      * submitted. HeyGen has already created and will bill this group, and the
      * catch block below only knows how to mark the row failed, not how to
