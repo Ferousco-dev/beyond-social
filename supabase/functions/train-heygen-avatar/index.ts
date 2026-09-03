@@ -143,6 +143,7 @@ serve(async (request) => {
    */
   const requestId = crypto.randomUUID();
   const { data: claimed, error: claimError } = await admin.rpc("claim_twin_training", {
+    p_avatar: avatarId,
     p_user: user.id,
     p_request: requestId,
   });
