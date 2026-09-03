@@ -983,17 +983,26 @@ session; see that session's entry below for what is open now.
 
 One PR open right now, 2026-09-03:
 
-- **#216**, `Feranmibranches` → `main`: five commits, found reading the
-  owner's own 2026-09-02 work for a first independent pass. Two are real
-  data-integrity bugs on the live multi-avatar HeyGen feature (see the
-  fifteenth session's entry below for detail); the rest are a stale
-  credit-pack rebase, an assets-search filtering bug, and a trivial
-  comment cleanup. `typecheck`/`lint`/`build`/`format:check` (26/26
-  tasks) and `deno check`/`deno lint` (28/28 edge functions) all pass
-  locally after every push, and CI is fully green on the final head
-  (`1a46e91`): `Verify`, `Migrations and schema` (the real first run of
-  the two new migrations, against an ephemeral Postgres from scratch),
-  `Secret scan`, and `Dependency audit` all passed.
+- **#216**, `Feranmibranches` → `main`: six commits now. The first five,
+  this session's own, found reading the owner's 2026-09-02 work for a
+  first independent pass: two are real data-integrity bugs on the live
+  multi-avatar HeyGen feature (see the fifteenth session's entry below
+  for detail); the rest are a stale credit-pack rebase, an
+  assets-search filtering bug, and a trivial comment cleanup. A sixth,
+  `a56bec2`, was pushed later the same day by the owner directly, live
+  (not this system): bounds `twinVideoReadiness()`'s edge-function
+  probe at 2.5s so a stalled call can no longer block the assets page
+  behind a request timeout and trip the error boundary, in response to
+  a client report of the page failing to load that the owner could not
+  reproduce ("a defence, not a confirmed fix", their words). Re-synced,
+  rebuilt, and re-verified locally after that push rather than assumed
+  safe. `typecheck`/`lint`/`build`/`format:check` (26/26 tasks) and
+  `deno check`/`deno lint` (28/28 edge functions) all pass locally, and
+  CI is fully green on the final head (`a56bec2`): `Verify`,
+  `Migrations and schema` (the real first run of the two new
+  migrations, against an ephemeral Postgres from scratch), `Secret
+scan`, and `Dependency audit` all passed on both this session's own
+  head and the owner's commit on top of it.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
