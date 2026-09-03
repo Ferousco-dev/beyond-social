@@ -989,10 +989,11 @@ One PR open right now, 2026-09-03:
   fifteenth session's entry below for detail); the rest are a stale
   credit-pack rebase, an assets-search filtering bug, and a trivial
   comment cleanup. `typecheck`/`lint`/`build`/`format:check` (26/26
-  tasks) and `deno check`/`deno lint` (28/28 edge functions, the exact
-  commands `edge-functions.yml` runs) all pass locally after every push;
-  CI's own run is what will confirm the two new migrations for the first
-  time, no Docker in this session to run them first.
+  tasks) and `deno check`/`deno lint` (28/28 edge functions) all pass
+  locally after every push, and CI is fully green on the final head
+  (`1a46e91`): `Verify`, `Migrations and schema` (the real first run of
+  the two new migrations, against an ephemeral Postgres from scratch),
+  `Secret scan`, and `Dependency audit` all passed.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
@@ -1069,11 +1070,12 @@ review comment gets a response rather than sitting unattended.
 format:check` (26/26 tasks, run after every push) and `deno check`/`deno lint
 --rules-exclude=no-import-prefix` across all 28 edge functions (the exact
   commands CI runs). The two new migrations (`0099`, `0100`) were not run
-  against a live Postgres, no Docker in this session; both follow migration
-  `0061`'s own precedent for changing an RPC's return or parameter shape
-  (drop, then recreate) and the exact style of the functions they replace.
-  CI's `Migrations and schema` job, watched via this session's PR
-  subscription on #216, is the first real run of either.
+  against a live Postgres locally, no Docker in this session, but CI's
+  `Migrations and schema` job (`supabase db reset` from scratch against a
+  real ephemeral Postgres, plus `supabase db lint`) came back green on the
+  final pushed head, watched via this session's PR subscription rather than
+  assumed: the first real run of either migration, and it passed. `Verify`,
+  `Secret scan`, and `Dependency audit` all green on the same head too.
 
   Every commit used `--author="Feranmi Oresajo <ferouslos6@gmail.com>"`
   explicitly: this environment's default `git config user.name`/`user.email`
