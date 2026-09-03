@@ -764,6 +764,18 @@ controls.
 
 ## Open, safe to work
 
+- **`orphan_twin_avatar` is dead code with a live version of a bug already
+  fixed elsewhere.** Found 2026-09-03 fixing `claim_twin_training`'s
+  identical `user_id`-not-row scoping bug (see the fifteenth session's log
+  entry and migration `0100`): `orphan_twin_avatar`, written in the same
+  migration (`0091`), has the same flaw and nothing in the app calls it
+  (confirmed by grep across `apps/`, `services/`, `supabase/functions/`; its
+  only references are its own migration and its own psql test). Two honest
+  options, neither done silently: delete it if the orphan-tracking idea it
+  was built for is no longer needed now that `train-heygen-avatar` writes
+  the group id directly onto the row before consent, or fix its scoping and
+  actually wire it up wherever a training dispatch can displace a group id.
+  Small either way; picking one is the work.
 - **Observability.** No error tracking or APM anywhere in the app
   (confirmed by the 2026-08-21 production-readiness re-audit, PR #98). The
   single largest remaining gap on that audit. Adding one likely needs a new
@@ -961,41 +973,131 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Stale as of the thirteenth session's own writing: #188-190 above are no
-longer open, the owner merged them along with everything else through
-#209 (confirmed by walking `main`'s merge-commit history directly, not
-inferred). `main` is well past where this file's own log last described
-it; see the fourteenth session's entry below for what is actually open
-now.
+Stale as of the fourteenth session's own writing: #210-212 above are no
+longer open. The owner merged all of it, along with the credit-plan fix,
+the assets-library rebuild, the avatar artwork, and a theme/scroll fix,
+straight through to `main` in a live session on 2026-09-02 (#213-215,
+confirmed by walking `main`'s merge history directly). `Feranmibranches`
+was fully merged and even with `main` at the start of the fifteenth
+session; see that session's entry below for what is open now.
 
-Three PRs open right now, 2026-09-02, all independently re-verified
-this session (typecheck/lint/build/format across all 26 turbo tasks,
-plus `deno check`/`deno lint` on all 26 edge functions where relevant):
+One PR open right now, 2026-09-03:
 
-- **#210**, `feat/avatar-library` → `main`: lets somebody keep more than
-  one trained HeyGen avatar rather than one silently replacing another.
-  CI green.
-- **#211**, `feat/assets-sections` → `feat/avatar-library` (stacked on
-  #210, review that one first): folds the avatar screen into Assets as
-  three sections. No CI runs on this one directly, expected rather than
-  broken: `.github/workflows/ci.yml` only triggers on `pull_request`
-  against `main`, and this PR's base is `feat/avatar-library`, not
-  `main`. Re-verified locally instead by checking out `feat/assets-
-sections` (which carries #210's commits too, being stacked) and running
-  the full suite: 26/26 tasks pass.
-- **#212**, `Feranmibranches` → `main`: originally the chat-links/OG-
-  image work described in the thirteenth session's successor below; two
-  more commits were added on top this session (see the fourteenth
-  session's entry), plus this file's own update. CI fully green on the
-  final pushed head (`d9c21ad`): all four workflows (`CI`, `Database`,
-  `Edge functions`, `Security`) passed, `mergeable_state: clean`.
+- **#216**, `Feranmibranches` → `main`: five commits, found reading the
+  owner's own 2026-09-02 work for a first independent pass. Two are real
+  data-integrity bugs on the live multi-avatar HeyGen feature (see the
+  fifteenth session's entry below for detail); the rest are a stale
+  credit-pack rebase, an assets-search filtering bug, and a trivial
+  comment cleanup. `typecheck`/`lint`/`build`/`format:check` (26/26
+  tasks) and `deno check`/`deno lint` (28/28 edge functions, the exact
+  commands `edge-functions.yml` runs) all pass locally after every push;
+  CI's own run is what will confirm the two new migrations for the first
+  time, no Docker in this session to run them first.
 
-None of the three have been merged: this system does not merge PRs at
-all any more (`TEAM.md`'s PR Checker role, updated since the critical
-section below was written: merging is the owner's, full stop). Left
-open for the owner.
+Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
+PR Checker role: merging is the owner's, full stop). Left open for the
+owner, watched by this session's PR subscription so a CI failure or
+review comment gets a response rather than sitting unattended.
 
 ## Session log
+
+- **2026-09-03, fifteenth scheduled session.** `main` had moved well past this
+  file's own log again: the owner personally merged #210-215 in a live session
+  on 2026-09-02 (the multi-avatar library, its folding into Assets, the
+  credit-plan rebase, the assets-library rebuild, supplied avatar/empty-shelf
+  artwork, and a theme-cookie/scroll-lock fix), none of it written down here
+  until now. `Feranmibranches` was fully merged and level with `main` at the
+  start of this session, confirmed by diffing the two directly rather than
+  assumed. Zero PRs open at the start.
+
+  No Docker again this session (`docker ps`: no daemon), so no local Supabase
+  and no authenticated browser walkthrough; Playwright/Chromium are installed
+  but nothing to sign into locally. Installed Deno 2.9.6 fresh (this
+  environment does not persist between sessions) so `deno check`/`deno lint`
+  could run against the exact commands `edge-functions.yml` uses, rather than
+  trusting CI alone.
+
+  Read the owner's 2026-09-02 work end to end rather than picking a new
+  backlog item, since three of those PRs shipped with their own explicit
+  "not seen rendered, please look at it" caveats and none had an independent
+  review pass yet. Found five real issues, all fixed on `Feranmibranches` and
+  rolled into one PR, #216, per the standing one-branch-one-PR policy:
+
+  - **The credit-pack sizes were never rebased.** Migration `0051` made a
+    credit five cents of provider cost and multiplied the ledger and every
+    model price by six; `credit-packs.ts` was missed, the same bug `0098`
+    (this branch's own prior work) fixed for the signup grant. Rebased all
+    four packs by the same factor and fixed the file's own stale comment.
+    Also fixed `credit-pack-webhook-smoke.ts`'s baseline assertion, still
+    expecting the pre-`0098` 15-credit signup grant instead of 90; it would
+    have failed the next time anyone actually ran it.
+  - **The assets-library search did not hide an empty avatar panel.**
+    `library-workspace.tsx`'s `visible.avatar` had a fallback that forced the
+    empty "Not recorded yet" panel to stay on screen through any search,
+    unlike the equivalent products panel. Removed it.
+  - **Two RPCs behind the HeyGen twin-training path still reasoned as if a
+    person had one avatar, not several**, both written before migration
+    `0096` dropped `heygen_avatars`' unique constraint on `user_id` for
+    exactly that reason (PR #210), and never revisited:
+    - `pending_heygen_avatars` (migration `0099`) returned only `user_id`,
+      so `poll-heygen-training`'s three settling writes scoped by `user_id`
+      touched every avatar a person owns, not the one just polled. A second
+      avatar finishing training overwrote a first, already-ready avatar's
+      voice id and consent status; a second one failing marked the first
+      failed too. Real, live state corruption on a shipped feature, not a
+      hypothetical. Now returns the row's own `id`; the poller scopes by it.
+    - `claim_twin_training` (migration `0100`), the function `0091`'s own
+      comment calls "the whole defence" against dispatching a duplicate
+      trained copy of somebody's face and voice at the provider, had the
+      identical bug: scoped by `user_id` alone, so claiming a new recording
+      also claimed every other unclaimed/ready/failed avatar that person
+      owns. The actual dispatch and result write-back were already correctly
+      scoped by row id; only the claim guarding them was not. Added a
+      `p_avatar` parameter and scoped by `id`, kept `user_id` as an ownership
+      check. The psql regression script only ever exercised one avatar per
+      account, which is exactly why this was never caught; added a second
+      twin to it and confirmed the first one's claim leaves it alone.
+      `orphan_twin_avatar`, written in the same migration, has the identical
+      bug and is left alone on purpose: nothing in the app calls it, so
+      fixing its scoping teaches nothing until something does. Flagged below
+      rather than silently patched.
+  - **A doubled comment opener in `train-heygen-avatar`**, left over from the
+    fourteenth session's own fix in the same function. Trivial, fixed while
+    reading the function for the claim bug above.
+
+  All five verified with `pnpm exec turbo run typecheck lint build
+format:check` (26/26 tasks, run after every push) and `deno check`/`deno lint
+--rules-exclude=no-import-prefix` across all 28 edge functions (the exact
+  commands CI runs). The two new migrations (`0099`, `0100`) were not run
+  against a live Postgres, no Docker in this session; both follow migration
+  `0061`'s own precedent for changing an RPC's return or parameter shape
+  (drop, then recreate) and the exact style of the functions they replace.
+  CI's `Migrations and schema` job, watched via this session's PR
+  subscription on #216, is the first real run of either.
+
+  Every commit used `--author="Feranmi Oresajo <ferouslos6@gmail.com>"`
+  explicitly: this environment's default `git config user.name`/`user.email`
+  was again set to an AI identity, the same problem the fourteenth session
+  flagged and fixed for itself. Worth fixing at the environment level rather
+  than every session catching it by hand.
+
+  Not investigated this session: the standing items below (CSP nonce,
+  observability, rate limiting) still need the owner or a new dependency.
+  `packages/ai-gateway`'s token-budgeting path (`gateway.ts`, `tokens.ts`,
+  `usage.ts`, `budget.ts`, `rate-limit.ts`, `spend-reader.ts`) and the social
+  sign-in redirect construction, both flagged unswept by the fourteenth
+  session, were read closely this session and came back clean: no bug found
+  in either beyond one narrow, already-documented tradeoff in
+  `SpendBudget.record()` (a spend-store read failure with no prior cached
+  reading drops local accrual for that key until the next successful read,
+  which only widens a gap the code already accepts on purpose per its own
+  `onReadError` comment; not worth a fix on its own). Next session: #216 is
+  the first thing to check, since a CI failure on the two new migrations
+  needs a response, not silence; once it is either merged by the owner or
+  still clean, `orphan_twin_avatar`'s dead-code question (fix when wired up,
+  or delete) is a small, well-scoped pick, and a real browser pass on the
+  assets-library page and a real multi-avatar HeyGen training run remain the
+  two things nothing this month has actually observed end to end.
 
 - **2026-09-02, fourteenth scheduled session.** `main` had moved a lot since
   the thirteenth session's own log entry, none of it written down here: five
