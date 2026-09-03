@@ -52,7 +52,7 @@ export function LibraryWorkspace({
   const voiceRef = useRef<HTMLDivElement>(null);
 
   const visible = useMemo(() => {
-    const twinHit = twins.some((twin) => matches(query, twin.name)) || twins.length === 0;
+    const twinHit = twins.some((twin) => matches(query, twin.name));
     const productHit = products.some((product) => matches(query, product.label));
     const searching = query.trim() !== "";
 
