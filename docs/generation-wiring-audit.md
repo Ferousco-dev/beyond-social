@@ -119,23 +119,30 @@ carries `priceUsd: 0`. So the blocker is not the HeyGen rate, which is now
 known; it is that **this product's own pricing is undecided**, and the twin
 credit cost cannot be derived before it.
 
-### Check this before buying an API key
+### Digital twins do not need an Enterprise plan (settled 5 September 2026)
 
-HeyGen's API pricing page lists **"Digital Twin Creation API"** as
-**Enterprise only**, and secondary sources agree that pay-as-you-go accounts
-can create Photo Avatars but not Digital Twins, while _existing_ Digital Twins
-can be driven by the API on lower tiers.
+HeyGen's API pricing page lists "Digital Twin Creation API" as **Enterprise
+only**, while its help centre says any account can buy credits and use avatar
+features. The two contradict each other, and the whole recording flow depends on
+which is true, because `train-heygen-avatar` creates a `digital_twin`.
 
-HeyGen's own help centre contradicts this, saying "any user, including free
-users, can unlock powerful avatar and video features by purchasing any amount
-of API credits", but it does not mention Digital Twins specifically.
+Settled by asking the API rather than the marketing. `POST /v3/avatars` with
+`{"type":"digital_twin","name":"..."}` and no `file`, on a pay-as-you-go key
+with no credit, answers:
 
-The two sources genuinely conflict and neither is conclusive. This matters
-because `functions/train-heygen-avatar` creates a `digital_twin`, which is the
-whole recording flow. **Confirm with HeyGen sales that a pay-as-you-go key can
-call `POST /v3/avatars` with `type: digital_twin` before paying for one.** If it
-cannot, the recording feature needs either an Enterprise contract or a rebuild
-onto Photo Avatars.
+```
+HTTP 400
+{"error":{"code":"invalid_parameter","message":"Field required","param":"file"}}
+```
+
+It accepted the type and refused only the incomplete body. A plan restriction
+would have come back as a 403 before any field was looked at, and a credit
+problem as a 402. **The pricing page is wrong, or stale.** No Enterprise
+contract is needed and the recording flow does not need rebuilding onto Photo
+Avatars.
+
+The probe is safe to repeat: with no `file` there is nothing to train from, so
+it cannot create or bill anything.
 
 ### A separate inconsistency this turned up
 
