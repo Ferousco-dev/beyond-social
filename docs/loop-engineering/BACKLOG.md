@@ -974,27 +974,30 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 ## In flight
 
 One PR open right now, 2026-09-04: **#216**, `Feranmibranches` → `main`,
-nine commits. Everything through the fifteenth session's own five plus the
-owner's `a56bec2` was already independently re-verified and CI-green at
-the start of this, the sixteenth session (see that session's own entry
-below). This session added three more, all found reading the same
-multi-avatar HeyGen feature further: the default avatar was never
-reassigned when deleted (migration `0102`), the twin-orphan tracking from
-before the multi-avatar rewrite was dead code with no reachable caller
-(migration `0101`, drops `orphan_twin_avatar` and its column), and a
-stale-closure bug meant a finished recording's reported duration was
-always 0 (no visible symptom today, since the "too short" gate reads live
-state instead, but a real wrong value nonetheless). Full detail in the
-sixteenth session's entry below.
+now ten commits. Everything through the fifteenth session's own five plus
+the owner's `a56bec2` was already independently re-verified and CI-green
+at the start of this, the sixteenth session. This session added three more
+reading the same multi-avatar HeyGen feature further (the default avatar
+was never reassigned when deleted, migration `0102`; dead orphan-tracking
+code with no reachable caller since the multi-avatar rewrite, migration
+`0101`; a stale-closure bug in the recorder's reported duration), then a
+tenth after `Dependency audit` went red on that push: a low-severity
+esbuild advisory unrelated to this PR's own diff (confirmed identical on
+`main`), fixed the same way this repo already fixes this class of finding,
+a `pnpm-workspace.yaml` override floor. Full detail, including the CI
+failure and the fix, in the sixteenth session's entry below. PR comment
+posted naming the failure and the fix pushed for it.
 
 `typecheck`/`lint`/`build`/`format:check` (26/26 tasks) and `deno check`/
 `deno lint` (28/28 edge functions) all pass locally on the final head
-(`a240bd1`). CI was still running against that head as this session ended
-(`Migrations and schema` in particular, the real first run of `0101` and
-`0102` against an ephemeral Postgres); this session's PR subscription is
-active, so a red run or a review comment will wake a future session rather
-than sit unanswered. Check `#216` first thing next session regardless of
-whether a wake already happened.
+(`f71f9ce`), including confirming `tsup`'s build for `worker`/`render`/
+`mail` still succeeds at the bumped `esbuild`. CI was running fresh
+against that head as this session ended; this session's PR subscription
+is active, so a red run or a review comment will wake a future session
+rather than sit unanswered. Check `#216` first thing next session
+regardless of whether a wake already happened, and specifically confirm
+`Dependency audit` actually went green on `f71f9ce` rather than assuming
+the override worked.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
@@ -1076,22 +1079,43 @@ user_id)` policy, so the query is scoped by the database regardless of
   in a row to note it.
 
   All three folded into the existing #216 rather than opened separately,
-  per the standing one-branch-one-PR policy, and the PR body rewritten to
-  describe all nine commits rather than left describing only the first six.
-  CI was still running against the final head (`a240bd1`) as this session's
-  budget ran out; `Migrations and schema` in particular is the first real
-  run of `0101` and `0102` against an ephemeral Postgres, unverified any
-  other way this session (no Docker). This session's PR subscription is
-  active, so a red run or a review comment arrives as a wake rather than
-  going unanswered, but the next session should still check #216 first,
-  whether or not a wake already landed, and push a fix rather than a
-  guess if `Migrations and schema` comes back red.
+  per the standing one-branch-one-PR policy. `Migrations and schema` and
+  `Verify` both came back green on that push (`a240bd1`); `Dependency
+audit` did not, watched live via this session's PR subscription rather
+  than assumed:
 
-  Nothing in this session touched auth, RLS, pricing, or added a
-  dependency; no real money spent; no production deploy. Next session:
-  #216 first. If green and still unmerged, the multi-avatar HeyGen surface
-  has now had three consecutive sessions' worth of independent reading
-  (the RPCs, the default-reassignment path, the recorder, the handoff
+  **`Dependency audit` red, fixed same session.** A low-severity esbuild
+  advisory ([GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr),
+  arbitrary file read from esbuild's dev server, Windows only), reached
+  through `tsup`'s `bundle-require` in `apps/worker` and `services/mail`'s
+  build tooling, pinned to `esbuild@0.27.7`. Confirmed not this PR's own
+  diff before touching anything: `main`'s own `pnpm-lock.yaml` carries the
+  identical pin at the same lines, and `pnpm audit` reads the live
+  advisory database rather than anything the lockfile alone determines, so
+  a newly published advisory can turn a previously green audit red with no
+  code change on either branch. Fixed the same way this repo already fixes
+  this class of finding: `pnpm-workspace.yaml`'s existing `overrides`
+  (the `postcss`/`sharp`/`js-yaml`/`brace-expansion` floors from the
+  2026-08-25 audit) got one more, floors `esbuild` at the patched `^0.28.1`.
+  This is a version-pin override of an existing transitive dependency, not
+  a new package added to the project; still worth being precise about
+  rather than folding it into "nothing touched dependencies," since it did
+  change what `pnpm-lock.yaml` resolves. `tsup` and every package that
+  builds through it (`worker`, `render`, `mail`) still build clean at that
+  version, confirmed with the full verification suite. A second failure in
+  the same job, `pnpm audit --audit-level critical` timing out against
+  `registry.npmjs.org` after three retries, is infrastructure, not a
+  finding; nothing to fix there. PR comment posted naming both, and the
+  fix pushed as `f71f9ce`, CI running fresh on it as this session ended.
+
+  Nothing in this session touched auth, RLS, or pricing; no real money
+  spent; no production deploy. Next session: #216 first, and specifically
+  confirm `Dependency audit` actually came back green on `f71f9ce` rather
+  than assuming the override worked; if it is still red, read the actual
+  failure before touching anything further; it may be a different finding.
+  If green and still unmerged, the multi-avatar HeyGen surface has now had
+  three consecutive sessions' worth of independent reading (the RPCs, the
+  default-reassignment path, the recorder, the handoff
   token flow) with a shrinking hit rate on the last pass, a signal worth
   taking seriously before committing a fourth session to the same feature.
   Untouched candidates elsewhere: `phone-recorder.tsx`'s upload path and
