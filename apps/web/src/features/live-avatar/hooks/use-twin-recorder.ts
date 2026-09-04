@@ -77,6 +77,17 @@ export function useTwinRecorder(onError: (message: string) => void) {
   const tickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  /**
+   * Mirrors `seconds` for `onstop` to read.
+   *
+   * `onstop` is assigned once, inside this single call to `start`, and closes
+   * over whatever `seconds` was at that moment: 0, always, since recording has
+   * not begun yet. The ticking interval below only ever reaches the component
+   * through `setSeconds`, which `onstop` cannot see. A ref updated alongside
+   * the same state is what a callback assigned once and fired later needs to
+   * read the count as it stood when the recording actually stopped.
+   */
+  const secondsRef = useRef(0);
 
   const stopMeter = useCallback(() => {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -200,11 +211,17 @@ export function useTwinRecorder(onError: (message: string) => void) {
       const blob = new Blob(chunksRef.current, { type });
       setRecording((previous) => {
         if (previous) URL.revokeObjectURL(previous.url);
-        return { blob, url: URL.createObjectURL(blob), seconds, mimeType: type };
+        return {
+          blob,
+          url: URL.createObjectURL(blob),
+          seconds: secondsRef.current,
+          mimeType: type,
+        };
       });
       setState("done");
     };
 
+    secondsRef.current = 0;
     setSeconds(0);
     setState("recording");
     // A timeslice means a long recording is not held as one growing buffer, and
@@ -213,11 +230,12 @@ export function useTwinRecorder(onError: (message: string) => void) {
     tickRef.current = window.setInterval(() => {
       setSeconds((value) => {
         const next = value + 1;
+        secondsRef.current = next;
         if (next >= MAX_SECONDS) stop();
         return next;
       });
     }, 1000);
-  }, [onError, seconds, stop]);
+  }, [onError, stop]);
 
   const reset = useCallback(() => {
     setRecording((previous) => {
