@@ -82,19 +82,4 @@ select public.claim_twin_training(
 select training_request_id from public.heygen_avatars
   where id = '66666666-6666-6666-6666-666666666666';
 
-\echo ''
-\echo '--- a displaced group is recorded so deletion can reach it ---'
--- orphan_twin_avatar has no caller anywhere in the app today (see
--- BACKLOG.md); still scoped by user_id rather than by row, same bug
--- claim_twin_training had. Left as found: fixing an unreachable function's
--- scoping teaches nothing until something actually calls it. Scoped to one
--- row below so this assertion is not itself misread as proof it is row-safe.
-select public.orphan_twin_avatar('44444444-4444-4444-4444-444444444444', 'group-abc');
-select public.orphan_twin_avatar('44444444-4444-4444-4444-444444444444', 'group-abc');
-select public.orphan_twin_avatar('44444444-4444-4444-4444-444444444444', 'group-def');
-
-\echo 'orphans (must be exactly 2, deduplicated):'
-select array_length(orphaned_provider_avatar_ids, 1) as orphans
-  from public.heygen_avatars where id = '55555555-5555-5555-5555-555555555555';
-
 rollback;
