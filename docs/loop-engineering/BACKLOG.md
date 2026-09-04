@@ -973,43 +973,135 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Stale as of the fourteenth session's own writing: #210-212 above are no
-longer open. The owner merged all of it, along with the credit-plan fix,
-the assets-library rebuild, the avatar artwork, and a theme/scroll fix,
-straight through to `main` in a live session on 2026-09-02 (#213-215,
-confirmed by walking `main`'s merge history directly). `Feranmibranches`
-was fully merged and even with `main` at the start of the fifteenth
-session; see that session's entry below for what is open now.
+One PR open right now, 2026-09-04: **#216**, `Feranmibranches` → `main`,
+nine commits. Everything through the fifteenth session's own five plus the
+owner's `a56bec2` was already independently re-verified and CI-green at
+the start of this, the sixteenth session (see that session's own entry
+below). This session added three more, all found reading the same
+multi-avatar HeyGen feature further: the default avatar was never
+reassigned when deleted (migration `0102`), the twin-orphan tracking from
+before the multi-avatar rewrite was dead code with no reachable caller
+(migration `0101`, drops `orphan_twin_avatar` and its column), and a
+stale-closure bug meant a finished recording's reported duration was
+always 0 (no visible symptom today, since the "too short" gate reads live
+state instead, but a real wrong value nonetheless). Full detail in the
+sixteenth session's entry below.
 
-One PR open right now, 2026-09-03:
-
-- **#216**, `Feranmibranches` → `main`: six commits now. The first five,
-  this session's own, found reading the owner's 2026-09-02 work for a
-  first independent pass: two are real data-integrity bugs on the live
-  multi-avatar HeyGen feature (see the fifteenth session's entry below
-  for detail); the rest are a stale credit-pack rebase, an
-  assets-search filtering bug, and a trivial comment cleanup. A sixth,
-  `a56bec2`, was pushed later the same day by the owner directly, live
-  (not this system): bounds `twinVideoReadiness()`'s edge-function
-  probe at 2.5s so a stalled call can no longer block the assets page
-  behind a request timeout and trip the error boundary, in response to
-  a client report of the page failing to load that the owner could not
-  reproduce ("a defence, not a confirmed fix", their words). Re-synced,
-  rebuilt, and re-verified locally after that push rather than assumed
-  safe. `typecheck`/`lint`/`build`/`format:check` (26/26 tasks) and
-  `deno check`/`deno lint` (28/28 edge functions) all pass locally, and
-  CI is fully green on the final head (`a56bec2`): `Verify`,
-  `Migrations and schema` (the real first run of the two new
-  migrations, against an ephemeral Postgres from scratch), `Secret
-scan`, and `Dependency audit` all passed on both this session's own
-  head and the owner's commit on top of it.
+`typecheck`/`lint`/`build`/`format:check` (26/26 tasks) and `deno check`/
+`deno lint` (28/28 edge functions) all pass locally on the final head
+(`a240bd1`). CI was still running against that head as this session ended
+(`Migrations and schema` in particular, the real first run of `0101` and
+`0102` against an ephemeral Postgres); this session's PR subscription is
+active, so a red run or a review comment will wake a future session rather
+than sit unanswered. Check `#216` first thing next session regardless of
+whether a wake already happened.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
-owner, watched by this session's PR subscription so a CI failure or
-review comment gets a response rather than sitting unattended.
+owner.
 
 ## Session log
+
+- **2026-09-04, sixteenth scheduled session.** Read the critical section and
+  the fifteenth session's own entry first, as always. `main` was unchanged
+  since PR #215 merged (`f776a52`); one PR open, #216, six commits, CI green
+  on its final head per the fifteenth session's own re-verification. Nothing
+  else in flight, nothing else to reconcile.
+
+  No Docker, no browser tool, same limitations as most recent sessions.
+  Installed Deno 2.9.6 fresh (this environment does not persist between
+  sessions) so `deno check`/`deno lint` could run against the exact commands
+  `edge-functions.yml` uses. Rather than start a new backlog item, kept
+  reading the same multi-avatar HeyGen feature #216 already touched, since
+  three of its own six commits were fixes to code nobody had independently
+  reviewed yet and the pattern of the last several sessions (one real bug
+  per unswept corner) suggested there was more there. It was:
+
+  - **Dead code from before the multi-avatar rewrite.** `orphan_twin_avatar`
+    and its `orphaned_provider_avatar_ids` column (migration `0091`) exist
+    for a world where retraining reused one row per person and a retry
+    could overwrite that row's `provider_avatar_id`, stranding the old
+    group at the provider. Migration `0096` changed training to insert a
+    new row per recording instead, and `train-heygen-avatar` writes
+    `provider_avatar_id` exactly once per row now. Traced every caller by
+    hand (`startTwinTraining` always dispatches a fresh recording; the edge
+    function always inserts) and confirmed nothing can ever call the
+    function or populate the column under the current design. Migration
+    `0101` drops both; `delete-heygen-avatar` simplified to match; the
+    claim regression test's assertions on the dead function removed.
+  - **Deleting the default avatar left nobody marked default.** Migration
+    `0096` made the default a database-enforced, at-most-one-per-person
+    fact, but nothing reassigned it when that row was deleted.
+    `findTwin`'s no-avatar-named path falls back to the newest row
+    regardless of `is_default`, so generation kept working, but the
+    library's default badge silently disappeared from every avatar, and
+    which one the app was actually treating as default then drifted with
+    whatever got trained next, invisibly. Migration `0102` adds an
+    after-delete trigger that promotes the newest remaining avatar,
+    matching the rule already used for a person's first twin, enforced in
+    the database for the same reason `0096` put the one-default rule there
+    instead of the application. New regression script,
+    `supabase/tests/heygen_default_avatar_test.sql`.
+  - **A stale-closure bug in `useTwinRecorder`.** `MediaRecorder.onstop` is
+    assigned once, inside the single call to `start()`, and closed over the
+    `seconds` state as it stood at that moment: 0, always, since the
+    ticking interval that actually counts seconds only reaches the
+    component through `setSeconds`, invisible to that closure. Every
+    finished recording reported a duration of 0. No visible symptom today,
+    confirmed by reading the one consumer: `webcam-recorder.tsx`'s "too
+    short" gate reads the hook's live `seconds` state directly, not the
+    finished recording's copy. Still a real, silently wrong value on a
+    field nothing stops a future caller from trusting. Fixed with a ref
+    kept alongside the same state for `onstop` to read.
+
+  Also chased down a suspicion that did not pan out, worth recording so
+  nobody re-chases it: `twinStatus()` (`upload-actions.ts`) reads the most
+  recently claimed row from `avatar_handoffs` with no `user_id` filter in
+  the query, which looked at first read like it could hand one account
+  another's claimed handoff. Checked migration `0086` directly:
+  `avatar_handoffs` has RLS enabled with a `select using (auth.uid() =
+user_id)` policy, so the query is scoped by the database regardless of
+  what the application asks for, the same reliance-on-RLS pattern already
+  used elsewhere in this feature (`findTwin`'s own comment says as much).
+  Confirmed clean, not a bug.
+
+  All three fixes verified the same way as the session before:
+  `pnpm exec turbo run typecheck lint build format:check` (26/26 tasks,
+  repo-wide `pnpm run format:check` too, which caught a prettier miss
+  `turbo`'s own cached run did not, same lesson the fourteenth session
+  already logged) and `deno check`/`deno lint --rules-exclude=no-import-prefix`
+  across all 28 edge functions, run after every push. Every commit used
+  `--author="Feranmi Oresajo <ferouslos6@gmail.com>"` explicitly; this
+  environment's default git identity is again an AI one, the third session
+  in a row to note it.
+
+  All three folded into the existing #216 rather than opened separately,
+  per the standing one-branch-one-PR policy, and the PR body rewritten to
+  describe all nine commits rather than left describing only the first six.
+  CI was still running against the final head (`a240bd1`) as this session's
+  budget ran out; `Migrations and schema` in particular is the first real
+  run of `0101` and `0102` against an ephemeral Postgres, unverified any
+  other way this session (no Docker). This session's PR subscription is
+  active, so a red run or a review comment arrives as a wake rather than
+  going unanswered, but the next session should still check #216 first,
+  whether or not a wake already landed, and push a fix rather than a
+  guess if `Migrations and schema` comes back red.
+
+  Nothing in this session touched auth, RLS, pricing, or added a
+  dependency; no real money spent; no production deploy. Next session:
+  #216 first. If green and still unmerged, the multi-avatar HeyGen surface
+  has now had three consecutive sessions' worth of independent reading
+  (the RPCs, the default-reassignment path, the recorder, the handoff
+  token flow) with a shrinking hit rate on the last pass, a signal worth
+  taking seriously before committing a fourth session to the same feature.
+  Untouched candidates elsewhere: `phone-recorder.tsx`'s upload path and
+  `twin-library.tsx`/`twin-speak.tsx` were read only for the handoff
+  question above, not swept in full; `services/telegram-agent` has not
+  had a fresh pass since the thirteenth session found it clean. Standing
+  items unchanged: CSP nonce, observability, and rate limiting still need
+  the owner or a new dependency; a real browser pass on the assets-library
+  page and an actual multi-avatar HeyGen training run remain the two
+  things nothing this month has observed end to end.
 
 - **2026-09-03, fifteenth scheduled session.** `main` had moved well past this
   file's own log again: the owner personally merged #210-215 in a live session
