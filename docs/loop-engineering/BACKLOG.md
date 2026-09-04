@@ -974,30 +974,31 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 ## In flight
 
 One PR open right now, 2026-09-04: **#216**, `Feranmibranches` → `main`,
-now ten commits. Everything through the fifteenth session's own five plus
-the owner's `a56bec2` was already independently re-verified and CI-green
-at the start of this, the sixteenth session. This session added three more
-reading the same multi-avatar HeyGen feature further (the default avatar
-was never reassigned when deleted, migration `0102`; dead orphan-tracking
-code with no reachable caller since the multi-avatar rewrite, migration
-`0101`; a stale-closure bug in the recorder's reported duration), then a
-tenth after `Dependency audit` went red on that push: a low-severity
+now twelve commits, **fully green and ready for the owner to review**.
+Everything through the fifteenth session's own five plus the owner's
+`a56bec2` was already independently re-verified and CI-green at the start
+of this, the sixteenth session. This session added three more reading the
+same multi-avatar HeyGen feature further (the default avatar was never
+reassigned when deleted, migration `0102`; dead orphan-tracking code with
+no reachable caller since the multi-avatar rewrite, migration `0101`; a
+stale-closure bug in the recorder's reported duration), then two more
+chasing CI red rather than stopping at the local suite: a low-severity
 esbuild advisory unrelated to this PR's own diff (confirmed identical on
-`main`), fixed the same way this repo already fixes this class of finding,
-a `pnpm-workspace.yaml` override floor. Full detail, including the CI
-failure and the fix, in the sixteenth session's entry below. PR comment
-posted naming the failure and the fix pushed for it.
+`main`; fixed the same way this repo already fixes this class of finding,
+a `pnpm-workspace.yaml` override floor), and, on the push after that, a
+pure `registry.npmjs.org` timeout on both `pnpm audit` steps with no
+advisory printed at all, confirmed to be infrastructure rather than a
+finding, cleared by one re-run of the failed job. Full detail in the
+sixteenth session's entry below. Both CI failures got a PR comment naming
+what failed and what was done about it, as they happened, not saved for
+this file.
 
-`typecheck`/`lint`/`build`/`format:check` (26/26 tasks) and `deno check`/
-`deno lint` (28/28 edge functions) all pass locally on the final head
-(`f71f9ce`), including confirming `tsup`'s build for `worker`/`render`/
-`mail` still succeeds at the bumped `esbuild`. CI was running fresh
-against that head as this session ended; this session's PR subscription
-is active, so a red run or a review comment will wake a future session
-rather than sit unanswered. Check `#216` first thing next session
-regardless of whether a wake already happened, and specifically confirm
-`Dependency audit` actually went green on `f71f9ce` rather than assuming
-the override worked.
+Confirmed on the final head (`b5dd675`), not assumed: every check green
+(`Secret scan`, `Dependency audit`, `Verify`, `Migrations and schema`,
+`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`. This is
+the first session since the twelfth to watch a PR's CI all the way to
+green rather than end with something still running; worth doing again
+rather than treating "pushed and locally verified" as the finish line.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
@@ -1106,15 +1107,27 @@ audit` did not, watched live via this session's PR subscription rather
   the same job, `pnpm audit --audit-level critical` timing out against
   `registry.npmjs.org` after three retries, is infrastructure, not a
   finding; nothing to fix there. PR comment posted naming both, and the
-  fix pushed as `f71f9ce`, CI running fresh on it as this session ended.
+  fix pushed as `f71f9ce`.
+
+  Watched it through rather than stopping at that push. A backlog-only
+  commit on top (`b5dd675`) triggered CI fresh; `Dependency audit` failed
+  again, but not the same failure: both `pnpm audit` steps timed out
+  against `registry.npmjs.org` entirely, no advisory printed at all, the
+  registry itself rather than the esbuild finding (already gone). Read the
+  logs rather than assumed, confirmed the pattern matched exactly one flake
+  case the standing rules allow a re-run for (died without ever reaching a
+  real result, not a second real finding), and re-ran the one failed job
+  once via the Actions API. It passed. Every check green on the final head
+  (`b5dd675`): `Secret scan`, `Dependency audit`, `Verify`, `Migrations and
+schema`, `Typecheck and lint`, `Deploy preview`, `mergeable_state: clean`.
+  Two PR comments posted as it happened, naming each failure and what was
+  done about it, plus a third confirming the final green state.
 
   Nothing in this session touched auth, RLS, or pricing; no real money
-  spent; no production deploy. Next session: #216 first, and specifically
-  confirm `Dependency audit` actually came back green on `f71f9ce` rather
-  than assuming the override worked; if it is still red, read the actual
-  failure before touching anything further; it may be a different finding.
-  If green and still unmerged, the multi-avatar HeyGen surface has now had
-  three consecutive sessions' worth of independent reading (the RPCs, the
+  spent; no production deploy. Next session: #216 is ready for the owner,
+  nothing left to check on it unless a new event arrives. The multi-avatar
+  HeyGen surface has now had three consecutive sessions' worth of
+  independent reading (the RPCs, the
   default-reassignment path, the recorder, the handoff
   token flow) with a shrinking hit rate on the last pass, a signal worth
   taking seriously before committing a fourth session to the same feature.
