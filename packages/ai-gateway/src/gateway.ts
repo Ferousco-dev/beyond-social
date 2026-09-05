@@ -277,8 +277,6 @@ export class AiGateway {
 
         this.breaker.recordSuccess(spec.provider);
 
-        this.screenOutput(result.text, requestId, request.userId ?? null);
-
         // The bucket was charged an estimate of the prompt alone. Reconcile it
         // against what the provider says the whole call actually cost, so a
         // small prompt that produces an enormous completion is not free.
@@ -298,6 +296,12 @@ export class AiGateway {
             error: null,
           }),
         );
+
+        // Screened after accounting, not before: the provider already ran and
+        // billed this completion, and a moderation verdict cannot undo that.
+        // Recording it as free would be wrong regardless of whether the text
+        // is allowed to reach the caller.
+        this.screenOutput(result.text, requestId, request.userId ?? null);
 
         if (key !== null && this.options.cache) {
           /*
@@ -327,6 +331,14 @@ export class AiGateway {
         };
       } catch (error) {
         lastError = error;
+
+        // A block here means a real, already-billed completion was just
+        // recorded above as a success; resending the same prompt to the next
+        // candidate would only reproduce the same disallowed content at the
+        // same price. Terminal, not fallback-worthy, and no second usage row:
+        // the real one is already written.
+        if (error instanceof ModerationError) throw error;
+
         // Only a transient failure says anything about the provider's health. A
         // rejected prompt or a retired model is this request's problem, and
         // counting it would take a healthy provider out of rotation.
@@ -423,10 +435,6 @@ export class AiGateway {
         }
 
         this.breaker.recordSuccess(spec.provider);
-        // Screened at the end rather than per chunk: a rule about the whole
-        // answer cannot be evaluated against a fragment of it. The caller is
-        // told to discard what it has if this throws.
-        this.screenOutput(text, requestId, request.userId ?? null);
 
         this.settle(limiterKey, usage.inputTokens + usage.outputTokens - promptTokens);
 
@@ -446,10 +454,24 @@ export class AiGateway {
           }),
         );
 
+        // Screened at the end rather than per chunk (a rule about the whole
+        // answer cannot be evaluated against a fragment of it), and after
+        // accounting rather than before: the provider already ran and billed
+        // this completion, and a moderation verdict cannot undo that. The
+        // caller is told to discard what it has if this throws.
+        this.screenOutput(text, requestId, request.userId ?? null);
+
         yield { type: "done", usage };
         return;
       } catch (error) {
         lastError = error;
+
+        // Same reasoning as `complete`: a block here follows a real,
+        // already-billed completion that was just recorded above as a
+        // success, so this is terminal rather than fallback-worthy, and no
+        // second usage row is written for it.
+        if (error instanceof ModerationError) throw error;
+
         if (isRetryable(error) || error instanceof ProviderTimeoutError) {
           this.breaker.recordFailure(spec.provider);
         }
