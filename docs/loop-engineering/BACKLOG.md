@@ -675,6 +675,37 @@ controls.
 
 ## Needs the owner (do not start until unblocked)
 
+- **Open redirect on the login form via a `/\` prefix, 2026-09-05.** Found
+  auditing the social sign-in feature (PR #207, never independently reviewed
+  since it shipped). `apps/web/src/features/auth/components/login-form.tsx`
+  reads a client-suppliable `?redirect=` query param and forwards it as the
+  post-login destination if it `startsWith("/")` and not `startsWith("//")`.
+  That denylist misses `/\`: browsers (and Node's own WHATWG `URL`, verified
+  directly, `node -e "new URL('/\\evil.com', 'https://x').href"` returns
+  `https://evil.com/`) treat a leading backslash the same as a leading double
+  slash for a special scheme. Traced Next.js's own client router
+  (`next@15.5.25`) to confirm this is a real navigation, not just a URL
+  quirk: `isExternalURL` sees a different origin once the string is
+  re-parsed as absolute, and the router falls back to a full
+  `location.assign`/`location.replace`. Concretely: a link to the app's own
+  real login page, `/login?redirect=%2F%5Cevil.com`, looks completely
+  legitimate (real domain, real TLS), and a victim who signs in with their
+  own credentials is hard-redirected to `https://evil.com/` immediately
+  after, a classic post-auth open redirect for phishing. The app's own OAuth
+  callback route, `apps/web/src/app/auth/callback/route.ts`, already has the
+  correct denylist (blocks both `//` and `/\`) for the equivalent case;
+  `login-form.tsx` should reuse that same check rather than keeping two
+  different, now provably inconsistent, sanitizers for the two entry points.
+  This is unchanged since PR #169 and predates the OAuth work, but it is
+  exactly the security-boundary-shaped finding `RULES.md` says needs the
+  owner's own look even though the fix is a one-line denylist expansion:
+  flagging rather than patching it silently. A second, ordinary bug found in
+  the same pass and already fixed directly (not security-boundary-shaped:
+  no user-controlled input reaches it), see the seventeenth session's log
+  entry: `requestPasswordResetAction` read `process.env.NEXT_PUBLIC_APP_URL`
+  directly instead of the validated `env` export, the only call site doing
+  so, silently producing a bare relative reset link on any deployment where
+  the raw env var is unset.
 - **`base_branch` in the Telegram-agent task flow bypasses the input safelist
   its sibling fields enforce.** Found 2026-08-28 auditing
   `services/telegram-agent/` (a new service, PRs #146-155, not yet swept by
@@ -973,38 +1004,152 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-One PR open right now, 2026-09-04: **#216**, `Feranmibranches` → `main`,
-now twelve commits, **fully green and ready for the owner to review**.
-Everything through the fifteenth session's own five plus the owner's
-`a56bec2` was already independently re-verified and CI-green at the start
-of this, the sixteenth session. This session added three more reading the
-same multi-avatar HeyGen feature further (the default avatar was never
-reassigned when deleted, migration `0102`; dead orphan-tracking code with
-no reachable caller since the multi-avatar rewrite, migration `0101`; a
-stale-closure bug in the recorder's reported duration), then two more
-chasing CI red rather than stopping at the local suite: a low-severity
-esbuild advisory unrelated to this PR's own diff (confirmed identical on
-`main`; fixed the same way this repo already fixes this class of finding,
-a `pnpm-workspace.yaml` override floor), and, on the push after that, a
-pure `registry.npmjs.org` timeout on both `pnpm audit` steps with no
-advisory printed at all, confirmed to be infrastructure rather than a
-finding, cleared by one re-run of the failed job. Full detail in the
-sixteenth session's entry below. Both CI failures got a PR comment naming
-what failed and what was done about it, as they happened, not saved for
-this file.
+One PR open right now, 2026-09-05: **#216**, `Feranmibranches` → `main`,
+now fifteen commits. Between the sixteenth session's own entry and this,
+the seventeenth session, one docs-only commit landed on the branch
+(`ee104a7`, "Settle whether digital twins need an enterprise plan",
+answering the digital-twin plan-tier question by probing HeyGen's real API
+rather than trusting its pricing page) that this file never recorded;
+noted here so nobody mistakes it for this session's own work. CI was green
+on it before this session touched anything.
 
-Confirmed on the final head (`b5dd675`), not assumed: every check green
-(`Secret scan`, `Dependency audit`, `Verify`, `Migrations and schema`,
-`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`. This is
-the first session since the twelfth to watch a PR's CI all the way to
-green rather than end with something still running; worth doing again
-rather than treating "pushed and locally verified" as the finish line.
+This session added three more commits, all independently verified locally
+(`pnpm exec turbo run typecheck lint build format:check`, 26/26, plus a
+repo-wide `pnpm run format:check`) before every push. Full detail in the
+seventeenth session's entry below; in short: a password-reset link that
+silently broke on a deployment missing one env var, and two real
+spend-accounting bugs in `packages/ai-gateway` (a moderation block that
+discarded real, already-billed cost and cascaded the same blocked prompt
+across every remaining provider; a rate limiter that could refuse a
+legitimately large request forever rather than once its bucket refilled).
+One further finding, a real open redirect on the login form, was flagged
+under "Needs the owner" instead of fixed, being security-boundary-shaped.
+
+Confirmed on the final head (`0bb20bb`), not assumed: every check green
+(`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
+`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`. Watched
+through to completion rather than stopping at the push, per the standing
+lesson from the sixteenth session.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
 owner.
 
 ## Session log
+
+- **2026-09-05, seventeenth scheduled session.** Read the critical section
+  and the sixteenth session's own entry first, as always. One PR open,
+  #216, twelve commits, CI green per the sixteenth session's own
+  re-verification. One commit had landed on the branch since without being
+  logged here (`ee104a7`, docs-only, resolving the digital-twin
+  enterprise-plan question by probing HeyGen's real API); recorded under
+  "In flight" above rather than mistaken for this session's own work.
+  `feat/social-sign-in` and `fix/drop-github-signin` are both fully merged
+  into `main` already (confirmed by diff, zero commits ahead); `redesign/
+landing-hero` is a month-old branch that diverges from before the current
+  history even starts and is unrelated to anything active. No Docker, no
+  browser tool, same limitations as most recent sessions; `pnpm install`
+  and a repo-wide `pnpm exec turbo run typecheck lint build format:check`
+  (26/26) confirmed the baseline was genuinely green before touching
+  anything.
+
+  Two of the fourteenth session's own flagged, still-unswept corners
+  (`packages/ai-gateway`'s token-budgeting rewrite from PR #192, and the
+  social sign-in redirect construction from PR #207) had gone three
+  sessions without an independent pass, since the fifteenth and sixteenth
+  both stayed on the multi-avatar HeyGen surface instead. Picked both up
+  this session, one background audit agent per corner, plain reading and
+  hand-tracing rather than the `deep-research` workflow, per this file's
+  standing instruction on how to spend research budget.
+
+  **ai-gateway audit, two real bugs, both fixed:**
+  - `gateway.ts`'s `complete()` and `stream()` both ran `screenOutput()`
+    (the output-moderation check) before settling the limiter, computing
+    real dollar cost, or recording usage. A blocked completion is a real,
+    provider-billed call, but `ModerationError` skipped straight to the
+    catch block, which wrote a zero-cost, zero-or-real-but-unbilled-token
+    usage row instead of what actually happened, and treated the block as
+    fallback-worthy, resending the identical disallowed prompt to every
+    remaining candidate in the chain. Concretely: `ai_usage` silently
+    undercounts every output-moderated call, `SpendBudget.record()` is
+    never reached for one, so a caller with `AI_SPEND_LIMIT_USD` set could
+    keep generating real, billed, blocked completions with nothing
+    enforcing the ceiling, and each one could be multiplied across the
+    chain length before the caller ever sees an error. Reordered both
+    methods so accounting always runs first, and made `ModerationError`
+    terminal in the fallback loop. Extended `scripts/smoke.ts`'s existing
+    "blocks disallowed output" case (test 12) to assert the recorded
+    cost/tokens match the real completion and that the chain does not fall
+    through; it previously only asserted the throw.
+  - `TokenBucketLimiter.take()` charged a request its full estimated cost
+    even above the bucket's own capacity. Since `refill()` never returns
+    more than `capacity`, a request costed higher than that is refused
+    forever with a finite, plausible-looking `retryAfterMs` that no amount
+    of waiting ever satisfies. The model registry has providers with
+    million-token-plus context windows; the configured local bucket
+    (120,000 capacity, `apps/web/src/lib/prompt-engine/providers.ts:193`)
+    is sized for ordinary throughput, not as a hard cap on one legitimate
+    large call already cleared by `windowError`'s separate, real
+    context-window check. Clamped the charge to `capacity`, so an
+    oversized request drains the bucket completely and is admitted once it
+    is genuinely full again, rather than never. Rewrote `smoke.ts`'s test
+    5, which happened to rely on exactly this bug to demonstrate an
+    ordinary refusal, to test a genuinely-empty bucket instead (matching
+    what its own comment already claimed); added test 5h, advancing a fake
+    clock by exactly the `retryAfterMs` the limiter itself reports, to
+    prove that wait is now truthful. 53/53 passing.
+
+  Both fixes are plain application-logic correctness bugs, not security-
+  boundary or pricing changes: no auth, no RLS, no real charge amount
+  touched. Each its own commit on `Feranmibranches`, folded into the
+  existing #216 per the standing one-branch-one-PR policy.
+
+  **Social sign-in redirect audit, one flagged, one fixed:**
+  - `apps/web/src/features/auth/components/login-form.tsx` forwards a
+    client-suppliable `?redirect=` query param as the post-login
+    destination, denylisting a leading `//` but not a leading `/\`, which
+    browsers (and Node's own `URL`, verified directly) treat identically
+    for a special scheme. Traced Next.js's own client router to confirm a
+    real, full-page `location.assign` results, not just a URL-parsing
+    curiosity. A link to the app's own real login page with a crafted
+    `redirect` value is a working open redirect on the post-auth path: the
+    victim signs in with real credentials, then is hard-redirected off the
+    site. The app's own OAuth callback route already denylists both forms
+    correctly; `login-form.tsx` should reuse that check rather than
+    keeping two inconsistent ones. This is security-boundary-shaped by any
+    reading, so it was flagged under "Needs the owner" above rather than
+    patched, even though the fix is a small, obvious denylist expansion.
+  - Separately, `requestPasswordResetAction`
+    (`apps/web/src/features/auth/actions.ts`) read
+    `process.env.NEXT_PUBLIC_APP_URL` directly instead of the validated
+    `env` export every other call site in the app uses, silently producing
+    a bare relative reset link (no scheme or host) on any deployment where
+    the raw env var is unset, a plain bug with no attacker-reachable input
+    involved, so fixed directly rather than flagged. Verified with
+    `pnpm exec turbo run typecheck lint build format:check` on `apps/web`
+    and the full repo-wide suite.
+
+  The PR title's own "domain independent" claim for the social sign-in
+  buttons themselves was checked and confirmed true: `redirectTo` there is
+  built purely from `window.location.origin` at click time, no env var or
+  hardcoded domain in the trigger path. The GitHub-removal PR (#209) was
+  also confirmed a clean, complete removal with nothing left behind.
+
+  Three commits pushed to `Feranmibranches`, folded into #216: the
+  password-reset env fix, then the two ai-gateway fixes as separate
+  commits (one per finding, matching this project's own convention for an
+  audit that lands more than one). CI on the final head was watched
+  through to completion rather than left running; see the result recorded
+  under "In flight" above. Nothing in this session touched auth, RLS, or
+  pricing beyond the one flagged, unfixed finding; no new dependency; no
+  real money spent; no production deploy.
+
+  Next session: `services/telegram-agent` has not had a fresh pass since
+  the thirteenth session found it clean, the longest-untouched corner of
+  the ones this file has been tracking. The open-redirect finding above
+  and the Telegram `_BRANCH_RE` gap are both still open and both still the
+  owner's. Standing items unchanged: CSP nonce, observability, and rate
+  limiting still need the owner or a new dependency.
 
 - **2026-09-04, sixteenth scheduled session.** Read the critical section and
   the fifteenth session's own entry first, as always. `main` was unchanged
