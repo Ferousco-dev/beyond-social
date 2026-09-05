@@ -732,6 +732,17 @@ controls.
   should either tighten `_BRANCH_RE` to a safe branch-name charset (mirroring
   `_TASK_ID_RE`/`_SESSION_RE`) or confirm the current behavior is
   acceptable given the narrower practical reach.
+  **Addendum, 2026-09-05, seventeenth session:** a fresh full re-audit
+  (unrelated files/commands, this item deliberately not re-investigated
+  beyond confirming it is unchanged) surfaced a second, related gap worth
+  the owner's attention at the same time: with more than one id in
+  `TELEGRAM_ALLOWED_USER_IDS`, `handle_status`/`handle_cancel`
+  (`lib/commands.py`) have no per-caller scoping, so `/status` shows every
+  allow-listed user's runs to every other one, and `/cancel` can cancel
+  any allow-listed user's in-flight task, not just the caller's own. This
+  tradeoff is already named in `docs/telegram-agent/kv-migration-scope.md`
+  as a V1 limitation, just not previously framed as a cross-user isolation
+  question the way `_BRANCH_RE` is framed as an input-validation one.
 - **Vercel production deploy.** Everything merged through 2026-08-21 is on
   `main` but not yet live. Owner runs `cd apps/web && vercel deploy --prod
 --yes --archive=tgz` themselves; this system does not deploy.
@@ -1005,31 +1016,41 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 ## In flight
 
 One PR open right now, 2026-09-05: **#216**, `Feranmibranches` → `main`,
-now fifteen commits. Between the sixteenth session's own entry and this,
-the seventeenth session, one docs-only commit landed on the branch
+now twenty-four commits. Between the sixteenth session's own entry and
+this, the seventeenth session, one docs-only commit landed on the branch
 (`ee104a7`, "Settle whether digital twins need an enterprise plan",
 answering the digital-twin plan-tier question by probing HeyGen's real API
 rather than trusting its pricing page) that this file never recorded;
 noted here so nobody mistakes it for this session's own work. CI was green
 on it before this session touched anything.
 
-This session added three more commits, all independently verified locally
-(`pnpm exec turbo run typecheck lint build format:check`, 26/26, plus a
-repo-wide `pnpm run format:check`) before every push. Full detail in the
-seventeenth session's entry below; in short: a password-reset link that
-silently broke on a deployment missing one env var, and two real
-spend-accounting bugs in `packages/ai-gateway` (a moderation block that
-discarded real, already-billed cost and cascaded the same blocked prompt
-across every remaining provider; a rate limiter that could refuse a
-legitimately large request forever rather than once its bucket refilled).
+This session added six more commits in two batches, both independently
+verified before every push (repo-wide `pnpm exec turbo run typecheck lint
+build format:check`, 26/26, plus `pnpm run format:check`; the Python
+batch also with `python3 -m unittest discover`, 54/54). Full detail in
+the seventeenth session's entry below; in short:
+
+- A password-reset link that silently broke on a deployment missing one
+  env var.
+- Two real spend-accounting bugs in `packages/ai-gateway` (a moderation
+  block that discarded real, already-billed cost and cascaded the same
+  blocked prompt across every remaining provider; a rate limiter that
+  could refuse a legitimately large request forever rather than once its
+  bucket refilled).
+- Three bugs in `services/telegram-agent` (an auth check that crashed
+  instead of cleanly denying on non-ASCII input; an unescaped branch name
+  that let a crafted git branch inject Telegram formatting; a GitHub
+  Actions concurrency group that let two rapid follow-ups race on the
+  same git branch instead of queuing).
+
 One further finding, a real open redirect on the login form, was flagged
 under "Needs the owner" instead of fixed, being security-boundary-shaped.
 
-Confirmed on the final head (`0bb20bb`), not assumed: every check green
+Confirmed on the final head (`a539ea7`), not assumed: every check green
 (`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
 `Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`. Watched
-through to completion rather than stopping at the push, per the standing
-lesson from the sixteenth session.
+through to completion after both pushes rather than stopping at either,
+per the standing lesson from the sixteenth session.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
@@ -1144,12 +1165,73 @@ landing-hero` is a month-old branch that diverges from before the current
   pricing beyond the one flagged, unfixed finding; no new dependency; no
   real money spent; no production deploy.
 
-  Next session: `services/telegram-agent` has not had a fresh pass since
-  the thirteenth session found it clean, the longest-untouched corner of
-  the ones this file has been tracking. The open-redirect finding above
-  and the Telegram `_BRANCH_RE` gap are both still open and both still the
-  owner's. Standing items unchanged: CSP nonce, observability, and rate
-  limiting still need the owner or a new dependency.
+  With time left in the session budget, picked up the other standing
+  candidate from the same "Next session" note: a fresh full audit of
+  `services/telegram-agent`, unswept since the thirteenth session (a
+  security-focused pass) and a narrower 2026-09-01 follow-up on
+  `lib/tasks.py`. Confirmed via `git log` first that nothing in the
+  service or its workflows has changed since 2026-08-29, so this was a
+  genuinely independent re-read, not a diff review. Three real bugs
+  found, none security-boundary-shaped (no auth bypass, no privilege
+  escalation — reasoned through explicitly in each commit rather than
+  assumed), all fixed directly:
+
+  - `lib/security.py`'s `verify_telegram_secret` and
+    `verify_callback_signature` both compare a header-derived `str`
+    with `hmac.compare_digest` directly, which raises `TypeError` on a
+    non-ASCII operand; reproduced directly against the real Flask app.
+    Neither call site sits inside `app.py`'s exception handler (that
+    only wraps `_route_command`), so a malformed webhook or callback
+    request crashed with a bare 500 instead of the intended 401, before
+    any authorization check runs, reachable by anyone who can reach the
+    public URL. Not a bypass, the request was still rejected either way.
+    Encoded both operands to bytes.
+  - `lib/messages.py`'s `completed()` and `ci_status()` both render the
+    branch name in a code span with no call to `escape()`, unlike every
+    sibling field in the same functions. Git branch names can legally
+    contain a backtick (confirmed with `git check-ref-format`), so a
+    crafted branch name closes the span early and turns the rest of the
+    line into attacker-chosen MarkdownV2 formatting in the owner's own
+    Telegram chat. `ci_status()`'s branch comes from
+    `workflow_run.head_branch`, reachable by anyone who can push a
+    branch or open a PR against the repo, a broader boundary than the
+    bot's own Telegram allowlist.
+  - `.github/workflows/telegram-claude-task.yml`'s concurrency group was
+    keyed on `client_payload.task_id`, which `lib/commands.py` mints
+    fresh on every dispatch, follow-ups included. Two follow-ups sent in
+    quick succession to the same completed task's message land in two
+    different, unrelated concurrency groups and run fully in parallel
+    against the identical resumed session and git branch, a real git
+    race on the push back to that branch. Keyed the group on
+    `parent_task_id` when the dispatch carries one instead, so both
+    queue behind their shared parent in submission order.
+
+  This service has no CI job of its own (it only runs on a real
+  `repository_dispatch` event, and no workflow runs its Python suite),
+  so verified the same way every prior session has: `python3 -m
+unittest discover` (54/54 passing, two new regression cases added) and
+  a direct YAML parse of the workflow file. Also confirmed clean and
+  worth recording so it isn't re-chased: every outbound HTTP call
+  checks its response, both trust boundaries run before any
+  state-changing action, no shell-injection path in the `.github/
+scripts/*.sh` helpers, and the already-tracked `_BRANCH_RE` gap is
+  unchanged (still open, still the owner's, deliberately not
+  re-reported here). One thing surfaced but not actioned, worth the
+  owner's attention alongside `_BRANCH_RE` rather than a new entry of
+  its own: with more than one id in `TELEGRAM_ALLOWED_USER_IDS`,
+  `/status` shows every allow-listed user's runs to every other one and
+  `/cancel` can cancel any allow-listed user's in-flight task, not just
+  the caller's own — already named as a V1 tradeoff in
+  `docs/telegram-agent/kv-migration-scope.md`, just not previously
+  framed as a cross-user isolation gap.
+
+  Six commits total this session, all pushed to `Feranmibranches` and
+  folded into #216. Both pushes watched through to a fully green CI
+  before moving on or stopping. Next session: the open-redirect finding
+  above and the Telegram `_BRANCH_RE`/cross-user-isolation gap are all
+  still open and all still the owner's. Standing items unchanged: CSP
+  nonce, observability, and rate limiting still need the owner or a new
+  dependency.
 
 - **2026-09-04, sixteenth scheduled session.** Read the critical section and
   the fifteenth session's own entry first, as always. `main` was unchanged
