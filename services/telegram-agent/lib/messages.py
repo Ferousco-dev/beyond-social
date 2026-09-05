@@ -57,7 +57,7 @@ def completed(task_id: str, summary: dict) -> str:
     if summary.get("task_title"):
         lines.append(f"Task: {escape(summary['task_title'])}")
     if summary.get("branch"):
-        lines.append(f"Branch: `{summary['branch']}`")
+        lines.append(f"Branch: `{escape(summary['branch'])}`")
     if summary.get("pr_url"):
         lines.append(f"PR: {escape(summary['pr_url'])}")
     if summary.get("tests"):
@@ -113,7 +113,7 @@ def ci_status(success: bool, summary: dict) -> str:
     name = summary.get("workflow_name") or "Workflow"
     lines = [f"{icon} *{escape(name)}*"]
     if summary.get("branch"):
-        lines.append(f"Branch: `{summary['branch']}`")
+        lines.append(f"Branch: `{escape(summary['branch'])}`")
     if summary.get("commit_sha"):
         lines.append(f"Commit: `{summary['commit_sha'][:7]}`")
     if summary.get("actor"):
