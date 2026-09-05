@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { isCurrentAccountDeleted } from "@/lib/account/deletion";
 import { ACCOUNT_DELETED_MESSAGE } from "@/lib/account/types";
-import { isSupabaseConfigured } from "@/lib/env";
+import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { sharedRateLimit } from "@/lib/rate-limit-shared";
 import { createClient } from "@/lib/supabase/server";
@@ -129,7 +129,7 @@ export async function requestPasswordResetAction(input: ForgotPasswordInput): Pr
   if (isSupabaseConfigured) {
     const supabase = await createClient();
     await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/reset-password`,
+      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/reset-password`,
     });
   }
 
