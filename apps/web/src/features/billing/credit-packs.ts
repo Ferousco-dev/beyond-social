@@ -1,11 +1,15 @@
 /**
  * Credit packs: the one place a top-up is defined.
  *
- * Sizes are anchored to what a credit actually buys. The catalogue prices a
- * video run at 1 credit (`veo3_fast`), and the plan allowances are 15, 100 and
- * 400 videos a month, so a pack has to be worth a real stretch of work: the
- * smallest is three weeks of free-plan output, the largest is nearly four
- * months of Studio. Anything smaller would be a rounding error on a plan.
+ * Credits here are on the same scale as everywhere else in the ledger: one
+ * credit is five cents of provider cost, fixed by migration
+ * `0051_credit_rebase`. These four sizes were set before that rebase, when a
+ * credit still meant one `veo3_fast` render, and were missed when 0051
+ * multiplied the ledger and every model price by six, the same bug
+ * `0098_rebase_plan_allowances` fixed for the signup grant and
+ * `lib/billing/plans.ts` fixed for the plan allowances. Rebased here on the
+ * same factor, so each pack still buys the same number of videos it always
+ * did.
  *
  * Prices are deliberately `null`. No pack price exists anywhere in this repo,
  * Stripe is not connected, and `PLAN_CATALOGUE` carries `priceUsd: 0` for every
@@ -33,9 +37,9 @@ export interface CreditPack {
 const BASE_PACK: CreditPack = {
   id: "starter",
   name: "Starter",
-  credits: 50,
+  credits: 300,
   priceUsd: null,
-  description: "About three weeks of output on top of the free allowance.",
+  description: "About fifty videos on top of the free allowance.",
   featured: false,
 };
 
@@ -44,7 +48,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
   {
     id: "plus",
     name: "Plus",
-    credits: 150,
+    credits: 900,
     priceUsd: null,
     description: "A busy month, or a campaign run in one sitting.",
     featured: true,
@@ -52,7 +56,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
   {
     id: "pro",
     name: "Pro",
-    credits: 500,
+    credits: 3000,
     priceUsd: null,
     description: "A quarter of steady publishing for one brand.",
     featured: false,
@@ -60,7 +64,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
   {
     id: "scale",
     name: "Scale",
-    credits: 1500,
+    credits: 9000,
     priceUsd: null,
     description: "Several brands, several months, bought once.",
     featured: false,

@@ -45,6 +45,7 @@ serve(async (request) => {
   }
 
   const rows = (data ?? []) as {
+    id: string;
     user_id: string;
     provider_avatar_id: string;
     poll_count: number;
@@ -70,7 +71,7 @@ serve(async (request) => {
             provider_error: null,
             updated_at: now,
           })
-          .eq("user_id", row.user_id);
+          .eq("id", row.id);
         ready += 1;
         continue;
       }
@@ -84,7 +85,7 @@ serve(async (request) => {
             poll_count: row.poll_count + 1,
             updated_at: now,
           })
-          .eq("user_id", row.user_id);
+          .eq("id", row.id);
         failed += 1;
         continue;
       }
@@ -109,7 +110,7 @@ serve(async (request) => {
             : {}),
           updated_at: now,
         })
-        .eq("user_id", row.user_id);
+        .eq("id", row.id);
       if (stuck) failed += 1;
     } catch (caught) {
       // One provider error must not stop the batch: the next row may be fine,
@@ -119,7 +120,7 @@ serve(async (request) => {
       await admin
         .from("heygen_avatars")
         .update({ poll_count: row.poll_count + 1, updated_at: now })
-        .eq("user_id", row.user_id);
+        .eq("id", row.id);
     }
   }
 

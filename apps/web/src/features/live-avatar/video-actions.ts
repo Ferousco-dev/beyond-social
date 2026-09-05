@@ -45,14 +45,38 @@ const UNAVAILABLE: Record<string, string> = {
  * function rather than reading a second copy of them: two places to configure
  * one thing is one place to forget.
  */
+/** Longer than a healthy probe, shorter than the request timeout above it. */
+const PROBE_TIMEOUT_MS = 2_500;
+
 export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
   const unavailable = { ready: false, reason: UNAVAILABLE.provider_unconfigured! } as const;
   if (!isSupabaseConfigured) return unavailable;
 
+  /*
+   * Bounded, because this blocks the page that renders it.
+   *
+   * The assets page awaits this before it can send a byte, and it is a round
+   * trip to an edge function that is currently certain to refuse: there is no
+   * HeyGen key, so the answer is always "unavailable". A question whose answer
+   * is known is not worth waiting on, and it is definitely not worth failing a
+   * whole screen for, which is what happens when a slow one runs past the
+   * request timeout and the error boundary catches the page instead.
+   *
+   * Two and a half seconds is longer than a healthy call and shorter than any
+   * timeout above it, so a stall degrades to the same "unavailable" the refusal
+   * already produces rather than taking the library down with it.
+   */
   const supabase = await createClient();
-  const { data, error } = await supabase.functions.invoke("generate-heygen-avatar", {
-    body: { probe: true },
-  });
+  const probe = supabase.functions.invoke("generate-heygen-avatar", { body: { probe: true } });
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS));
+  const settled = await Promise.race([probe, timeout]);
+
+  if (settled === null) {
+    logger.warn("twin video readiness probe timed out", { ms: PROBE_TIMEOUT_MS });
+    return unavailable;
+  }
+
+  const { data, error } = settled;
   if (error) {
     logger.warn("could not read twin video readiness", { error: error.message });
     return unavailable;

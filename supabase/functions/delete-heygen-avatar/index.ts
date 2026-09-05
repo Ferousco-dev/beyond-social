@@ -43,7 +43,7 @@ serve(async (request) => {
    */
   const { data, error } = await admin
     .from("heygen_avatars")
-    .select("provider_avatar_id, orphaned_provider_avatar_ids, storage_path")
+    .select("provider_avatar_id, storage_path")
     .eq("id", avatarId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -54,37 +54,26 @@ serve(async (request) => {
 
   const twin = data as {
     provider_avatar_id: string | null;
-    orphaned_provider_avatar_ids: string[] | null;
     storage_path: string;
   } | null;
   // Nothing to delete is the same outcome as deleted, and saying so lets the
   // library be simple about a person pressing the button twice.
   if (!twin) return json({ deleted: true, alreadyGone: true });
 
-  /*
-   * Orphans are deleted alongside the live group.
-   *
-   * A duplicate dispatch used to leave earlier trained groups at the provider
-   * with nothing in our schema pointing at them, so "delete my twin" removed
-   * one copy of a face and left the others. Those ids are recorded now, and
-   * this is where they get used.
-   */
-  const groups = [twin.provider_avatar_id, ...(twin.orphaned_provider_avatar_ids ?? [])].filter(
-    (id): id is string => typeof id === "string" && id !== "",
-  );
-
-  if (groups.length > 0 && isHeygenConfigured()) {
-    for (const group of groups) {
-      try {
-        await deleteAvatarGroup(group);
-      } catch (caught) {
-        const message = caught instanceof Error ? caught.message : String(caught);
-        log("error", "provider refused a twin deletion", { traceId, group, error: message });
-        // Deliberately not swallowed. Reporting success while a copy of the
-        // likeness still exists at the provider would be a lie about the one
-        // thing this endpoint is for.
-        return json({ error: "provider_delete_failed" }, 502);
-      }
+  if (twin.provider_avatar_id && isHeygenConfigured()) {
+    try {
+      await deleteAvatarGroup(twin.provider_avatar_id);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : String(caught);
+      log("error", "provider refused a twin deletion", {
+        traceId,
+        group: twin.provider_avatar_id,
+        error: message,
+      });
+      // Deliberately not swallowed. Reporting success while a copy of the
+      // likeness still exists at the provider would be a lie about the one
+      // thing this endpoint is for.
+      return json({ error: "provider_delete_failed" }, 502);
     }
   }
 

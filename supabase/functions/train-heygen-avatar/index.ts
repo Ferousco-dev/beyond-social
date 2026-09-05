@@ -143,6 +143,7 @@ serve(async (request) => {
    */
   const requestId = crypto.randomUUID();
   const { data: claimed, error: claimError } = await admin.rpc("claim_twin_training", {
+    p_avatar: avatarId,
     p_user: user.id,
     p_request: requestId,
   });
@@ -171,7 +172,6 @@ serve(async (request) => {
   try {
     const twin = await createDigitalTwin(name, file, requestId);
 
-    /*
     /*
      * The group id is written the moment it is known, before consent is
      * submitted. HeyGen has already created and will bill this group, and the

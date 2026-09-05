@@ -122,7 +122,7 @@ async function creditsTotal(): Promise<number> {
 try {
   const pack = CREDIT_PACKS.find((p) => p.id === "plus")!;
   const baseline = await creditsTotal();
-  check("signup grant landed first (baseline is 15)", baseline === 15, `baseline=${baseline}`);
+  check("signup grant landed first (baseline is 90)", baseline === 90, `baseline=${baseline}`);
 
   // A: no signature header at all.
   const bare = new Request("http://localhost/api/billing/webhook", { method: "POST", body: "{}" });
