@@ -806,18 +806,13 @@ controls.
 
 ## Open, safe to work
 
-- **`orphan_twin_avatar` is dead code with a live version of a bug already
-  fixed elsewhere.** Found 2026-09-03 fixing `claim_twin_training`'s
-  identical `user_id`-not-row scoping bug (see the fifteenth session's log
-  entry and migration `0100`): `orphan_twin_avatar`, written in the same
-  migration (`0091`), has the same flaw and nothing in the app calls it
-  (confirmed by grep across `apps/`, `services/`, `supabase/functions/`; its
-  only references are its own migration and its own psql test). Two honest
-  options, neither done silently: delete it if the orphan-tracking idea it
-  was built for is no longer needed now that `train-heygen-avatar` writes
-  the group id directly onto the row before consent, or fix its scoping and
-  actually wire it up wherever a training dispatch can displace a group id.
-  Small either way; picking one is the work.
+- ~~`orphan_twin_avatar` is dead code with a live version of a bug already
+  fixed elsewhere.~~ Resolved 2026-09-04, sixteenth session: dropped the
+  function and its column entirely (migration `0101`, folded into #216),
+  reasoning that nothing left in `train-heygen-avatar` can displace an
+  existing `provider_avatar_id` since the multi-avatar rewrite inserts a
+  new row per recording. See "In flight" and the sixteenth session's log
+  entry for detail. Nothing to do here.
 - **Observability.** No error tracking or APM anywhere in the app
   (confirmed by the 2026-08-21 production-readiness re-audit, PR #98). The
   single largest remaining gap on that audit. Adding one likely needs a new
@@ -1015,48 +1010,130 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-One PR open right now, 2026-09-05: **#216**, `Feranmibranches` → `main`,
-now twenty-four commits. Between the sixteenth session's own entry and
-this, the seventeenth session, one docs-only commit landed on the branch
-(`ee104a7`, "Settle whether digital twins need an enterprise plan",
-answering the digital-twin plan-tier question by probing HeyGen's real API
-rather than trusting its pricing page) that this file never recorded;
-noted here so nobody mistakes it for this session's own work. CI was green
-on it before this session touched anything.
+One PR open right now, 2026-09-06: **#216**, `Feranmibranches` → `main`,
+now twenty-five commits, open since 2026-09-03 and still unmerged
+(three days, the owner's own pace to review at, not a stall this system
+should chase). Confirmed via CI, not assumed: still `mergeable_state:
+clean` on the head this session found it at (`39ab150`) before touching
+anything.
 
-This session added six more commits in two batches, both independently
-verified before every push (repo-wide `pnpm exec turbo run typecheck lint
-build format:check`, 26/26, plus `pnpm run format:check`; the Python
-batch also with `python3 -m unittest discover`, 54/54). Full detail in
-the seventeenth session's entry below; in short:
+This session (the eighteenth) added one commit: `services/render/src/
+lib/spec.ts`'s `renderClipSchema` was a third, independent copy of the
+schema PR #137 (2026-08-25) fixed the invariant on. Full detail in this
+session's own log entry below; in short, this service did not exist yet
+when #137 shipped, so its copy was written from the pre-fix shape and
+carried the same documented-but-unchecked `endSeconds > startSeconds`
+gap. Added the same `.refine()` its two siblings already have.
 
-- A password-reset link that silently broke on a deployment missing one
-  env var.
-- Two real spend-accounting bugs in `packages/ai-gateway` (a moderation
-  block that discarded real, already-billed cost and cascaded the same
-  blocked prompt across every remaining provider; a rate limiter that
-  could refuse a legitimately large request forever rather than once its
-  bucket refilled).
-- Three bugs in `services/telegram-agent` (an auth check that crashed
-  instead of cleanly denying on non-ASCII input; an unescaped branch name
-  that let a crafted git branch inject Telegram formatting; a GitHub
-  Actions concurrency group that let two rapid follow-ups race on the
-  same git branch instead of queuing).
-
-One further finding, a real open redirect on the login form, was flagged
-under "Needs the owner" instead of fixed, being security-boundary-shaped.
-
-Confirmed on the final head (`a539ea7`), not assumed: every check green
+Confirmed on the final head (`4752517`), not assumed: every check green
 (`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
-`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`. Watched
-through to completion after both pushes rather than stopping at either,
-per the standing lesson from the sixteenth session.
+`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`.
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
 owner.
 
 ## Session log
+
+- **2026-09-06, eighteenth scheduled session.** Read the critical section,
+  `TEAM.md`, `RULES.md`, and the seventeenth session's own entry first, as
+  always. `main` unchanged since PR #215 (`f776a52`); one PR open, #216,
+  twenty-four commits, `mergeable_state: clean`, CI green on its head per
+  the seventeenth session's own re-verification, open three days now
+  (since 2026-09-03) awaiting the owner's own review pace, not a stall.
+  No Docker (`docker ps` fails to connect, same as every recent session)
+  and no browser/computer-use tool in this session's toolset, so a local
+  Supabase stack and any authenticated UI walkthrough were off the table
+  again.
+
+  **Process finding, worth fixing at the environment level, not just this
+  session:** this container's git identity defaults to an AI one
+  (`git config user.name`/`user.email` both resolve to `Claude
+<noreply@anthropic.com>`, set at both the global and local scope before
+  this session touched anything). The fourteenth session already flagged
+  and worked around half of this, passing `--author` explicitly on every
+  commit; what it did not catch is that `--author` only sets the author
+  field, not the committer, so every commit on `Feranmibranches` since
+  (fourteenth through seventeenth sessions, confirmed by reading
+  `%cn <%ce>` on `39ab150` and others) carries `Committer: Claude
+<noreply@anthropic.com>`, which is exactly the AI attribution
+  `CLAUDE.md`/`RULES.md` say must never appear in a commit, just in a
+  field nobody was checking. Not fixed retroactively: `RULES.md` forbids
+  rewriting shared history, and this branch is shared. Fixed going
+  forward by setting `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` alongside
+  `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` as per-command environment
+  variables on this session's own commit, matching the existing
+  `Feranmi Oresajo <ferouslos6@gmail.com>` identity every other commit on
+  this branch uses, rather than editing git config itself. Whoever
+  provisions this container's environment should set the identity there
+  once instead; until then, every session should check both fields, not
+  just export `--author`.
+
+  With PR #216 already carrying three sessions' worth of correctness
+  passes over the multi-avatar HeyGen feature, ai-gateway, and
+  telegram-agent, spent this session's research budget looking for a
+  genuinely fresh, not-yet-swept corner rather than re-reading ground
+  already covered. Read `packages/rate-limit` (the shared limiter
+  introduced in the 2026-09-02 security audit) end to end, plus every
+  concrete binding to it (`apps/web/src/lib/rate-limit-store.ts`,
+  `rate-limit-shared.ts`, `ai/shared-limiter.ts`, `api/rate-limit.ts`,
+  `generation/likeness-meter.ts`, `apps/admin/src/lib/auth/throttle.ts`,
+  and `supabase/migrations/0020_rate_limits.sql`'s `rate_limit_hit`
+  function): clean. The fixed-window upsert is genuinely atomic, every
+  policy's fail-open/fail-closed choice matches the reasoning already
+  recorded in the 2026-09-02 audit, and the one place a bucket name is
+  shared across call sites (`sharedRateLimit`'s ad-hoc `"auth"` bucket)
+  is safely disambiguated by the caller-supplied key
+  (`` `${action}:${ip}` ``), not a collision. Also read `services/render`
+  end to end (`index.ts`, `jobs.ts`, `ffmpeg.ts`, `spec.ts`, `health.ts`),
+  since the thirteenth session's own pass only covered `jobs.ts`'s
+  terminal writes and `fly.toml`'s `kill_timeout`, not the rest of the
+  service.
+
+  One real, fixed finding there: `spec.ts`'s `renderClipSchema` is a
+  third, independent restatement of the same wire contract PR #137
+  already fixed the invariant on in `apps/worker/src/lib/render-spec.ts`
+  and `apps/web/src/lib/editor/render-spec.ts` (the `endSeconds`
+  field was documented "always greater than `startSeconds`" but never
+  checked). `services/render` did not exist yet when #137 shipped
+  (2026-08-25); it was added 2026-08-29 as a second implementation of
+  the join, and its own copy of the schema was written from the pre-fix
+  shape, so it inherited the identical gap its own comment already
+  promised was closed. A clip with `endSeconds <= startSeconds` parses
+  cleanly here and reaches `prepare()` in `ffmpeg.ts`, which would hand
+  ffmpeg a non-positive `-t` duration. Added the same `.refine()` the
+  other two copies have. Same defense-in-depth reasoning as #137: not
+  reachable through the editor UI today, since `specFromProject` already
+  filters `end <= start` before a spec is ever written, so this closes
+  the gap for any other producer of a `project_renders.spec` row, not a
+  live user-facing bug today. No existing test harness for this package
+  to extend (same as `apps/worker`'s render path), so verified by
+  `pnpm exec turbo run typecheck lint build format:check` (26/26) and
+  `pnpm run format:check` (repo-wide), both clean, plus reasoning by hand
+  against `ffmpeg.ts`'s `prepare()`.
+
+  One commit pushed to `Feranmibranches`, folded into the existing #216
+  per the standing one-branch-one-PR policy. CI watched through to a
+  fully green state on the final head (`4752517`) before stopping,
+  matching the sixteenth session's own standing lesson not to leave a
+  push's CI unconfirmed. Nothing touched auth, RLS, or pricing; no new
+  dependency; no real money spent; no production deploy.
+
+  Next session: the open-redirect finding and the Telegram
+  `_BRANCH_RE`/cross-user-isolation gap are both still open and both
+  still the owner's (see "Needs the owner"). Standing items unchanged:
+  CSP nonce, observability, and rate limiting still need the owner or a
+  new dependency. `packages/rate-limit` and `services/render` have now
+  both had a real, independent pass end to end; genuinely fresh corners
+  not yet swept by name in any session log: `apps/admin`'s newer
+  surfaces added since the 8th session's sweep (2026-08-27) by the
+  owner's later live sessions (MFA, sign-in throttle — both already
+  covered by the 2026-09-02 audit, so check what else landed since), and
+  `apps/worker`'s BullMQ queue/job configuration itself beyond the
+  render/stitch logic already swept. If a browser or Docker becomes
+  available, the UI/UX standing pass and the low-balance-notice PRs
+  (#126/#129/#131) are still the longest-standing unverified-in-a-real-
+  browser items across every session so far.
 
 - **2026-09-05, seventeenth scheduled session.** Read the critical section
   and the sixteenth session's own entry first, as always. One PR open,
