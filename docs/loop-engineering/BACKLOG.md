@@ -675,6 +675,37 @@ controls.
 
 ## Needs the owner (do not start until unblocked)
 
+- **Open redirect on the login form via a `/\` prefix, 2026-09-05.** Found
+  auditing the social sign-in feature (PR #207, never independently reviewed
+  since it shipped). `apps/web/src/features/auth/components/login-form.tsx`
+  reads a client-suppliable `?redirect=` query param and forwards it as the
+  post-login destination if it `startsWith("/")` and not `startsWith("//")`.
+  That denylist misses `/\`: browsers (and Node's own WHATWG `URL`, verified
+  directly, `node -e "new URL('/\\evil.com', 'https://x').href"` returns
+  `https://evil.com/`) treat a leading backslash the same as a leading double
+  slash for a special scheme. Traced Next.js's own client router
+  (`next@15.5.25`) to confirm this is a real navigation, not just a URL
+  quirk: `isExternalURL` sees a different origin once the string is
+  re-parsed as absolute, and the router falls back to a full
+  `location.assign`/`location.replace`. Concretely: a link to the app's own
+  real login page, `/login?redirect=%2F%5Cevil.com`, looks completely
+  legitimate (real domain, real TLS), and a victim who signs in with their
+  own credentials is hard-redirected to `https://evil.com/` immediately
+  after, a classic post-auth open redirect for phishing. The app's own OAuth
+  callback route, `apps/web/src/app/auth/callback/route.ts`, already has the
+  correct denylist (blocks both `//` and `/\`) for the equivalent case;
+  `login-form.tsx` should reuse that same check rather than keeping two
+  different, now provably inconsistent, sanitizers for the two entry points.
+  This is unchanged since PR #169 and predates the OAuth work, but it is
+  exactly the security-boundary-shaped finding `RULES.md` says needs the
+  owner's own look even though the fix is a one-line denylist expansion:
+  flagging rather than patching it silently. A second, ordinary bug found in
+  the same pass and already fixed directly (not security-boundary-shaped:
+  no user-controlled input reaches it), see the seventeenth session's log
+  entry: `requestPasswordResetAction` read `process.env.NEXT_PUBLIC_APP_URL`
+  directly instead of the validated `env` export, the only call site doing
+  so, silently producing a bare relative reset link on any deployment where
+  the raw env var is unset.
 - **`base_branch` in the Telegram-agent task flow bypasses the input safelist
   its sibling fields enforce.** Found 2026-08-28 auditing
   `services/telegram-agent/` (a new service, PRs #146-155, not yet swept by
@@ -701,6 +732,17 @@ controls.
   should either tighten `_BRANCH_RE` to a safe branch-name charset (mirroring
   `_TASK_ID_RE`/`_SESSION_RE`) or confirm the current behavior is
   acceptable given the narrower practical reach.
+  **Addendum, 2026-09-05, seventeenth session:** a fresh full re-audit
+  (unrelated files/commands, this item deliberately not re-investigated
+  beyond confirming it is unchanged) surfaced a second, related gap worth
+  the owner's attention at the same time: with more than one id in
+  `TELEGRAM_ALLOWED_USER_IDS`, `handle_status`/`handle_cancel`
+  (`lib/commands.py`) have no per-caller scoping, so `/status` shows every
+  allow-listed user's runs to every other one, and `/cancel` can cancel
+  any allow-listed user's in-flight task, not just the caller's own. This
+  tradeoff is already named in `docs/telegram-agent/kv-migration-scope.md`
+  as a V1 limitation, just not previously framed as a cross-user isolation
+  question the way `_BRANCH_RE` is framed as an input-validation one.
 - **Vercel production deploy.** Everything merged through 2026-08-21 is on
   `main` but not yet live. Owner runs `cd apps/web && vercel deploy --prod
 --yes --archive=tgz` themselves; this system does not deploy.
@@ -764,6 +806,13 @@ controls.
 
 ## Open, safe to work
 
+- ~~`orphan_twin_avatar` is dead code with a live version of a bug already
+  fixed elsewhere.~~ Resolved 2026-09-04, sixteenth session: dropped the
+  function and its column entirely (migration `0101`, folded into #216),
+  reasoning that nothing left in `train-heygen-avatar` can displace an
+  existing `provider_avatar_id` since the multi-avatar rewrite inserts a
+  new row per recording. See "In flight" and the sixteenth session's log
+  entry for detail. Nothing to do here.
 - **Observability.** No error tracking or APM anywhere in the app
   (confirmed by the 2026-08-21 production-readiness re-audit, PR #98). The
   single largest remaining gap on that audit. Adding one likely needs a new
@@ -961,41 +1010,567 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-Stale as of the thirteenth session's own writing: #188-190 above are no
-longer open, the owner merged them along with everything else through
-#209 (confirmed by walking `main`'s merge-commit history directly, not
-inferred). `main` is well past where this file's own log last described
-it; see the fourteenth session's entry below for what is actually open
-now.
+One PR open right now, 2026-09-06: **#216**, `Feranmibranches` → `main`,
+now twenty-five commits, open since 2026-09-03 and still unmerged
+(three days, the owner's own pace to review at, not a stall this system
+should chase). Confirmed via CI, not assumed: still `mergeable_state:
+clean` on the head this session found it at (`39ab150`) before touching
+anything.
 
-Three PRs open right now, 2026-09-02, all independently re-verified
-this session (typecheck/lint/build/format across all 26 turbo tasks,
-plus `deno check`/`deno lint` on all 26 edge functions where relevant):
+This session (the eighteenth) added one commit: `services/render/src/
+lib/spec.ts`'s `renderClipSchema` was a third, independent copy of the
+schema PR #137 (2026-08-25) fixed the invariant on. Full detail in this
+session's own log entry below; in short, this service did not exist yet
+when #137 shipped, so its copy was written from the pre-fix shape and
+carried the same documented-but-unchecked `endSeconds > startSeconds`
+gap. Added the same `.refine()` its two siblings already have.
 
-- **#210**, `feat/avatar-library` → `main`: lets somebody keep more than
-  one trained HeyGen avatar rather than one silently replacing another.
-  CI green.
-- **#211**, `feat/assets-sections` → `feat/avatar-library` (stacked on
-  #210, review that one first): folds the avatar screen into Assets as
-  three sections. No CI runs on this one directly, expected rather than
-  broken: `.github/workflows/ci.yml` only triggers on `pull_request`
-  against `main`, and this PR's base is `feat/avatar-library`, not
-  `main`. Re-verified locally instead by checking out `feat/assets-
-sections` (which carries #210's commits too, being stacked) and running
-  the full suite: 26/26 tasks pass.
-- **#212**, `Feranmibranches` → `main`: originally the chat-links/OG-
-  image work described in the thirteenth session's successor below; two
-  more commits were added on top this session (see the fourteenth
-  session's entry), plus this file's own update. CI fully green on the
-  final pushed head (`d9c21ad`): all four workflows (`CI`, `Database`,
-  `Edge functions`, `Security`) passed, `mergeable_state: clean`.
+Confirmed on the final head (`4752517`), not assumed: every check green
+(`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
+`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`.
 
-None of the three have been merged: this system does not merge PRs at
-all any more (`TEAM.md`'s PR Checker role, updated since the critical
-section below was written: merging is the owner's, full stop). Left
-open for the owner.
+Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
+PR Checker role: merging is the owner's, full stop). Left open for the
+owner.
 
 ## Session log
+
+- **2026-09-06, eighteenth scheduled session.** Read the critical section,
+  `TEAM.md`, `RULES.md`, and the seventeenth session's own entry first, as
+  always. `main` unchanged since PR #215 (`f776a52`); one PR open, #216,
+  twenty-four commits, `mergeable_state: clean`, CI green on its head per
+  the seventeenth session's own re-verification, open three days now
+  (since 2026-09-03) awaiting the owner's own review pace, not a stall.
+  No Docker (`docker ps` fails to connect, same as every recent session)
+  and no browser/computer-use tool in this session's toolset, so a local
+  Supabase stack and any authenticated UI walkthrough were off the table
+  again.
+
+  **Process finding, worth fixing at the environment level, not just this
+  session:** this container's git identity defaults to an AI one
+  (`git config user.name`/`user.email` both resolve to `Claude
+<noreply@anthropic.com>`, set at both the global and local scope before
+  this session touched anything). The fourteenth session already flagged
+  and worked around half of this, passing `--author` explicitly on every
+  commit; what it did not catch is that `--author` only sets the author
+  field, not the committer, so every commit on `Feranmibranches` since
+  (fourteenth through seventeenth sessions, confirmed by reading
+  `%cn <%ce>` on `39ab150` and others) carries `Committer: Claude
+<noreply@anthropic.com>`, which is exactly the AI attribution
+  `CLAUDE.md`/`RULES.md` say must never appear in a commit, just in a
+  field nobody was checking. Not fixed retroactively: `RULES.md` forbids
+  rewriting shared history, and this branch is shared. Fixed going
+  forward by setting `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` alongside
+  `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` as per-command environment
+  variables on this session's own commit, matching the existing
+  `Feranmi Oresajo <ferouslos6@gmail.com>` identity every other commit on
+  this branch uses, rather than editing git config itself. Whoever
+  provisions this container's environment should set the identity there
+  once instead; until then, every session should check both fields, not
+  just export `--author`.
+
+  With PR #216 already carrying three sessions' worth of correctness
+  passes over the multi-avatar HeyGen feature, ai-gateway, and
+  telegram-agent, spent this session's research budget looking for a
+  genuinely fresh, not-yet-swept corner rather than re-reading ground
+  already covered. Read `packages/rate-limit` (the shared limiter
+  introduced in the 2026-09-02 security audit) end to end, plus every
+  concrete binding to it (`apps/web/src/lib/rate-limit-store.ts`,
+  `rate-limit-shared.ts`, `ai/shared-limiter.ts`, `api/rate-limit.ts`,
+  `generation/likeness-meter.ts`, `apps/admin/src/lib/auth/throttle.ts`,
+  and `supabase/migrations/0020_rate_limits.sql`'s `rate_limit_hit`
+  function): clean. The fixed-window upsert is genuinely atomic, every
+  policy's fail-open/fail-closed choice matches the reasoning already
+  recorded in the 2026-09-02 audit, and the one place a bucket name is
+  shared across call sites (`sharedRateLimit`'s ad-hoc `"auth"` bucket)
+  is safely disambiguated by the caller-supplied key
+  (`` `${action}:${ip}` ``), not a collision. Also read `services/render`
+  end to end (`index.ts`, `jobs.ts`, `ffmpeg.ts`, `spec.ts`, `health.ts`),
+  since the thirteenth session's own pass only covered `jobs.ts`'s
+  terminal writes and `fly.toml`'s `kill_timeout`, not the rest of the
+  service.
+
+  One real, fixed finding there: `spec.ts`'s `renderClipSchema` is a
+  third, independent restatement of the same wire contract PR #137
+  already fixed the invariant on in `apps/worker/src/lib/render-spec.ts`
+  and `apps/web/src/lib/editor/render-spec.ts` (the `endSeconds`
+  field was documented "always greater than `startSeconds`" but never
+  checked). `services/render` did not exist yet when #137 shipped
+  (2026-08-25); it was added 2026-08-29 as a second implementation of
+  the join, and its own copy of the schema was written from the pre-fix
+  shape, so it inherited the identical gap its own comment already
+  promised was closed. A clip with `endSeconds <= startSeconds` parses
+  cleanly here and reaches `prepare()` in `ffmpeg.ts`, which would hand
+  ffmpeg a non-positive `-t` duration. Added the same `.refine()` the
+  other two copies have. Same defense-in-depth reasoning as #137: not
+  reachable through the editor UI today, since `specFromProject` already
+  filters `end <= start` before a spec is ever written, so this closes
+  the gap for any other producer of a `project_renders.spec` row, not a
+  live user-facing bug today. No existing test harness for this package
+  to extend (same as `apps/worker`'s render path), so verified by
+  `pnpm exec turbo run typecheck lint build format:check` (26/26) and
+  `pnpm run format:check` (repo-wide), both clean, plus reasoning by hand
+  against `ffmpeg.ts`'s `prepare()`.
+
+  One commit pushed to `Feranmibranches`, folded into the existing #216
+  per the standing one-branch-one-PR policy. CI watched through to a
+  fully green state on the final head (`4752517`) before stopping,
+  matching the sixteenth session's own standing lesson not to leave a
+  push's CI unconfirmed. Nothing touched auth, RLS, or pricing; no new
+  dependency; no real money spent; no production deploy.
+
+  **Second process finding, this one structural rather than fixable by
+  writing a better comment:** posted a status comment on #216 for this
+  session's commit, matching the convention every recent session's log
+  shows above (the sixteenth, seventeenth, and earlier both posted one
+  per push). The body sent to `add_issue_comment` had no attribution
+  footer of any kind. What actually landed on GitHub carries
+  `---\n_Generated by [Claude Code](https://claude.ai/code)_` appended,
+  read back and confirmed byte-for-byte against the comment this session
+  actually sent. This is the same failure the eighth session already
+  named for `create_pull_request`/`update_pull_request` ("still
+  auto-append an AI-attribution footer... needs doing every time, not
+  once"), just not previously confirmed on `add_issue_comment`, and this
+  time there is no fix available: a PR's body can be overwritten after
+  the fact (what the eighth session did), but no comment-edit or
+  comment-delete tool exists in this session's GitHub toolset, so a
+  comment posted with the footer stays that way. This is the GitHub MCP
+  server appending it server-side, not this session choosing to; every
+  prior session's PR comment carrying the same footer (visible on #216's
+  own thread back through the eighth session) is the same tool behavior,
+  not a different session each independently deciding to violate
+  `CLAUDE.md`. Given no fix exists, the safer choice going forward is not
+  to keep posting PR comments at all: `BACKLOG.md`'s own session log is
+  already the authoritative, in-repo record this project's convention
+  points to, and it carries no such tool-injected footer. Worth the
+  owner's attention as a tool-configuration question (can the MCP
+  server's footer be disabled, the way a franchise setting or a
+  different auth method might control), not an engineering one this
+  system can route around on its own.
+
+  Next session: the open-redirect finding and the Telegram
+  `_BRANCH_RE`/cross-user-isolation gap are both still open and both
+  still the owner's (see "Needs the owner"). Standing items unchanged:
+  CSP nonce, observability, and rate limiting still need the owner or a
+  new dependency. `packages/rate-limit` and `services/render` have now
+  both had a real, independent pass end to end; genuinely fresh corners
+  not yet swept by name in any session log: `apps/admin`'s newer
+  surfaces added since the 8th session's sweep (2026-08-27) by the
+  owner's later live sessions (MFA, sign-in throttle — both already
+  covered by the 2026-09-02 audit, so check what else landed since), and
+  `apps/worker`'s BullMQ queue/job configuration itself beyond the
+  render/stitch logic already swept. If a browser or Docker becomes
+  available, the UI/UX standing pass and the low-balance-notice PRs
+  (#126/#129/#131) are still the longest-standing unverified-in-a-real-
+  browser items across every session so far.
+
+- **2026-09-05, seventeenth scheduled session.** Read the critical section
+  and the sixteenth session's own entry first, as always. One PR open,
+  #216, twelve commits, CI green per the sixteenth session's own
+  re-verification. One commit had landed on the branch since without being
+  logged here (`ee104a7`, docs-only, resolving the digital-twin
+  enterprise-plan question by probing HeyGen's real API); recorded under
+  "In flight" above rather than mistaken for this session's own work.
+  `feat/social-sign-in` and `fix/drop-github-signin` are both fully merged
+  into `main` already (confirmed by diff, zero commits ahead); `redesign/
+landing-hero` is a month-old branch that diverges from before the current
+  history even starts and is unrelated to anything active. No Docker, no
+  browser tool, same limitations as most recent sessions; `pnpm install`
+  and a repo-wide `pnpm exec turbo run typecheck lint build format:check`
+  (26/26) confirmed the baseline was genuinely green before touching
+  anything.
+
+  Two of the fourteenth session's own flagged, still-unswept corners
+  (`packages/ai-gateway`'s token-budgeting rewrite from PR #192, and the
+  social sign-in redirect construction from PR #207) had gone three
+  sessions without an independent pass, since the fifteenth and sixteenth
+  both stayed on the multi-avatar HeyGen surface instead. Picked both up
+  this session, one background audit agent per corner, plain reading and
+  hand-tracing rather than the `deep-research` workflow, per this file's
+  standing instruction on how to spend research budget.
+
+  **ai-gateway audit, two real bugs, both fixed:**
+  - `gateway.ts`'s `complete()` and `stream()` both ran `screenOutput()`
+    (the output-moderation check) before settling the limiter, computing
+    real dollar cost, or recording usage. A blocked completion is a real,
+    provider-billed call, but `ModerationError` skipped straight to the
+    catch block, which wrote a zero-cost, zero-or-real-but-unbilled-token
+    usage row instead of what actually happened, and treated the block as
+    fallback-worthy, resending the identical disallowed prompt to every
+    remaining candidate in the chain. Concretely: `ai_usage` silently
+    undercounts every output-moderated call, `SpendBudget.record()` is
+    never reached for one, so a caller with `AI_SPEND_LIMIT_USD` set could
+    keep generating real, billed, blocked completions with nothing
+    enforcing the ceiling, and each one could be multiplied across the
+    chain length before the caller ever sees an error. Reordered both
+    methods so accounting always runs first, and made `ModerationError`
+    terminal in the fallback loop. Extended `scripts/smoke.ts`'s existing
+    "blocks disallowed output" case (test 12) to assert the recorded
+    cost/tokens match the real completion and that the chain does not fall
+    through; it previously only asserted the throw.
+  - `TokenBucketLimiter.take()` charged a request its full estimated cost
+    even above the bucket's own capacity. Since `refill()` never returns
+    more than `capacity`, a request costed higher than that is refused
+    forever with a finite, plausible-looking `retryAfterMs` that no amount
+    of waiting ever satisfies. The model registry has providers with
+    million-token-plus context windows; the configured local bucket
+    (120,000 capacity, `apps/web/src/lib/prompt-engine/providers.ts:193`)
+    is sized for ordinary throughput, not as a hard cap on one legitimate
+    large call already cleared by `windowError`'s separate, real
+    context-window check. Clamped the charge to `capacity`, so an
+    oversized request drains the bucket completely and is admitted once it
+    is genuinely full again, rather than never. Rewrote `smoke.ts`'s test
+    5, which happened to rely on exactly this bug to demonstrate an
+    ordinary refusal, to test a genuinely-empty bucket instead (matching
+    what its own comment already claimed); added test 5h, advancing a fake
+    clock by exactly the `retryAfterMs` the limiter itself reports, to
+    prove that wait is now truthful. 53/53 passing.
+
+  Both fixes are plain application-logic correctness bugs, not security-
+  boundary or pricing changes: no auth, no RLS, no real charge amount
+  touched. Each its own commit on `Feranmibranches`, folded into the
+  existing #216 per the standing one-branch-one-PR policy.
+
+  **Social sign-in redirect audit, one flagged, one fixed:**
+  - `apps/web/src/features/auth/components/login-form.tsx` forwards a
+    client-suppliable `?redirect=` query param as the post-login
+    destination, denylisting a leading `//` but not a leading `/\`, which
+    browsers (and Node's own `URL`, verified directly) treat identically
+    for a special scheme. Traced Next.js's own client router to confirm a
+    real, full-page `location.assign` results, not just a URL-parsing
+    curiosity. A link to the app's own real login page with a crafted
+    `redirect` value is a working open redirect on the post-auth path: the
+    victim signs in with real credentials, then is hard-redirected off the
+    site. The app's own OAuth callback route already denylists both forms
+    correctly; `login-form.tsx` should reuse that check rather than
+    keeping two inconsistent ones. This is security-boundary-shaped by any
+    reading, so it was flagged under "Needs the owner" above rather than
+    patched, even though the fix is a small, obvious denylist expansion.
+  - Separately, `requestPasswordResetAction`
+    (`apps/web/src/features/auth/actions.ts`) read
+    `process.env.NEXT_PUBLIC_APP_URL` directly instead of the validated
+    `env` export every other call site in the app uses, silently producing
+    a bare relative reset link (no scheme or host) on any deployment where
+    the raw env var is unset, a plain bug with no attacker-reachable input
+    involved, so fixed directly rather than flagged. Verified with
+    `pnpm exec turbo run typecheck lint build format:check` on `apps/web`
+    and the full repo-wide suite.
+
+  The PR title's own "domain independent" claim for the social sign-in
+  buttons themselves was checked and confirmed true: `redirectTo` there is
+  built purely from `window.location.origin` at click time, no env var or
+  hardcoded domain in the trigger path. The GitHub-removal PR (#209) was
+  also confirmed a clean, complete removal with nothing left behind.
+
+  Three commits pushed to `Feranmibranches`, folded into #216: the
+  password-reset env fix, then the two ai-gateway fixes as separate
+  commits (one per finding, matching this project's own convention for an
+  audit that lands more than one). CI on the final head was watched
+  through to completion rather than left running; see the result recorded
+  under "In flight" above. Nothing in this session touched auth, RLS, or
+  pricing beyond the one flagged, unfixed finding; no new dependency; no
+  real money spent; no production deploy.
+
+  With time left in the session budget, picked up the other standing
+  candidate from the same "Next session" note: a fresh full audit of
+  `services/telegram-agent`, unswept since the thirteenth session (a
+  security-focused pass) and a narrower 2026-09-01 follow-up on
+  `lib/tasks.py`. Confirmed via `git log` first that nothing in the
+  service or its workflows has changed since 2026-08-29, so this was a
+  genuinely independent re-read, not a diff review. Three real bugs
+  found, none security-boundary-shaped (no auth bypass, no privilege
+  escalation — reasoned through explicitly in each commit rather than
+  assumed), all fixed directly:
+
+  - `lib/security.py`'s `verify_telegram_secret` and
+    `verify_callback_signature` both compare a header-derived `str`
+    with `hmac.compare_digest` directly, which raises `TypeError` on a
+    non-ASCII operand; reproduced directly against the real Flask app.
+    Neither call site sits inside `app.py`'s exception handler (that
+    only wraps `_route_command`), so a malformed webhook or callback
+    request crashed with a bare 500 instead of the intended 401, before
+    any authorization check runs, reachable by anyone who can reach the
+    public URL. Not a bypass, the request was still rejected either way.
+    Encoded both operands to bytes.
+  - `lib/messages.py`'s `completed()` and `ci_status()` both render the
+    branch name in a code span with no call to `escape()`, unlike every
+    sibling field in the same functions. Git branch names can legally
+    contain a backtick (confirmed with `git check-ref-format`), so a
+    crafted branch name closes the span early and turns the rest of the
+    line into attacker-chosen MarkdownV2 formatting in the owner's own
+    Telegram chat. `ci_status()`'s branch comes from
+    `workflow_run.head_branch`, reachable by anyone who can push a
+    branch or open a PR against the repo, a broader boundary than the
+    bot's own Telegram allowlist.
+  - `.github/workflows/telegram-claude-task.yml`'s concurrency group was
+    keyed on `client_payload.task_id`, which `lib/commands.py` mints
+    fresh on every dispatch, follow-ups included. Two follow-ups sent in
+    quick succession to the same completed task's message land in two
+    different, unrelated concurrency groups and run fully in parallel
+    against the identical resumed session and git branch, a real git
+    race on the push back to that branch. Keyed the group on
+    `parent_task_id` when the dispatch carries one instead, so both
+    queue behind their shared parent in submission order.
+
+  This service has no CI job of its own (it only runs on a real
+  `repository_dispatch` event, and no workflow runs its Python suite),
+  so verified the same way every prior session has: `python3 -m
+unittest discover` (54/54 passing, two new regression cases added) and
+  a direct YAML parse of the workflow file. Also confirmed clean and
+  worth recording so it isn't re-chased: every outbound HTTP call
+  checks its response, both trust boundaries run before any
+  state-changing action, no shell-injection path in the `.github/
+scripts/*.sh` helpers, and the already-tracked `_BRANCH_RE` gap is
+  unchanged (still open, still the owner's, deliberately not
+  re-reported here). One thing surfaced but not actioned, worth the
+  owner's attention alongside `_BRANCH_RE` rather than a new entry of
+  its own: with more than one id in `TELEGRAM_ALLOWED_USER_IDS`,
+  `/status` shows every allow-listed user's runs to every other one and
+  `/cancel` can cancel any allow-listed user's in-flight task, not just
+  the caller's own — already named as a V1 tradeoff in
+  `docs/telegram-agent/kv-migration-scope.md`, just not previously
+  framed as a cross-user isolation gap.
+
+  Six commits total this session, all pushed to `Feranmibranches` and
+  folded into #216. Both pushes watched through to a fully green CI
+  before moving on or stopping. Next session: the open-redirect finding
+  above and the Telegram `_BRANCH_RE`/cross-user-isolation gap are all
+  still open and all still the owner's. Standing items unchanged: CSP
+  nonce, observability, and rate limiting still need the owner or a new
+  dependency.
+
+- **2026-09-04, sixteenth scheduled session.** Read the critical section and
+  the fifteenth session's own entry first, as always. `main` was unchanged
+  since PR #215 merged (`f776a52`); one PR open, #216, six commits, CI green
+  on its final head per the fifteenth session's own re-verification. Nothing
+  else in flight, nothing else to reconcile.
+
+  No Docker, no browser tool, same limitations as most recent sessions.
+  Installed Deno 2.9.6 fresh (this environment does not persist between
+  sessions) so `deno check`/`deno lint` could run against the exact commands
+  `edge-functions.yml` uses. Rather than start a new backlog item, kept
+  reading the same multi-avatar HeyGen feature #216 already touched, since
+  three of its own six commits were fixes to code nobody had independently
+  reviewed yet and the pattern of the last several sessions (one real bug
+  per unswept corner) suggested there was more there. It was:
+
+  - **Dead code from before the multi-avatar rewrite.** `orphan_twin_avatar`
+    and its `orphaned_provider_avatar_ids` column (migration `0091`) exist
+    for a world where retraining reused one row per person and a retry
+    could overwrite that row's `provider_avatar_id`, stranding the old
+    group at the provider. Migration `0096` changed training to insert a
+    new row per recording instead, and `train-heygen-avatar` writes
+    `provider_avatar_id` exactly once per row now. Traced every caller by
+    hand (`startTwinTraining` always dispatches a fresh recording; the edge
+    function always inserts) and confirmed nothing can ever call the
+    function or populate the column under the current design. Migration
+    `0101` drops both; `delete-heygen-avatar` simplified to match; the
+    claim regression test's assertions on the dead function removed.
+  - **Deleting the default avatar left nobody marked default.** Migration
+    `0096` made the default a database-enforced, at-most-one-per-person
+    fact, but nothing reassigned it when that row was deleted.
+    `findTwin`'s no-avatar-named path falls back to the newest row
+    regardless of `is_default`, so generation kept working, but the
+    library's default badge silently disappeared from every avatar, and
+    which one the app was actually treating as default then drifted with
+    whatever got trained next, invisibly. Migration `0102` adds an
+    after-delete trigger that promotes the newest remaining avatar,
+    matching the rule already used for a person's first twin, enforced in
+    the database for the same reason `0096` put the one-default rule there
+    instead of the application. New regression script,
+    `supabase/tests/heygen_default_avatar_test.sql`.
+  - **A stale-closure bug in `useTwinRecorder`.** `MediaRecorder.onstop` is
+    assigned once, inside the single call to `start()`, and closed over the
+    `seconds` state as it stood at that moment: 0, always, since the
+    ticking interval that actually counts seconds only reaches the
+    component through `setSeconds`, invisible to that closure. Every
+    finished recording reported a duration of 0. No visible symptom today,
+    confirmed by reading the one consumer: `webcam-recorder.tsx`'s "too
+    short" gate reads the hook's live `seconds` state directly, not the
+    finished recording's copy. Still a real, silently wrong value on a
+    field nothing stops a future caller from trusting. Fixed with a ref
+    kept alongside the same state for `onstop` to read.
+
+  Also chased down a suspicion that did not pan out, worth recording so
+  nobody re-chases it: `twinStatus()` (`upload-actions.ts`) reads the most
+  recently claimed row from `avatar_handoffs` with no `user_id` filter in
+  the query, which looked at first read like it could hand one account
+  another's claimed handoff. Checked migration `0086` directly:
+  `avatar_handoffs` has RLS enabled with a `select using (auth.uid() =
+user_id)` policy, so the query is scoped by the database regardless of
+  what the application asks for, the same reliance-on-RLS pattern already
+  used elsewhere in this feature (`findTwin`'s own comment says as much).
+  Confirmed clean, not a bug.
+
+  All three fixes verified the same way as the session before:
+  `pnpm exec turbo run typecheck lint build format:check` (26/26 tasks,
+  repo-wide `pnpm run format:check` too, which caught a prettier miss
+  `turbo`'s own cached run did not, same lesson the fourteenth session
+  already logged) and `deno check`/`deno lint --rules-exclude=no-import-prefix`
+  across all 28 edge functions, run after every push. Every commit used
+  `--author="Feranmi Oresajo <ferouslos6@gmail.com>"` explicitly; this
+  environment's default git identity is again an AI one, the third session
+  in a row to note it.
+
+  All three folded into the existing #216 rather than opened separately,
+  per the standing one-branch-one-PR policy. `Migrations and schema` and
+  `Verify` both came back green on that push (`a240bd1`); `Dependency
+audit` did not, watched live via this session's PR subscription rather
+  than assumed:
+
+  **`Dependency audit` red, fixed same session.** A low-severity esbuild
+  advisory ([GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr),
+  arbitrary file read from esbuild's dev server, Windows only), reached
+  through `tsup`'s `bundle-require` in `apps/worker` and `services/mail`'s
+  build tooling, pinned to `esbuild@0.27.7`. Confirmed not this PR's own
+  diff before touching anything: `main`'s own `pnpm-lock.yaml` carries the
+  identical pin at the same lines, and `pnpm audit` reads the live
+  advisory database rather than anything the lockfile alone determines, so
+  a newly published advisory can turn a previously green audit red with no
+  code change on either branch. Fixed the same way this repo already fixes
+  this class of finding: `pnpm-workspace.yaml`'s existing `overrides`
+  (the `postcss`/`sharp`/`js-yaml`/`brace-expansion` floors from the
+  2026-08-25 audit) got one more, floors `esbuild` at the patched `^0.28.1`.
+  This is a version-pin override of an existing transitive dependency, not
+  a new package added to the project; still worth being precise about
+  rather than folding it into "nothing touched dependencies," since it did
+  change what `pnpm-lock.yaml` resolves. `tsup` and every package that
+  builds through it (`worker`, `render`, `mail`) still build clean at that
+  version, confirmed with the full verification suite. A second failure in
+  the same job, `pnpm audit --audit-level critical` timing out against
+  `registry.npmjs.org` after three retries, is infrastructure, not a
+  finding; nothing to fix there. PR comment posted naming both, and the
+  fix pushed as `f71f9ce`.
+
+  Watched it through rather than stopping at that push. A backlog-only
+  commit on top (`b5dd675`) triggered CI fresh; `Dependency audit` failed
+  again, but not the same failure: both `pnpm audit` steps timed out
+  against `registry.npmjs.org` entirely, no advisory printed at all, the
+  registry itself rather than the esbuild finding (already gone). Read the
+  logs rather than assumed, confirmed the pattern matched exactly one flake
+  case the standing rules allow a re-run for (died without ever reaching a
+  real result, not a second real finding), and re-ran the one failed job
+  once via the Actions API. It passed. Every check green on the final head
+  (`b5dd675`): `Secret scan`, `Dependency audit`, `Verify`, `Migrations and
+schema`, `Typecheck and lint`, `Deploy preview`, `mergeable_state: clean`.
+  Two PR comments posted as it happened, naming each failure and what was
+  done about it, plus a third confirming the final green state.
+
+  Nothing in this session touched auth, RLS, or pricing; no real money
+  spent; no production deploy. Next session: #216 is ready for the owner,
+  nothing left to check on it unless a new event arrives. The multi-avatar
+  HeyGen surface has now had three consecutive sessions' worth of
+  independent reading (the RPCs, the
+  default-reassignment path, the recorder, the handoff
+  token flow) with a shrinking hit rate on the last pass, a signal worth
+  taking seriously before committing a fourth session to the same feature.
+  Untouched candidates elsewhere: `phone-recorder.tsx`'s upload path and
+  `twin-library.tsx`/`twin-speak.tsx` were read only for the handoff
+  question above, not swept in full; `services/telegram-agent` has not
+  had a fresh pass since the thirteenth session found it clean. Standing
+  items unchanged: CSP nonce, observability, and rate limiting still need
+  the owner or a new dependency; a real browser pass on the assets-library
+  page and an actual multi-avatar HeyGen training run remain the two
+  things nothing this month has observed end to end.
+
+- **2026-09-03, fifteenth scheduled session.** `main` had moved well past this
+  file's own log again: the owner personally merged #210-215 in a live session
+  on 2026-09-02 (the multi-avatar library, its folding into Assets, the
+  credit-plan rebase, the assets-library rebuild, supplied avatar/empty-shelf
+  artwork, and a theme-cookie/scroll-lock fix), none of it written down here
+  until now. `Feranmibranches` was fully merged and level with `main` at the
+  start of this session, confirmed by diffing the two directly rather than
+  assumed. Zero PRs open at the start.
+
+  No Docker again this session (`docker ps`: no daemon), so no local Supabase
+  and no authenticated browser walkthrough; Playwright/Chromium are installed
+  but nothing to sign into locally. Installed Deno 2.9.6 fresh (this
+  environment does not persist between sessions) so `deno check`/`deno lint`
+  could run against the exact commands `edge-functions.yml` uses, rather than
+  trusting CI alone.
+
+  Read the owner's 2026-09-02 work end to end rather than picking a new
+  backlog item, since three of those PRs shipped with their own explicit
+  "not seen rendered, please look at it" caveats and none had an independent
+  review pass yet. Found five real issues, all fixed on `Feranmibranches` and
+  rolled into one PR, #216, per the standing one-branch-one-PR policy:
+
+  - **The credit-pack sizes were never rebased.** Migration `0051` made a
+    credit five cents of provider cost and multiplied the ledger and every
+    model price by six; `credit-packs.ts` was missed, the same bug `0098`
+    (this branch's own prior work) fixed for the signup grant. Rebased all
+    four packs by the same factor and fixed the file's own stale comment.
+    Also fixed `credit-pack-webhook-smoke.ts`'s baseline assertion, still
+    expecting the pre-`0098` 15-credit signup grant instead of 90; it would
+    have failed the next time anyone actually ran it.
+  - **The assets-library search did not hide an empty avatar panel.**
+    `library-workspace.tsx`'s `visible.avatar` had a fallback that forced the
+    empty "Not recorded yet" panel to stay on screen through any search,
+    unlike the equivalent products panel. Removed it.
+  - **Two RPCs behind the HeyGen twin-training path still reasoned as if a
+    person had one avatar, not several**, both written before migration
+    `0096` dropped `heygen_avatars`' unique constraint on `user_id` for
+    exactly that reason (PR #210), and never revisited:
+    - `pending_heygen_avatars` (migration `0099`) returned only `user_id`,
+      so `poll-heygen-training`'s three settling writes scoped by `user_id`
+      touched every avatar a person owns, not the one just polled. A second
+      avatar finishing training overwrote a first, already-ready avatar's
+      voice id and consent status; a second one failing marked the first
+      failed too. Real, live state corruption on a shipped feature, not a
+      hypothetical. Now returns the row's own `id`; the poller scopes by it.
+    - `claim_twin_training` (migration `0100`), the function `0091`'s own
+      comment calls "the whole defence" against dispatching a duplicate
+      trained copy of somebody's face and voice at the provider, had the
+      identical bug: scoped by `user_id` alone, so claiming a new recording
+      also claimed every other unclaimed/ready/failed avatar that person
+      owns. The actual dispatch and result write-back were already correctly
+      scoped by row id; only the claim guarding them was not. Added a
+      `p_avatar` parameter and scoped by `id`, kept `user_id` as an ownership
+      check. The psql regression script only ever exercised one avatar per
+      account, which is exactly why this was never caught; added a second
+      twin to it and confirmed the first one's claim leaves it alone.
+      `orphan_twin_avatar`, written in the same migration, has the identical
+      bug and is left alone on purpose: nothing in the app calls it, so
+      fixing its scoping teaches nothing until something does. Flagged below
+      rather than silently patched.
+  - **A doubled comment opener in `train-heygen-avatar`**, left over from the
+    fourteenth session's own fix in the same function. Trivial, fixed while
+    reading the function for the claim bug above.
+
+  All five verified with `pnpm exec turbo run typecheck lint build
+format:check` (26/26 tasks, run after every push) and `deno check`/`deno lint
+--rules-exclude=no-import-prefix` across all 28 edge functions (the exact
+  commands CI runs). The two new migrations (`0099`, `0100`) were not run
+  against a live Postgres locally, no Docker in this session, but CI's
+  `Migrations and schema` job (`supabase db reset` from scratch against a
+  real ephemeral Postgres, plus `supabase db lint`) came back green on the
+  final pushed head, watched via this session's PR subscription rather than
+  assumed: the first real run of either migration, and it passed. `Verify`,
+  `Secret scan`, and `Dependency audit` all green on the same head too.
+
+  Every commit used `--author="Feranmi Oresajo <ferouslos6@gmail.com>"`
+  explicitly: this environment's default `git config user.name`/`user.email`
+  was again set to an AI identity, the same problem the fourteenth session
+  flagged and fixed for itself. Worth fixing at the environment level rather
+  than every session catching it by hand.
+
+  Not investigated this session: the standing items below (CSP nonce,
+  observability, rate limiting) still need the owner or a new dependency.
+  `packages/ai-gateway`'s token-budgeting path (`gateway.ts`, `tokens.ts`,
+  `usage.ts`, `budget.ts`, `rate-limit.ts`, `spend-reader.ts`) and the social
+  sign-in redirect construction, both flagged unswept by the fourteenth
+  session, were read closely this session and came back clean: no bug found
+  in either beyond one narrow, already-documented tradeoff in
+  `SpendBudget.record()` (a spend-store read failure with no prior cached
+  reading drops local accrual for that key until the next successful read,
+  which only widens a gap the code already accepts on purpose per its own
+  `onReadError` comment; not worth a fix on its own). Next session: #216 is
+  the first thing to check, since a CI failure on the two new migrations
+  needs a response, not silence; once it is either merged by the owner or
+  still clean, `orphan_twin_avatar`'s dead-code question (fix when wired up,
+  or delete) is a small, well-scoped pick, and a real browser pass on the
+  assets-library page and a real multi-avatar HeyGen training run remain the
+  two things nothing this month has actually observed end to end.
 
 - **2026-09-02, fourteenth scheduled session.** `main` had moved a lot since
   the thirteenth session's own log entry, none of it written down here: five

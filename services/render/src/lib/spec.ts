@@ -12,12 +12,18 @@ import { z } from "zod";
  * the cost of that safety and is deliberate.
  */
 
-export const renderClipSchema = z.object({
-  path: z.string().min(1),
-  startSeconds: z.number().min(0),
-  endSeconds: z.number().positive(),
-  volume: z.number().min(0).max(1),
-});
+export const renderClipSchema = z
+  .object({
+    path: z.string().min(1),
+    startSeconds: z.number().min(0),
+    /** Always greater than `startSeconds`. */
+    endSeconds: z.number().positive(),
+    volume: z.number().min(0).max(1),
+  })
+  .refine((clip) => clip.endSeconds > clip.startSeconds, {
+    message: "endSeconds must be greater than startSeconds",
+    path: ["endSeconds"],
+  });
 
 export const renderSpecSchema = z.object({
   version: z.literal(1),

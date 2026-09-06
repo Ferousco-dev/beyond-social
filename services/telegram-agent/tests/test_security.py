@@ -21,6 +21,9 @@ class TestTelegramSecret(unittest.TestCase):
     def test_wrong_secret_rejected(self):
         self.assertFalse(verify_telegram_secret("wrong", "s3cret"))
 
+    def test_non_ascii_header_rejected_not_raised(self):
+        self.assertFalse(verify_telegram_secret("héllo", "s3cret"))
+
 
 class TestCallbackSignature(unittest.TestCase):
     def test_valid_signature_accepted(self):
@@ -47,6 +50,9 @@ class TestCallbackSignature(unittest.TestCase):
 
     def test_missing_header_rejected(self):
         self.assertFalse(verify_callback_signature(b"{}", None, "secret"))
+
+    def test_non_ascii_signature_rejected_not_raised(self):
+        self.assertFalse(verify_callback_signature(b"{}", "sha256=héllo", "secret"))
 
 
 if __name__ == "__main__":

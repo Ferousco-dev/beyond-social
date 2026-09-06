@@ -22,7 +22,10 @@ def verify_telegram_secret(header_value: str | None, expected_secret: str) -> bo
     """
     if not header_value:
         return False
-    return hmac.compare_digest(header_value, expected_secret)
+    # Encoded to bytes rather than compared as `str`: `hmac.compare_digest`
+    # raises `TypeError` on a non-ASCII `str` operand, which would otherwise
+    # turn a malformed header into a 500 instead of the intended 401.
+    return hmac.compare_digest(header_value.encode("utf-8"), expected_secret.encode("utf-8"))
 
 
 def verify_callback_signature(raw_body: bytes, signature_header: str | None, secret: str) -> bool:
@@ -37,4 +40,6 @@ def verify_callback_signature(raw_body: bytes, signature_header: str | None, sec
         return False
     provided = signature_header[len("sha256="):]
     expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(provided, expected)
+    # Same reasoning as `verify_telegram_secret`: encoded to bytes so a
+    # non-ASCII `provided` value fails the comparison instead of raising.
+    return hmac.compare_digest(provided.encode("utf-8"), expected.encode("ascii"))

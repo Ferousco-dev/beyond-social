@@ -46,6 +46,14 @@ class TestCompletedReply(unittest.TestCase):
         text = completed("task_1", {"pr_url": "https://github.com/org/repo/pull/1"})
         self.assertIn("github\\.com", text)
 
+    def test_branch_is_escaped(self):
+        # A branch name can legally contain a backtick or other MarkdownV2
+        # special characters (git allows it); unescaped, one closes the code
+        # span early and lets the rest of the line render as attacker-chosen
+        # formatting.
+        text = completed("task_1", {"branch": "fix`bold`_hack_"})
+        self.assertIn("Branch: `fix\\`bold\\`\\_hack\\_`", text)
+
 
 class TestFailedReply(unittest.TestCase):
     def test_includes_reply_when_present(self):
@@ -74,6 +82,14 @@ class TestCiStatus(unittest.TestCase):
     def test_defaults_workflow_name(self):
         text = ci_status(True, {})
         self.assertIn("Workflow", text)
+
+    def test_branch_is_escaped(self):
+        # Same reasoning as TestCompletedReply.test_branch_is_escaped: this
+        # branch value comes straight off workflow_run.head_branch, which is
+        # whoever pushed the branch or opened the PR that ran CI, not this
+        # bot's own allow-listed Telegram users.
+        text = ci_status(True, {"branch": "fix`bold`_hack_"})
+        self.assertIn("Branch: `fix\\`bold\\`\\_hack\\_`", text)
 
 
 class TestMemorySummary(unittest.TestCase):

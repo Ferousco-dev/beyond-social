@@ -112,17 +112,26 @@ export class TokenBucketLimiter implements RateLimiter {
   take(key: string, cost = 1): RateLimitDecision {
     const now = this.now();
     const refilled = this.refill(key, now);
+    /*
+     * Clamped to capacity: a request costed above what the bucket can ever
+     * hold would otherwise report a finite `retryAfterMs` that never actually
+     * resolves, since `refill` itself never returns more than `capacity`. A
+     * full bucket is already the strongest admission this limiter can grant,
+     * so an oversized request is charged the whole of it rather than refused
+     * forever for a size the caller cannot do anything about.
+     */
+    const charge = Math.min(cost, this.options.capacity);
 
-    if (refilled < cost) {
+    if (refilled < charge) {
       this.buckets.set(key, { tokens: refilled, updatedAt: now });
-      const deficit = cost - refilled;
+      const deficit = charge - refilled;
       return {
         allowed: false,
         retryAfterMs: Math.ceil((deficit / this.options.refillPerSec) * 1000),
       };
     }
 
-    this.buckets.set(key, { tokens: refilled - cost, updatedAt: now });
+    this.buckets.set(key, { tokens: refilled - charge, updatedAt: now });
     return { allowed: true, retryAfterMs: 0 };
   }
 }

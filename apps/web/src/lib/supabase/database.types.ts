@@ -2430,7 +2430,12 @@ export type Database = {
       };
       pending_heygen_avatars: {
         Args: { p_limit?: number };
-        Returns: { user_id: string; provider_avatar_id: string; poll_count: number }[];
+        Returns: {
+          id: string;
+          user_id: string;
+          provider_avatar_id: string;
+          poll_count: number;
+        }[];
       };
       set_default_avatar: {
         Args: { p_avatar: string };

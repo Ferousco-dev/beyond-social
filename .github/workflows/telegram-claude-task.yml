@@ -20,7 +20,13 @@ permissions:
   id-token: write
 
 concurrency:
-  group: telegram-claude-task-${{ github.event.client_payload.task_id }}
+  # Keyed on the parent task, not this run's own freshly generated task_id:
+  # every dispatch mints a new task_id (see lib/commands.py), so two
+  # follow-ups sent in quick succession to the same completed task's
+  # message would otherwise land in two different, unrelated concurrency
+  # groups and run in parallel against the same resumed session and git
+  # branch instead of queuing one behind the other.
+  group: telegram-claude-task-${{ github.event.client_payload.parent_task_id || github.event.client_payload.task_id }}
   cancel-in-progress: false
 
 jobs:
