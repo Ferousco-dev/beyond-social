@@ -137,7 +137,16 @@ export class LearningPipeline {
   }
 
   async reject(candidateId: string, reason: string): Promise<void> {
-    await this.deps.learningStore.setCandidateStatus(candidateId, "rejected");
+    const moved = await this.deps.learningStore.setCandidateStatus(
+      candidateId,
+      "rejected",
+      "pending",
+    );
+    if (!moved) {
+      throw new Error(
+        `Candidate ${candidateId} is no longer pending; another decision already ran.`,
+      );
+    }
     await this.audit("reject", null, candidateId, reason, {});
   }
 
@@ -215,10 +224,16 @@ export class LearningPipeline {
     await this.deps.store.upsert([chunk], [embedding]);
     const action: AuditAction = candidate.targetChunkId ? "merge" : "promote";
     await this.deps.learningStore.saveVersion(chunk, `${action} via candidate ${candidate.id}`);
-    await this.deps.learningStore.setCandidateStatus(
+    const moved = await this.deps.learningStore.setCandidateStatus(
       candidate.id,
       candidate.targetChunkId ? "merged" : "promoted",
+      "pending",
     );
+    if (!moved) {
+      throw new Error(
+        `Candidate ${candidate.id} is no longer pending; another decision already ran. The chunk was still written to the knowledge base.`,
+      );
+    }
     await this.audit(action, chunk.id, candidate.id, "promoted into knowledge base", {});
   }
 

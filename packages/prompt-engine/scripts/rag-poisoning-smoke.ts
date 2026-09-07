@@ -103,9 +103,17 @@ function memoryLearningStore(): LearningStore & { rows: Map<string, LearningCand
     async listCandidates(status: CandidateStatus): Promise<LearningCandidate[]> {
       return [...rows.values()].filter((row) => row.status === status);
     },
-    async setCandidateStatus(id: string, status: CandidateStatus): Promise<void> {
+    async setCandidateStatus(
+      id: string,
+      status: CandidateStatus,
+      expectedStatus?: CandidateStatus,
+    ): Promise<boolean> {
+      // Mirrors `prompt_set_candidate_status`'s compare-and-swap (0103).
       const row = rows.get(id);
-      if (row) rows.set(id, { ...row, status });
+      if (!row) return false;
+      if (expectedStatus !== undefined && row.status !== expectedStatus) return false;
+      rows.set(id, { ...row, status });
+      return true;
     },
     async logAudit(_entry: AuditEntry): Promise<void> {},
     async saveVersion(_chunk: Chunk, _reason: string): Promise<void> {},

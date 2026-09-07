@@ -93,7 +93,18 @@ export interface LearningStore {
   recordCandidate(candidate: LearningCandidate): Promise<void>;
   getCandidate(id: string): Promise<LearningCandidate | null>;
   listCandidates(status: CandidateStatus, workspaceId?: string): Promise<LearningCandidate[]>;
-  setCandidateStatus(id: string, status: CandidateStatus): Promise<void>;
+  /**
+   * Moves a candidate to a new status. When `expectedStatus` is given, the
+   * move only applies while the candidate is still in that status, and the
+   * return value says whether it actually happened, so a caller racing
+   * another decision on the same candidate can tell a real transition from
+   * a no-op someone else already made.
+   */
+  setCandidateStatus(
+    id: string,
+    status: CandidateStatus,
+    expectedStatus?: CandidateStatus,
+  ): Promise<boolean>;
   logAudit(entry: AuditEntry): Promise<void>;
   /** Append a full chunk snapshot to its version history (never overwrites). */
   saveVersion(chunk: Chunk, reason: string): Promise<void>;

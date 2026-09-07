@@ -38,8 +38,17 @@ export class SupabaseLearningStore implements LearningStore {
     return toArray(data).map((row) => learningCandidateSchema.parse(unwrap(row)));
   }
 
-  async setCandidateStatus(id: string, status: CandidateStatus): Promise<void> {
-    await this.call("prompt_set_candidate_status", { p_id: id, p_status: status });
+  async setCandidateStatus(
+    id: string,
+    status: CandidateStatus,
+    expectedStatus?: CandidateStatus,
+  ): Promise<boolean> {
+    const data = await this.call("prompt_set_candidate_status", {
+      p_id: id,
+      p_status: status,
+      p_expected_status: expectedStatus ?? null,
+    });
+    return data === true;
   }
 
   async logAudit(entry: AuditEntry): Promise<void> {
