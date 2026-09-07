@@ -1063,11 +1063,28 @@ against a live Postgres (no Docker this session) or a real admin/worker
 deployment; reasoned by hand against established patterns already proven
 correct elsewhere in this codebase.
 
-Confirmed on the final head (`fd9265c`), not assumed: every check green
-(`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
-`Deploy preview`), `mergeable_state: clean`. This is the first time
-migration `0103` and its regression script ran against a real, ephemeral
-Postgres (CI's `Migrations and schema` job); it passed.
+Confirmed on `fd9265c`, not assumed: every check green (`Secret scan`,
+`Dependency audit`, `Migrations and schema`, `Verify`, `Deploy preview`),
+`mergeable_state: clean`. This was the first time migration `0103` and
+its regression script ran against a real, ephemeral Postgres (CI's
+`Migrations and schema` job); it passed.
+
+One more commit landed on `Feranmibranches` after that, not this
+session's own work: `99ef361`, "Make every catalogue model dispatchable,
+and fix the dead avatar default" (same `Feranmi Oresajo` git identity
+every automated commit on this branch uses, so likely another session or
+a live owner session, not distinguishable from the commit alone). Flips
+nine `model_catalog` rows active for reasons the commit message states
+plainly (a wrongly-inactive default that was 503ing the talking-head
+avatar path, Veo 3/3 Lite priced since 0051 but never flipped on, four
+new builders written from kie.ai's own docs), splits the registry's types
+into their own module, adds twelve assertions. Not audited by this
+session beyond confirming CI: watched it through to a fully green final
+state (`Secret scan`, `Dependency audit`, `Typecheck and lint`,
+`Migrations and schema`, `Verify`, `Deploy preview` all passed on
+`99ef361`), `mergeable_state: clean`. Worth an independent read next
+session the way every other unswept corner gets one, same as this
+session's own two findings started as "nobody has looked at this yet."
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
