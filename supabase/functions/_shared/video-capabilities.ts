@@ -63,6 +63,32 @@ const CAPABILITIES: Readonly<Record<string, VideoCapability>> = {
     duration: { min: 4, max: 12, fallback: 5 },
     continuation: "frame-chain",
   },
+
+  // Restyle takes two lengths and nothing between them, as strings.
+  "wan/2-6-video-to-video": {
+    duration: { allowed: [5, 10], fallback: 5 },
+    continuation: "frame-chain",
+  },
+
+  // An edit keeps the length of the footage it was given, which is why the
+  // builder sends 0. The ceiling is the provider's for anything that does ask.
+  "wan/2-7-videoedit": {
+    duration: { min: 2, max: 10, fallback: 5 },
+    continuation: "frame-chain",
+  },
+
+  // 2 to 10 seconds, as a number rather than a string, unlike its 2.6 sibling.
+  "wan/2-7-r2v": {
+    duration: { min: 2, max: 10, fallback: 5 },
+    continuation: "frame-chain",
+  },
+
+  // Four enumerated lengths, and the only model here that takes them as a
+  // string while its siblings take numbers.
+  "gemini-omni-video": {
+    duration: { allowed: [4, 6, 8, 10], fallback: 8 },
+    continuation: "frame-chain",
+  },
 };
 
 /** The most conservative rule, for a model whose limits are not known. */
