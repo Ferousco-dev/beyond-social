@@ -37,7 +37,8 @@
     "test:catalog": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/catalog-smoke.ts",
     "test:retrieval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/retrieval-hints-smoke.ts",
     "test:eval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/retrieval-eval.ts",
-    "test:attachments": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/attachments-smoke.ts"
+    "test:attachments": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/attachments-smoke.ts",
+    "test:stripe": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/stripe-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
