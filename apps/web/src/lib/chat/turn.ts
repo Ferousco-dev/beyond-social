@@ -375,6 +375,7 @@ export async function runTurn(
           videoPaths,
           showsPerson && voiceAttached,
           voiceAttached,
+          photoPaths.length,
         )
       : null;
 

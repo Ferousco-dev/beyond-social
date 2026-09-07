@@ -82,6 +82,17 @@ const WORKHORSE: Readonly<Record<PlanId, string>> = {
 const MOTION =
   /\b(motion.?(control|transfer)|match the (movement|motion)|same (camera )?move|reenact|copy the (movement|motion))\b/i;
 
+/**
+ * Asked for a change to the footage rather than a new look for it.
+ *
+ * Restyle repaints a whole clip; video edit alters something inside one and
+ * keeps the rest. They read almost the same in a sentence, so the distinction
+ * is the verb: replacing, removing or adding a thing is an edit, and anything
+ * else about attached footage is a restyle.
+ */
+const EDIT =
+  /\b(edit|change|replace|swap|remove|delete|take out|put (a|an|the)|add (a|an|the)|outfit|background)\b/i;
+
 /** Asked for length, which is the one thing Seedance is here for. */
 const LONG_FORM = /\b(long(er)?[- ]?form|full length|30 ?s|45 ?s|60 ?s|a minute|minute[- ]long)\b/i;
 
@@ -94,6 +105,8 @@ export interface SelectionInput {
   readonly hasVoice: boolean;
   /** True when existing footage was attached to be transformed. */
   readonly hasFootage: boolean;
+  /** How many reference stills came with the turn, which two models read. */
+  readonly referenceImages: number;
   readonly catalog: readonly CatalogModel[];
 }
 
@@ -115,7 +128,7 @@ function firstUsable(
 }
 
 export function selectModel(input: SelectionInput): ModelChoice | null {
-  const { prompt, plan, hasFaceAndVoice, hasVoice, hasFootage, catalog } = input;
+  const { prompt, plan, hasFaceAndVoice, hasVoice, hasFootage, referenceImages, catalog } = input;
 
   const workhorse = firstUsable(
     // Falls back down the list rather than failing: a plan whose workhorse is
@@ -171,17 +184,46 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
    * being wrong costs thirty credits an attempt. `firstUsable` skips inactive
    * models, so this falls through to the workhorse until somebody turns it on.
    */
-  if (hasFootage && !MOTION.test(prompt)) {
-    const restyle = firstUsable(["wan/2-6-video-to-video"], catalog, plan);
-    if (restyle) return pick(restyle, "You attached footage, so this restyles what you sent.");
-  }
-
+  /*
+   * Footage, from the most specific reading of it to the least.
+   *
+   * Motion first, because carrying a performance across is a different job from
+   * anything done to the clip itself. Then an edit, which changes something
+   * inside the footage and keeps the rest. Restyle is last of the three because
+   * it is what "do something to this video" means when nothing narrower fits,
+   * and it used to sit first and swallow the other two.
+   */
   if (hasFootage && MOTION.test(prompt)) {
     const motion = firstUsable(["kling-3.0/motion-control"], catalog, plan);
     // Not available on this plan is not a reason to fail: the workhorse can
     // still make something from the same brief, it just will not transfer the
     // movement.
     if (motion) return pick(motion, "You asked to carry the movement across from your footage.");
+  }
+
+  if (hasFootage && EDIT.test(prompt)) {
+    const edit = firstUsable(["wan/2-7-videoedit"], catalog, plan);
+    if (edit) return pick(edit, "You asked to change something in the footage you attached.");
+  }
+
+  if (hasFootage) {
+    const restyle = firstUsable(["wan/2-6-video-to-video"], catalog, plan);
+    if (restyle) return pick(restyle, "You attached footage, so this restyles what you sent.");
+  }
+
+  /*
+   * Several stills of the same subject is the one request that needs a model
+   * built to hold a character steady across references. One still is an
+   * ordinary image to video, which the workhorse already does.
+   */
+  if (referenceImages >= 2) {
+    const consistent = firstUsable(["wan/2-7-r2v"], catalog, plan);
+    if (consistent) {
+      return pick(
+        consistent,
+        "You attached several references, so this keeps the subject consistent.",
+      );
+    }
   }
 
   if (LONG_FORM.test(prompt)) {

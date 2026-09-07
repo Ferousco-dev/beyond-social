@@ -24,6 +24,7 @@ export async function chooseModel(
   videoPaths: readonly string[] | undefined,
   hasFaceAndVoice: boolean,
   hasVoice: boolean,
+  referenceImages: number,
 ): Promise<ModelChoice | null> {
   try {
     const [{ data: profile, error: profileError }, { data: models, error: modelsError }] =
@@ -75,6 +76,7 @@ export async function chooseModel(
       plan: (["free", "creator", "studio"].includes(plan ?? "") ? plan : "free") as PlanId,
       hasFaceAndVoice,
       hasVoice,
+      referenceImages,
       hasFootage: (videoPaths?.length ?? 0) > 0,
       catalog,
     });

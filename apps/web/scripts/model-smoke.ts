@@ -22,6 +22,17 @@ function check(name: string, passed: boolean, detail = ""): void {
 
 const CATALOG: readonly CatalogModel[] = [
   { id: "veo3_fast", creditCost: 6, minPlan: "free", capabilities: [], isActive: true },
+  { id: "veo3_lite", creditCost: 3, minPlan: "free", capabilities: [], isActive: true },
+  { id: "veo3", creditCost: 12, minPlan: "free", capabilities: [], isActive: true },
+  {
+    id: "wan/2-6-video-to-video",
+    creditCost: 30,
+    minPlan: "studio",
+    capabilities: [],
+    isActive: true,
+  },
+  { id: "wan/2-7-videoedit", creditCost: 30, minPlan: "studio", capabilities: [], isActive: true },
+  { id: "wan/2-7-r2v", creditCost: 30, minPlan: "studio", capabilities: [], isActive: true },
   {
     id: "bytedance/seedance-1.5-pro",
     creditCost: 3,
@@ -56,7 +67,12 @@ const CATALOG: readonly CatalogModel[] = [
 const choose = (
   prompt: string,
   plan: "free" | "creator" | "studio",
-  extra: { hasFaceAndVoice?: boolean; hasVoice?: boolean; hasFootage?: boolean } = {},
+  extra: {
+    hasFaceAndVoice?: boolean;
+    hasVoice?: boolean;
+    hasFootage?: boolean;
+    referenceImages?: number;
+  } = {},
 ) =>
   selectModel({
     prompt,
@@ -66,6 +82,7 @@ const choose = (
     // for the case that matters: a clip sent on its own.
     hasVoice: extra.hasVoice ?? extra.hasFaceAndVoice ?? false,
     hasFootage: extra.hasFootage ?? false,
+    referenceImages: extra.referenceImages ?? 0,
     catalog: CATALOG,
   });
 
@@ -205,6 +222,7 @@ const choose = (
     hasFaceAndVoice: false,
     hasVoice: false,
     hasFootage: false,
+    referenceImages: 0,
     catalog: [],
   });
   check("an empty catalogue returns nothing rather than guessing", empty === null, String(empty));
@@ -220,6 +238,7 @@ const choose = (
     hasFaceAndVoice: false,
     hasVoice: false,
     hasFootage: false,
+    referenceImages: 0,
     catalog: offline,
   });
   check(
@@ -230,11 +249,26 @@ const choose = (
 }
 
 {
-  // Footage with no motion request is a restyle. Inactive today, so it must
-  // fall through rather than pick a model nothing can dispatch.
-  const out = choose("make this look like film", "studio", { hasFootage: true });
+  /*
+   * Restyle is active now that its request shape has been read rather than
+   * inferred, so this no longer asserts that footage falls past it. What still
+   * has to hold is the rule underneath: a model that cannot be dispatched is
+   * never chosen, whichever model that happens to be this month.
+   */
+  const withoutRestyle = CATALOG.map((model) =>
+    model.id === "wan/2-6-video-to-video" ? { ...model, isActive: false } : model,
+  );
+  const out = selectModel({
+    prompt: "make this look like film",
+    plan: "studio",
+    hasFaceAndVoice: false,
+    hasVoice: false,
+    hasFootage: true,
+    referenceImages: 0,
+    catalog: withoutRestyle,
+  });
   check(
-    "footage without a motion request does not pick an inactive restyle model",
+    "footage falls past a restyle model that is switched off",
     out?.modelId === "kling-3.0/video",
     out?.modelId ?? "none",
   );
@@ -258,6 +292,7 @@ const choose = (
     hasFaceAndVoice: false,
     hasVoice: false,
     hasFootage: true,
+    referenceImages: 0,
     catalog: withRestyle,
   });
   check(
@@ -316,6 +351,40 @@ const choose = (
     String(out?.voiceIgnored),
   );
 }
+
+/*
+ * Footage reads three ways and the order between them is the behaviour, not an
+ * implementation detail. Restyle used to sit first and swallow both of the
+ * narrower readings.
+ */
+check(
+  "carrying a performance across beats editing it",
+  choose("copy the movement onto her", "studio", { hasFootage: true })?.modelId ===
+    "kling-3.0/motion-control",
+  choose("copy the movement onto her", "studio", { hasFootage: true })?.modelId ?? "none",
+);
+check(
+  "changing something inside the footage is an edit",
+  choose("replace the background with a beach", "studio", { hasFootage: true })?.modelId ===
+    "wan/2-7-videoedit",
+  choose("replace the background with a beach", "studio", { hasFootage: true })?.modelId ?? "none",
+);
+check(
+  "footage with no narrower reading is a restyle",
+  choose("make it look like an anime", "studio", { hasFootage: true })?.modelId ===
+    "wan/2-6-video-to-video",
+  choose("make it look like an anime", "studio", { hasFootage: true })?.modelId ?? "none",
+);
+check(
+  "several stills ask for the model that holds a subject steady",
+  choose("her in a park", "studio", { referenceImages: 3 })?.modelId === "wan/2-7-r2v",
+  choose("her in a park", "studio", { referenceImages: 3 })?.modelId ?? "none",
+);
+check(
+  "one still is an ordinary generation, not a reference run",
+  choose("her in a park", "studio", { referenceImages: 1 })?.modelId === "kling-3.0/video",
+  choose("her in a park", "studio", { referenceImages: 1 })?.modelId ?? "none",
+);
 
 process.stdout.write(
   `${results.join("\n")}\n\n${results.length - failures}/${results.length} passed\n`,
