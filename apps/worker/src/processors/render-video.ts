@@ -32,9 +32,10 @@ async function settle(
   supabase: ReturnType<typeof createServiceClient>,
   renderId: string,
   patch: Record<string, unknown>,
-): Promise<void> {
+): Promise<{ error: string | null }> {
   const { error } = await supabase.from("project_renders").update(patch).eq("id", renderId);
   if (error) logger.error("could not settle render row", { renderId, error: error.message });
+  return { error: error?.message ?? null };
 }
 
 async function process(job: Job<RenderJobData>): Promise<void> {
@@ -100,12 +101,22 @@ async function process(job: Job<RenderJobData>): Promise<void> {
       .upload(path, bytes, { contentType: "video/mp4", upsert: true });
     if (uploadError) throw new Error(`could not store the cut: ${uploadError.message}`);
 
-    await settle(supabase, renderId, {
+    const { error: settleError } = await settle(supabase, renderId, {
       status: "ready",
       result_path: path,
       duration_seconds: Math.round(durationSeconds),
       error: null,
     });
+    /*
+     * The upload above already succeeded and is idempotent (`upsert: true`),
+     * so a failed write here is worth a real retry rather than a silent gap.
+     * Unlike services/render's poll loop, which has no retry mechanism to
+     * lean on and logs this same failure for the same reason, this worker
+     * already has BullMQ's `attempts`/backoff: without this throw, the job
+     * reports "completed" while the row stays stuck at "generating" forever
+     * with the finished video sitting unreferenced in storage.
+     */
+    if (settleError) throw new Error(`could not record the finished render: ${settleError}`);
 
     logger.info("render finished", {
       renderId,

@@ -675,6 +675,26 @@ controls.
 
 ## Needs the owner (do not start until unblocked)
 
+- **Internal learning-console auth check compares a shared secret without
+  constant time, 2026-09-07.** Found auditing `apps/admin`'s newer surfaces
+  (the learning-review console, added since the last admin sweep, PR #216's
+  base). `apps/web/src/app/api/internal/learning/route.ts:36` gates the
+  route with `request.headers.get("x-internal-secret") !== secret`, a plain
+  string compare. This is the only shared-secret check in the codebase that
+  isn't constant time: `apps/web/src/lib/cron/auth.ts`'s `isCronAuthorised`
+  (functionally the same class of endpoint, its own comment says so) uses
+  `timingSafeEqual`, and so does `lib/social/oauth.ts`. `INTERNAL_API_SECRET`
+  is also the credential the admin console holds to promote or reject
+  content into the shared knowledge base, so a byte-at-a-time timing leak on
+  it is a real (if practically hard to exploit over the network) weakening
+  of that boundary. The fix is a small, mechanical swap to the same
+  `timingSafeEqual` helper `isCronAuthorised` already uses, but it is an
+  authentication check on a route reachable on the public web app's route
+  table, so per `RULES.md` it gets the owner's own look rather than a silent
+  patch, the same treatment the open-redirect finding below already got.
+  Not fixed as part of PR #217, which fixed two other findings from the same
+  audit pass that are not auth-boundary-shaped (a status-transition race and
+  an audit-trail wording bug, both in the same feature).
 - **Open redirect on the login form via a `/\` prefix, 2026-09-05.** Found
   auditing the social sign-in feature (PR #207, never independently reviewed
   since it shipped). `apps/web/src/features/auth/components/login-form.tsx`
@@ -1010,30 +1030,208 @@ readiness.md`'s M4 notes this as the one remaining gap after scheduling
 
 ## In flight
 
-One PR open right now, 2026-09-06: **#216**, `Feranmibranches` → `main`,
-now twenty-five commits, open since 2026-09-03 and still unmerged
-(three days, the owner's own pace to review at, not a stall this system
-should chase). Confirmed via CI, not assumed: still `mergeable_state:
-clean` on the head this session found it at (`39ab150`) before touching
-anything.
+One PR open right now, 2026-09-07: **#217**, `Feranmibranches` → `main`,
+three commits, opened this session (the nineteenth). `#216` (twenty-eight
+commits, three sessions' worth of correctness passes) was merged by the
+owner on 2026-09-06 at `f1288f6`; confirmed by diff, not assumed, before
+this session touched anything (`git merge-base --is-ancestor` against
+`Feranmibranches`'s old head). Zero PRs were open at the start of this
+session. Since a merged PR cannot track new work, `Feranmibranches` was
+reset to `main`'s head with a plain fast-forward push (`Feranmibranches`
+was fully contained in `main`, zero commits ahead, so no work was at risk)
+rather than stacked on top of already-merged history.
 
-This session (the eighteenth) added one commit: `services/render/src/
-lib/spec.ts`'s `renderClipSchema` was a third, independent copy of the
-schema PR #137 (2026-08-25) fixed the invariant on. Full detail in this
-session's own log entry below; in short, this service did not exist yet
-when #137 shipped, so its copy was written from the pre-fix shape and
-carried the same documented-but-unchecked `endSeconds > startSeconds`
-gap. Added the same `.refine()` its two siblings already have.
+This session's own three commits, all from one correctness sweep of two
+corners that had not had a dedicated pass yet (`apps/admin`'s newer
+surfaces and `apps/worker`'s BullMQ job configuration, both dispatched as
+background audit agents): a status-transition race on the learning-review
+candidate queue (migration `0103`), a false-completion wording bug in that
+same feature's audit trail, and a lost-render bug in the worker's render
+processor where a settle-write failure on the success path was logged and
+swallowed instead of retried. Full detail in this session's own log entry
+below. A fourth finding from the same audit (a non-constant-time secret
+comparison on an internal auth route) was flagged under "Needs the owner"
+rather than fixed, being auth-boundary-shaped.
 
-Confirmed on the final head (`4752517`), not assumed: every check green
-(`Secret scan`, `Dependency audit`, `Migrations and schema`, `Verify`,
-`Typecheck and lint`, `Deploy preview`), `mergeable_state: clean`.
+Verified before pushing: `pnpm exec turbo run typecheck lint build
+format:check`, run forced/uncached after clearing `.next` and `.turbo` to
+rule out a stale-cache artifact unrelated to this diff (26/26 tasks, in two
+passes: build 5/5, typecheck+lint+format:check 21/21); `pnpm run
+format:check` repo-wide; `pnpm --filter @beyond-social/prompt-engine run
+test` (32/32, including the updated in-memory learning-store mock). Not run
+against a live Postgres (no Docker this session) or a real admin/worker
+deployment; reasoned by hand against established patterns already proven
+correct elsewhere in this codebase.
+
+Confirmed on `fd9265c`, not assumed: every check green (`Secret scan`,
+`Dependency audit`, `Migrations and schema`, `Verify`, `Deploy preview`),
+`mergeable_state: clean`. This was the first time migration `0103` and
+its regression script ran against a real, ephemeral Postgres (CI's
+`Migrations and schema` job); it passed.
+
+One more commit landed on `Feranmibranches` after that, not this
+session's own work: `99ef361`, "Make every catalogue model dispatchable,
+and fix the dead avatar default" (same `Feranmi Oresajo` git identity
+every automated commit on this branch uses, so likely another session or
+a live owner session, not distinguishable from the commit alone). Flips
+nine `model_catalog` rows active for reasons the commit message states
+plainly (a wrongly-inactive default that was 503ing the talking-head
+avatar path, Veo 3/3 Lite priced since 0051 but never flipped on, four
+new builders written from kie.ai's own docs), splits the registry's types
+into their own module, adds twelve assertions. Not audited by this
+session beyond confirming CI: watched it through to a fully green final
+state (`Secret scan`, `Dependency audit`, `Typecheck and lint`,
+`Migrations and schema`, `Verify`, `Deploy preview` all passed on
+`99ef361`), `mergeable_state: clean`. Worth an independent read next
+session the way every other unswept corner gets one, same as this
+session's own two findings started as "nobody has looked at this yet."
 
 Not merged: this system does not merge PRs at all any more (`TEAM.md`'s
 PR Checker role: merging is the owner's, full stop). Left open for the
 owner.
 
 ## Session log
+
+- **2026-09-07, nineteenth scheduled session.** Read `START_HERE.md`,
+  `TEAM.md`, `RULES.md`, and the eighteenth session's own entry first, as
+  always. Found `main` had moved since that entry: the owner personally
+  merged `#216` on 2026-09-06 (`f1288f6`), zero PRs open at the start of
+  this session. Since `Feranmibranches` was fully contained in `main`
+  (confirmed with `git merge-base --is-ancestor`, zero commits ahead), reset
+  it to `main`'s head with a plain fast-forward push rather than stacking
+  new work on already-merged history, per this environment's own git-
+  workflow instructions for a branch whose PR already merged. Verified the
+  git identity problem every recent session has flagged is still present
+  (`git config user.name`/`user.email` again resolve to the AI default);
+  every commit this session set `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`/
+  `GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL` explicitly to
+  `Feranmi Oresajo <ferouslos6@gmail.com>`, matching the fix the fourteenth
+  session already applied for author but the eighteenth session found was
+  still missing for committer.
+
+  No Docker (`docker ps`: no daemon) and no browser/computer-use tool this
+  session, same limitations as most recent sessions, so a local Supabase
+  stack and an authenticated UI walkthrough were off the table again.
+  Confirmed a genuinely clean baseline before touching anything: `pnpm
+install` clean, `pnpm exec turbo run typecheck lint build format:check`
+  26/26 uncached.
+
+  Dispatched two background audit agents in parallel at genuinely fresh
+  corners the eighteenth session's own "next session" note pointed at:
+  `apps/worker`'s BullMQ queue/job configuration (distinct from the render/
+  publish business logic already swept), and `apps/admin`'s surfaces added
+  since the 8th session's original sweep, excluding the MFA/throttle work
+  the 2026-09-02 audit already covered. Both found real, independently
+  confirmed issues:
+
+  **`apps/admin` audit, one new surface found and read end to end:** most
+  of what changed in `apps/admin` since the 8th session was either the
+  already-covered MFA/throttle work or cosmetic-only (confirmed by diff,
+  not assumed). The one genuinely new privileged surface is the learning-
+  review console (`/learning`), added to admin and paired with `/api/
+internal/learning` in the web app, where an admin decides whether a
+  learned, user-originated piece of text gets promoted into the shared
+  knowledge base every tenant retrieves from. Three findings:
+  - **Fixed, PR #217: a status-transition race.**
+    `prompt_set_candidate_status` updated unconditionally, so two decisions
+    racing on the same candidate (a second admin tab, a retried request)
+    could land in either order, and a reject arriving after a promote
+    already pushed the chunk live would silently overwrite the row back to
+    "rejected" while the chunk itself stayed live and retrievable. Migration
+    `0103` makes the transition a compare-and-swap, the same shape
+    `fail_generation_by_id` (0090) and `claim_twin_training` (0091, 0100)
+    already use for this class of race. New regression script,
+    `supabase/tests/prompt_candidate_status_guard_test.sql`.
+  - **Fixed, PR #217: a false-completion audit entry.**
+    `decideCandidateAction` wrote its audit row worded as a completed fact
+    before the network call that actually performs the promotion/rejection,
+    so a failure there left the append-only audit log (0029) permanently
+    reading as if the decision had succeeded. The ordering itself is
+    deliberate (an unaudited privileged action should not happen at all);
+    the fix reworded the first row as a request and added a second row on
+    failure naming what actually happened.
+  - **Flagged, not fixed: a non-constant-time secret comparison.**
+    `/api/internal/learning`'s auth check uses plain `!==` instead of this
+    codebase's established `timingSafeEqual` pattern
+    (`lib/cron/auth.ts`'s `isCronAuthorised`). Small, mechanical fix, but an
+    authentication check on a route reachable from the public web app's
+    route table, so it went to "Needs the owner" per `RULES.md` rather than
+    a silent patch, the same treatment the standing open-redirect finding
+    already got.
+
+  **`apps/worker` BullMQ audit, one real bug fixed, everything else
+  confirmed clean:** job dedup (scheduler-side `jobId` claims), graceful
+  shutdown/drain (verified directly against `bullmq`'s own source for
+  `worker.close()`'s default `force: false` behavior), retry/attempt
+  counting, the `DelayedError` fairness mechanism, the already-fixed
+  cross-job token-refresh race, and Redis connection lifecycle were all read
+  closely and confirmed correct, worth recording so a future session does
+  not re-chase them. One real bug: `render-video.ts`'s success-path settle
+  write to `project_renders` logged a failure and moved on, the same shape
+  `services/render`'s poll loop uses for the identical case, but for a
+  different, wrong reason here: that service has no retry mechanism to lean
+  on, so logging is genuinely the only option there, while this worker
+  already has BullMQ's `attempts`/backoff, and the render itself is fully
+  idempotent (`upsert: true`). A transient DB error right after a real,
+  finished upload left the row stuck at "generating" forever with the video
+  sitting unreferenced in storage, and BullMQ still reported the job
+  completed, so its own retry never got a chance to fix it. Fixed, PR #217:
+  the settle failure on the success path now throws, leaning on the retry
+  that already exists rather than a fix that would need a new mechanism.
+  One latent, not-a-bug-yet gap noted for later: `publish-post.ts`'s and
+  `social-refresh.ts`'s in-flight dedup maps are per-process, so horizontal
+  scaling of `apps/worker` (unconfirmed whether that is even planned; no
+  `fly.toml`/Dockerfile for this app in the repo) would reopen the exact
+  race `social-refresh.ts`'s own comment already describes, just across
+  processes instead of within one.
+
+  All three fixes verified with `pnpm exec turbo run typecheck lint build
+format:check`. One real process wrinkle worth recording: the first
+  combined run after these edits failed both `apps/admin` and `apps/web`'s
+  `typecheck` tasks on missing `.next/types/**` files, with turbo reporting
+  a partial cache hit. Not a real error in the diff (nothing in either
+  failure named a file this session touched); traced to a stale local
+  `.turbo`/`.next` cache interaction rather than assumed safe to ignore:
+  cleared both, forced a full `build` (5/5, uncached), then reran
+  `typecheck lint format:check` (21/21, uncached) for a genuinely clean
+  signal. `pnpm run format:check` (repo-wide) and `pnpm --filter
+@beyond-social/prompt-engine run test` (32/32, the updated in-memory
+  learning-store mock included) both clean. The two new SQL artifacts
+  (migration `0103`, its regression script) were not run against a live
+  Postgres, no Docker this session; reasoned by hand against the identical,
+  already-proven pattern in `0090`/`0100`, and watching CI's `Migrations and
+schema` job on this PR's actual head for the first real run.
+
+  Three commits, one per finding, pushed to the freshly-reset
+  `Feranmibranches` and opened as `#217` (not folded into a reused #216,
+  since that PR is merged and gone; this is a new PR against the current
+  `main`, per this environment's own instructions for a branch whose prior
+  PR already merged). Subscribed to `#217` for CI/review events and watched
+  it through to a fully green final state before stopping (see "In flight"
+  above): `Secret scan`, `Dependency audit`, `Migrations and schema`,
+  `Verify`, and `Deploy preview` all passed on the final head, the first
+  real run of migration `0103` against a live Postgres. Nothing in this
+  session touched auth, RLS, or pricing beyond the one flagged, unfixed
+  finding; no new dependency; no real money spent; no production deploy.
+
+  One more confirmed, previously-documented tool problem, not a new one:
+  the PR body this session submitted through `create_pull_request` carried
+  no attribution footer, but the body read back from GitHub afterward had
+  `---\n_Generated by [Claude Code](...)_` appended. This is the exact
+  `create_pull_request`/`update_pull_request` behavior the eighth session
+  already named and the eighteenth session confirmed separately on
+  `add_issue_comment`; nothing new to flag, recorded here only as another
+  data point that it is still happening and still not something a session
+  can fix from this side.
+
+  Next session: the flagged secret-comparison finding above, the open-
+  redirect finding, and the Telegram `_BRANCH_RE`/cross-user-isolation gap
+  are all still open and all still the owner's. `apps/worker`'s BullMQ
+  configuration and the newest `apps/admin` surface have now both had a
+  real, independent pass; the horizontal-scaling gap noted above is worth
+  revisiting only if the worker's deployment topology actually changes.
+  Standing items unchanged: CSP nonce, observability, and rate limiting
+  still need the owner or a new dependency.
 
 - **2026-09-06, eighteenth scheduled session.** Read the critical section,
   `TEAM.md`, `RULES.md`, and the seventeenth session's own entry first, as

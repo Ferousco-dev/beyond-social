@@ -64,19 +64,35 @@ export async function decideCandidateAction(
   }
 
   const supabase = (await createClient()) as unknown as AuditRpcClient;
+  const auditAction = action === "promote" ? "learning.promote" : "learning.reject";
+  const ip = clientIp(await headers());
+
+  // Logged as a request, not a completed fact: the audit trail is append-only
+  // (0029), so a failure below cannot rewrite this row, only add one saying
+  // what actually happened.
   const { error: auditError } = await supabase.rpc("admin_log_action", {
-    p_action: action === "promote" ? "learning.promote" : "learning.reject",
+    p_action: auditAction,
     p_target_type: "learning_candidate",
     p_target_id: candidateId,
     p_summary:
       action === "promote"
-        ? `${admin.email} promoted a learned chunk into the knowledge base`
-        : `${admin.email} rejected a learned chunk: ${reason || "no reason given"}`,
-    p_ip: clientIp(await headers()),
+        ? `${admin.email} requested promoting a learned chunk into the knowledge base`
+        : `${admin.email} requested rejecting a learned chunk: ${reason || "no reason given"}`,
+    p_ip: ip,
   });
   if (auditError) {
     return { status: "error", message: `Nothing was changed: ${auditError.message}` };
   }
+
+  const recordFailure = async (message: string) => {
+    await supabase.rpc("admin_log_action", {
+      p_action: `${auditAction}.failed`,
+      p_target_type: "learning_candidate",
+      p_target_id: candidateId,
+      p_summary: `${admin.email}'s ${action} on candidate ${candidateId} did not take effect: ${message}`,
+      p_ip: ip,
+    });
+  };
 
   try {
     const response = await fetch(`${endpoint}/api/internal/learning`, {
@@ -87,18 +103,15 @@ export async function decideCandidateAction(
     });
     if (!response.ok) {
       const detail = (await response.json().catch(() => null)) as { message?: string } | null;
-      // The audit row already says this was attempted, which is the honest
-      // record: it was, and it failed.
-      return {
-        status: "error",
-        message: detail?.message ?? `The knowledge base refused that (${response.status}).`,
-      };
+      const message = detail?.message ?? `The knowledge base refused that (${response.status}).`;
+      await recordFailure(message);
+      return { status: "error", message };
     }
   } catch (error) {
-    return {
-      status: "error",
-      message: error instanceof Error ? error.message : "The knowledge base could not be reached.",
-    };
+    const message =
+      error instanceof Error ? error.message : "The knowledge base could not be reached.";
+    await recordFailure(message);
+    return { status: "error", message };
   }
 
   revalidatePath("/learning");
