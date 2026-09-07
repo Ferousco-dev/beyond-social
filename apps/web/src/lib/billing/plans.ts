@@ -61,6 +61,24 @@ export interface Plan {
  * dollars of provider cost before any margin, so the count comes down rather
  * than the model. See docs/pricing-model.md.
  */
+/*
+ * Prices are what the pricing page shows. What a card is actually charged is
+ * the Stripe price the id in STRIPE_PRICE_CREATOR and STRIPE_PRICE_STUDIO
+ * points at, so these two have to agree or the page is lying about the bill.
+ * `pnpm test:stripe` checks that they do, against the live Stripe account.
+ *
+ * The arithmetic, worst case, which is somebody spending their whole allowance
+ * on the dearest model their plan runs:
+ *
+ *   Creator   600cr = $30.00 of provider cost, 20 videos on Kling 3.0
+ *   Studio   1800cr = $90.00 of provider cost, 60 videos on Kling 3.0
+ *
+ * At $79 and $229 that is 62 and 61 per cent gross, which is the floor rather
+ * than the expectation: most months nobody spends the whole allowance, and the
+ * cheaper models now available to every tier cost a fraction of the flagship.
+ *
+ * Yearly is ten months for twelve, the usual two free.
+ */
 export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
   free: {
     id: "free",
@@ -79,8 +97,8 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     name: "Creator",
     description: "For one person publishing consistently.",
     credits: 600,
-    priceUsd: 0,
-    yearlyPriceUsd: 0,
+    priceUsd: 79,
+    yearlyPriceUsd: 790,
     features: [
       "Everything in Free",
       "20 videos a month, on the top model",
@@ -97,8 +115,8 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
     name: "Studio",
     description: "For a team running several brands.",
     credits: 1800,
-    priceUsd: 0,
-    yearlyPriceUsd: 0,
+    priceUsd: 229,
+    yearlyPriceUsd: 2290,
     features: [
       "Everything in Creator",
       "60 videos a month, on the top model",

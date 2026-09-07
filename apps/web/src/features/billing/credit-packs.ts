@@ -11,10 +11,18 @@
  * same factor, so each pack still buys the same number of videos it always
  * did.
  *
- * Prices are deliberately `null`. No pack price exists anywhere in this repo,
- * Stripe is not connected, and `PLAN_CATALOGUE` carries `priceUsd: 0` for every
- * plan, so any dollar figure here would be invented. Set `priceUsd` once real
- * prices exist and the saving badges start computing themselves.
+ * Priced on the same footing as the plans: a credit costs five cents to
+ * serve, and each pack is set so the worst case, every credit spent, still
+ * clears roughly sixty per cent gross.
+ *
+ *   Starter   300cr = $ 15.00 of provider cost, sold at $ 39
+ *   Plus      900cr = $ 45.00                   sold at $109
+ *   Pro      3000cr = $150.00                   sold at $349
+ *   Scale    9000cr = $450.00                   sold at $999
+ *
+ * The per credit rate falls as the pack grows, which is what the saving badge
+ * reads: six, ten and fourteen per cent against the starter. The badge computes
+ * itself from these numbers, so it cannot drift from them.
  */
 
 export interface CreditPack {
@@ -38,7 +46,7 @@ const BASE_PACK: CreditPack = {
   id: "starter",
   name: "Starter",
   credits: 300,
-  priceUsd: null,
+  priceUsd: 39,
   description: "About fifty videos on top of the free allowance.",
   featured: false,
 };
@@ -49,7 +57,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
     id: "plus",
     name: "Plus",
     credits: 900,
-    priceUsd: null,
+    priceUsd: 109,
     description: "A busy month, or a campaign run in one sitting.",
     featured: true,
   },
@@ -57,7 +65,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
     id: "pro",
     name: "Pro",
     credits: 3000,
-    priceUsd: null,
+    priceUsd: 349,
     description: "A quarter of steady publishing for one brand.",
     featured: false,
   },
@@ -65,7 +73,7 @@ export const CREDIT_PACKS: readonly CreditPack[] = [
     id: "scale",
     name: "Scale",
     credits: 9000,
-    priceUsd: null,
+    priceUsd: 999,
     description: "Several brands, several months, bought once.",
     featured: false,
   },
