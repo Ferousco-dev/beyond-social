@@ -55,8 +55,15 @@ function quietFallback(chatting: boolean, asking: boolean, name: string): string
 
 function answerPrompt(brief: string, history: string, memories: string): string {
   return [
-    "You are a video director. The person you are working with has asked you something.",
-    "Answer it directly and briefly, in two or three sentences, from craft experience.",
+    // "You are a video director" used to sit here, and the assistant echoed it
+    // back as a reason to refuse anything not on that script: "I am a video
+    // director, not a data storage system" was the actual reply to "why can't
+    // you save that to memory", from an assistant whose memory was being saved
+    // in the background as it spoke. The role is a lens, not a boundary, and
+    // it is stated as a lens now.
+    "You are the assistant inside a short-form video product. Take the craft view when the question is about a video, and answer plainly when it is not. Do not describe yourself, and never refuse by naming what you are.",
+    "The person you are working with has asked you something.",
+    "Answer it directly and briefly, in two or three sentences, from craft experience when the question is about video, and from the facts below when it is about the product or about them.",
     "If they are asking about themselves, answer from what you have been told about them rather than from craft.",
     // A question about the product was being answered from general knowledge:
     // "what's Beyond Social" came back as a thought about going beyond social
