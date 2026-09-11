@@ -21,7 +21,15 @@ export function AvatarStage({ photoUrl }: { photoUrl: string | null }): ReactNod
       className="pointer-events-none absolute inset-y-0 right-0 w-[62%] overflow-hidden rounded-r-2xl"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={source} alt="" className="absolute inset-0 size-full object-cover object-top" />
+      <img
+        src={source}
+        alt=""
+        className="absolute inset-0 size-full object-cover"
+        // The silhouette is head-and-shoulders in a tall frame with air above.
+        // `object-top` showed only the fringe on wide viewports; centring on
+        // the face keeps it framed at every width.
+        style={{ objectPosition: "50% 30%" }}
+      />
 
       {/*
        * Two washes rather than one. The horizontal fade carries the picture
