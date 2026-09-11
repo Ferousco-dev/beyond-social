@@ -7,6 +7,7 @@ import { type VoiceProfile } from "@/features/voice/actions";
 import { type BrandAsset } from "@/lib/assets/brand";
 
 import { AvatarPanel } from "./avatar-panel";
+import { GetStarted } from "./get-started";
 import { LibraryFilter, type AssetFilter } from "./library-filter";
 import { UseInVideo } from "./use-in-video";
 import { VoicePanel } from "./voice-panel";
@@ -65,6 +66,38 @@ export function LibraryWorkspace({
 
   const nothing = !visible.avatar && !visible.voice && !visible.products;
 
+  const totalSaved = twins.length + (photo ? 1 : 0) + (voice ? 1 : 0) + products.length;
+
+  if (totalSaved === 0) {
+    /*
+     * First-time view. The workspace has nothing to lay out and its four
+     * panels would each be an empty state next to one another. A single "start
+     * with any of these" row is the whole page instead, followed by the
+     * working cards below the fold so somebody can actually take that step.
+     */
+    return (
+      <div className="flex flex-col gap-8">
+        <GetStarted />
+        <div className="flex flex-col gap-6 border-t border-hairline pt-8">
+          <h2 className="text-xs font-medium uppercase tracking-[0.12em] text-ink-soft">
+            Or add one now
+          </h2>
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+            <div ref={voiceRef} id="voice" className="scroll-mt-6 xl:col-span-5">
+              {voiceRecorderSlot}
+            </div>
+            <div id="products" className="scroll-mt-6 xl:col-span-7">
+              {productsSlot}
+            </div>
+            <div id="avatar" className="scroll-mt-6 xl:col-span-12">
+              {avatarManagerSlot}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <LibraryFilter
@@ -101,7 +134,7 @@ export function LibraryWorkspace({
 
         {visible.products ? <div className="xl:col-span-7">{productsSlot}</div> : null}
 
-        {visible.avatar || visible.products ? (
+        {(photo !== null || products.length > 0) && (visible.avatar || visible.products) ? (
           <div className="xl:col-span-5">
             <UseInVideo avatar={photo} products={products} />
           </div>

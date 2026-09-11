@@ -44,7 +44,6 @@ export default async function AssetsPage() {
          * saved photo, the voice clip, and each product picture.
          */}
         <LibraryHeader
-          hasTwin={twins.length > 0}
           assetCount={
             twins.length +
             (library.avatar ? 1 : 0) +
