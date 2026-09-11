@@ -21,6 +21,7 @@ const DESTINATIONS = {
   "/dashboard/schedule": "Schedule",
   "/dashboard/settings/connections": "Connections",
   "/dashboard/settings/usage": "Usage",
+  "/dashboard/settings/memory": "Memory",
   "/dashboard/assets": "Assets",
   "/dashboard/avatar/new": "Record your avatar",
   "/dashboard/library": "Library",

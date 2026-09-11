@@ -222,13 +222,18 @@ export async function createMarketVideoTask(input: KieMarketVideoInput): Promise
 }
 
 export interface KieAvatarInput {
-  /** Which avatar model. All of them take exactly these three inputs. */
+  /** Which avatar model. Each has its own request-shape builder. */
   model: string;
-  imageUrl: string;
-  audioUrl: string;
-  prompt: string;
-  /** 480p unless asked otherwise: 720p is four times the price. */
-  resolution?: string; // 480p | 720p
+  /**
+   * The provider's `input` container, already shaped for the model above.
+   *
+   * Built by `buildAvatarInput` rather than assembled here, because the field
+   * names differ per model: kling reads `image_url`, omnihuman reads
+   * `output_resolution` rather than `resolution` and takes values without a
+   * `p`. Building it in one place per model is what stops a request being
+   * accepted with an input silently missing.
+   */
+  input: Record<string, unknown>;
   callBackUrl?: string;
 }
 
@@ -255,12 +260,7 @@ export async function createAvatarTask(input: KieAvatarInput): Promise<string> {
     body: JSON.stringify({
       model: input.model,
       callBackUrl: input.callBackUrl,
-      input: {
-        image_url: input.imageUrl,
-        audio_url: input.audioUrl,
-        prompt: input.prompt,
-        resolution: input.resolution ?? "480p",
-      },
+      input: input.input,
     }),
   });
 

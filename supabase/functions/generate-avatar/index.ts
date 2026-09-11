@@ -7,6 +7,11 @@ import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
+import {
+  buildAvatarInput,
+  isAvatarModelSupported,
+  UnsupportedModelError,
+} from "../_shared/kie-avatars/index.ts";
 import { handToProvider } from "../_shared/reference.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
@@ -27,14 +32,16 @@ const DEFAULT_MODEL = "infinitalk/from-audio";
  * What resolution to ask each model for.
  *
  * The provider bills per second and the rate depends on this, so it is not a
- * quality preference but a price. InfiniteTalk is asked for its cheapest tier;
- * the Kling models are priced in the catalogue at the tier named here, so
- * asking for a different one would charge the user for something else.
+ * quality preference but a price. Each model is asked for the tier it is priced
+ * at in the catalogue; asking for another would charge the user for something
+ * else. The builders below translate this into whatever the provider actually
+ * calls the field, since it is not "resolution" for every model.
  */
 const RESOLUTION: Record<string, string> = {
   "infinitalk/from-audio": "480p",
   "kling/ai-avatar-standard": "720p",
   "kling/ai-avatar-pro": "1080p",
+  "omnihuman-1-5": "1080p",
 };
 
 interface AvatarBody {
@@ -176,18 +183,41 @@ serve(async (req) => {
     return json({ error: message, generationId: generation.id }, 502);
   }
 
+  /*
+   * The provider payload is built per model rather than assembled here.
+   *
+   * Every avatar model on kie takes an `image_url`, an `audio_url` and a
+   * prompt, and they disagree on everything else: kling takes no resolution
+   * field (the tier decides it), infinitalk takes `resolution` in `NNNp`, and
+   * omnihuman takes `output_resolution` in `NNN`. One assembled shape here got
+   * three of them right and dropped omnihuman's silently, which is why the
+   * builders live per model beside their documentation.
+   */
+  if (!isAvatarModelSupported(model.id)) {
+    log("error", "avatar model has no dispatcher", { traceId, model: model.id });
+    await abandonRun(admin, generation.id, "That avatar model cannot be dispatched");
+    return json({ error: "unsupported_model", generationId: generation.id }, 503);
+  }
+
   let taskId: string;
   try {
-    taskId = await createAvatarTask({
-      model: model.id,
-      resolution: RESOLUTION[model.id],
+    const providerInput = buildAvatarInput(model.id, {
       imageUrl,
       audioUrl,
       prompt,
+      resolution: RESOLUTION[model.id] ?? "1080p",
+    });
+    taskId = await createAvatarTask({
+      model: model.id,
+      input: providerInput,
       callBackUrl,
     });
   } catch (error) {
     log("error", "avatar task failed", { traceId });
+    if (error instanceof UnsupportedModelError) {
+      await abandonRun(admin, generation.id, error.message);
+      return json({ error: error.message, generationId: generation.id }, 400);
+    }
     const message = error instanceof Error ? error.message : "Generation failed";
     await abandonRun(admin, generation.id, message);
     return json({ error: message, generationId: generation.id }, 502);
