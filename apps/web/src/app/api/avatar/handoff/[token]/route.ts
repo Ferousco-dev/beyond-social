@@ -79,7 +79,7 @@ export const POST = withTrace("POST /api/avatar/handoff", async (request) => {
   // handoff cannot be steered into somebody else's folder.
   const path = `${userId}/twin-${crypto.randomUUID()}.${extension}`;
   const { data, error } = await createServiceClient()
-    .storage.from("uploads")
+    .storage.from("avatar-footage")
     .createSignedUploadUrl(path);
   if (error || !data) {
     logger.error("could not ticket a handoff upload", { error: error?.message ?? "no data" });

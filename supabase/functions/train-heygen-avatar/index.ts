@@ -159,7 +159,7 @@ serve(async (request) => {
   }
 
   const { data: signed, error: signError } = await admin.storage
-    .from("uploads")
+    .from("avatar-footage")
     .createSignedUrl(storagePath, FOOTAGE_URL_SECONDS);
   if (signError || !signed) {
     log("error", "could not sign twin footage", { traceId, error: signError?.message ?? "no url" });
