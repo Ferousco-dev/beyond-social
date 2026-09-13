@@ -114,6 +114,11 @@ if ".prettierrc.json" in os.listdir(dest):
     dd.setdefault("prettier", root["devDependencies"].get("prettier", "^3.4.2"))
 if not dd:
     d.pop("devDependencies", None)
+# Every repo needs prettier wired up: the generated CI runs `format:check`, and a
+# missing script fails the pipeline as hard as a bad format does, with a worse error.
+s = d.setdefault("scripts", {})
+s.setdefault("format", "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yml,yaml}\"")
+s.setdefault("format:check", "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,yml,yaml}\"")
 json.dump(d, open(tgt, "w"), indent=2)
 open(tgt, "a").write("\n")
 PY

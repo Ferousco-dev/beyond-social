@@ -104,6 +104,26 @@ and `lib/editor/schema.ts`, both present, one dead; likewise in `script`, `onboa
 +55 −1,781. Afterwards `typecheck`, `lint`, a full `next build`, and `test:script` / `test:brief` are
 green.
 
+## One command
+
+`tools/split-run-all.sh` does the whole thing: preflight, unshallow, build the nine,
+`pnpm install` each one to produce its lockfile, format and commit that, verify every
+repo the way its CI will, create the repos in the org, push. Re-runnable, and
+`DRY_RUN=1` stops before it touches GitHub.
+
+It runs the split in **bootstrap mode** (`SPLIT_VENDOR_ALL=1`), which vendors
+`ai-gateway` and `prompt-engine` the same way it vendors `env`, instead of expecting
+them on a registry. That is the difference between "nine green repos tonight" and
+"blocked until a release exists and a `read:packages` PAT is in nine CI configs and
+both Vercel projects". `shared` keeps its `publish.yml`, so you can flip to the real
+version boundary whenever you want it; until then the trade is that a fix in `shared`
+does not reach `website` on its own, and `vendor-refresh` is how you pull it.
+
+Vendored copies carry no `scripts` and are excluded from `lint` and `format:check` in
+the consumer — 4,000 lines of another repo's code that this repo's tooling would
+otherwise fail on, and `ai-gateway`'s own smoke tests typechecked inside `website`
+produced exactly that: a red build here for a problem there.
+
 ## What is left for you
 
 I cannot push: the token in this sandbox is a bot with `pull: false` on `Ferousco-dev/beyond-social`

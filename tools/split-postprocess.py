@@ -21,6 +21,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 # Internal packages, and how each crosses the repo boundary.
@@ -45,6 +46,21 @@ PACKAGES = {
 # rule. Vendored everywhere, updated by hand, never versioned.
 
 SRC = os.environ.get("REPO_ROOT") or os.getcwd()
+
+# Bootstrap mode. `publish` means a repo cannot `pnpm install` until the package
+# exists on GitHub Packages, which means a PAT with read:packages in every CI and
+# Vercel environment, and it means the very first run of this split is blocked on a
+# release that does not exist yet. With this set, the substantial packages are
+# vendored like the small ones: all nine repos install from npm alone, with no
+# credentials anywhere, and the publish pipeline stays in `shared` for when you
+# want the version boundary for real.
+#
+# The trade is explicit: vendored copies do not receive fixes made in `shared`.
+# `vendor-refresh <repo>` pulls them, and drift is the price.
+if os.environ.get("SPLIT_VENDOR_ALL"):
+    for _name in list(PACKAGES):
+        if PACKAGES[_name] in ("publish", "publish-standalone"):
+            PACKAGES[_name] = "vendor"
 
 
 def note(msg: str) -> None:
@@ -93,8 +109,11 @@ def normalize_vendored(target: str) -> None:
         return
     d = read_json(pj)
     d["devDependencies"] = {}
-    d["scripts"] = {k: v for k, v in d.get("scripts", {}).items()
-                    if k not in ("lint", "typecheck", "test")}
+    # No scripts at all, not even build. A vendored copy is source that gets
+    # imported; leaving `validate`/`ingest` behind means a script that reads
+    # ../../prompts from a repo that has no prompts directory, which fails in a
+    # way that looks like a broken package rather than a misplaced one.
+    d.pop("scripts", None)
     write_json(pj, d)
     cfg = os.path.join(target, "eslint.config.mjs")
     if os.path.isfile(cfg):
@@ -117,7 +136,8 @@ def vendor_package(dest: str, name: str):
         return None
     shutil.copytree(
         src, target,
-        ignore=shutil.ignore_patterns("node_modules", ".turbo", "dist", "tsconfig.tsbuildinfo"),
+        ignore=shutil.ignore_patterns("node_modules", ".turbo", "dist", "tsconfig.tsbuildinfo",
+                                      "scripts"),
     )
     normalize_vendored(target)
     # Provenance, because a vendored copy with no origin is a fork by accident.
@@ -230,6 +250,7 @@ def resolve_internal_deps(dest: str) -> bool:
 
     if vendored_here:
         ensure_workspace_members(dest, ["vendor/*"])
+        ignore_vendor(dest)
 
     # Normalize every vendored copy, not only the ones just copied. A copy that is
     # already a workspace member takes the `name in members` branch above and never
@@ -263,6 +284,41 @@ def resolve_internal_deps(dest: str) -> bool:
     if runtime_vendored:
         merge_transpile(dest, runtime_vendored)
     return needs_registry
+
+
+def ignore_vendor(dest: str) -> None:
+    """Exclude vendor/ from lint and format: it is not this repo's code to police.
+
+    Without this, `pnpm lint` in `website` lints 4,000 lines of somebody else's
+    package and reports problems you cannot fix here, and `format:check` fails on
+    formatting the source of truth controls. A vendored directory that the
+    consumer's tooling fights is a vendored directory people delete.
+    """
+    pi = os.path.join(dest, ".prettierignore")
+    txt = open(pi).read() if os.path.isfile(pi) else ""
+    if "vendor/" not in txt:
+        with open(pi, "a") as fh:
+            fh.write("\n# Vendored from another repo; formatting and lint live with the source.\nvendor/**\n")
+
+    ec = os.path.join(dest, "eslint.config.mjs")
+    if not os.path.isfile(ec):
+        return
+    cfg = open(ec).read()
+    if "vendor/**" in cfg:
+        return
+    note_line = '  { ignores: ["vendor/**"] },\n'
+    # Two shapes exist here: the apps build an array with a trailing `export
+    # default config`, and the node services export the shared base directly.
+    if "\n];\n\nexport default" in cfg:
+        cfg = cfg.replace("\n];\n\nexport default", "\n" + note_line + "];\n\nexport default", 1)
+    elif cfg.strip().endswith("export default baseConfig;"):
+        cfg = cfg.strip().replace("export default baseConfig;",
+                                  "export default [\n  ...baseConfig,\n" + note_line + "];")
+    else:
+        note("!! eslint.config.mjs shape unrecognised; add `ignores: [\"vendor/**\"]` by hand")
+        return
+    open(ec, "w").write(cfg)
+    note("eslint + prettier ignore vendor/**")
 
 
 def merge_transpile(dest: str, vendored: set[str]) -> None:
