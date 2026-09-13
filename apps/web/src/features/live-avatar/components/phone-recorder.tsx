@@ -92,7 +92,7 @@ export function PhoneRecorder({ token }: { token: string }): ReactNode {
         {/*
          * No name to read: this device has no session, and asking the phone who
          * it belongs to would be asking the one party that cannot be trusted to
-         * answer. The consent line opens neutrally instead.
+         * answer. The training line opens neutrally instead.
          */}
         <WebcamRecorder name="" onDone={(recording) => void upload(recording)} />
       </div>

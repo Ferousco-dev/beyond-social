@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { env } from "@/lib/env";
 
 import { mintHandoff } from "../handoff-actions";
-import { startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
+import { refreshHostedConsent, startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
 import { type TwinSummary } from "../delete-actions";
 import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
 import { TwinLibrary } from "./twin-library";
@@ -40,6 +40,7 @@ export function CreateTwinEntry({
     url: null,
     expiresAt: null,
   });
+  const [consentUrl, setConsentUrl] = useState<string | null>(null);
 
   // Guards the phone pickup: without it, two polls four seconds apart both see
   // the same claimed handoff and start training on it twice.
@@ -51,6 +52,16 @@ export function CreateTwinEntry({
   // "failed" before a new recording is even possible. Cleared once a new
   // attempt is actually submitted, so a genuine new failure still shows.
   const retrying = useRef(false);
+  const returnedFromHeyGen = useRef(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("heygen_setup") !== "complete") return;
+    returnedFromHeyGen.current = true;
+    setPhase("training");
+    url.searchParams.delete("heygen_setup");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   const refresh = useCallback(async () => {
     const result = await mintHandoff();
@@ -75,6 +86,11 @@ export function CreateTwinEntry({
       return;
     }
     setMessage(null);
+    if (started.consentUrl) {
+      setConsentUrl(started.consentUrl);
+      setPhase("consent");
+      return;
+    }
     setPhase(started.training === "failed" ? "failed" : "training");
   }, []);
 
@@ -126,6 +142,7 @@ export function CreateTwinEntry({
       if (!live) return;
 
       if (status.training === "ready") {
+        setConsentUrl(null);
         setPhase("ready");
         return;
       }
@@ -134,7 +151,12 @@ export function CreateTwinEntry({
         setPhase("failed");
         return;
       }
-      if (status.training === "pending" && phase === "recording") setPhase("training");
+      if (status.consentUrl && status.training === "pending" && !returnedFromHeyGen.current) {
+        setConsentUrl(status.consentUrlExpired ? null : status.consentUrl);
+        if (phase === "recording" || phase === "training") setPhase("consent");
+      } else if (status.training === "pending" && phase === "recording") {
+        setPhase("training");
+      }
 
       // A claimed handoff means the phone has sent something and is waiting for
       // this side to turn it into a twin.
@@ -157,9 +179,20 @@ export function CreateTwinEntry({
       <TwinStatusPanel
         phase={phase}
         message={message}
+        consentUrl={consentUrl}
+        onRefreshConsent={async () => {
+          setMessage(null);
+          const refreshed = await refreshHostedConsent();
+          if (refreshed.status === "error") {
+            setMessage(refreshed.message);
+            return;
+          }
+          setConsentUrl(refreshed.consentUrl);
+        }}
         onRetry={() => {
           claiming.current = false;
           retrying.current = true;
+          setConsentUrl(null);
           setMessage(null);
           setPhase("recording");
         }}

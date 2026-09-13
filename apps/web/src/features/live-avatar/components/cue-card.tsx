@@ -8,15 +8,14 @@ import { HEYGEN_CONSENT_SECONDS, heygenConsentStatement } from "@/features/live-
  * What to say, and when, while the camera is rolling.
  *
  * A twin trained on one static sentence looks like a person reciting one
- * static sentence, so the recording is prompted in three parts: the consent
- * statement, a stretch of natural speech, and a still, quiet beat at the end.
+ * static sentence, so the recording is prompted in three parts: an app-side
+ * training statement, a stretch of natural speech, and a still, quiet beat at the end.
  * The last one is not padding. The training pass wants a clean neutral frame,
  * and asking for it explicitly is the difference between getting one and
  * hoping the person happens to stop moving.
  *
- * The consent statement doing double duty as the opening line is the same idea
- * as the voice enrolment phrase: the attestation and the training data are the
- * same few seconds, so nobody is asked to perform twice.
+ * Provider consent is not collected from this file. HeyGen's self-service flow
+ * happens later on its hosted webcam page.
  */
 
 export interface Cue {
@@ -89,7 +88,7 @@ export function CueCard({
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">
         {recording
           ? current?.body
-          : "Read a short consent line, talk naturally for a moment, then hold still. Around a minute in total."}
+          : "Read a short training line, talk naturally for a moment, then hold still. Around a minute in total."}
       </p>
     </div>
   );

@@ -1,15 +1,15 @@
 /**
- * The consent statement for training a HeyGen digital twin, kept out of the
- * actions file for the same reason `features/generation/consent.ts` is: a
- * "use server" module may only export async functions, and the recording UI
+ * The app-side training statement for creating a HeyGen digital twin, kept out
+ * of the actions file for the same reason `features/generation/consent.ts` is:
+ * a "use server" module may only export async functions, and the recording UI
  * needs the wording to display while the action needs the version to record.
  *
  * Deliberately separate from `CONSENT_VERSION`/`CONSENT_STATEMENT` in
  * `features/generation/consent.ts`. That statement covers "a video was made
  * from this photo"; training a persistent, reusable digital twin is a
- * materially bigger promise and gets its own attestation, read aloud on
- * camera as part of the training recording itself, the same dual-purpose
- * idea `lib/voice/phrase.ts`'s enrollment phrase already uses.
+ * materially bigger promise and gets its own app-side attestation. HeyGen's
+ * provider consent is collected separately on HeyGen's hosted webcam page; this
+ * recording is not uploaded to the Enterprise-only consent-video endpoint.
  *
  * See docs/live-avatar/DESIGN.md for the full design this is one piece of.
  */

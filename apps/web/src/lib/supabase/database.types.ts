@@ -579,6 +579,8 @@ export type Database = {
           provider_look_id: string | null;
           provider_error: string | null;
           provider_consent_status: string | null;
+          provider_consent_url: string | null;
+          provider_consent_url_expires_at: string | null;
           storage_path: string;
           training_status: string;
           updated_at: string;
@@ -598,6 +600,8 @@ export type Database = {
           provider_look_id?: string | null;
           provider_error?: string | null;
           provider_consent_status?: string | null;
+          provider_consent_url?: string | null;
+          provider_consent_url_expires_at?: string | null;
           storage_path: string;
           training_status?: string;
           updated_at?: string;
@@ -617,6 +621,8 @@ export type Database = {
           provider_look_id?: string | null;
           provider_error?: string | null;
           provider_consent_status?: string | null;
+          provider_consent_url?: string | null;
+          provider_consent_url_expires_at?: string | null;
           storage_path?: string;
           training_status?: string;
           updated_at?: string;
@@ -2434,6 +2440,7 @@ export type Database = {
           id: string;
           user_id: string;
           provider_avatar_id: string;
+          provider_look_id: string | null;
           poll_count: number;
         }[];
       };

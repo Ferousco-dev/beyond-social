@@ -70,7 +70,7 @@ export function CreateTwinScreen({
           Create your avatar
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
-          Record yourself once, then reuse it for every video you make. Or{" "}
+          Record training footage once, complete HeyGen&apos;s hosted setup, then reuse the avatar for every video you make. Or{" "}
           <button
             type="button"
             onClick={() => fileRef.current?.click()}

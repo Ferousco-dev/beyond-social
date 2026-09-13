@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
  * Every likeness somebody has recorded.
  *
  * One component, rendered both on the avatar screen and in account settings,
- * because the consent statement people read aloud promises deletion "from my
+ * because the app-side training statement people read aloud promises deletion "from my
  * settings" and the library is where they will actually look for it. Two
  * implementations would drift, and the one that drifted would be the one
  * holding the promise.

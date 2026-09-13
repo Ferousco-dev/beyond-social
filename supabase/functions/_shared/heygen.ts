@@ -3,6 +3,7 @@
 // Docs, read 2026-09-01 rather than recalled:
 //   POST /v3/avatars                        https://developers.heygen.com/reference/create-avatar
 //   GET  /v3/avatars/{group_id}             https://developers.heygen.com/reference/get-avatar-group
+//   GET  /v3/avatars/looks/{look_id}        https://developers.heygen.com/reference/get-avatar-look
 //   POST /v3/videos                         https://developers.heygen.com/reference/create-video
 //   GET  /v3/videos/{video_id}              https://developers.heygen.com/reference/get-video
 //   DELETE /v3/avatars/{group_id}          https://developers.heygen.com/reference/delete-avatar-group
@@ -78,13 +79,26 @@ export interface HeygenAvatarResult {
   /** The character. Consent and training status both hang off this. */
   readonly groupId: string | null;
   readonly status: string | null;
+  readonly consentStatus: string | null;
+  readonly defaultVoiceId: string | null;
   readonly error: string | null;
 }
 
 interface CreateAvatarResponse {
   data?: {
-    avatar_item?: { id?: string; status?: string; error?: unknown } | null;
-    avatar_group?: { id?: string; status?: string; error?: unknown } | null;
+    avatar_item?: {
+      id?: string;
+      status?: string;
+      error?: unknown;
+      default_voice_id?: string | null;
+    } | null;
+    avatar_group?: {
+      id?: string;
+      status?: string;
+      error?: unknown;
+      consent_status?: string | null;
+      default_voice_id?: string | null;
+    } | null;
   };
 }
 
@@ -127,6 +141,8 @@ export async function createDigitalTwin(
     lookId: item?.id ?? null,
     groupId: group?.id ?? null,
     status: item?.status ?? group?.status ?? null,
+    consentStatus: group?.consent_status ?? null,
+    defaultVoiceId: group?.default_voice_id ?? item?.default_voice_id ?? null,
     error: describeError(item?.error ?? group?.error),
   };
 }
@@ -171,37 +187,64 @@ export async function getAvatarGroup(groupId: string): Promise<HeygenGroupStatus
 
 export interface HeygenConsentResult {
   readonly consentStatus: string | null;
-  /** Present when HeyGen wants the person to complete consent on its own page. */
+  /** HeyGen-hosted webcam consent URL for all self-service accounts. */
   readonly url: string | null;
 }
 
 /**
- * Registers consent for a private avatar, which HeyGen requires before the
- * avatar may be used to generate anything.
+ * Starts HeyGen's hosted consent flow for a private avatar.
  *
- * The recording this app already takes opens with the consent statement read
- * aloud, so the same footage satisfies both sides: ours, as the attestation on
- * the `heygen_avatars` row, and theirs, as `consent_video`. Passing it means
- * nobody is sent to a second provider page to say the same sentence twice.
+ * Important: self-service HeyGen API accounts may call this endpoint only in
+ * Level 1 mode, by omitting `consent_video`. Uploading a pre-recorded consent
+ * video to this endpoint is Enterprise-only and intentionally not represented
+ * by this client.
  */
-export async function submitConsent(
+export async function createHostedConsent(
   groupId: string,
-  consentVideo: HeygenFile,
+  rerouteUrl: string | null,
   idempotencyKey?: string,
 ): Promise<HeygenConsentResult> {
   const body = await call<{
     data?: { avatar_group?: { consent_status?: string | null } | null; url?: string | null };
   }>(`/avatars/${encodeURIComponent(groupId)}/consent`, {
     method: "POST",
-    // Consent submitted twice for one group is the same consent, and the
-    // retry that causes it is a network blip rather than a second decision.
     ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
-    body: JSON.stringify({ consent_video: consentVideo }),
+    body: JSON.stringify(rerouteUrl ? { reroute_url: rerouteUrl } : {}),
   });
 
   return {
     consentStatus: body.data?.avatar_group?.consent_status ?? null,
     url: body.data?.url ?? null,
+  };
+}
+
+interface AvatarLookResponse {
+  data?: {
+    id?: string;
+    status?: string | null;
+    default_voice_id?: string | null;
+    error?: { code?: string; message?: string } | string | null;
+  } | null;
+}
+
+export interface HeygenLookStatus {
+  readonly status: string | null;
+  readonly defaultVoiceId: string | null;
+  readonly error: string | null;
+}
+
+/** The look is what later video generation names, so its training status gates readiness. */
+export async function getAvatarLook(lookId: string): Promise<HeygenLookStatus> {
+  const body = await call<AvatarLookResponse>(`/avatars/looks/${encodeURIComponent(lookId)}`);
+  const look = body.data ?? null;
+  return {
+    status: look?.status ?? null,
+    defaultVoiceId: look?.default_voice_id ?? null,
+    error: look?.error
+      ? typeof look.error === "string"
+        ? look.error
+        : describeError(look.error.message ?? look.error)
+      : null,
   };
 }
 

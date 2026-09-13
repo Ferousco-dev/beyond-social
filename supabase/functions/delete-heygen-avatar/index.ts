@@ -1,6 +1,6 @@
 // Authenticated endpoint: erases the caller's digital twin, everywhere it is.
 //
-// The consent statement people read aloud on camera says the twin is theirs to
+// The app-side training statement people read aloud on camera says the twin is theirs to
 // "delete at any time from my settings". This is what makes that true. It ran
 // for a while as a sentence with nothing behind it, which on biometric data is
 // the worst kind of promise to leave unimplemented.

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 /**
  * Handoff token handling, kept out of the actions file for the same reason the
- * consent statement is: a "use server" module may only export async functions,
+ * training statement is: a "use server" module may only export async functions,
  * and both the minting action and the route handlers the phone talks to need
  * these synchronously.
  */
