@@ -223,8 +223,14 @@ being written down twice.
 Two secrets on Supabase, not Vercel, because only the edge functions call HeyGen:
 
 ```
-npx supabase secrets set HEYGEN_API_KEY=... HEYGEN_CREDIT_COST=10
+npx supabase secrets set HEYGEN_API_KEY=... HEYGEN_CREDIT_COST=10 CRON_SECRET=<random-string>
 ```
+
+`CRON_SECRET` is shared with the app server (`CRON_SECRET` on Vercel) and with
+Vault (`heygen_cron_secret`); it is what authenticates the pollers. Polling
+runs on Supabase Cron (migration `0108`, training every 3 min, videos every
+2 min), with the Vercel `/api/cron/poll-heygen` route as fallback. Full
+schedule, secrets, manual trigger and troubleshooting: [heygen-polling.md](heygen-polling.md).
 
 `HEYGEN_CREDIT_COST` is the gate. Unset, `generate-heygen-avatar` refuses with
 `unpriced` before touching the provider, so no spend is possible. Ten credits is

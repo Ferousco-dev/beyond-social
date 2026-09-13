@@ -16,7 +16,7 @@
     },
     {
       "path": "/api/cron/poll-heygen",
-      "schedule": "15 7 * * *"
+      "schedule": "*/15 * * * *"
     }
   ],
   "git": {
