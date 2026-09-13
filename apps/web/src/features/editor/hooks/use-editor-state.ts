@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import { emptyProject } from "@/lib/editor/from-generations";
-import { clamp } from "@/lib/editor/timeline";
+import { emptyProject } from "@/features/editor/lib/from-generations";
+import { clamp } from "@/features/editor/lib/timeline";
 import {
   MIN_ITEM_MS,
   findItem,
@@ -12,7 +12,7 @@ import {
   type EditorItem,
   type Project,
   type Track,
-} from "@/lib/editor/types";
+} from "@/features/editor/lib/types";
 
 import { useHistory } from "./use-history";
 

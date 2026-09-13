@@ -1,4 +1,4 @@
-import { SAFE_AREAS, safeAreaStyle } from "@/lib/editor/safe-areas";
+import { SAFE_AREAS, safeAreaStyle } from "@/features/editor/lib/safe-areas";
 
 /**
  * Marks where the host app covers the frame, so captions and product shots can

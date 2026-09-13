@@ -5,8 +5,8 @@ import { z } from "zod";
 import { getIndustry } from "@/lib/profile/industry";
 import { categoryLabel } from "@/lib/trends/categories";
 import { createClient } from "@/lib/supabase/server";
-import { subjectSchema, type VideoScript } from "@/lib/script/schema";
-import { writeScript } from "@/lib/script/write";
+import { subjectSchema, type VideoScript } from "@/features/script/lib/schema";
+import { writeScript } from "@/features/script/lib/write";
 import { postAnalysisSchema } from "@/lib/tiktok/analyse";
 
 /**

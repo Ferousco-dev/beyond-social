@@ -2,7 +2,7 @@ import { type Metadata } from "next";
 
 import { EditorShell } from "@/features/editor/components/editor-shell";
 import { getThread } from "@/lib/chat/thread";
-import { getEditorDocument } from "@/lib/editor/document";
+import { getEditorDocument } from "@/features/editor/lib/document";
 import { getLatestReadyGeneration } from "@/lib/generation/history";
 import { configuredPlatforms } from "@/lib/social/platforms";
 

@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { isAudio, isText, isVideo } from "@/lib/editor/types";
+import { isAudio, isText, isVideo } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { type EditorState } from "../hooks/use-editor-state";

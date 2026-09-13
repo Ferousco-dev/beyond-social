@@ -3,8 +3,8 @@
 import { Frame, Pause, Play } from "lucide-react";
 import { useState } from "react";
 
-import { formatTimecode } from "@/lib/editor/timeline";
-import { isText, isVideo, type TextItem, type VideoItem } from "@/lib/editor/types";
+import { formatTimecode } from "@/features/editor/lib/timeline";
+import { isText, isVideo, type TextItem, type VideoItem } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { type EditorState } from "../hooks/use-editor-state";

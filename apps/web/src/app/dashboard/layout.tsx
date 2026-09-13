@@ -5,7 +5,7 @@ import { OnboardingChecklist } from "@/features/onboarding/components/onboarding
 import { TimezoneSync } from "@/features/settings/components/timezone-sync";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { getCredits, getSidebarProjects } from "@/lib/dashboard/queries";
-import { getOnboardingProgress } from "@/lib/onboarding/progress";
+import { getOnboardingProgress } from "@/features/onboarding/lib/progress";
 import { isBillingConfigured } from "@/lib/server-env";
 import { getUserTimeZone } from "@/lib/time/user-zone";
 

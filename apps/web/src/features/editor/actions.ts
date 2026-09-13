@@ -3,8 +3,8 @@
 import { z } from "zod";
 
 import { logger } from "@/lib/logger";
-import { projectSchema } from "@/lib/editor/schema";
-import { type Project } from "@/lib/editor/types";
+import { projectSchema } from "@/features/editor/lib/schema";
+import { type Project } from "@/features/editor/lib/types";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 

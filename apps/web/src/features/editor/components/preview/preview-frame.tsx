@@ -1,5 +1,5 @@
-import { toPercent } from "@/lib/editor/timeline";
-import { type TextItem, type VideoItem } from "@/lib/editor/types";
+import { toPercent } from "@/features/editor/lib/timeline";
+import { type TextItem, type VideoItem } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { useClipSync } from "../../hooks/use-clip-sync";

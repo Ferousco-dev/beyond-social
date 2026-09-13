@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveEditorDocument } from "../actions";
-import { type Project } from "@/lib/editor/types";
+import { type Project } from "@/features/editor/lib/types";
 
 /**
  * Saves the timeline after edits settle.

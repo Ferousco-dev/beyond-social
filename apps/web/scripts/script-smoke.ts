@@ -13,8 +13,8 @@
  */
 import { compileBrief } from "../src/lib/brief/compile";
 import { briefSchema, parseJsonReply } from "../src/lib/brief/schema";
-import { compileScript } from "../src/lib/script/compile";
-import { videoScriptSchema, totalSeconds } from "../src/lib/script/schema";
+import { compileScript } from "../src/features/script/lib/compile";
+import { videoScriptSchema, totalSeconds } from "../src/features/script/lib/schema";
 import { foldShots } from "../src/lib/generation/shot-fold";
 
 const results: string[] = [];

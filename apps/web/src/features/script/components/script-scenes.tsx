@@ -4,8 +4,8 @@ import { Minus, Plus } from "lucide-react";
 import { useMemo } from "react";
 
 import { HookScoreBadge } from "@/components/ui/hook-score-badge";
-import { computeDivergence, type ScriptBaseline } from "@/lib/script/divergence";
-import { MAX_TOTAL_SECONDS, totalSeconds, type ScriptScene } from "@/lib/script/schema";
+import { computeDivergence, type ScriptBaseline } from "@/features/script/lib/divergence";
+import { MAX_TOTAL_SECONDS, totalSeconds, type ScriptScene } from "@/features/script/lib/schema";
 
 import { ScriptDivergenceWarning } from "./script-divergence-warning";
 

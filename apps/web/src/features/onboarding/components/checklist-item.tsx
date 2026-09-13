@@ -3,7 +3,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 
-import { type OnboardingStep } from "@/lib/onboarding/steps";
+import { type OnboardingStep } from "@/features/onboarding/lib/steps";
 import { cn } from "@/lib/utils";
 
 /**

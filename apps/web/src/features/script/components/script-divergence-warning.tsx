@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 
-import { type DivergenceWarning } from "@/lib/script/divergence";
+import { type DivergenceWarning } from "@/features/script/lib/divergence";
 
 /**
  * The one thing worth reconsidering before rendering, when the live edit has

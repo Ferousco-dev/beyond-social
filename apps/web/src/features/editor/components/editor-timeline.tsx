@@ -2,8 +2,8 @@
 
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { formatTimecode, msToPx, pxToMs, snapMs } from "@/lib/editor/timeline";
-import { type TrackKind } from "@/lib/editor/types";
+import { formatTimecode, msToPx, pxToMs, snapMs } from "@/features/editor/lib/timeline";
+import { type TrackKind } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../hooks/use-editor-state";
 import { type Playback } from "../hooks/use-playback";

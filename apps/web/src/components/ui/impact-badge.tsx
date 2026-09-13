@@ -1,4 +1,4 @@
-import { type ImpactLevel } from "@/lib/script/impact";
+import { type ImpactLevel } from "@/features/script/lib/impact";
 import { cn } from "@/lib/utils";
 
 /** Same tone scale as `HookScoreBadge`: primary for what matters most, cloud

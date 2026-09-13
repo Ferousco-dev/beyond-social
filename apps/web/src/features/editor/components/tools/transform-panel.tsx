@@ -2,7 +2,7 @@
 
 import { RotateCcw } from "lucide-react";
 
-import { DEFAULT_TRANSFORM, TRANSITIONS, type VideoItem } from "@/lib/editor/types";
+import { DEFAULT_TRANSFORM, TRANSITIONS, type VideoItem } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { Choices, EmptyHint, Field, Slider } from "./control";

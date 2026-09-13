@@ -14,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { type Track, type TrackKind } from "@/lib/editor/types";
+import { type Track, type TrackKind } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<TrackKind, LucideIcon> = {

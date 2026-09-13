@@ -1,6 +1,11 @@
 import { ImpactBadge } from "@/components/ui/impact-badge";
-import { HOOK_IMPACT, paceImpact, sceneChangeImpact, type ImpactLevel } from "@/lib/script/impact";
-import { totalSeconds, type ScriptMechanics, type ScriptScene } from "@/lib/script/schema";
+import {
+  HOOK_IMPACT,
+  paceImpact,
+  sceneChangeImpact,
+  type ImpactLevel,
+} from "@/features/script/lib/impact";
+import { totalSeconds, type ScriptMechanics, type ScriptScene } from "@/features/script/lib/schema";
 
 /**
  * Why the source video worked, shown and not offered for editing.

@@ -3,7 +3,7 @@
 import { Check, Download } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { type Project } from "@/lib/editor/types";
+import { type Project } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { getExportStatus, requestExport } from "../export-actions";

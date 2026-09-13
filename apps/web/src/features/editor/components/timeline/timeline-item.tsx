@@ -3,8 +3,14 @@
 import { Music, Type } from "lucide-react";
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { msToPx } from "@/lib/editor/timeline";
-import { isAudio, isText, isVideo, type EditorItem, type TrackKind } from "@/lib/editor/types";
+import { msToPx } from "@/features/editor/lib/timeline";
+import {
+  isAudio,
+  isText,
+  isVideo,
+  type EditorItem,
+  type TrackKind,
+} from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { type ItemEdge } from "../../hooks/use-editor-state";

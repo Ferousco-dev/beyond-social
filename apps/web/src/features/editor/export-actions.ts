@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { isSupabaseConfigured } from "@/lib/env";
-import { parseProject } from "@/lib/editor/schema";
-import { specFromProject } from "@/lib/editor/render-spec";
+import { parseProject } from "@/features/editor/lib/schema";
+import { specFromProject } from "@/features/editor/lib/render-spec";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 

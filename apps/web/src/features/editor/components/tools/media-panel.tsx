@@ -1,6 +1,6 @@
 "use client";
 
-import { projectDurationMs } from "@/lib/editor/types";
+import { projectDurationMs } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { Field } from "./control";

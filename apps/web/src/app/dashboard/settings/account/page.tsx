@@ -7,7 +7,7 @@ import { PasswordForm } from "@/features/settings/components/password-form";
 import { TwinLibrary } from "@/features/live-avatar/components/twin-library";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { getIndustry } from "@/lib/profile/industry";
-import { getAccount } from "@/lib/settings/account";
+import { getAccount } from "@/features/settings/lib/account";
 
 export const metadata: Metadata = { title: "Account" };
 export const dynamic = "force-dynamic";

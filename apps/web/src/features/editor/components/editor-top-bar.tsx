@@ -3,7 +3,7 @@ import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
-import { type Project } from "@/lib/editor/types";
+import { type Project } from "@/features/editor/lib/types";
 
 import { type SaveState } from "../hooks/use-autosave";
 import { ExportButton } from "./export-button";

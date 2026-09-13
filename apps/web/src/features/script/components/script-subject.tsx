@@ -5,8 +5,8 @@ import { Check, RefreshCw } from "lucide-react";
 import { ImpactBadge } from "@/components/ui/impact-badge";
 import { useBrandLibrary } from "@/features/assets/hooks/use-brand-library";
 import { type BrandAsset } from "@/lib/assets/brand";
-import { CTA_IMPACT } from "@/lib/script/impact";
-import { type ScriptSubject } from "@/lib/script/schema";
+import { CTA_IMPACT } from "@/features/script/lib/impact";
+import { type ScriptSubject } from "@/features/script/lib/schema";
 import { cn } from "@/lib/utils";
 
 import { type AssetBindings } from "../hooks/use-script-draft";

@@ -3,7 +3,7 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useState } from "react";
 
-import { ONBOARDING_STEPS, type OnboardingStepId } from "@/lib/onboarding/steps";
+import { ONBOARDING_STEPS, type OnboardingStepId } from "@/features/onboarding/lib/steps";
 import { cn } from "@/lib/utils";
 
 import { useChecklistState } from "../hooks/use-checklist-state";

@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/dashboard/current-user";
-import { enrollmentPhrase } from "@/lib/voice/phrase";
+import { enrollmentPhrase } from "@/features/voice/lib/phrase";
 
 import { getVoiceProfile } from "./actions";
 import { EnrollCard } from "./enroll-card";

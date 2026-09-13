@@ -1,6 +1,6 @@
 "use client";
 
-import { type AudioItem } from "@/lib/editor/types";
+import { type AudioItem } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { EmptyHint, Field, Slider } from "./control";

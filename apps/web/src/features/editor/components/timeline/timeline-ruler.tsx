@@ -1,4 +1,4 @@
-import { buildRuler, formatTimecode, msToPx } from "@/lib/editor/timeline";
+import { buildRuler, formatTimecode, msToPx } from "@/features/editor/lib/timeline";
 import { cn } from "@/lib/utils";
 
 export function TimelineRuler({

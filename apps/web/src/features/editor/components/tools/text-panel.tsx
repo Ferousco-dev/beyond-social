@@ -8,7 +8,7 @@ import {
   isText,
   type TextItem,
   type TextStyle,
-} from "@/lib/editor/types";
+} from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { type Playback } from "../../hooks/use-playback";

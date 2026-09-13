@@ -4,7 +4,7 @@ import { MessageSquare } from "lucide-react";
 import { type Route } from "next";
 import { useState, type ReactNode } from "react";
 
-import { type Project } from "@/lib/editor/types";
+import { type Project } from "@/features/editor/lib/types";
 import { cn } from "@/lib/utils";
 
 import { useAutosave } from "../hooks/use-autosave";

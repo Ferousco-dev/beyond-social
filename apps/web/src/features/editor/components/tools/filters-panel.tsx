@@ -1,6 +1,6 @@
 "use client";
 
-import { DEFAULT_FILTERS, type Filters, type VideoItem } from "@/lib/editor/types";
+import { DEFAULT_FILTERS, type Filters, type VideoItem } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { EmptyHint, Field, Slider } from "./control";

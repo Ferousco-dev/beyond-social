@@ -4,7 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { ArrowRight, Clapperboard } from "lucide-react";
 
 import { type PendingPhoto } from "@/features/dashboard/components/compose-menu";
-import { compileScript, type CompiledScript } from "@/lib/script/compile";
+import { compileScript, type CompiledScript } from "@/features/script/lib/compile";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
 import { useScriptDraft } from "../hooks/use-script-draft";

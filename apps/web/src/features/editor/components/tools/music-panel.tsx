@@ -2,7 +2,7 @@
 
 import { Music } from "lucide-react";
 
-import { isAudio } from "@/lib/editor/types";
+import { isAudio } from "@/features/editor/lib/types";
 
 import { type EditorState } from "../../hooks/use-editor-state";
 import { Field } from "./control";

@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 
 import { type BrandAsset } from "@/lib/assets/brand";
-import { captureBaseline, type ScriptBaseline } from "@/lib/script/divergence";
-import { type ScriptScene, type ScriptSubject, type VideoScript } from "@/lib/script/schema";
+import { captureBaseline, type ScriptBaseline } from "@/features/script/lib/divergence";
+import {
+  type ScriptScene,
+  type ScriptSubject,
+  type VideoScript,
+} from "@/features/script/lib/schema";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
 import { writeScriptAction } from "../actions";

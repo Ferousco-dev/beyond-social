@@ -6,7 +6,7 @@ import { useCallback, useRef, useState, useTransition } from "react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { useVoiceRecorder } from "@/features/dashboard/hooks/use-voice-recorder";
 import { useVoiceUpload } from "@/features/dashboard/hooks/use-voice-upload";
-import { PHRASE_SECONDS } from "@/lib/voice/phrase";
+import { PHRASE_SECONDS } from "@/features/voice/lib/phrase";
 
 import { deleteVoiceProfile, enrollVoice, type VoiceProfile } from "./actions";
 import { Spinner } from "@/components/ui/spinner";

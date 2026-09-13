@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { clamp } from "@/lib/editor/timeline";
+import { clamp } from "@/features/editor/lib/timeline";
 
 export interface Playback {
   readonly currentMs: number;

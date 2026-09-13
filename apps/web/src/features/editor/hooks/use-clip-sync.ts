@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { type VideoItem } from "@/lib/editor/types";
+import { type VideoItem } from "@/features/editor/lib/types";
 
 /**
  * Keeps the preview's `<video>` in step with the editor clock.

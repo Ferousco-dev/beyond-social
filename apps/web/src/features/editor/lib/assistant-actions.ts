@@ -5,7 +5,7 @@ import {
   type AudioItem,
   type TextItem,
   type VideoItem,
-} from "@/lib/editor/types";
+} from "@/features/editor/lib/types";
 
 import { type EditorState } from "../hooks/use-editor-state";
 
