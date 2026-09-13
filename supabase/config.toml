@@ -96,6 +96,12 @@ verify_jwt = false
 [functions.generate-heygen-avatar]
 verify_jwt = false
 
+# Authenticated: mints or refreshes HeyGen's hosted webcam consent URL for an
+# existing twin group. It resolves the caller itself and never accepts a
+# prerecorded consent video.
+[functions.create-heygen-consent]
+verify_jwt = false
+
 # Authenticated: erases the caller's twin here and at the provider. Resolves the
 # caller itself and only ever deletes that caller's own row.
 [functions.delete-heygen-avatar]

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 
-import { isSupabaseConfigured } from "@/lib/env";
+import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -76,7 +76,7 @@ export async function ticketTwinFootage(contentType: string): Promise<TicketResu
 export type TrainingState = "pending" | "ready" | "failed";
 
 export type TrainingResult =
-  | { status: "ok"; training: TrainingState; trained: boolean }
+  | { status: "ok"; training: TrainingState; trained: boolean; consentUrl: string | null }
   | { status: "error"; message: string };
 
 /**
@@ -104,24 +104,31 @@ export async function startTwinTraining(storagePath: string): Promise<TrainingRe
   }
 
   const { data, error } = await supabase.functions.invoke("train-heygen-avatar", {
-    body: { storagePath, consentVersion: HEYGEN_CONSENT_VERSION },
+    body: {
+      storagePath,
+      consentVersion: HEYGEN_CONSENT_VERSION,
+      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/avatar/new?heygen_setup=complete`,
+    },
   });
   if (error) {
     logger.warn("could not start twin training", { error: error.message });
     return { status: "error", message: "Your recording was saved, but training could not start" };
   }
 
-  const result = data as { status?: TrainingState; trained?: boolean } | null;
+  const result = data as { status?: TrainingState; trained?: boolean; consentUrl?: string | null } | null;
   return {
     status: "ok",
     training: result?.status ?? "pending",
     trained: result?.trained ?? false,
+    consentUrl: result?.consentUrl ?? null,
   };
 }
 
 export interface TwinStatus {
   readonly training: TrainingState | null;
   readonly error: string | null;
+  readonly consentUrl: string | null;
+  readonly consentUrlExpired: boolean;
   /** Set once the phone has uploaded, so the desktop knows to pick it up. */
   readonly handoffPath: string | null;
 }
@@ -135,7 +142,13 @@ export interface TwinStatus {
  * answer one question.
  */
 export async function twinStatus(): Promise<TwinStatus> {
-  const empty: TwinStatus = { training: null, error: null, handoffPath: null };
+  const empty: TwinStatus = {
+    training: null,
+    error: null,
+    consentUrl: null,
+    consentUrlExpired: false,
+    handoffPath: null,
+  };
   if (!isSupabaseConfigured) return empty;
 
   const supabase = await createClient();
@@ -154,7 +167,7 @@ export async function twinStatus(): Promise<TwinStatus> {
      */
     supabase
       .from("heygen_avatars")
-      .select("training_status, provider_error")
+      .select("training_status, provider_error, provider_consent_url, provider_consent_url_expires_at")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1),
@@ -171,6 +184,8 @@ export async function twinStatus(): Promise<TwinStatus> {
     (avatar.data ?? []) as {
       training_status: TrainingState;
       provider_error: string | null;
+      provider_consent_url: string | null;
+      provider_consent_url_expires_at: string | null;
     }[]
   )[0];
   const claimed = handoff.data as { storage_path: string | null } | null;
@@ -178,6 +193,36 @@ export async function twinStatus(): Promise<TwinStatus> {
   return {
     training: row?.training_status ?? null,
     error: row?.provider_error ?? null,
+    consentUrl: row?.provider_consent_url ?? null,
+    consentUrlExpired: row?.provider_consent_url_expires_at
+      ? Date.parse(row.provider_consent_url_expires_at) <= Date.now()
+      : false,
     handoffPath: claimed?.storage_path ?? null,
   };
+}
+
+export async function refreshHostedConsent(avatarId?: string): Promise<
+  { status: "ok"; consentUrl: string | null } | { status: "error"; message: string }
+> {
+  if (!isSupabaseConfigured) return { status: "error", message: "Training is not configured" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { status: "error", message: "Sign in again to continue" };
+
+  const { data, error } = await supabase.functions.invoke("create-heygen-consent", {
+    body: {
+      avatarId,
+      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/avatar/new?heygen_setup=complete`,
+    },
+  });
+  if (error) {
+    logger.warn("could not refresh hosted heygen consent", { error: error.message });
+    return { status: "error", message: "Could not open HeyGen setup. Try again." };
+  }
+
+  const result = data as { consentUrl?: string | null } | null;
+  return { status: "ok", consentUrl: result?.consentUrl ?? null };
 }

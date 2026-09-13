@@ -7,7 +7,7 @@
 // again if a run dies partway.
 import { adminClient } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
-import { getAvatarGroup, isHeygenConfigured } from "../_shared/heygen.ts";
+import { getAvatarGroup, getAvatarLook, isHeygenConfigured } from "../_shared/heygen.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 /** Bounded so one run cannot spend an unbounded amount of the provider's quota. */
@@ -48,6 +48,7 @@ serve(async (request) => {
     id: string;
     user_id: string;
     provider_avatar_id: string;
+    provider_look_id: string | null;
     poll_count: number;
   }[];
 
@@ -57,15 +58,22 @@ serve(async (request) => {
   for (const row of rows) {
     const now = new Date().toISOString();
     try {
-      const group = await getAvatarGroup(row.provider_avatar_id);
+      const [group, look] = await Promise.all([
+        getAvatarGroup(row.provider_avatar_id),
+        row.provider_look_id ? getAvatarLook(row.provider_look_id) : Promise.resolve(null),
+      ]);
+      const lookStatus = look?.status ?? null;
+      const voiceId = group.defaultVoiceId ?? look?.defaultVoiceId ?? null;
 
-      if (group.status === "completed") {
+      if (group.status === "completed" && lookStatus === "completed" && voiceId) {
         await admin
           .from("heygen_avatars")
           .update({
             training_status: "ready",
-            provider_voice_id: group.defaultVoiceId,
+            provider_voice_id: voiceId,
             provider_consent_status: group.consentStatus,
+            provider_consent_url: null,
+            provider_consent_url_expires_at: null,
             trained_at: now,
             poll_count: row.poll_count + 1,
             provider_error: null,
@@ -76,12 +84,13 @@ serve(async (request) => {
         continue;
       }
 
-      if (group.status === "failed") {
+      if (group.status === "failed" || lookStatus === "failed") {
         await admin
           .from("heygen_avatars")
           .update({
             training_status: "failed",
-            provider_error: group.error ?? "Training failed without a reason",
+            provider_error: group.error ?? look?.error ?? "Training failed without a reason",
+            provider_consent_status: group.consentStatus,
             poll_count: row.poll_count + 1,
             updated_at: now,
           })
@@ -92,9 +101,8 @@ serve(async (request) => {
 
       /*
        * `pending_consent` is neither failure nor progress: HeyGen is waiting on
-       * the consent it was sent, and the row stays pending. Recorded rather than
-       * swallowed, because a twin stuck there means our consent submission did
-       * not land, which is a different problem from slow training.
+       * the hosted consent page. The row stays pending and keeps its consent
+       * link so the user can return to the same self-service flow.
        */
       const stuck = row.poll_count + 1 >= MAX_POLLS;
       await admin
@@ -105,7 +113,7 @@ serve(async (request) => {
           ...(stuck
             ? {
                 training_status: "failed",
-                provider_error: `Gave up after ${MAX_POLLS} checks, last status ${group.status ?? "unknown"}`,
+                provider_error: `Gave up after ${MAX_POLLS} checks, last group status ${group.status ?? "unknown"}, look status ${lookStatus ?? "unknown"}`,
               }
             : {}),
           updated_at: now,

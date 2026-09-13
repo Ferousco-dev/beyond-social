@@ -24,11 +24,11 @@ this file.
 | Consent, provider | HeyGen, via its own consent endpoint           | Deleting the avatar group       |
 | Handoff links     | `avatar_handoffs`, hashed, 20 minutes          | Expiry, and deleting the avatar |
 
-The recording itself is the consent record. People read the statement in
-`features/live-avatar/consent.ts` aloud on camera before saying anything else,
-so the attestation and the training data are the same few seconds. That is
-deliberate: a checkbox proves a click, a recording of somebody saying what they
-are agreeing to proves rather more.
+The recording itself is the app-side training attestation. People read the
+statement in `features/live-avatar/consent.ts` aloud on camera before saying
+anything else, so the attestation and the training data are the same few
+seconds. HeyGen's provider consent is separate and is completed on HeyGen's
+hosted webcam consent page.
 
 ## Consent
 
@@ -36,9 +36,10 @@ Versioned, in `HEYGEN_CONSENT_VERSION`. Acceptances of an older wording stop
 counting when the wording changes, which is why the version is stored on the row
 and checked by the training endpoint rather than assumed.
 
-The same footage is submitted to HeyGen as `consent_video`, so the provider's
-own consent requirement is satisfied by the recording the person already made
-rather than by sending them to a second page to repeat themselves.
+HeyGen's self-service API supports provider consent by calling
+`POST /v3/avatars/{group_id}/consent` without a `consent_video` payload and
+sending the person to the returned hosted webcam URL. Uploading prerecorded
+consent to that endpoint is Enterprise-only and this app does not do it.
 
 ## Deletion
 

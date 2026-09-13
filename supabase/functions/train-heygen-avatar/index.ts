@@ -1,6 +1,6 @@
 // Authenticated endpoint: starts training a digital twin from footage the
-// caller has already recorded and uploaded, and registers consent with the
-// provider in the same pass.
+// caller has already recorded and uploaded, then asks HeyGen for its hosted
+// webcam consent flow.
 //
 // Deliberately not a branch inside generate-avatar. That function renders one
 // video from a photo and an audio clip, charges credits for it, and is finished.
@@ -12,7 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { adminClient } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
-import { createDigitalTwin, isHeygenConfigured, submitConsent } from "../_shared/heygen.ts";
+import { createDigitalTwin, createHostedConsent, isHeygenConfigured } from "../_shared/heygen.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 
 /**
@@ -39,10 +39,23 @@ interface TrainBody {
   consentVersion?: number;
   /** What the owner calls this likeness in their library. */
   name?: string;
+  /** Where HeyGen should send the subject after hosted webcam consent. */
+  rerouteUrl?: string;
 }
 
 /** Kept short enough to read in a gallery tile. */
 const MAX_NAME = 60;
+
+function validRerouteUrl(value: string | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (raw === "") return null;
+  try {
+    const url = new URL(raw);
+    return url.protocol === "https:" || url.hostname === "localhost" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (request) => {
   const traceId = traceIdFrom(request);
@@ -104,10 +117,6 @@ serve(async (request) => {
       user_id: user.id,
       storage_path: storagePath,
       consent_version: CONSENT_VERSION,
-      // Stamped on every run, not only the first: a re-record is a new
-      // attestation, and the old date would describe a recording that no
-      // longer exists.
-      consent_at: new Date().toISOString(),
       training_status: "pending",
       name: trimmed === "" ? null : trimmed,
       // The first avatar somebody records is the one to use until they say
@@ -168,6 +177,7 @@ serve(async (request) => {
 
   const file = { type: "url", url: signed.signedUrl } as const;
   const name = (body.name ?? "").trim() || `Twin ${user.id.slice(0, 8)}`;
+  const rerouteUrl = validRerouteUrl(body.rerouteUrl);
 
   try {
     const twin = await createDigitalTwin(name, file, requestId);
@@ -188,19 +198,27 @@ serve(async (request) => {
       .update({
         provider_avatar_id: twin.groupId,
         provider_look_id: twin.lookId,
+        provider_voice_id: twin.defaultVoiceId,
+        provider_consent_status: twin.consentStatus,
         updated_at: new Date().toISOString(),
       })
       .eq("id", avatarId);
 
-    // Consent is registered against the group HeyGen just created, using the
-    // same footage: the recording opens with the statement read aloud, so it is
-    // already the attestation on both sides and nobody is asked to repeat it.
-    let consentStatus: string | null = null;
+    // Self-service accounts must use HeyGen's hosted webcam consent page.
+    // Do not send `consent_video` here: that is the Enterprise-only path that
+    // caused resource_access_denied on normal accounts.
+    let consentStatus = twin.consentStatus;
+    let consentUrl: string | null = null;
     let trainingError = twin.error;
     if (twin.groupId) {
       try {
-        const consent = await submitConsent(twin.groupId, file, `${user.id}:${CONSENT_VERSION}`);
-        consentStatus = consent.consentStatus;
+        const consent = await createHostedConsent(
+          twin.groupId,
+          rerouteUrl,
+          `${avatarId}:hosted-consent`,
+        );
+        consentStatus = consent.consentStatus ?? consentStatus;
+        consentUrl = consent.url;
       } catch (consentError) {
         // The group exists and is recorded above, so this is a failed twin
         // rather than a lost one.
@@ -212,15 +230,28 @@ serve(async (request) => {
       .from("heygen_avatars")
       .update({
         provider_consent_status: consentStatus,
-        // Still pending: HeyGen accepted the job, it has not finished it.
+        provider_consent_url: consentUrl,
+        provider_consent_url_expires_at: consentUrl
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          : null,
+        // Still pending: HeyGen accepted the job and consent may still be open.
         training_status: trainingError ? "failed" : "pending",
         provider_error: trainingError,
         updated_at: new Date().toISOString(),
       })
       .eq("id", avatarId);
 
-    log("info", "heygen training started", { traceId, groupId: twin.groupId ?? "" });
-    return json({ avatarId, status: trainingError ? "failed" : "pending", trained: true });
+    log("info", "heygen training started", {
+      traceId,
+      groupId: twin.groupId ?? "",
+      hostedConsent: consentUrl !== null,
+    });
+    return json({
+      avatarId,
+      status: trainingError ? "failed" : "pending",
+      trained: true,
+      consentUrl,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("error", "heygen training failed", { traceId, error: message });
