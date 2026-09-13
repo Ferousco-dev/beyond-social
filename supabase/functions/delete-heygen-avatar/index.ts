@@ -85,7 +85,9 @@ serve(async (request) => {
    * likeness to be gone, holding the recording of their face and voice is
    * keeping the most sensitive part of what they asked us to erase.
    */
-  const { error: storageError } = await admin.storage.from("avatar-footage").remove([twin.storage_path]);
+  const { error: storageError } = await admin.storage
+    .from("avatar-footage")
+    .remove([twin.storage_path]);
   if (storageError) {
     // Logged, not fatal: the row and the provider copy are the ones that make a
     // twin usable, and a stranded object is caught by the retention sweep.
