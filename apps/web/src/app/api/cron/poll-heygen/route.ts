@@ -24,6 +24,12 @@ import { createServiceClient } from "@/lib/supabase/service";
  * The functions are triggered, not implemented, here: they hold the provider
  * key, which a route on the app server has no business seeing. Same shape as
  * /api/cron/reconcile-generations.
+ *
+ * This route is the fallback and the manual trigger, not the primary
+ * scheduler. Supabase Cron (pg_cron, migration 0108) invokes both functions
+ * directly every few minutes; this route exists so polling still happens where
+ * pg_cron is not configured yet, and so an operator can force a run with a
+ * single authenticated request. See docs/heygen-polling.md.
  */
 export const dynamic = "force-dynamic";
 

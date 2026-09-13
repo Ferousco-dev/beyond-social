@@ -7,7 +7,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { env } from "@/lib/env";
 
 import { mintHandoff } from "../handoff-actions";
-import { refreshHostedConsent, startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
+import { checkTwinNow } from "../check-now";
+import {
+  refreshHostedConsent,
+  startTwinTraining,
+  ticketTwinFootage,
+  twinStatus,
+} from "../upload-actions";
 import { type TwinSummary } from "../delete-actions";
 import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
 import { TwinLibrary } from "./twin-library";
@@ -41,6 +47,8 @@ export function CreateTwinEntry({
     expiresAt: null,
   });
   const [consentUrl, setConsentUrl] = useState<string | null>(null);
+  const [checkingNow, setCheckingNow] = useState(false);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
 
   // Guards the phone pickup: without it, two polls four seconds apart both see
   // the same claimed handoff and start training on it twice.
@@ -194,8 +202,32 @@ export function CreateTwinEntry({
           retrying.current = true;
           setConsentUrl(null);
           setMessage(null);
+          setCheckMessage(null);
           setPhase("recording");
         }}
+        onCheckNow={
+          phase === "training"
+            ? () => {
+                if (checkingNow) return;
+                setCheckingNow(true);
+                setCheckMessage(null);
+                void checkTwinNow().then((result) => {
+                  setCheckingNow(false);
+                  if (result.status === "ok") {
+                    setCheckMessage(
+                      result.trainingChecked === 0 && result.videosChecked === 0
+                        ? "Checked just now. Nothing new from HeyGen yet."
+                        : "Checked just now. This page updates on its own when HeyGen answers.",
+                    );
+                  } else {
+                    setCheckMessage(result.message);
+                  }
+                });
+              }
+            : undefined
+        }
+        checkingNow={checkingNow}
+        checkNowMessage={checkMessage}
       />
     );
   }

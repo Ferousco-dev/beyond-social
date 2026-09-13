@@ -25,12 +25,19 @@ export function TwinStatusPanel({
   onRetry,
   consentUrl,
   onRefreshConsent,
+  onCheckNow,
+  checkingNow,
+  checkNowMessage,
 }: {
   phase: Exclude<Phase, "recording">;
   message: string | null;
   onRetry: () => void;
   consentUrl?: string | null;
   onRefreshConsent?: () => void;
+  /** Offered while training only: asks for this person's own rows ahead of the next background tick. */
+  onCheckNow?: () => void;
+  checkingNow?: boolean;
+  checkNowMessage?: string | null;
 }): ReactNode {
   const copy: Record<Exclude<Phase, "recording">, { title: string; body: string }> = {
     uploading: {
@@ -43,7 +50,7 @@ export function TwinStatusPanel({
     },
     training: {
       title: "Processing avatar",
-      body: "Your recording and HeyGen setup are in progress. Learning a face and a voice takes a few minutes, and you can leave this page: it carries on without you and will be waiting when you come back.",
+      body: "Your recording and HeyGen setup are in progress. Learning a face and a voice takes a few minutes, and you can leave this page: it carries on without you and will be waiting when you come back. Still processing after a while means we are still checking HeyGen in the background, not that it stopped.",
     },
     ready: {
       title: "Your avatar is ready",
@@ -115,6 +122,31 @@ export function TwinStatusPanel({
         >
           Record again
         </button>
+      ) : null}
+
+      {/*
+       * A way out of watching a spinner. The page already re-reads the row
+       * every few seconds, which only shows what the background schedule has
+       * learned; this asks the schedule's own pollers to look at this
+       * person's rows now. Budgeted per person behind the action, so the
+       * button being hammered costs patience rather than provider quota.
+       */}
+      {phase === "training" && onCheckNow ? (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={onCheckNow}
+            disabled={checkingNow}
+            className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60"
+          >
+            {checkingNow ? "Checking HeyGen…" : "Check now"}
+          </button>
+          {checkNowMessage ? (
+            <p className="mt-2 text-xs text-ink-soft" role="status">
+              {checkNowMessage}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
