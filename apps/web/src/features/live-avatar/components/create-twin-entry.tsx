@@ -87,14 +87,17 @@ export function CreateTwinEntry({
         const ticketed = await ticketTwinFootage(footage.file.type);
         if (ticketed.status === "error") throw new Error(ticketed.message);
 
+        // Strip codec parameters: storage bucket allowed_mime_types are bare base
+        // types (e.g. "video/mp4"), not parameterised strings.
+        const baseType = footage.file.type.split(";")[0]!;
         const storage = createClient(
           env.NEXT_PUBLIC_SUPABASE_URL,
           env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         );
         const { error } = await storage.storage
-          .from("uploads")
+          .from("avatar-footage")
           .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
-            contentType: footage.file.type,
+            contentType: baseType,
           });
         if (error) throw new Error(error.message);
 

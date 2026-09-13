@@ -64,7 +64,7 @@ export async function ticketTwinFootage(contentType: string): Promise<TicketResu
 
   const extension = EXTENSIONS[parsed.data.contentType.split(";")[0]!];
   const path = `${user.id}/twin-${crypto.randomUUID()}.${extension}`;
-  const { data, error } = await supabase.storage.from("uploads").createSignedUploadUrl(path);
+  const { data, error } = await supabase.storage.from("avatar-footage").createSignedUploadUrl(path);
   if (error || !data) {
     logger.warn("could not ticket twin footage", { error: error?.message ?? "no data" });
     return { status: "error", message: "Could not start that upload" };

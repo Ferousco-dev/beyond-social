@@ -42,11 +42,14 @@ export function PhoneRecorder({ token }: { token: string }): ReactNode {
 
       // The anon client is only a transport here: the ticket is the authority,
       // and it was issued against a token this device proved it holds.
+      // Strip codec parameters: storage bucket allowed_mime_types are bare base
+      // types (e.g. "video/mp4"), not parameterised strings.
+      const baseType = recording.mimeType.split(";")[0]!;
       const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
       const { error } = await storage.storage
-        .from("uploads")
+        .from("avatar-footage")
         .uploadToSignedUrl(ticket.path, ticket.token, recording.blob, {
-          contentType: recording.mimeType,
+          contentType: baseType,
         });
       if (error) throw new Error(error.message);
 
