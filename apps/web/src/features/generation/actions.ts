@@ -8,6 +8,7 @@ import { REGENERATE_REPLY } from "./regenerate-copy";
 import { isSupabaseConfigured } from "@/lib/env";
 import { isUpgradeReason } from "@/lib/credits/types";
 import { checkVideoRun } from "@/lib/generation/gate";
+import { signRender } from "@/lib/generation/render-url";
 import { enhancePrompt } from "@/lib/prompt-engine/enhance";
 import { recordChunkOutcome } from "@/lib/prompt-engine/feedback";
 import { learnFromPrompt } from "@/lib/prompt-engine/learn";
@@ -82,6 +83,58 @@ export async function startGeneration(input: StartInput): Promise<StartResult> {
 export interface PollResult {
   status: GenerationStatus | "error";
   resultUrl: string | null;
+}
+
+/** What a settled draft carries into the thread: state, playback link, reason. */
+export interface DraftState {
+  status: GenerationStatus;
+  resultUrl: string | null;
+  /** Why it failed, in the provider's words, when it failed. */
+  error: string | null;
+}
+
+const draftStateSchema = z.object({
+  status: z.enum(["queued", "generating", "ready", "failed", "cancelled"]),
+  result_path: z.string().nullable(),
+  error: z.string().nullable(),
+});
+
+/**
+ * Reads one generation's settled state and signs its render for playback.
+ *
+ * Both completion paths funnel through here, the client poll and the Realtime
+ * subscription alike, because the link they hand the thread has to be one this
+ * server minted: the `renders` bucket is private, so the stored `result_url`
+ * on the row no longer resolves, and a draft settled straight off the poll's
+ * provider URL rendered as a broken player until the next reload re-signed it
+ * from `result_path`.
+ *
+ * RLS scopes the read to the caller's own row, so another user's generation id
+ * reads as one that does not exist and returns null.
+ */
+export async function readDraftState(generationId: string): Promise<DraftState | null> {
+  const parsed = pollInputSchema.safeParse({ generationId });
+  if (!parsed.success || !isSupabaseConfigured) return null;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("video_generations")
+    .select("status, result_path, error")
+    .eq("id", parsed.data.generationId)
+    .maybeSingle();
+
+  if (error !== null || data === null) return null;
+  const row = draftStateSchema.safeParse(data);
+  if (!row.success) return null;
+
+  const resultUrl = row.data.result_path
+    ? await signRender(supabase, row.data.result_path)
+    : null;
+  return {
+    status: row.data.status,
+    resultUrl,
+    error: row.data.error,
+  };
 }
 
 // Syncs a generation's status from kie.ai and returns the current state.

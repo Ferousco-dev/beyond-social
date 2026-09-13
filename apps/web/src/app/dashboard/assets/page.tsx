@@ -19,24 +19,33 @@ export const dynamic = "force-dynamic";
  * who is on screen, what is on screen, and who is speaking. So they are a
  * destination in the sidebar now, next to the library, and settings keeps only
  * the settings.
+ *
+ * The page reads differently by state, without two different pages. A brand-new
+ * account sees the face card alone with an explanation of what it is for,
+ * because a shelf of empty categories is a wall, not a welcome. Once something
+ * is saved, every section shows: the library replaces the onboarding.
  */
 export default async function AssetsPage() {
   const library = await getBrandLibrary();
+  const onboarding = library.avatar === null && library.products.length === 0;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Assets</h1>
       <p className="mt-2 max-w-xl text-sm text-ink-soft">
-        Your face, your products, and your voice. Saved once, then attached to any video from the
-        plus button in the message box.
+        {onboarding
+          ? "Save a photo of yourself and it becomes the face of your videos. You can add your products and your voice afterwards."
+          : "Your face, your products, and your voice. Saved once, then attached to any video from the plus button in the message box."}
       </p>
 
       <div className="mt-6 flex flex-col gap-4 lg:mt-8">
         <AvatarCard avatar={library.avatar} />
-        <ProductsCard products={library.products} />
-        <Suspense fallback={<VoiceCardSkeleton />}>
-          <EnrollSection />
-        </Suspense>
+        {onboarding ? null : <ProductsCard products={library.products} />}
+        {onboarding ? null : (
+          <Suspense fallback={<VoiceCardSkeleton />}>
+            <EnrollSection />
+          </Suspense>
+        )}
       </div>
     </div>
   );

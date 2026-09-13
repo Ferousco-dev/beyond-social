@@ -55,6 +55,8 @@ interface MenuItem {
   shots?: boolean;
   saved?: boolean;
   navigate?: string;
+  /** Pre-attaches the saved avatar photo, so the next turn can be of them. */
+  selfVideo?: boolean;
 }
 
 const BASE_ITEMS: readonly MenuItem[] = [
@@ -85,6 +87,22 @@ const SAVED_VOICE_ITEM: MenuItem = {
   label: "Use saved voice",
   hint: "Type what you want said in your voice",
   savedVoice: true,
+};
+
+/**
+ * Offered first, and only when there is a face to put on screen.
+ *
+ * The photo-plus-voice render has been the product's signature move since the
+ * avatar arrived, and the only way to reach it was to know to attach two
+ * things in the right combination. Naming it here turns an implicit rule into
+ * an affordance: one press attaches the saved photo, and the voice is either
+ * the saved one or a fresh recording away.
+ */
+const SELF_VIDEO_ITEM: MenuItem = {
+  icon: UserRound,
+  label: "Generate a video of me",
+  hint: "Your saved photo speaks your clip",
+  selfVideo: true,
 };
 
 /** Long enough for the swap to paint before the blob goes away. */
@@ -139,7 +157,14 @@ export function ComposeMenu({
 
   // Offered only when there is something saved. An entry that opens an empty
   // picker teaches the user that the menu lies about what it can do.
-  const items = saved.has ? [SAVED_PICTURES_ITEM, ...withVoice] : withVoice;
+  const withSaved = saved.has ? [SAVED_PICTURES_ITEM, ...withVoice] : withVoice;
+
+  // First, because it is the thing the product is for, and only when there is
+  // a face saved to put on screen. An entry with nothing behind it would be a
+  // menu item that does nothing, which is worse than no entry.
+  const items = saved.library.avatar
+    ? [SELF_VIDEO_ITEM, ...withSaved]
+    : withSaved;
 
   return (
     <>
@@ -296,7 +321,22 @@ export function ComposeMenu({
                 onSelect={() => {
                   if (item.upload) {
                     fileRef.current?.click();
-                  } else if (item.saved) {
+                  } else if (item.selfVideo) {
+                  // Already in storage and already signed, so it attaches in
+                  // one line with no upload and no round trip. Replacing any
+                  // existing copy of the same photo keeps one instance of a
+                  // face in the composer rather than two. The url is narrowed
+                  // into a local first: the updater runs later, where the
+                  // optional chain no longer holds.
+                  const avatar = saved.library.avatar;
+                  const avatarUrl = avatar !== null ? avatar.url : null;
+                  if (avatar && avatarUrl !== null) {
+                    onPhotos((current) => [
+                      ...current.filter((photo) => photo.path !== avatar.path),
+                      { id: avatar.id, url: avatarUrl, path: avatar.path },
+                    ]);
+                  }
+                } else if (item.saved) {
                     setPicking(true);
                   } else if (item.savedVoice) {
                     const pending = savedVoice.toPendingVoice();

@@ -23,9 +23,14 @@ import { createServiceClient } from "@/lib/supabase/service";
  * delivery it reuses are Supabase-side already), so this route is a thin,
  * authenticated trigger, same shape as `/api/cron/retention`.
  *
- * DRY RUN BY DEFAULT, for the same reason retention is: force-failing a row
- * refunds a real credit, so the first accidental call or misconfigured
- * schedule should report what it would do rather than do it.
+ * APPLIES BY DEFAULT. This route used to read `apply` off the query string,
+ * but Vercel Cron sends a bare GET, so the daily production run was a
+ * permanent dry run: rows stuck at "generating" with credits already held
+ * were reported and never settled. The sweep is the backstop for a lost
+ * webhook and a closed tab, which is precisely the case nobody is watching,
+ * so it has to actually run. `?dry_run=1` previews without settling, for the
+ * same reason retention keeps its flag: an accidental manual call should
+ * report rather than refund.
  */
 export const dynamic = "force-dynamic";
 
@@ -34,6 +39,8 @@ interface ReconcileResult {
   thresholdMinutes: number;
   candidates: number;
   failed: number;
+  recovered: number;
+  leftWaiting: number;
 }
 
 export const GET = withTrace("GET /api/cron/reconcile-generations", async (request) => {
@@ -44,7 +51,7 @@ export const GET = withTrace("GET /api/cron/reconcile-generations", async (reque
     return NextResponse.json({ error: "unconfigured" }, { status: 503 });
   }
 
-  const apply = new URL(request.url).searchParams.get("apply") === "1";
+  const dryRun = new URL(request.url).searchParams.get("dry_run") === "1";
 
   // The service client's own key rides along as the Authorization header on
   // this call, which is what the edge function checks: there is no end user
@@ -52,7 +59,7 @@ export const GET = withTrace("GET /api/cron/reconcile-generations", async (reque
   // in for one, the same way `kie-callback` uses a secret in place of a JWT
   // it has no way to receive.
   const { data, error } = await createServiceClient().functions.invoke("reconcile-generations", {
-    body: { apply },
+    body: { dryRun },
   });
 
   if (error) {
@@ -64,8 +71,11 @@ export const GET = withTrace("GET /api/cron/reconcile-generations", async (reque
   }
 
   const result = data as ReconcileResult;
-  logger.info(apply ? "generation reconciliation applied" : "generation reconciliation dry run", {
-    ...result,
-  });
+  logger.info(
+    dryRun ? "generation reconciliation dry run" : "generation reconciliation applied",
+    {
+      ...result,
+    },
+  );
   return NextResponse.json({ ok: true, ...result });
 });

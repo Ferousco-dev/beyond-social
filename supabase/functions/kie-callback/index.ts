@@ -1,11 +1,14 @@
 // Public webhook that kie.ai calls when a generation finishes. It is not
-// JWT-protected (kie.ai cannot send a Supabase JWT), so it is guarded by a
-// shared secret in the query string and uses the service role to finalize
-// the generation and charge the credit atomically.
+// JWT-protected (kie.ai cannot send a Supabase JWT), so it is authenticated by
+// HMAC signature over the body's task id when `KIE_WEBHOOK_HMAC_KEY` is set
+// (docs.kie.ai/common-api/webhook-verification), falling back to the shared
+// secret in the query string where it is not. Either way it uses the service
+// role to finalize the generation and charge the credit atomically.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { corsHeaders, json } from "../_shared/http.ts";
 import { parseUrls } from "../_shared/kie.ts";
+import { hasValidKieSignature, isKieHmacConfigured } from "../_shared/kie-webhook.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
 import { persistRender } from "../_shared/store.ts";
 import { deliverEvent } from "../_shared/webhooks.ts";
@@ -25,21 +28,35 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const url = new URL(req.url);
-  const expected = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
-  const provided = url.searchParams.get("token") ?? "";
-  if (!expected || !timingSafeEqual(provided, expected)) {
-    return json({ error: "Forbidden" }, 403);
-  }
+  const callbackSecret = Deno.env.get("KIE_CALLBACK_SECRET") ?? "";
+  const providedToken = url.searchParams.get("token") ?? "";
+  const tokenOk = callbackSecret !== "" && timingSafeEqual(providedToken, callbackSecret);
+  const hmacConfigured = isKieHmacConfigured();
 
+  // The body's task id is what the signature is computed over, so it has to be
+  // read before the signature can be checked. Parsed once here and reused below.
   let body: CallbackBody;
   try {
     body = (await req.json()) as CallbackBody;
   } catch {
     return json({ error: "Invalid JSON" }, 400);
   }
-
   const taskId = body.data?.taskId;
   if (!taskId) return json({ error: "Missing taskId" }, 400);
+
+  // With the HMAC key configured the signature is the authentication and the
+  // token is not accepted on its own, so a leaked query string cannot be used
+  // against a deployment that has moved to the stronger check. Without the key
+  // the token stands alone, which is how local development reaches this.
+  const authenticated = hmacConfigured
+    ? await hasValidKieSignature(req, taskId)
+    : tokenOk;
+  if (!authenticated) {
+    log("warn", "kie-callback rejected an unauthenticated request", {
+      hmacConfigured,
+    });
+    return json({ error: "Forbidden" }, 403);
+  }
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",

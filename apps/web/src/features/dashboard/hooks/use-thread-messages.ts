@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { cancelGeneration } from "@/features/generation/actions";
+import { cancelGeneration, readDraftState } from "@/features/generation/actions";
 import { type ChatMessage, type Thread } from "@/lib/chat/thread";
 
 import { useExtendDraft } from "./use-extend-draft";
 import { useGenerationPoll, type PollOutcome } from "./use-generation-poll";
+import { useGenerationRealtime } from "./use-generation-realtime";
 import { useRegenerateDraft } from "./use-regenerate-draft";
 
 /**
@@ -69,27 +70,66 @@ export function useThreadMessages(
     });
   }, [thread.messages]);
 
+  /**
+   * Settles one draft from what the database says about its generation.
+   *
+   * The single writer both completion paths funnel through, the client poll
+   * and the Realtime push, which is what makes a duplicate landing harmless:
+   * the second write describes the same state and changes nothing. The state
+   * comes from `readDraftState` rather than the poll's raw answer, so the
+   * result link is one signed for the private bucket now, not the stored
+   * public URL that stopped resolving when the bucket closed.
+   */
+  const settleDraft = useCallback(
+    (generationId: string) => {
+      void (async () => {
+        const state = await readDraftState(generationId);
+        if (state === null) return;
+        if (state.status === "cancelled") return;
+
+        setMessages((current) =>
+          current.map((message) =>
+            message.draft?.generationId === generationId
+              ? {
+                  ...message,
+                  draft: {
+                    ...message.draft,
+                    status:
+                      state.status === "ready"
+                        ? ("ready" as const)
+                        : ("failed" as const),
+                    resultUrl: state.status === "ready" ? state.resultUrl : null,
+                    error: state.error,
+                  },
+                }
+              : message,
+          ),
+        );
+        if (state.status !== "ready" && state.error?.trim()) onNotice(state.error);
+      })();
+    },
+    [onNotice, setMessages],
+  );
+
   const applyOutcome = useCallback(
     (generationId: string, outcome: PollOutcome) => {
-      setMessages((current) =>
-        current.map((message) =>
-          message.draft?.generationId === generationId
-            ? {
-                ...message,
-                draft:
-                  outcome.status === "ready"
-                    ? { ...message.draft, status: "ready" as const, resultUrl: outcome.resultUrl }
-                    : { ...message.draft, status: "failed" as const, resultUrl: null },
-              }
-            : message,
-        ),
-      );
+      /*
+       * The poll's own answer is only the trigger. What lands in the thread is
+       * re-read from the row, for the signed link and the recorded reason the
+       * poll result does not carry.
+       */
+      settleDraft(generationId);
       if (outcome.status === "failed") onNotice(outcome.reason);
     },
-    [onNotice],
+    [onNotice, settleDraft],
   );
 
   const { watch, stop } = useGenerationPoll(applyOutcome);
+
+  // Status pushed by the database for drafts this session is not polling:
+  // another tab, a draft started before a reload, a poll that gave up. The
+  // poll keeps its own watch on anything this session started.
+  useGenerationRealtime(settleDraft);
 
   const append = useCallback((message: ChatMessage) => {
     setMessages((current) => [...current, message]);
