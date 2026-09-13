@@ -58,7 +58,9 @@ serve(async (request) => {
   if ((body.avatarId ?? "").trim() !== "") {
     query = query.eq("id", body.avatarId!.trim());
   } else {
-    query = query.order("is_default", { ascending: false }).order("created_at", { ascending: false });
+    query = query
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: false });
   }
 
   const { data, error } = await query.limit(1);

@@ -115,7 +115,11 @@ export async function startTwinTraining(storagePath: string): Promise<TrainingRe
     return { status: "error", message: "Your recording was saved, but training could not start" };
   }
 
-  const result = data as { status?: TrainingState; trained?: boolean; consentUrl?: string | null } | null;
+  const result = data as {
+    status?: TrainingState;
+    trained?: boolean;
+    consentUrl?: string | null;
+  } | null;
   return {
     status: "ok",
     training: result?.status ?? "pending",
@@ -167,7 +171,9 @@ export async function twinStatus(): Promise<TwinStatus> {
      */
     supabase
       .from("heygen_avatars")
-      .select("training_status, provider_error, provider_consent_url, provider_consent_url_expires_at")
+      .select(
+        "training_status, provider_error, provider_consent_url, provider_consent_url_expires_at",
+      )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1),
@@ -201,9 +207,9 @@ export async function twinStatus(): Promise<TwinStatus> {
   };
 }
 
-export async function refreshHostedConsent(avatarId?: string): Promise<
-  { status: "ok"; consentUrl: string | null } | { status: "error"; message: string }
-> {
+export async function refreshHostedConsent(
+  avatarId?: string,
+): Promise<{ status: "ok"; consentUrl: string | null } | { status: "error"; message: string }> {
   if (!isSupabaseConfigured) return { status: "error", message: "Training is not configured" };
 
   const supabase = await createClient();
