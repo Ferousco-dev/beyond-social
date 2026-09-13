@@ -320,6 +320,12 @@ main() {
         rm -rf "$v/node_modules" "$v/dist" "$v/.turbo"
         n=$((n + 1))
       done
+      # Re-run the postprocess, not just the copy: a vendored package.json still
+      # carrying `workspace:*` devDeps on packages this repo does not contain makes
+      # `pnpm install` fail, and the refresh would have silently reintroduced it.
+      [ -f "$REPO_ROOT/tools/split-postprocess.py" ] \
+        && REPO_ROOT="$SRC" python3 "$REPO_ROOT/tools/split-postprocess.py" "$OUT" "$2" >/dev/null \
+        || die "could not re-run split-postprocess.py; vendor/ may be workspace-shaped again"
       log "refreshed $n vendored package(s) in $2 from $SRC"
       ( cd "$repo" && git add -A && git -c user.name="vendor-refresh" -c user.email="x@y" \
           commit -q -m "chore: refresh vendored packages from the monorepo" || true )

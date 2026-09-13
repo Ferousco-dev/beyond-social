@@ -76,6 +76,31 @@ def pkg_dir_for(name: str) -> str:
     return os.path.join(SRC, "packages", name.split("/", 1)[1])
 
 
+def normalize_vendored(target: str) -> None:
+    """Strip the development wiring a vendored copy must not carry.
+
+    Its own devDependencies pointed at the shared lint and TS config with
+    `workspace:*`, which resolves to nothing in a repo that does not contain them,
+    and its `eslint.config.mjs` would make the consumer's lint try to lint this copy
+    with a config it cannot see. A vendored package is consumed here, not developed
+    here — the source of truth lints it in `shared`.
+
+    Also runs on an existing copy, because `vendor-refresh` re-copies from the
+    monorepo and would otherwise bring the workspace-shaped package.json back.
+    """
+    pj = os.path.join(target, "package.json")
+    if not os.path.isfile(pj):
+        return
+    d = read_json(pj)
+    d["devDependencies"] = {}
+    d["scripts"] = {k: v for k, v in d.get("scripts", {}).items()
+                    if k not in ("lint", "typecheck", "test")}
+    write_json(pj, d)
+    cfg = os.path.join(target, "eslint.config.mjs")
+    if os.path.isfile(cfg):
+        os.remove(cfg)
+
+
 def vendor_package(dest: str, name: str):
     """Copy a package into <dest>/vendor/<short-name> as a workspace member.
 
@@ -84,7 +109,7 @@ def vendor_package(dest: str, name: str):
     short = name.split("/", 1)[1]
     target = os.path.join(dest, "vendor", short)
     if os.path.isdir(target):
-        note(f"vendor/{short} already present, leaving it")
+        normalize_vendored(target)
         return target
     src = pkg_dir_for(name)
     if not os.path.isdir(src):
@@ -94,18 +119,7 @@ def vendor_package(dest: str, name: str):
         src, target,
         ignore=shutil.ignore_patterns("node_modules", ".turbo", "dist", "tsconfig.tsbuildinfo"),
     )
-    pj = os.path.join(target, "package.json")
-    d = read_json(pj)
-    # Its own devDeps pointed at the shared lint/TS config with `workspace:*`, which
-    # resolves to nothing in a repo that does not contain them. A vendored copy is
-    # consumed here, not developed here; the source of truth lints it in `shared`.
-    d["devDependencies"] = {}
-    d["scripts"] = {k: v for k, v in d.get("scripts", {}).items()
-                    if k not in ("lint", "typecheck", "test")}
-    write_json(pj, d)
-    for drop in ("eslint.config.mjs", "tsconfig.json"):
-        if os.path.isfile(os.path.join(target, drop)) and drop == "eslint.config.mjs":
-            os.remove(os.path.join(target, drop))
+    normalize_vendored(target)
     # Provenance, because a vendored copy with no origin is a fork by accident.
     write_text(os.path.join(target, "VENDORED.md"), f"""# Vendored from the monorepo
 
@@ -216,6 +230,15 @@ def resolve_internal_deps(dest: str) -> bool:
 
     if vendored_here:
         ensure_workspace_members(dest, ["vendor/*"])
+
+    # Normalize every vendored copy, not only the ones just copied. A copy that is
+    # already a workspace member takes the `name in members` branch above and never
+    # reaches vendor_package, so without this the first build and every
+    # `vendor-refresh` afterwards leave the repo in two different states.
+    vbase = os.path.join(dest, "vendor")
+    if os.path.isdir(vbase):
+        for sub in sorted(os.listdir(vbase)):
+            normalize_vendored(os.path.join(vbase, sub))
 
     if needs_registry:
         npmrc = os.path.join(dest, ".npmrc")
