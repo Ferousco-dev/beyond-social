@@ -1,35 +1,22 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-import { env } from "@/lib/env";
-
-import { mintHandoff } from "../handoff-actions";
-import { checkTwinNow } from "../check-now";
-import {
-  refreshHostedConsent,
-  startTwinTraining,
-  ticketTwinFootage,
-  twinStatus,
-} from "../upload-actions";
+import { startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
 import { type TwinSummary } from "../delete-actions";
-import { CreateTwinScreen, type TwinFootage } from "./create-twin-screen";
-import { TwinLibrary } from "./twin-library";
-import { TwinStatusPanel, type Phase } from "./twin-status-panel";
+import { env } from "@/lib/env";
+import { AvatarWizard } from "./avatar-wizard";
+import { AvatarList } from "./avatar-list";
+import { deleteTwin, makeDefaultTwin } from "../delete-actions";
 
 /**
- * The client half of the Live entry point: what happens to a recording once it
- * exists, wherever it came from.
+ * The client half of avatar creation: wizard-based step-by-step flow.
  *
- * Both routes end in the same two calls, upload then train, because a twin is a
- * twin whether the camera was in the laptop or in the hand. The phone cannot
- * make the second call itself, having no session, so it uploads and this side
- * notices and finishes the job.
+ * Simplified to focus on one thing at a time. Matches HeyGen's UX pattern.
  */
 
-/** Fast enough to feel immediate, slow enough not to hammer while nothing changes. */
 const POLL_MS = 4000;
 
 export function CreateTwinEntry({
@@ -40,221 +27,208 @@ export function CreateTwinEntry({
   twins: readonly TwinSummary[];
 }): ReactNode {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("recording");
-  const [message, setMessage] = useState<string | null>(null);
-  const [handoff, setHandoff] = useState<{ url: string | null; expiresAt: number | null }>({
-    url: null,
-    expiresAt: null,
-  });
-  const [consentUrl, setConsentUrl] = useState<string | null>(null);
-  const [checkingNow, setCheckingNow] = useState(false);
-  const [checkMessage, setCheckMessage] = useState<string | null>(null);
+  const [avatars, setAvatars] = useState(twins);
+  const [showWizard, setShowWizard] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Guards the phone pickup: without it, two polls four seconds apart both see
-  // the same claimed handoff and start training on it twice.
-  const claiming = useRef(false);
-
-  // Set the moment somebody dismisses a failure to retry. Without it, the poll
-  // that fires immediately on the phase change back to "recording" still reads
-  // the old failed status from the server and snaps the screen right back to
-  // "failed" before a new recording is even possible. Cleared once a new
-  // attempt is actually submitted, so a genuine new failure still shows.
-  const retrying = useRef(false);
-  const returnedFromHeyGen = useRef(false);
-
+  // Poll for training status updates on existing avatars
   useEffect(() => {
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("heygen_setup") !== "complete") return;
-    returnedFromHeyGen.current = true;
-    setPhase("training");
-    url.searchParams.delete("heygen_setup");
-    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, []);
-
-  const refresh = useCallback(async () => {
-    const result = await mintHandoff();
-    setHandoff(
-      result.status === "ok"
-        ? { url: result.url, expiresAt: result.expiresAt }
-        : { url: null, expiresAt: null },
-    );
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const train = useCallback(async (path: string) => {
-    retrying.current = false;
-    setPhase("training");
-    const started = await startTwinTraining(path);
-    if (started.status === "error") {
-      setMessage(started.message);
-      setPhase("failed");
-      return;
-    }
-    setMessage(null);
-    if (started.consentUrl) {
-      setConsentUrl(started.consentUrl);
-      setPhase("consent");
-      return;
-    }
-    setPhase(started.training === "failed" ? "failed" : "training");
-  }, []);
-
-  /** Uploads a local recording, then trains from it. */
-  const submit = useCallback(
-    async (footage: TwinFootage) => {
-      setPhase("uploading");
-      setMessage(null);
-      try {
-        const ticketed = await ticketTwinFootage(footage.file.type);
-        if (ticketed.status === "error") throw new Error(ticketed.message);
-
-        // Strip codec parameters: storage bucket allowed_mime_types are bare base
-        // types (e.g. "video/mp4"), not parameterised strings.
-        const baseType = footage.file.type.split(";")[0]!;
-        const storage = createClient(
-          env.NEXT_PUBLIC_SUPABASE_URL,
-          env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        );
-        const { error } = await storage.storage
-          .from("avatar-footage")
-          .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
-            contentType: baseType,
-          });
-        if (error) throw new Error(error.message);
-
-        await train(ticketed.ticket.path);
-      } catch (error) {
-        setMessage(error instanceof Error ? error.message : "That upload did not finish.");
-        setPhase("failed");
-      }
-    },
-    [train],
-  );
-
-  /*
-   * Watches for two things at once: a phone finishing, and training finishing.
-   *
-   * Polled rather than pushed because neither event has a channel to arrive on:
-   * the phone talks to the server, not to this page, and HeyGen answers a poll
-   * rather than calling back for training.
-   */
-  useEffect(() => {
-    if (phase === "ready" || phase === "failed") return;
-    let live = true;
+    // Only poll if there are pending avatars
+    const hasPending = avatars.some((a) => a.trainingStatus === "pending");
+    if (!hasPending) return;
 
     const tick = async (): Promise<void> => {
-      const status = await twinStatus();
-      if (!live) return;
+      try {
+        // Fetch fresh status from server for current avatar state
+        const status = await twinStatus();
+        if (status.training) {
+          setAvatars((current) =>
+            current.map((avatar) => {
+              // Only update pending avatars
+              if (avatar.trainingStatus !== "pending") return avatar;
 
-      if (status.training === "ready") {
-        setConsentUrl(null);
-        setPhase("ready");
-        return;
-      }
-      if (status.training === "failed" && !retrying.current) {
-        setMessage(status.error);
-        setPhase("failed");
-        return;
-      }
-      if (status.consentUrl && status.training === "pending" && !returnedFromHeyGen.current) {
-        setConsentUrl(status.consentUrlExpired ? null : status.consentUrl);
-        if (phase === "recording" || phase === "training") setPhase("consent");
-      } else if (status.training === "pending" && phase === "recording") {
-        setPhase("training");
-      }
-
-      // A claimed handoff means the phone has sent something and is waiting for
-      // this side to turn it into a twin.
-      if (status.handoffPath && status.training === null && !claiming.current) {
-        claiming.current = true;
-        await train(status.handoffPath);
+              return {
+                ...avatar,
+                trainingStatus:
+                  status.training === "ready"
+                    ? "ready"
+                    : status.training === "failed"
+                      ? "failed"
+                      : "pending",
+                error: status.error ?? null,
+              };
+            })
+          );
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to check avatar status";
+        console.error("Failed to poll avatar status", err);
+        setError(message);
       }
     };
 
     void tick();
     const timer = window.setInterval(() => void tick(), POLL_MS);
-    return () => {
-      live = false;
-      window.clearInterval(timer);
-    };
-  }, [phase, train]);
+    return () => window.clearInterval(timer);
+  }, [avatars]);
 
-  if (phase !== "recording") {
-    return (
-      <TwinStatusPanel
-        phase={phase}
-        message={message}
-        consentUrl={consentUrl}
-        onRefreshConsent={async () => {
-          setMessage(null);
-          const refreshed = await refreshHostedConsent();
-          if (refreshed.status === "error") {
-            setMessage(refreshed.message);
-            return;
-          }
-          setConsentUrl(refreshed.consentUrl);
-        }}
-        onRetry={() => {
-          claiming.current = false;
-          retrying.current = true;
-          setConsentUrl(null);
-          setMessage(null);
-          setCheckMessage(null);
-          setPhase("recording");
-        }}
-        onCheckNow={
-          phase === "training"
-            ? () => {
-                if (checkingNow) return;
-                setCheckingNow(true);
-                setCheckMessage(null);
-                void checkTwinNow().then((result) => {
-                  setCheckingNow(false);
-                  if (result.status === "ok") {
-                    setCheckMessage(
-                      result.trainingChecked === 0 && result.videosChecked === 0
-                        ? "Checked just now. Nothing new from HeyGen yet."
-                        : "Checked just now. This page updates on its own when HeyGen answers.",
-                    );
-                  } else {
-                    setCheckMessage(result.message);
-                  }
-                });
-              }
-            : undefined
+  const handleWizardComplete = useCallback(
+    async (footage: { readonly file: File; readonly seconds: number | null; readonly source: string }) => {
+      try {
+        setError(null);
+
+        // Step 1: Get storage ticket
+        const ticketed = await ticketTwinFootage(footage.file.type);
+        if (ticketed.status === "error") {
+          setError(ticketed.message);
+          setShowWizard(true);
+          return;
         }
-        checkingNow={checkingNow}
-        checkNowMessage={checkMessage}
-      />
-    );
-  }
+
+        // Step 2: Upload the actual file to signed URL
+        const baseType = footage.file.type.split(";")[0]!;
+        const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+        const { error: uploadError } = await storage.storage
+          .from("avatar-footage")
+          .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
+            contentType: baseType,
+          });
+
+        if (uploadError) {
+          setError(uploadError.message);
+          setShowWizard(true);
+          return;
+        }
+
+        // Step 3: Start training with the uploaded path
+        const result = await startTwinTraining(ticketed.ticket.path);
+        if (result.status === "error") {
+          setError(result.message);
+          setShowWizard(true);
+          return;
+        }
+
+        // Reset wizard and refresh
+        setShowWizard(false);
+        router.refresh();
+
+        // Add training avatar to list
+        if (result.training !== "failed") {
+          setAvatars((current) => [
+            ...current,
+            {
+              id: crypto.randomUUID(),
+              name: null,
+              trainingStatus: "pending",
+              isDefault: false,
+              createdAt: new Date().toISOString(),
+              error: null,
+            },
+          ]);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to start training");
+        setShowWizard(true);
+      }
+    },
+    [router]
+  );
+
+  const handleDelete = useCallback(
+    async (avatarId: string) => {
+      if (!window.confirm("Delete this avatar? This cannot be undone.")) return;
+
+      setIsDeleting(true);
+      setDeletingId(avatarId);
+      try {
+        const result = await deleteTwin(avatarId);
+        if (result.status === "ok") {
+          setAvatars((current) => current.filter((a) => a.id !== avatarId));
+          router.refresh();
+        } else {
+          setError(result.message);
+        }
+      } finally {
+        setIsDeleting(false);
+        setDeletingId(null);
+      }
+    },
+    [router]
+  );
+
+  const handleSetDefault = useCallback(
+    async (avatarId: string) => {
+      try {
+        const result = await makeDefaultTwin(avatarId);
+        if (result.status === "ok") {
+          setAvatars((current) =>
+            current.map((a) => ({
+              ...a,
+              isDefault: a.id === avatarId,
+            }))
+          );
+          router.refresh();
+        } else {
+          setError(result.message);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to set default");
+      }
+    },
+    [router]
+  );
 
   return (
-    <div className="flex flex-col">
-      <CreateTwinScreen
-        name={name}
-        onFootage={(footage) => void submit(footage)}
-        phone={{ ...handoff, onRefresh: () => void refresh() }}
-      />
+    <div className="space-y-8">
+      {showWizard ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowWizard(false)}
+            className="mb-4 text-sm text-primary underline underline-offset-2 hover:opacity-80"
+          >
+            ← Back to list
+          </button>
+          <AvatarWizard name={name} onComplete={handleWizardComplete} />
+        </div>
+      ) : (
+        <div>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Your avatars</h2>
+              <p className="text-sm text-ink-soft">
+                Record once, reuse for every video. The default is used when you don&apos;t pick one.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setShowWizard(true);
+              }}
+              className="inline-flex h-10 items-center rounded-lg bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              + New avatar
+            </button>
+          </div>
 
-      {/*
-       * Below the recorder rather than above it. Somebody arriving here either
-       * has no avatar and wants to make one, or has several and wants to manage
-       * them; only the first of those is blocked by scrolling past the other.
-       */}
-      {twins.length > 0 ? (
-        <section className="mx-auto w-full max-w-2xl px-4 pb-16">
-          <h2 className="text-sm font-medium text-ink">Your avatars</h2>
-          <p className="mt-1 mb-4 text-sm text-ink-soft">
-            Recorded once, reusable for every video. The default is the one used when a video does
-            not name another.
-          </p>
-          <TwinLibrary twins={twins} onChanged={() => router.refresh()} />
-        </section>
-      ) : null}
+          {error ? (
+            <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          <AvatarList
+            avatars={avatars}
+            onDelete={handleDelete}
+            onSetDefault={handleSetDefault}
+            isDeleting={isDeleting}
+            isDeletingId={deletingId}
+          />
+        </div>
+      )}
     </div>
   );
 }

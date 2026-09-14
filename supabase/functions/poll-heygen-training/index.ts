@@ -66,7 +66,7 @@ serve(async (request) => {
       const voiceId = group.defaultVoiceId ?? look?.defaultVoiceId ?? null;
 
       if (group.status === "completed" && lookStatus === "completed" && voiceId) {
-        await admin
+        const { error } = await admin
           .from("heygen_avatars")
           .update({
             training_status: "ready",
@@ -80,12 +80,16 @@ serve(async (request) => {
             updated_at: now,
           })
           .eq("id", row.id);
+        if (error) {
+          log("error", "failed to mark avatar ready", { traceId, id: row.id, error: error.message });
+          throw new Error(`Failed to update avatar ${row.id}: ${error.message}`);
+        }
         ready += 1;
         continue;
       }
 
       if (group.status === "failed" || lookStatus === "failed") {
-        await admin
+        const { error } = await admin
           .from("heygen_avatars")
           .update({
             training_status: "failed",
@@ -95,6 +99,10 @@ serve(async (request) => {
             updated_at: now,
           })
           .eq("id", row.id);
+        if (error) {
+          log("error", "failed to mark avatar failed", { traceId, id: row.id, error: error.message });
+          throw new Error(`Failed to update avatar ${row.id}: ${error.message}`);
+        }
         failed += 1;
         continue;
       }
@@ -105,7 +113,7 @@ serve(async (request) => {
        * link so the user can return to the same self-service flow.
        */
       const stuck = row.poll_count + 1 >= MAX_POLLS;
-      await admin
+      const { error: updateError } = await admin
         .from("heygen_avatars")
         .update({
           poll_count: row.poll_count + 1,
@@ -119,6 +127,10 @@ serve(async (request) => {
           updated_at: now,
         })
         .eq("id", row.id);
+      if (updateError) {
+        log("error", "failed to update avatar poll count", { traceId, id: row.id, error: updateError.message });
+        throw new Error(`Failed to update avatar ${row.id}: ${updateError.message}`);
+      }
       if (stuck) failed += 1;
     } catch (caught) {
       // One provider error must not stop the batch: the next row may be fine,

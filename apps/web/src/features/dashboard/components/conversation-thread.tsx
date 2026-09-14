@@ -54,6 +54,7 @@ export function ConversationThread({
   const [notice, setNotice] = useState<Notice | null>(null);
   const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
   const [sending, setSending] = useState(false);
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
 
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
@@ -623,9 +624,9 @@ export function ConversationThread({
               onShotsChange={draft.setShots}
               busy={sending || rendering}
               credits={thread.credits}
-              // Only while a turn is streaming. A queued render is the
-              // provider's to finish and has its own cancel on the draft.
               onStop={sending ? turn.cancel : undefined}
+              selectedAvatarId={selectedAvatarId}
+              onSelectedAvatarChange={setSelectedAvatarId}
             />
 
             {/*

@@ -11,16 +11,12 @@ run on a schedule, plus a per-user "Check now" escape hatch.
 | ----------------------- | ----------------------------------------------------------------------------- | ------------------------------- |
 | Supabase Cron (primary) | `poll-heygen-training` edge function, via pg_cron + pg_net (migration `0108`) | every 3 minutes                 |
 | Supabase Cron (primary) | `poll-heygen-videos` edge function, via pg_cron + pg_net (migration `0108`)   | every 2 minutes                 |
-| Vercel cron (fallback)  | `GET /api/cron/poll-heygen`, triggers both functions (`apps/web/vercel.json`) | every 15 minutes                |
 | User action (recovery)  | `checkTwinNow` server action, "Check now" button on the training screen       | on demand, 5 per 5 min per user |
 
-The Vercel route is the fallback and the manual trigger, not the mechanism the
-product depends on. Before this change it was the only trigger and fired once a
-day (`15 7 * * *`), which is why a finished twin sat at `pending` with
-`poll_count = 0` until somebody called the route by hand. The pollers are
-idempotent (settled video rows are refused by `complete_generation` /
-`fail_generation_by_id`; training updates converge), so overlapping runs from
-two schedulers only cost an extra provider read, never a wrong state.
+Supabase Cron is the sole scheduler for HeyGen polling. The pollers are idempotent
+(settled video rows are refused by `complete_generation` / `fail_generation_by_id`;
+training updates converge), so multiple manual invocations only cost an extra
+provider read, never a wrong state.
 
 Each tick is cheap when idle: one indexed pending-rows read per function, and
 zero HeyGen calls when nothing is pending. Batches are bounded at 20 rows,
@@ -79,7 +75,10 @@ Local development: the local CLI stack may not run pg_cron jobs. Polling still
 works via the Vercel-route equivalent (`GET /api/cron/poll-heygen` with the
 cron secret) or the "Check now" button.
 
-## Manually trigger polling safely
+## Manual trigger (optional, for operators)
+
+If you need to manually trigger polling outside the Supabase schedule, the Vercel
+route is available but no longer active by default:
 
 ```bash
 curl -i https://<app-domain>/api/cron/poll-heygen \
@@ -90,14 +89,15 @@ Expected: `{"ok":true,"poll-heygen-training":{"checked":N,...},"poll-heygen-vide
 `checked: 0` with no `reason` means no pending rows, not a broken poller.
 Never call the edge functions from a browser or log the secret.
 
+To re-enable it, add the route back to `apps/web/vercel.json`.
+
 ## Expected processing times
 
-Training a twin takes HeyGen minutes, not seconds. With the primary schedule,
+Training a twin takes HeyGen minutes, not seconds. With Supabase Cron,
 a finished twin is marked `ready` within about 3 minutes of HeyGen completing
-it, and a finished twin video within about 2 minutes. The Vercel fallback alone
-bounds detection lag at 15 minutes. A row still `pending` with a rising
-`poll_count` and a recent `updated_at` is healthy and waiting on HeyGen, not
-stuck.
+it, and a finished twin video within about 2 minutes. A row still `pending` with
+a rising `poll_count` and a recent `updated_at` is healthy and waiting on HeyGen,
+not stuck.
 
 Give-up rules (so nothing waits forever): training fails with a
 `provider_error` after 60 checks (about 3 hours on the primary schedule);
@@ -137,10 +137,8 @@ ready: 1`, proving the functions worked; they were simply never called.
    sweep, BullMQ publish/render schedulers (30s / 5s), and the daily
    retention / prune-caches / discover-trends crons.
 4. **Which scheduler triggers each one?** pg_cron for both HeyGen pollers;
-   Vercel cron as fallback for HeyGen; kie.ai pushes to the webhook;
-   BullMQ schedulers run inside the worker process.
-5. **What cadence?** Training every 3 min, videos every 2 min (primary);
-   Vercel fallback every 15 min.
+   kie.ai pushes to the webhook; BullMQ schedulers run inside the worker process.
+5. **What cadence?** Training every 3 min, videos every 2 min (Supabase Cron).
 6. **Which secrets?** `HEYGEN_API_KEY` (edge only), `CRON_SECRET` (edge +
    app server + Vault), service role key (app server only).
 7. **How is the flow secured?** Edge functions run `verify_jwt = false` and
