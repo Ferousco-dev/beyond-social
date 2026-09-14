@@ -35,8 +35,9 @@ export function CreateTwinEntry({
 
   // Poll for training status updates on existing avatars
   useEffect(() => {
-    const pendingAvatars = avatars.filter((a) => a.trainingStatus === "pending");
-    if (pendingAvatars.length === 0) return;
+    // Only poll if there are pending avatars
+    const hasPending = avatars.some((a) => a.trainingStatus === "pending");
+    if (!hasPending) return;
 
     const tick = async (): Promise<void> => {
       try {
@@ -71,7 +72,7 @@ export function CreateTwinEntry({
     void tick();
     const timer = window.setInterval(() => void tick(), POLL_MS);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [avatars]);
 
   const handleWizardComplete = useCallback(
     async (footage: { readonly file: File; readonly seconds: number | null; readonly source: string }) => {
@@ -198,7 +199,7 @@ export function CreateTwinEntry({
             <div>
               <h2 className="text-lg font-semibold text-ink">Your avatars</h2>
               <p className="text-sm text-ink-soft">
-                Record once, reuse for every video. The default is used when you don't pick one.
+                Record once, reuse for every video. The default is used when you don&apos;t pick one.
               </p>
             </div>
             <button

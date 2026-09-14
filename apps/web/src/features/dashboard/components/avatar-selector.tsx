@@ -4,7 +4,6 @@ import { CheckCircle2, ChevronDown } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useAvatars } from "@/features/live-avatar/hooks/use-avatars";
-import { type TwinSummary } from "@/features/live-avatar/delete-actions";
 
 interface AvatarSelectorProps {
   selectedAvatarId: string | null;
