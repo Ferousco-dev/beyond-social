@@ -115,3 +115,5 @@ deploy did not check. Fixed: removed and re-added all three Supabase env vars on
 Article 2 applies to my own mistakes, not just the codebase's: recorded here rather than
 folded silently into DEF-006's "Closed" status, since the deploy was not actually correct
 the first time.
+
+## 2026-09-06 | TASK | documentarian | Produced `output/pdf/beyond-social-work-process-status.pdf`, an as-is process and project-status snapshot at checkout `ee104a7`; Phase 09 self-gate: 15/24 applicable checks evidenced, with production runtime and newcomer onboarding explicitly UNVERIFIED.

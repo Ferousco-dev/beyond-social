@@ -21,6 +21,7 @@ import { RecordButton } from "./record-button";
 import { ShotListEditor, type PendingShot } from "./shot-list-editor";
 import { VoiceChip } from "./voice-chip";
 import { Spinner } from "@/components/ui/spinner";
+import { AvatarSelector } from "./avatar-selector";
 
 interface PromptComposerProps {
   value: string;
@@ -52,6 +53,10 @@ interface PromptComposerProps {
    * which is the dashboard composer: it navigates before a turn begins.
    */
   onStop?: () => void;
+  /** Selected avatar ID for generation. */
+  selectedAvatarId?: string | null;
+  /** Called when avatar selection changes. */
+  onSelectedAvatarChange?: (avatarId: string | null) => void;
 }
 
 export function PromptComposer({
@@ -70,6 +75,8 @@ export function PromptComposer({
   onShotsChange,
   credits,
   onStop,
+  selectedAvatarId,
+  onSelectedAvatarChange,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -119,6 +126,14 @@ export function PromptComposer({
     <div className="rounded-[26px] bg-paper p-3 shadow-card">
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {footage ? <FootageChip footage={footage} onRemove={() => onFootage(null)} /> : null}
+      {onSelectedAvatarChange ? (
+        <div className="px-1 pb-2">
+          <AvatarSelector
+            selectedAvatarId={selectedAvatarId ?? null}
+            onSelect={onSelectedAvatarChange}
+          />
+        </div>
+      ) : null}
       {shots !== null && shots.length > 0 ? (
         <ShotListEditor
           shots={shots}
