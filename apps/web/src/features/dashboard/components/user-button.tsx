@@ -141,7 +141,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
               <DropdownMenu.Item asChild>
                 <Link href="/dashboard/settings/billing" className={ROW}>
                   Plan
-                  <span className="text-xs text-ink-soft">Free</span>
+                  <span className="text-xs text-ink-soft">{PLAN_CATALOGUE[user.plan].name}</span>
                 </Link>
               </DropdownMenu.Item>
             </div>

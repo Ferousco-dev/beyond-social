@@ -2,10 +2,10 @@
 
 import {
   CalendarClock,
+  CircleUser,
   LayoutDashboard,
   LibraryBig,
   PenSquare,
-  Shapes,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -59,10 +59,10 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/assets" as Route,
-    label: "Assets",
-    icon: Shapes,
-    // The shapes settling into place, which is what saving one of these does.
-    motion: "group-hover:scale-110 group-hover:-rotate-6",
+    label: "Avatar",
+    icon: CircleUser,
+    // The avatar coming into focus as you reach for it.
+    motion: "group-hover:scale-110",
   },
   {
     href: "/dashboard/schedule" as Route,
