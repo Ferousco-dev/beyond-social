@@ -93,7 +93,7 @@ export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
 }
 
 export type TwinVideoResult =
-  { status: "ok"; generationId: string } | { status: "error"; message: string };
+  { status: "ok"; generationId: string; projectId: string } | { status: "error"; message: string };
 
 /** The thread title, taken from the opening of the script the way a chat title is. */
 function titleFrom(script: string): string {
@@ -148,7 +148,7 @@ export async function makeTwinVideo(request: TwinVideoRequest): Promise<TwinVide
   const generationId = (data as { generationId?: string } | null)?.generationId;
   if (!generationId) return { status: "error", message: "That video could not be started." };
 
-  return { status: "ok", generationId };
+  return { status: "ok", generationId, projectId };
 }
 
 /**

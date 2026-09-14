@@ -20,13 +20,23 @@ export default async function AssetsPage() {
           Your avatars
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Record yourself once and use your avatar in every video.
+          Record yourself once and use your avatar in every video. Select an avatar to generate videos.
         </p>
       </header>
 
       <div className="space-y-8">
-        <AvatarGrid twins={twins} name={user.email ?? "User"} />
-        <TwinSpeak twins={twins} readiness={readiness} />
+        {/* Avatar Library Section */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-ink">Your avatar library</h2>
+          </div>
+          <AvatarGrid twins={twins} name={user.email ?? "User"} />
+        </section>
+
+        {/* Video Generation Section */}
+        <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
+          <TwinSpeak twins={twins} readiness={readiness} />
+        </section>
       </div>
     </div>
   );
