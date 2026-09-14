@@ -114,7 +114,14 @@ serve(async (request) => {
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
   if ((count ?? 0) === 0) {
-    await admin.from("avatar_handoffs").delete().eq("user_id", user.id);
+    const { error: handoffError } = await admin
+      .from("avatar_handoffs")
+      .delete()
+      .eq("user_id", user.id);
+    if (handoffError) {
+      log("error", "could not delete handoff links", { traceId, error: handoffError.message });
+      return json({ error: "handoff_delete_failed" }, 500);
+    }
   }
 
   log("info", "twin deleted", { traceId });

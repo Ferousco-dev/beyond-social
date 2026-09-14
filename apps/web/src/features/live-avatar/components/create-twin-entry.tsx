@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-import { startTwinTraining, twinStatus } from "../upload-actions";
+import { startTwinTraining, ticketTwinFootage, twinStatus } from "../upload-actions";
 import { type TwinSummary } from "../delete-actions";
+import { env } from "@/lib/env";
 import { AvatarWizard } from "./avatar-wizard";
 import { AvatarList } from "./avatar-list";
 import { deleteTwin, makeDefaultTwin } from "../delete-actions";
@@ -33,44 +35,74 @@ export function CreateTwinEntry({
 
   // Poll for training status updates on existing avatars
   useEffect(() => {
-    if (avatars.every((a) => a.trainingStatus !== "pending")) return;
+    const pendingAvatars = avatars.filter((a) => a.trainingStatus === "pending");
+    if (pendingAvatars.length === 0) return;
 
     const tick = async (): Promise<void> => {
       try {
+        // Fetch fresh status from server for current avatar state
         const status = await twinStatus();
         if (status.training) {
           setAvatars((current) =>
-            current.map((a) =>
-              a.trainingStatus === "pending"
-                ? {
-                    ...a,
-                    trainingStatus:
-                      status.training === "ready"
-                        ? "ready"
-                        : status.training === "failed"
-                          ? "failed"
-                          : "pending",
-                    error: status.error ?? null,
-                  }
-                : a
-            )
+            current.map((avatar) => {
+              // Only update pending avatars
+              if (avatar.trainingStatus !== "pending") return avatar;
+
+              return {
+                ...avatar,
+                trainingStatus:
+                  status.training === "ready"
+                    ? "ready"
+                    : status.training === "failed"
+                      ? "failed"
+                      : "pending",
+                error: status.error ?? null,
+              };
+            })
           );
         }
       } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to check avatar status";
         console.error("Failed to poll avatar status", err);
+        setError(message);
       }
     };
 
     void tick();
     const timer = window.setInterval(() => void tick(), POLL_MS);
     return () => window.clearInterval(timer);
-  }, [avatars]);
+  }, []);
 
   const handleWizardComplete = useCallback(
     async (footage: { readonly file: File; readonly seconds: number | null; readonly source: string }) => {
       try {
         setError(null);
-        const result = await startTwinTraining(footage.file);
+
+        // Step 1: Get storage ticket
+        const ticketed = await ticketTwinFootage(footage.file.type);
+        if (ticketed.status === "error") {
+          setError(ticketed.message);
+          setShowWizard(true);
+          return;
+        }
+
+        // Step 2: Upload the actual file to signed URL
+        const baseType = footage.file.type.split(";")[0]!;
+        const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+        const { error: uploadError } = await storage.storage
+          .from("avatar-footage")
+          .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
+            contentType: baseType,
+          });
+
+        if (uploadError) {
+          setError(uploadError.message);
+          setShowWizard(true);
+          return;
+        }
+
+        // Step 3: Start training with the uploaded path
+        const result = await startTwinTraining(ticketed.ticket.path);
         if (result.status === "error") {
           setError(result.message);
           setShowWizard(true);
@@ -86,7 +118,7 @@ export function CreateTwinEntry({
           setAvatars((current) => [
             ...current,
             {
-              id: Math.random().toString(36).slice(2),
+              id: crypto.randomUUID(),
               name: null,
               trainingStatus: "pending",
               isDefault: false,

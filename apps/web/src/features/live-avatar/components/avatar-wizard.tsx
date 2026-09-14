@@ -36,18 +36,15 @@ export function AvatarWizard({
     setStep("uploading");
     setUploadError(null);
 
-    // Simulate upload (actual upload happens in parent)
-    setTimeout(() => {
-      const file = new File([recording.blob], "avatar-recording.mp4", {
-        type: recording.mimeType,
-      });
-      onComplete({
-        file,
-        seconds: recording.seconds,
-        source: "webcam",
-      });
-      setStep("done");
-    }, 500);
+    // Upload via parent callback (don't use setTimeout to avoid unmount issues)
+    const file = new File([recording.blob], "avatar-recording.mp4", {
+      type: recording.mimeType,
+    });
+    onComplete({
+      file,
+      seconds: recording.seconds,
+      source: "webcam",
+    });
   }, [recording, onComplete]);
 
   const handleRetry = useCallback(() => {
