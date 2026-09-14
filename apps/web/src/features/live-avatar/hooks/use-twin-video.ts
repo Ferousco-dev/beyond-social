@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { makeTwinVideo, twinVideoStatus, type TwinVideoState } from "../video-actions";
 
@@ -29,7 +30,8 @@ export interface TwinVideoRun {
   readonly start: (request: { avatarId: string; script: string }) => void;
 }
 
-export function useTwinVideo(onStarted?: () => void): TwinVideoRun {
+export function useTwinVideo(onStarted?: () => void, onProjectCreated?: (projectId: string) => void): TwinVideoRun {
+  const router = useRouter();
   const [phase, setPhase] = useState<TwinVideoPhase>({ kind: "idle" });
   const [generationId, setGenerationId] = useState<string | null>(null);
 
@@ -78,6 +80,9 @@ export function useTwinVideo(onStarted?: () => void): TwinVideoRun {
           setGenerationId(result.generationId);
           setPhase({ kind: "rendering" });
           onStarted?.();
+          onProjectCreated?.(result.projectId);
+          // Redirect to the project/chat page
+          router.push(`/dashboard/projects/${result.projectId}`);
         })
         // A transport failure throws rather than resolving to a status, the
         // same as any other server action call.
@@ -86,7 +91,7 @@ export function useTwinVideo(onStarted?: () => void): TwinVideoRun {
           starting.current = false;
         });
     },
-    [onStarted],
+    [onStarted, onProjectCreated, router],
   );
 
   return { phase, busy: phase.kind === "starting" || phase.kind === "rendering", start };
