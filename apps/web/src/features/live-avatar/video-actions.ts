@@ -148,6 +148,20 @@ export async function makeTwinVideo(request: TwinVideoRequest): Promise<TwinVide
   const generationId = (data as { generationId?: string } | null)?.generationId;
   if (!generationId) return { status: "error", message: "That video could not be started." };
 
+  // Without a message row the thread has nothing to show: the render is real,
+  // but the chat page reads `project_thread`, not `video_generations`, and a
+  // project with no messages renders as an empty composer rather than the
+  // generation in progress.
+  const { error: turnError } = await supabase.rpc("append_turn", {
+    p_project: projectId,
+    p_user_content: parsed.data.script,
+    p_assistant_content: "Your avatar is generating this video now.",
+    p_generation: generationId,
+  });
+  if (turnError) {
+    logger.warn("could not record a twin video turn", { error: turnError.message });
+  }
+
   return { status: "ok", generationId, projectId };
 }
 
