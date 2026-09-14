@@ -9,27 +9,18 @@ import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
- * The HeyGen side of the app, which nothing else asks about.
+ * Manual trigger for HeyGen polling (optional, no longer in production schedule).
  *
- * HeyGen calls back for neither of the two things that take time: training a
- * twin, and rendering a video of one. Both edge functions were written to be
- * polled and neither had anything polling them, so a twin could finish training
- * and never be marked ready, and a video could finish and never reach its owner
- * while still holding their credits.
+ * Supabase Cron (pg_cron, migration 0108) invokes the polling functions directly
+ * every few minutes. This route is kept for operators who need to manually trigger
+ * polling outside the schedule.
  *
- * One route for both because they are one schedule, one secret and one
- * provider. Splitting them would buy independent cadences nobody needs and
- * spend a second of the very small number of cron slots this project has.
- *
- * The functions are triggered, not implemented, here: they hold the provider
- * key, which a route on the app server has no business seeing. Same shape as
+ * The functions are triggered, not implemented, here: they hold the provider key,
+ * which a route on the app server has no business seeing. Same shape as
  * /api/cron/reconcile-generations.
  *
- * This route is the fallback and the manual trigger, not the primary
- * scheduler. Supabase Cron (pg_cron, migration 0108) invokes both functions
- * directly every few minutes; this route exists so polling still happens where
- * pg_cron is not configured yet, and so an operator can force a run with a
- * single authenticated request. See docs/heygen-polling.md.
+ * To re-enable this as a scheduled cron job, add it back to apps/web/vercel.json.
+ * See docs/heygen-polling.md.
  */
 export const dynamic = "force-dynamic";
 
