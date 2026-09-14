@@ -82,7 +82,7 @@ export function useTwinVideo(onStarted?: () => void, onProjectCreated?: (project
           onStarted?.();
           onProjectCreated?.(result.projectId);
           // Redirect to the project/chat page
-          router.push(`/dashboard/projects/${result.projectId}`);
+          router.push(`/dashboard/c/${result.projectId}`);
         })
         // A transport failure throws rather than resolving to a status, the
         // same as any other server action call.
