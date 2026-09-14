@@ -64,40 +64,51 @@ export function TwinSpeak({
   const submittable = !busy && script.trim() !== "" && !tooLong;
 
   return (
-    <section
-      aria-labelledby="twin-speak-heading"
-      className="rounded-2xl border border-hairline bg-paper p-5"
-    >
-      <h3 id="twin-speak-heading" className="text-sm font-semibold text-ink">
-        Make your avatar speak
+    <section aria-labelledby="twin-speak-heading">
+      <h3 id="twin-speak-heading" className="text-lg font-semibold text-ink mb-2">
+        Generate a video
       </h3>
-      <p className="mt-1 text-sm text-ink-soft">
-        Write what you want to say. It renders in your own face and voice and lands in your library,
-        for {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}.
+      <p className="text-sm text-ink-soft mb-6">
+        Write a script below. Your avatar will speak it in its own voice and the video lands in your library.
+        <br />
+        <span className="font-medium text-primary">Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}</span>
       </p>
 
-      <div className="mt-4 flex flex-col gap-3">
+      <div className="mt-6 flex flex-col gap-4">
+        {/* Avatar Selection */}
         {usable.length > 1 ? (
-          <div>
-            <label htmlFor="twin-speak-avatar" className="block text-xs font-medium text-ink-soft">
-              Which avatar
+          <div className="rounded-lg border border-hairline p-4 bg-cloud/50">
+            <label htmlFor="twin-speak-avatar" className="block text-xs font-semibold text-ink-soft uppercase tracking-wide">
+              Select which avatar to use
             </label>
             <select
               id="twin-speak-avatar"
               value={avatarId}
               disabled={busy}
               onChange={(event) => setAvatarId(event.target.value)}
-              className="mt-1 h-10 w-full rounded-lg border border-hairline bg-transparent px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 sm:w-64"
+              className="mt-3 h-10 w-full rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-50 font-medium"
             >
               {usable.map((twin) => (
                 <option key={twin.id} value={twin.id}>
-                  {twin.name ?? "Untitled avatar"}
-                  {twin.isDefault ? " (default)" : ""}
+                  {twin.name ?? `Avatar ${twin.id.slice(0, 8)}`}
+                  {twin.isDefault ? " • default" : ""}
                 </option>
               ))}
             </select>
+            <p className="mt-2 text-xs text-ink-soft">
+              Your avatar speaks with its trained voice automatically.
+            </p>
           </div>
-        ) : null}
+        ) : (
+          <div className="rounded-lg border border-hairline p-4 bg-cloud/50">
+            <p className="text-sm font-medium text-ink">
+              {usable[0]?.name ?? `Avatar ${usable[0]?.id.slice(0, 8)}`}
+            </p>
+            <p className="text-xs text-ink-soft mt-1">
+              Your avatar speaks with its trained voice automatically.
+            </p>
+          </div>
+        )}
 
         <div>
           <label htmlFor="twin-speak-script" className="block text-xs font-medium text-ink-soft">
