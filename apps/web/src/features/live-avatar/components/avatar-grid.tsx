@@ -46,7 +46,7 @@ export function AvatarGrid({
         setDeletingId(null);
       }
     },
-    [router]
+    [router],
   );
 
   const handleSetDefault = useCallback(
@@ -58,7 +58,7 @@ export function AvatarGrid({
             current.map((a) => ({
               ...a,
               isDefault: a.id === avatarId,
-            }))
+            })),
           );
           router.refresh();
         } else {
@@ -68,7 +68,7 @@ export function AvatarGrid({
         setError(err instanceof Error ? err.message : "Failed to set default");
       }
     },
-    [router]
+    [router],
   );
 
   const handleWizardComplete = useCallback(
@@ -86,7 +86,10 @@ export function AvatarGrid({
 
         // Step 2: Upload the file to signed URL
         const baseType = footage.file.type.split(";")[0]!;
-        const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+        const storage = createClient(
+          env.NEXT_PUBLIC_SUPABASE_URL,
+          env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
         const { error: uploadError } = await storage.storage
           .from("avatar-footage")
           .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
@@ -130,7 +133,7 @@ export function AvatarGrid({
         setShowWizard(true);
       }
     },
-    [router]
+    [router],
   );
 
   if (avatars.length === 0 && !showWizard) {
@@ -161,13 +164,7 @@ export function AvatarGrid({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Your avatars</h2>
-          <p className="text-sm text-ink-soft">
-            Record once, reuse for every video. The default is used when you don&apos;t pick one.
-          </p>
-        </div>
+      <div className="mb-6 flex justify-end">
         <button
           type="button"
           onClick={() => {
