@@ -9,17 +9,18 @@ import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
- * Manual trigger for HeyGen polling (optional, no longer in production schedule).
+ * Second, independent trigger for HeyGen polling, alongside Supabase Cron.
  *
- * Supabase Cron (pg_cron, migration 0108) invokes the polling functions directly
- * every few minutes. This route is kept for operators who need to manually trigger
- * polling outside the schedule.
+ * Supabase Cron (pg_cron, migrations 0108/0110/0112) invokes the polling
+ * functions directly every few minutes; that's the primary path. This route
+ * gives Vercel Cron a scheduled backstop against the same functions, so a
+ * single scheduler being down or misconfigured doesn't leave every trained
+ * twin, twin video, and cloned voice stuck with nothing checking on it.
  *
- * The functions are triggered, not implemented, here: they hold the provider key,
- * which a route on the app server has no business seeing. Same shape as
+ * The functions are triggered, not implemented, here: they hold the provider
+ * key, which a route on the app server has no business seeing. Same shape as
  * /api/cron/reconcile-generations.
  *
- * To re-enable this as a scheduled cron job, add it back to apps/web/vercel.json.
  * See docs/heygen-polling.md.
  */
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ interface PollResult {
   reason?: string;
 }
 
-const JOBS = ["poll-heygen-training", "poll-heygen-videos"] as const;
+const JOBS = ["poll-heygen-training", "poll-heygen-videos", "poll-voice-clone"] as const;
 
 export const GET = withTrace("GET /api/cron/poll-heygen", async (request) => {
   if (!isCronAuthorised(request)) {
