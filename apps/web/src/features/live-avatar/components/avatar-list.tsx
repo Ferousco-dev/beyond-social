@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader, Trash2, AlertCircle, Star } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode } from "react";
 import { type TwinSummary } from "../delete-actions";
 
@@ -14,21 +15,19 @@ export function AvatarList({
   avatars,
   onDelete,
   onSetDefault,
+  onRetry,
   isDeleting,
   isDeletingId,
 }: {
   avatars: readonly TwinSummary[];
   onDelete: (id: string) => Promise<void>;
   onSetDefault: (id: string) => Promise<void>;
+  onRetry: () => void;
   isDeleting: boolean;
   isDeletingId: string | null;
 }): ReactNode {
   if (avatars.length === 0) {
-    return (
-      <div className="rounded-lg border border-hairline bg-canvas p-8 text-center">
-        <p className="text-sm text-ink-soft">No avatars yet. Create one to get started!</p>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -89,12 +88,20 @@ export function AvatarList({
               {avatar.trainingStatus === "ready"
                 ? "Ready to use"
                 : avatar.trainingStatus === "pending"
-                  ? "Training in progress..."
-                  : avatar.error || "Training failed"}
+                  ? "Learning a face and a voice takes a few minutes. You can leave this page, it carries on without you."
+                  : avatar.error || "That didn't finish. Nothing was lost, recording again is safe."}
             </p>
 
             {/* Actions */}
             <div className="flex gap-2 mt-3 pt-3 border-t border-hairline">
+              {avatar.trainingStatus === "ready" && (
+                <Link
+                  href="/dashboard"
+                  className="flex-1 px-2 py-1.5 text-center text-xs font-medium text-white bg-primary rounded hover:opacity-90 transition-opacity"
+                >
+                  Use in a video
+                </Link>
+              )}
               {avatar.trainingStatus === "ready" && !avatar.isDefault && (
                 <button
                   type="button"
@@ -102,6 +109,15 @@ export function AvatarList({
                   className="flex-1 px-2 py-1.5 text-xs font-medium text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors"
                 >
                   Set default
+                </button>
+              )}
+              {avatar.trainingStatus === "failed" && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="flex-1 px-2 py-1.5 text-xs font-medium text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors"
+                >
+                  Try again
                 </button>
               )}
               {avatar.trainingStatus !== "pending" && (

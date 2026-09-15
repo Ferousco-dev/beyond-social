@@ -157,7 +157,7 @@ export function AvatarWizard({
           </h1>
           <p className="text-sm text-ink-soft">
             {step === "uploading"
-              ? "HeyGen is processing your recording. This takes a few minutes and happens in the background. You can leave this page."
+              ? "We're processing your recording. This takes a few minutes and happens in the background. You can leave this page."
               : "Your avatar has been trained and is ready to use in videos."}
           </p>
         </div>
