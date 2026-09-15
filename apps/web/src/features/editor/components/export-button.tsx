@@ -125,7 +125,7 @@ export function ExportButton({
           result.status === "empty"
             ? "Nothing on the timeline has a finished render behind it yet."
             : result.status === "unconfigured"
-              ? "Exporting needs the backend connected."
+              ? "Exporting isn't available right now. Please try again later."
               : result.message,
       });
     });

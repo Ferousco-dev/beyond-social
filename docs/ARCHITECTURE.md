@@ -63,8 +63,11 @@ seams if a service is ever pulled out.
 5. The user opens the draft in the editor to trim, caption, and adjust.
 6. On publish, the worker posts to the platform APIs directly, with BullMQ
    retrying with exponential backoff.
-7. Firecrawl runs on a schedule to refresh the trend feed, independent of any
-   user.
+7. Firecrawl backs the trend feed via `/api/cron/discover-trends`, but that
+   route is not currently scheduled anywhere (no cron entry calls it): a
+   nightly sweep for a feed nobody was visiting was money spent on nothing, so
+   it was descheduled and now only runs when triggered by hand. Unconfigured
+   or down, it degrades safely rather than breaking Discover.
 
 ## The five red flags, audited against this codebase
 

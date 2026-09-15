@@ -45,12 +45,12 @@ export function TwinStatusPanel({
       body: "Keep this page open. This is the only copy until it lands.",
     },
     consent: {
-      title: "Complete HeyGen setup",
-      body: "HeyGen needs you to record consent live on its hosted page. This is available to self-service accounts and replaces the Enterprise-only prerecorded consent upload.",
+      title: "Confirm your consent",
+      body: "You'll finish this step on our video partner's secure page, recording a short consent statement live.",
     },
     training: {
       title: "Processing avatar",
-      body: "Your recording and HeyGen setup are in progress. Learning a face and a voice takes a few minutes, and you can leave this page: it carries on without you and will be waiting when you come back. Still processing after a while means we are still checking HeyGen in the background, not that it stopped.",
+      body: "Learning a face and a voice takes a few minutes, and you can leave this page: it carries on without you and will be waiting when you come back. Still processing after a while just means it is still working in the background, not that it stopped.",
     },
     ready: {
       title: "Your avatar is ready",
@@ -99,7 +99,7 @@ export function TwinStatusPanel({
               href={consentUrl}
               className="inline-flex h-10 cursor-pointer items-center rounded-lg bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              Continue to HeyGen
+              Continue to consent step
             </a>
           ) : null}
           {onRefreshConsent ? (
@@ -108,7 +108,7 @@ export function TwinStatusPanel({
               onClick={onRefreshConsent}
               className="text-sm font-medium text-primary underline underline-offset-4"
             >
-              Get a new HeyGen setup link
+              Get a new setup link
             </button>
           ) : null}
         </div>
@@ -139,7 +139,7 @@ export function TwinStatusPanel({
             disabled={checkingNow}
             className="inline-flex h-10 cursor-pointer items-center rounded-lg border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60"
           >
-            {checkingNow ? "Checking HeyGen…" : "Check now"}
+            {checkingNow ? "Checking…" : "Check now"}
           </button>
           {checkNowMessage ? (
             <p className="mt-2 text-xs text-ink-soft" role="status">

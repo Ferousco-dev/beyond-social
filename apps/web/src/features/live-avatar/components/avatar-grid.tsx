@@ -188,6 +188,7 @@ export function AvatarGrid({
         avatars={avatars}
         onDelete={handleDelete}
         onSetDefault={handleSetDefault}
+        onRetry={() => setShowWizard(true)}
         isDeleting={isDeleting}
         isDeletingId={deletingId}
       />
