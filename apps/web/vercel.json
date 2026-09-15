@@ -11,8 +11,8 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/cron/reconcile-generations",
-      "schedule": "45 6 * * *"
+      "path": "/api/cron/reconcile-generations?apply=1",
+      "schedule": "*/15 * * * *"
     }
   ],
   "git": {
