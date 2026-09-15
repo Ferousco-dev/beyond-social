@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 
 import { ConversationThread } from "@/features/dashboard/components/conversation-thread";
+import { getVoiceProfile } from "@/features/voice/actions";
 import { getBrandLibrary } from "@/lib/assets/brand";
 import { getThread } from "@/lib/chat/thread";
 
@@ -16,13 +17,20 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
    * it again every time they attach a voice, and without it that turn generates
    * a video their voice is absent from.
    */
-  const [thread, library] = await Promise.all([getThread(id), getBrandLibrary()]);
+  const [thread, library, voice] = await Promise.all([
+    getThread(id),
+    getBrandLibrary(),
+    getVoiceProfile(),
+  ]);
   const avatar = library.avatar;
+  const clonedVoiceId =
+    voice.status === "ok" && voice.profile.cloneStatus === "ready" ? voice.profile.providerVoiceId : null;
 
   return (
     <ConversationThread
       thread={thread}
       savedLikeness={avatar?.url ? { path: avatar.path, url: avatar.url } : null}
+      clonedVoiceId={clonedVoiceId}
     />
   );
 }

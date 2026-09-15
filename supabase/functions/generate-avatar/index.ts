@@ -7,6 +7,7 @@ import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
+import { generateSpeech, isHeygenConfigured } from "../_shared/heygen.ts";
 import {
   buildAvatarInput,
   isAvatarModelSupported,
@@ -52,6 +53,13 @@ interface AvatarBody {
   /** Object paths in the uploads bucket. Preferred over the URLs above. */
   imagePath?: string;
   audioPath?: string;
+  /**
+   * The caller's own cloned voice, from `voice_profiles.provider_voice_id`.
+   * Mutually exclusive with audioUrl/audioPath: when set, `prompt` is spoken
+   * by HeyGen's text-to-speech rather than lip-synced from a raw clip, and the
+   * result is handed to the exact same kie.ai dispatch below either way.
+   */
+  voiceCloneId?: string;
   /** Which avatar model to run. Validated against the catalogue below. */
   model?: string;
 }
@@ -82,8 +90,40 @@ serve(async (req) => {
   }
 
   const prompt = body.prompt?.trim();
-  if (!body.projectId || !prompt || !body.imageUrl || !body.audioUrl) {
-    return json({ error: "projectId, prompt, imageUrl and audioUrl are required" }, 400);
+  const usingClonedVoice = Boolean(body.voiceCloneId);
+  if (!body.projectId || !prompt || !body.imageUrl) {
+    return json({ error: "projectId, prompt and imageUrl are required" }, 400);
+  }
+  if (!usingClonedVoice && !body.audioUrl) {
+    return json({ error: "audioUrl or voiceCloneId is required" }, 400);
+  }
+  if (usingClonedVoice && body.audioUrl) {
+    return json({ error: "provide either audioUrl or voiceCloneId, not both" }, 400);
+  }
+
+  /*
+   * The cloned voice has to be this caller's own, and actually ready: a
+   * `voice_clone_id` off a different row would let one account speak in
+   * whatever voice it can guess the id for, and `provider_voice_id` is null
+   * until poll-voice-clone has confirmed the clone against HeyGen.
+   */
+  let clonedVoiceId: string | null = null;
+  if (usingClonedVoice) {
+    const { data: voiceProfile } = await supabase
+      .from("voice_profiles")
+      .select("provider_voice_id, clone_status")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const owned = voiceProfile as { provider_voice_id: string | null; clone_status: string } | null;
+    if (
+      !owned ||
+      owned.clone_status !== "ready" ||
+      !owned.provider_voice_id ||
+      owned.provider_voice_id !== body.voiceCloneId
+    ) {
+      return json({ error: "voice_clone_not_ready" }, 403);
+    }
+    clonedVoiceId = owned.provider_voice_id;
   }
 
   /*
@@ -151,7 +191,16 @@ serve(async (req) => {
     return json({ error: "Could not record the generation" }, 500);
   }
 
-  // Nothing is dispatched until the credits are actually held.
+  /*
+   * Deliberate simplification: using an already-cloned voice costs nothing
+   * beyond the normal avatar-generation price reserved below. Cloning the
+   * voice in the first place is priced separately, in clone-voice
+   * (VOICE_CLONE_CREDIT_COST). The owner can revisit charging a premium for
+   * a cloned-voice render specifically once real usage shows whether the
+   * extra HeyGen text-to-speech call justifies it.
+   *
+   * Nothing is dispatched until the credits are actually held.
+   */
   const admin = adminClient();
   const reservation = await reserveCredits(admin, generation.id);
   if (!reservation.held) {
@@ -173,9 +222,21 @@ serve(async (req) => {
     imageUrl = body.imagePath
       ? await handToProvider(supabase, "uploads", body.imagePath, traceId)
       : (body.imageUrl as string);
-    audioUrl = body.audioPath
-      ? await handToProvider(supabase, "uploads", body.audioPath, traceId)
-      : (body.audioUrl as string);
+
+    if (clonedVoiceId) {
+      // Same kie.ai dispatch either way: only where the audio comes from
+      // differs. HeyGen's text-to-speech is synchronous, so this simply
+      // becomes the `audioUrl` the rest of the function already knows how to
+      // hand to kie.
+      if (!isHeygenConfigured()) throw new Error("provider_unconfigured");
+      const speech = await generateSpeech(clonedVoiceId, prompt);
+      if (!speech.audioUrl) throw new Error(speech.error ?? "Could not render that in your voice");
+      audioUrl = speech.audioUrl;
+    } else {
+      audioUrl = body.audioPath
+        ? await handToProvider(supabase, "uploads", body.audioPath, traceId)
+        : (body.audioUrl as string);
+    }
   } catch (error) {
     log("error", "could not hand the avatar inputs to the provider", { traceId });
     const message = error instanceof Error ? error.message : "Could not prepare the inputs";

@@ -6,6 +6,7 @@ import { IndustryForm } from "@/features/settings/components/industry-form";
 import { PasswordForm } from "@/features/settings/components/password-form";
 import { TwinLibrary } from "@/features/live-avatar/components/twin-library";
 import { listTwins } from "@/features/live-avatar/delete-actions";
+import { EnrollSection } from "@/features/voice/enroll-section";
 import { getIndustry } from "@/lib/profile/industry";
 import { getAccount } from "@/lib/settings/account";
 
@@ -30,6 +31,16 @@ export default async function AccountPage() {
           them.
         </p>
         <TwinLibrary twins={twins} />
+      </section>
+      {/* A sibling of the avatar library above rather than folded into it:
+          the face and the voice are separately consented, separately
+          deletable assets, and the enrolment card already says so. */}
+      <section className="mt-8 rounded-xl border border-hairline p-5">
+        <h2 className="text-sm font-medium text-ink">Your voice</h2>
+        <p className="mt-1 mb-4 text-sm text-ink-soft">
+          Record a short sample, then clone it so your videos can say things you never recorded.
+        </p>
+        <EnrollSection />
       </section>
       <DangerZone email={account.email} />
     </section>

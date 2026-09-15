@@ -7,6 +7,8 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
+import { type CloneStatus } from "./clone-actions";
+
 const VOICE_CONSENT_VERSION = 1;
 
 const enrollSchema = z.object({
@@ -20,6 +22,10 @@ export interface VoiceProfile {
   readonly phrase: string;
   readonly url: string | null;
   readonly createdAt: string;
+  readonly cloneStatus: CloneStatus;
+  readonly cloneError: string | null;
+  /** Usable with `voiceCloneId` in `startAvatarGeneration` once ready. */
+  readonly providerVoiceId: string | null;
 }
 
 export type EnrollResult =
@@ -77,14 +83,32 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let profile: { id: string; storage_path: string; phrase: string; created_at: string } | null;
+  let profile: {
+    id: string;
+    storage_path: string;
+    phrase: string;
+    created_at: string;
+    clone_status: CloneStatus;
+    clone_error: string | null;
+    provider_voice_id: string | null;
+  } | null;
 
   if (existing) {
+    // Re-recording invalidates any clone made from the old clip: a clone is
+    // tied to the exact audio it was trained from, and keeping `ready` here
+    // would let a render reach for a voice that no longer matches what was
+    // just recorded.
     const { data, error } = await supabase
       .from("voice_profiles")
-      .update(row)
+      .update({
+        ...row,
+        clone_status: "none",
+        clone_error: null,
+        voice_clone_id: null,
+        provider_voice_id: null,
+      })
       .eq("id", existing.id)
-      .select("id, storage_path, phrase, created_at")
+      .select("id, storage_path, phrase, created_at, clone_status, clone_error, provider_voice_id")
       .single();
     if (error) {
       logger.error("could not update voice profile", { error: error.message });
@@ -105,7 +129,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
     const { data, error } = await supabase
       .from("voice_profiles")
       .insert(row)
-      .select("id, storage_path, phrase, created_at")
+      .select("id, storage_path, phrase, created_at, clone_status, clone_error, provider_voice_id")
       .single();
     if (error) {
       logger.error("could not create voice profile", { error: error.message });
@@ -119,6 +143,7 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
   const url = await signVoicePath(supabase, profile.storage_path);
 
   revalidatePath("/dashboard/assets");
+  revalidatePath("/dashboard/settings/account");
   return {
     status: "ok",
     profile: {
@@ -127,6 +152,9 @@ export async function enrollVoice(input: z.input<typeof enrollSchema>): Promise<
       phrase: profile.phrase,
       url,
       createdAt: profile.created_at,
+      cloneStatus: profile.clone_status,
+      cloneError: profile.clone_error,
+      providerVoiceId: profile.provider_voice_id,
     },
   };
 }
@@ -142,7 +170,7 @@ export async function getVoiceProfile(): Promise<ProfileResult> {
 
   const { data, error } = await supabase
     .from("voice_profiles")
-    .select("id, storage_path, phrase, created_at")
+    .select("id, storage_path, phrase, created_at, clone_status, clone_error, provider_voice_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -156,6 +184,9 @@ export async function getVoiceProfile(): Promise<ProfileResult> {
     storage_path: string;
     phrase: string;
     created_at: string;
+    clone_status: CloneStatus;
+    clone_error: string | null;
+    provider_voice_id: string | null;
   } | null;
   if (!row) return { status: "none" };
 
@@ -169,6 +200,9 @@ export async function getVoiceProfile(): Promise<ProfileResult> {
       phrase: row.phrase,
       url,
       createdAt: row.created_at,
+      cloneStatus: row.clone_status,
+      cloneError: row.clone_error,
+      providerVoiceId: row.provider_voice_id,
     },
   };
 }
