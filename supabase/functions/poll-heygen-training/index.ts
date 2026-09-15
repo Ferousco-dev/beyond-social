@@ -6,6 +6,7 @@
 // rather than a new mechanism: a batch, oldest first, bounded, and safe to run
 // again if a run dies partway.
 import { adminClient } from "../_shared/credits.ts";
+import { isCronRequestAuthorised } from "../_shared/cron-auth.ts";
 import { json, serve } from "../_shared/http.ts";
 import { getAvatarGroup, getAvatarLook, isHeygenConfigured } from "../_shared/heygen.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
@@ -25,10 +26,7 @@ const MAX_POLLS = 60;
 
 serve(async (request) => {
   const traceId = traceIdFrom(request);
-  const secret = Deno.env.get("CRON_SECRET") ?? "";
-  // Same rule as the app's cron routes: an unset secret closes the endpoint
-  // rather than opening it to every caller that also sends nothing.
-  if (secret === "" || request.headers.get("x-cron-secret") !== secret) {
+  if (!isCronRequestAuthorised(request)) {
     return json({ error: "unauthorized" }, 401);
   }
 
