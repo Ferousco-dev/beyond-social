@@ -1974,34 +1974,46 @@ export type Database = {
       };
       voice_profiles: {
         Row: {
+          clone_error: string | null;
+          clone_status: string;
           consent_version: number;
           created_at: string;
           id: string;
           phrase: string;
+          poll_count: number;
           provider_voice_id: string | null;
           storage_path: string;
           updated_at: string;
           user_id: string;
+          voice_clone_id: string | null;
         };
         Insert: {
+          clone_error?: string | null;
+          clone_status?: string;
           consent_version: number;
           created_at?: string;
           id?: string;
           phrase: string;
+          poll_count?: number;
           provider_voice_id?: string | null;
           storage_path: string;
           updated_at?: string;
           user_id: string;
+          voice_clone_id?: string | null;
         };
         Update: {
+          clone_error?: string | null;
+          clone_status?: string;
           consent_version?: number;
           created_at?: string;
           id?: string;
           phrase?: string;
+          poll_count?: number;
           provider_voice_id?: string | null;
           storage_path?: string;
           updated_at?: string;
           user_id?: string;
+          voice_clone_id?: string | null;
         };
         Relationships: [];
       };

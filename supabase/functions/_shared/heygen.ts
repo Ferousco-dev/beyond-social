@@ -1,6 +1,6 @@
 // Typed client for HeyGen's v3 avatar API.
 //
-// Docs, read 2026-09-01 rather than recalled:
+// Docs, read 2026-09-15 rather than recalled:
 //   POST /v3/avatars                        https://developers.heygen.com/reference/create-avatar
 //   GET  /v3/avatars/{group_id}             https://developers.heygen.com/reference/get-avatar-group
 //   GET  /v3/avatars/looks/{look_id}        https://developers.heygen.com/reference/get-avatar-look
@@ -8,6 +8,9 @@
 //   GET  /v3/videos/{video_id}              https://developers.heygen.com/reference/get-video
 //   DELETE /v3/avatars/{group_id}          https://developers.heygen.com/reference/delete-avatar-group
 //   POST /v3/avatars/{group_id}/consent     https://developers.heygen.com/reference/create-avatar-consent
+//   POST /v3/voices/clone                   https://developers.heygen.com/reference/clone-voice
+//   GET  /v3/voices/{voice_clone_id}        https://developers.heygen.com/reference/get-voice
+//   POST /v3/voices/speech                  https://developers.heygen.com/reference/text-to-speech
 //
 // Separate from `kie.ts` on purpose. kie renders a video from a photo and an
 // audio clip and is done; HeyGen trains a persistent likeness that outlives any
@@ -341,4 +344,119 @@ export async function deleteAvatarGroup(groupId: string): Promise<void> {
     if (error instanceof HeygenError && error.status === 404) return;
     throw error;
   }
+}
+
+export interface HeygenCloneResult {
+  readonly voiceCloneId: string | null;
+  readonly error: string | null;
+}
+
+/**
+ * Starts cloning a voice from an enrolled clip.
+ *
+ * `remove_background_noise` is left at its documented default (true) rather
+ * than surfaced: this app records a short, deliberate phrase for enrolment,
+ * not arbitrary field audio, so there is no case yet where turning it off is
+ * the right call.
+ */
+export async function cloneVoice(
+  name: string,
+  file: HeygenFile,
+  /** Same idempotency convention as `createDigitalTwin`: belt and braces. */
+  idempotencyKey?: string,
+): Promise<HeygenCloneResult> {
+  const body = await call<{
+    data?: { voice_clone_id?: string } | null;
+  }>("/voices/clone", {
+    method: "POST",
+    body: JSON.stringify({ audio: file, voice_name: name }),
+    ...(idempotencyKey ? { headers: { "Idempotency-Key": idempotencyKey } } : {}),
+  });
+
+  // Confirmed against developers.heygen.com/reference/clone-a-voice (read
+  // 2026-09-15): `{ data: { voice_clone_id } }`, always nested.
+  const id = body.data?.voice_clone_id ?? null;
+  return { voiceCloneId: id, error: id ? null : "HeyGen accepted no voice_clone_id" };
+}
+
+/**
+ * Confirmed against developers.heygen.com/reference/get-voice (read
+ * 2026-09-15). `voice_id` and `support_pause` are the only fields the docs
+ * call guaranteed; `status` and `failure_message` are read as optional for
+ * the same reason `getAvatarGroup` reads its fields optional, not because
+ * this one is still a guess.
+ */
+export type HeygenVoiceCloneStatus = "processing" | "complete" | "failed";
+
+export interface HeygenVoiceClone {
+  readonly status: string | null;
+  /** Equal to the id polled: the same field GET returns is what POST /voices/speech takes. */
+  readonly voiceId: string | null;
+  readonly error: string | null;
+}
+
+/** Where a submitted clone has got to. */
+export async function getVoiceClone(voiceCloneId: string): Promise<HeygenVoiceClone> {
+  const body = await call<{
+    data?: {
+      voice_id?: string | null;
+      status?: string | null;
+      failure_message?: string | null;
+    } | null;
+  }>(`/voices/${encodeURIComponent(voiceCloneId)}`);
+
+  const status = body.data?.status ?? null;
+  const voiceId = body.data?.voice_id ?? null;
+  const error = describeError(body.data?.failure_message);
+
+  if (status === null && voiceId === null && error === null) {
+    // Logged rather than thrown: a shape this parser cannot read should not
+    // crash the poll loop. Kept as a safety net even though the shape above
+    // is now confirmed, the same way this file logs elsewhere for a provider
+    // that could still change its response without notice.
+    console.error("unrecognised getVoiceClone response shape", JSON.stringify(body).slice(0, 500));
+  }
+
+  return { status, voiceId, error };
+}
+
+export interface HeygenSpeechResult {
+  readonly audioUrl: string | null;
+  readonly durationSeconds: number | null;
+  readonly error: string | null;
+}
+
+/**
+ * Synchronously renders typed text as speech in a cloned voice.
+ *
+ * `input_type` is left at its default ("text"): nothing in this codebase
+ * builds SSML, and passing plain text through unlabelled matches every other
+ * script this app hands a provider (`createAvatarVideo`'s `script`, kie's
+ * prompts).
+ */
+export async function generateSpeech(
+  voiceId: string,
+  text: string,
+  language?: string,
+): Promise<HeygenSpeechResult> {
+  const body = await call<{
+    data?: { audio_url?: string | null; duration?: number | null } | null;
+  }>("/voices/speech", {
+    method: "POST",
+    body: JSON.stringify({
+      text,
+      voice_id: voiceId,
+      ...(language ? { language } : {}),
+    }),
+  });
+
+  // Confirmed against developers.heygen.com's own fetch example for this
+  // endpoint (read 2026-09-15): `const { data } = await resp.json()`, then
+  // `data.audio_url` / `data.duration` — always nested, no separate error field
+  // documented, so a missing audio_url is the only failure signal available.
+  const audioUrl = body.data?.audio_url ?? null;
+  const duration = body.data?.duration ?? null;
+  const error = audioUrl ? null : "HeyGen returned no audio_url";
+
+  return { audioUrl, durationSeconds: duration, error };
 }
