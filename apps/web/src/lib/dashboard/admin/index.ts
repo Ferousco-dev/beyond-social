@@ -76,3 +76,44 @@ export async function getFeatureFlags(): Promise<FeatureFlag[]> {
     .order("key");
   return error || !data ? [] : data;
 }
+
+const candidateSchema = z.object({
+  id: z.string(),
+  data: z.unknown(),
+  created_at: z.string(),
+});
+
+export interface PendingCandidate {
+  id: string;
+  data: unknown;
+  createdAt: string;
+}
+
+/** Knowledge candidates awaiting review. Returns [] when the caller is not an admin. */
+export async function getPendingCandidates(limit = 20): Promise<PendingCandidate[]> {
+  if (!isSupabaseConfigured) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("admin_pending_candidates", { p_limit: limit });
+  if (error || !data) return [];
+
+  const rows: PendingCandidate[] = [];
+  for (const row of data) {
+    const parsed = candidateSchema.safeParse(row);
+    if (parsed.success) {
+      rows.push({ id: parsed.data.id, data: parsed.data.data, createdAt: parsed.data.created_at });
+    }
+  }
+  return rows;
+}
+
+export * from "./users";
+export * from "./deleted-accounts";
+export * from "./health";
+export * from "./health-cache";
+export * from "./analytics";
+export * from "./analytics-spend";
+export * from "./audit";
+export * from "./config";
+export * from "./secrets";
+export * from "./debug";
+export * from "./debug-stuck";

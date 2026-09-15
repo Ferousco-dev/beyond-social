@@ -1,11 +1,10 @@
 import { Activity, Coins, ShieldAlert, Users } from "lucide-react";
 import { type Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { FlagToggle } from "@/features/admin/components/flag-toggle";
-import { getFeatureFlags, getPlatformStats, isAdmin } from "@/lib/dashboard/admin";
+import { getFeatureFlags, getPendingCandidates, getPlatformStats } from "@/lib/dashboard/admin";
 
-export const metadata: Metadata = { title: "Admin" };
+export const metadata: Metadata = { title: "Admin · Overview" };
 
 function Stat({ label, value, icon: Icon }: { label: string; value: string; icon: typeof Users }) {
   return (
@@ -19,16 +18,16 @@ function Stat({ label, value, icon: Icon }: { label: string; value: string; icon
   );
 }
 
-export default async function AdminPage() {
-  // A non-admin gets a 404 rather than a 403: the console's existence is not
-  // something a normal account needs to learn about.
-  if (!(await isAdmin())) notFound();
-
-  const [stats, flags] = await Promise.all([getPlatformStats(24), getFeatureFlags()]);
+export default async function AdminOverviewPage() {
+  const [stats, flags, pending] = await Promise.all([
+    getPlatformStats(24),
+    getFeatureFlags(),
+    getPendingCandidates(5),
+  ]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-6 py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Admin</h1>
+    <div>
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Overview</h1>
       <p className="mt-1 text-sm text-ink-soft">Platform health over the last 24 hours.</p>
 
       {stats ? (
@@ -67,6 +66,26 @@ export default async function AdminPage() {
           ))}
         </ul>
       </section>
+
+      {pending.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-sm font-semibold text-ink">Pending knowledge candidates</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Awaiting moderation review before they can be auto-promoted.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {pending.map((candidate) => (
+              <li
+                key={candidate.id}
+                className="rounded-xl border border-hairline bg-paper p-4 text-xs text-ink-soft"
+              >
+                <span className="font-mono text-ink">{candidate.id}</span>
+                <span className="ml-2">{new Date(candidate.createdAt).toLocaleString()}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
