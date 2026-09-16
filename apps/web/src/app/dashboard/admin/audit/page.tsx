@@ -9,7 +9,11 @@ import { EmptyState } from "@/components/ui/empty-state";
 export const metadata: Metadata = { title: "Admin · Audit log" };
 
 function actionHref(action: string | undefined): Route {
-  return (action ? `/dashboard/admin/audit?action=${encodeURIComponent(action)}` : "/dashboard/admin/audit") as Route;
+  return (
+    action
+      ? `/dashboard/admin/audit?action=${encodeURIComponent(action)}`
+      : "/dashboard/admin/audit"
+  ) as Route;
 }
 
 export default async function AdminAuditPage({
@@ -36,7 +40,9 @@ export default async function AdminAuditPage({
           href={actionHref(undefined)}
           aria-current={!action ? "page" : undefined}
           className={`inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium ${
-            !action ? "border-transparent bg-ink text-canvas" : "border-hairline text-ink-soft hover:bg-cloud"
+            !action
+              ? "border-transparent bg-ink text-canvas"
+              : "border-hairline text-ink-soft hover:bg-cloud"
           }`}
         >
           All actions
@@ -59,7 +65,10 @@ export default async function AdminAuditPage({
 
       <div className="mt-6">
         {entries.length === 0 ? (
-          <EmptyState title="No matching entries" body="Nothing has been logged for this filter yet." />
+          <EmptyState
+            title="No matching entries"
+            body="Nothing has been logged for this filter yet."
+          />
         ) : (
           <ul className="divide-y divide-hairline rounded-xl border border-hairline bg-paper">
             {entries.map((entry) => (

@@ -31,11 +31,17 @@ export function AiSpendTable({ rows }: { readonly rows: AiSpendByModel[] }) {
                 {row.provider} / {row.model}
               </td>
               <td className="px-3 py-2 tabular-nums text-ink-soft">{row.calls}</td>
-              <td className={`px-3 py-2 tabular-nums ${row.failedCalls > 0 ? "text-destructive" : "text-ink-soft"}`}>
+              <td
+                className={`px-3 py-2 tabular-nums ${row.failedCalls > 0 ? "text-destructive" : "text-ink-soft"}`}
+              >
                 {row.failedCalls}
               </td>
-              <td className="px-3 py-2 tabular-nums text-ink-soft">{row.inputTokens.toLocaleString()}</td>
-              <td className="px-3 py-2 tabular-nums text-ink-soft">{row.outputTokens.toLocaleString()}</td>
+              <td className="px-3 py-2 tabular-nums text-ink-soft">
+                {row.inputTokens.toLocaleString()}
+              </td>
+              <td className="px-3 py-2 tabular-nums text-ink-soft">
+                {row.outputTokens.toLocaleString()}
+              </td>
               <td className="px-5 py-2 tabular-nums text-ink">${row.costUsd.toFixed(4)}</td>
             </tr>
           ))}

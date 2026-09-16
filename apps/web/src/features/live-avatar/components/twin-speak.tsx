@@ -71,14 +71,19 @@ export function TwinSpeak({
       <p className="text-sm text-ink-soft mb-6">
         Your avatar speaks this in its own voice, and the video lands in your library.
         <br />
-        <span className="font-medium text-primary">Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}</span>
+        <span className="font-medium text-primary">
+          Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}
+        </span>
       </p>
 
       <div className="mt-6 flex flex-col gap-4">
         {/* Avatar Selection */}
         {usable.length > 1 ? (
           <div className="rounded-lg border border-hairline p-4 bg-cloud/50">
-            <label htmlFor="twin-speak-avatar" className="block text-xs font-semibold text-ink-soft uppercase tracking-wide">
+            <label
+              htmlFor="twin-speak-avatar"
+              className="block text-xs font-semibold text-ink-soft uppercase tracking-wide"
+            >
               Select which avatar to use
             </label>
             <select

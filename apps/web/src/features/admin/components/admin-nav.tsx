@@ -44,9 +44,7 @@ export function AdminNav() {
               href={href}
               aria-current={active ? "page" : undefined}
               className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-full lg:rounded-lg ${
-                active
-                  ? "bg-ink text-canvas"
-                  : "text-ink-soft hover:bg-cloud hover:text-ink"
+                active ? "bg-ink text-canvas" : "text-ink-soft hover:bg-cloud hover:text-ink"
               }`}
             >
               <Icon className="size-4 shrink-0" aria-hidden />

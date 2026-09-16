@@ -57,7 +57,7 @@ export function AvatarGrid({
         setDeletingId(null);
       }
     },
-    [router, confirm, setAvatars]
+    [router, confirm, setAvatars],
   );
 
   const handleSetDefault = useCallback(
@@ -79,7 +79,7 @@ export function AvatarGrid({
         setError(err instanceof Error ? err.message : "Failed to set default");
       }
     },
-    [router, setAvatars]
+    [router, setAvatars],
   );
 
   const handleRefreshConsent = useCallback(
@@ -87,7 +87,7 @@ export function AvatarGrid({
       const result = await refreshConsent(avatarId);
       if (result.status !== "ok") setError(result.message);
     },
-    [refreshConsent]
+    [refreshConsent],
   );
 
   const handleWizardComplete = useCallback(
@@ -157,7 +157,7 @@ export function AvatarGrid({
         setShowWizard(true);
       }
     },
-    [router, setAvatars]
+    [router, setAvatars],
   );
 
   if (avatars.length === 0 && !showWizard) {

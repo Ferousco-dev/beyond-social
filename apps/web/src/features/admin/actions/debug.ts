@@ -19,7 +19,8 @@ const retrySchema = z.object({
  */
 export async function retryPost(input: z.input<typeof retrySchema>): Promise<ActionResult> {
   const parsed = retrySchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();

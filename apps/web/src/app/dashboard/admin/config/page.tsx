@@ -16,8 +16,9 @@ export default async function AdminConfigPage() {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">App config</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Runtime numbers, not secrets. &ldquo;Immediate&rdquo; values apply on next read; &ldquo;redeploy&rdquo;
-        values are only the recorded intent until the consuming code reads this table.
+        Runtime numbers, not secrets. &ldquo;Immediate&rdquo; values apply on next read;
+        &ldquo;redeploy&rdquo; values are only the recorded intent until the consuming code reads
+        this table.
       </p>
 
       <div className="mt-6 space-y-8">

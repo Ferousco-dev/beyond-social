@@ -73,7 +73,10 @@ export function FailureExplorer() {
       {!pending && result && result.items.length > 0 && (
         <ul className="mt-3 space-y-2">
           {result.items.map((item) => (
-            <li key={`${item.kind}-${item.id}`} className="rounded-lg bg-destructive/5 px-3 py-2 text-xs">
+            <li
+              key={`${item.kind}-${item.id}`}
+              className="rounded-lg bg-destructive/5 px-3 py-2 text-xs"
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-medium text-ink">
                   {item.kind} · {item.detail}

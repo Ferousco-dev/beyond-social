@@ -170,4 +170,3 @@ export async function getAiFailures(sinceHours = 24, limit = 20): Promise<AiFail
     })),
   };
 }
-

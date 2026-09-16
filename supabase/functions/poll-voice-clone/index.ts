@@ -106,7 +106,8 @@ serve(async (request) => {
             updated_at: now,
           })
           .eq("id", row.id);
-        if (updateError) throw new Error(`Failed to mark clone ready ${row.id}: ${updateError.message}`);
+        if (updateError)
+          throw new Error(`Failed to mark clone ready ${row.id}: ${updateError.message}`);
         await settleGeneration(admin, row.generation_id, { ready: true });
         ready += 1;
         continue;
@@ -123,7 +124,8 @@ serve(async (request) => {
             updated_at: now,
           })
           .eq("id", row.id);
-        if (updateError) throw new Error(`Failed to mark clone failed ${row.id}: ${updateError.message}`);
+        if (updateError)
+          throw new Error(`Failed to mark clone failed ${row.id}: ${updateError.message}`);
         await settleGeneration(admin, row.generation_id, { ready: false, error: reason });
         failed += 1;
         continue;
@@ -139,7 +141,8 @@ serve(async (request) => {
           updated_at: now,
         })
         .eq("id", row.id);
-      if (updateError) throw new Error(`Failed to update poll count ${row.id}: ${updateError.message}`);
+      if (updateError)
+        throw new Error(`Failed to update poll count ${row.id}: ${updateError.message}`);
       if (stuck) {
         await settleGeneration(admin, row.generation_id, { ready: false, error: stuckReason });
         failed += 1;

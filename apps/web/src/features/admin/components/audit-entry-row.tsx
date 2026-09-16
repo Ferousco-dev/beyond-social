@@ -19,14 +19,17 @@ export function AuditEntryRow({ entry }: { readonly entry: AuditLogEntry }) {
       >
         <div className="min-w-0">
           <p className="truncate text-sm text-ink">
-            <span className="font-mono text-xs text-ink-soft">{entry.action}</span> — {entry.summary}
+            <span className="font-mono text-xs text-ink-soft">{entry.action}</span> —{" "}
+            {entry.summary}
           </p>
           <p className="mt-0.5 text-xs text-ink-soft">
             {entry.actorEmail} · {entry.targetType}
             {entry.targetId ? `:${entry.targetId}` : ""}
           </p>
         </div>
-        <span className="shrink-0 text-xs text-ink-soft">{new Date(entry.createdAt).toLocaleString()}</span>
+        <span className="shrink-0 text-xs text-ink-soft">
+          {new Date(entry.createdAt).toLocaleString()}
+        </span>
       </button>
       {open && hasDetail && (
         <div className="grid gap-3 border-t border-hairline bg-cloud px-4 py-3 sm:grid-cols-2">

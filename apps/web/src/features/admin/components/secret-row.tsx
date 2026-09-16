@@ -20,7 +20,8 @@ export function SecretRow({ secret }: { readonly secret: ManagedSecret }) {
     setError(null);
     const confirmed = await confirm({
       title: `Mark ${secret.key} as not set?`,
-      description: "Destroys any encrypted copy held for it. Use this once the credential is revoked at the provider.",
+      description:
+        "Destroys any encrypted copy held for it. Use this once the credential is revoked at the provider.",
       confirmLabel: "Clear secret",
       tone: "destructive",
     });
@@ -38,7 +39,8 @@ export function SecretRow({ secret }: { readonly secret: ManagedSecret }) {
     setError(null);
     const confirmed = await confirm({
       title: `Rotate ${secret.key}?`,
-      description: "This is irreversible: the previous stored copy, if any, is discarded. The value still has to be set at the provider, and a Vercel or edge-function secret only takes effect after a redeploy.",
+      description:
+        "This is irreversible: the previous stored copy, if any, is discarded. The value still has to be set at the provider, and a Vercel or edge-function secret only takes effect after a redeploy.",
       confirmLabel: "Rotate secret",
       tone: "destructive",
     });
@@ -87,7 +89,13 @@ export function SecretRow({ secret }: { readonly secret: ManagedSecret }) {
             {rotating ? "Cancel" : "Rotate"}
           </Button>
           {secret.isSet && (
-            <Button type="button" variant="destructive" size="sm" disabled={pending} onClick={() => void handleClear()}>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={pending}
+              onClick={() => void handleClear()}
+            >
               Clear
             </Button>
           )}

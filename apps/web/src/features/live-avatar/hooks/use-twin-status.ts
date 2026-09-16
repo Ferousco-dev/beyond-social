@@ -18,7 +18,9 @@ export function useTwinStatus(initialTwins: readonly TwinSummary[]): {
   avatars: readonly TwinSummary[];
   setAvatars: React.Dispatch<React.SetStateAction<readonly TwinSummary[]>>;
   checkStatus: () => Promise<void>;
-  refreshConsent: (avatarId: string) => Promise<{ status: "ok" } | { status: "error"; message: string }>;
+  refreshConsent: (
+    avatarId: string,
+  ) => Promise<{ status: "ok" } | { status: "error"; message: string }>;
 } {
   const [avatars, setAvatars] = useState(initialTwins);
 

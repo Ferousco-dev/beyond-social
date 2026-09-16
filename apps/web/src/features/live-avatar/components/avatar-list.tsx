@@ -10,16 +10,20 @@ import { type TwinSummary } from "../delete-actions";
  * and by the smoke test that checks it against a raw `listTwins()` row shape.
  */
 export function isAwaitingConsent(
-  avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">
+  avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">,
 ): boolean {
-  return avatar.trainingStatus === "pending" && avatar.consentUrl !== null && !avatar.consentUrlExpired;
+  return (
+    avatar.trainingStatus === "pending" && avatar.consentUrl !== null && !avatar.consentUrlExpired
+  );
 }
 
 /** A pending avatar with no live consent link needs a fresh one before it can move. */
 export function needsFreshConsentLink(
-  avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">
+  avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">,
 ): boolean {
-  return avatar.trainingStatus === "pending" && (avatar.consentUrl === null || avatar.consentUrlExpired);
+  return (
+    avatar.trainingStatus === "pending" && (avatar.consentUrl === null || avatar.consentUrlExpired)
+  );
 }
 
 /**
@@ -123,7 +127,8 @@ export function AvatarList({
                     ? "HeyGen needs you to confirm consent on their secure page before training can start."
                     : avatar.trainingStatus === "pending"
                       ? "Learning a face and a voice takes a few minutes. You can leave this page, it carries on without you."
-                      : avatar.error || "That didn't finish. Nothing was lost, recording again is safe."}
+                      : avatar.error ||
+                        "That didn't finish. Nothing was lost, recording again is safe."}
               </p>
 
               {/* Actions */}

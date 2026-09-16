@@ -61,7 +61,10 @@ export async function getUserTotals(): Promise<UserTotals | null> {
     .object({ total_users: z.coerce.number(), active_subscriptions: z.coerce.number() })
     .safeParse(row);
   if (!parsed.success) return null;
-  return { totalUsers: parsed.data.total_users, activeSubscriptions: parsed.data.active_subscriptions };
+  return {
+    totalUsers: parsed.data.total_users,
+    activeSubscriptions: parsed.data.active_subscriptions,
+  };
 }
 
 export interface PlanBreakdown {

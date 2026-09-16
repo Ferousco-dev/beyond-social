@@ -53,7 +53,9 @@ export function SuspensionForm({
   return (
     <ActionCard
       title="Access"
-      description={suspended ? "This account is currently suspended." : "Suspend to stop new writes."}
+      description={
+        suspended ? "This account is currently suspended." : "Suspend to stop new writes."
+      }
     >
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
         <div>

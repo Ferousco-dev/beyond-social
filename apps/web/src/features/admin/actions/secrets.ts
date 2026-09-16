@@ -20,7 +20,8 @@ const rotateSchema = z.object({
  */
 export async function rotateSecret(input: z.input<typeof rotateSchema>): Promise<ActionResult> {
   const parsed = rotateSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();
@@ -39,7 +40,8 @@ const clearSchema = z.object({ key: z.string().min(1) });
 /** Marks a secret as unset and destroys any encrypted copy held for it. */
 export async function clearSecret(input: z.input<typeof clearSchema>): Promise<ActionResult> {
   const parsed = clearSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();

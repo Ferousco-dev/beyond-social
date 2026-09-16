@@ -170,7 +170,9 @@ export function ConversationThread({
           prompt: text,
           imageUrl,
           attachments,
-          ...(audio.kind === "clip" ? { audioUrl: audio.url } : { voiceCloneId: audio.voiceCloneId }),
+          ...(audio.kind === "clip"
+            ? { audioUrl: audio.url }
+            : { voiceCloneId: audio.voiceCloneId }),
         });
       let result = await attempt();
 

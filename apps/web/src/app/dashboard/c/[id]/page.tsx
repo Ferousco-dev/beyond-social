@@ -24,7 +24,9 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   ]);
   const avatar = library.avatar;
   const clonedVoiceId =
-    voice.status === "ok" && voice.profile.cloneStatus === "ready" ? voice.profile.providerVoiceId : null;
+    voice.status === "ok" && voice.profile.cloneStatus === "ready"
+      ? voice.profile.providerVoiceId
+      : null;
 
   return (
     <ConversationThread

@@ -19,11 +19,7 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function AdminUserDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getUserDetail(id);
   if (!user) notFound();
@@ -82,7 +78,11 @@ export default async function AdminUserDetailPage({
       </dl>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
-        <CreditsForm userId={user.id} creditsTotal={user.creditsTotal} creditsUsed={user.creditsUsed} />
+        <CreditsForm
+          userId={user.id}
+          creditsTotal={user.creditsTotal}
+          creditsUsed={user.creditsUsed}
+        />
         <PlanForm userId={user.id} plan={user.plan} creditsTotal={user.creditsTotal} />
         <SuspensionForm userId={user.id} suspended={user.suspendedAt !== null} />
       </div>

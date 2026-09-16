@@ -123,7 +123,10 @@ serve(async (request) => {
 
   const reservation = await reserveCreditsAt(admin, generation.id, cost);
   if (!reservation.held) {
-    log("error", "voice clone credit reservation refused", { traceId, generationId: generation.id });
+    log("error", "voice clone credit reservation refused", {
+      traceId,
+      generationId: generation.id,
+    });
     await abandonRun(admin, generation.id, reservation.reason);
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
@@ -165,7 +168,11 @@ serve(async (request) => {
       voiceCloneId: result.voiceCloneId,
       generationId: generation.id,
     });
-    return json({ status: "pending", voiceCloneId: result.voiceCloneId, generationId: generation.id });
+    return json({
+      status: "pending",
+      voiceCloneId: result.voiceCloneId,
+      generationId: generation.id,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("error", "voice clone failed", { traceId, error: message });
