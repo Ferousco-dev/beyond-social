@@ -1,6 +1,6 @@
 import { type Metadata } from "next";
 
-import { CreateTwinEntry } from "@/features/live-avatar/components/create-twin-entry";
+import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { createClient } from "@/lib/supabase/server";
 
@@ -17,9 +17,13 @@ export const dynamic = "force-dynamic";
  * persistent likeness. A modal over a half-finished project frames that as an
  * interruption to something else; it is its own thing.
  *
- * See docs/live-avatar/DESIGN.md. Training is deliberately not wired here:
- * this screen produces footage and consent, and the provider step lives behind
- * its own guard until credentials exist.
+ * See docs/live-avatar/DESIGN.md. Renders the same `AvatarGrid` the assets
+ * page does rather than its own copy: this page used to keep a parallel
+ * implementation (`CreateTwinEntry`) that had drifted out of sync with every
+ * fix made to the other one, including a missing consent step, a client-side
+ * placeholder id that never became the real one, and a status poll that could
+ * overwrite an unrelated pending avatar. One implementation is what makes
+ * "fixed here" mean fixed everywhere it is used.
  */
 export default async function CreateAvatarPage() {
   const supabase = await createClient();
@@ -34,5 +38,5 @@ export default async function CreateAvatarPage() {
 
   const twins = await listTwins();
 
-  return <CreateTwinEntry name={name} twins={twins} />;
+  return <AvatarGrid name={name} twins={twins} />;
 }

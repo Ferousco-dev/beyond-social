@@ -150,11 +150,20 @@ export async function makeTwinVideo(request: TwinVideoRequest): Promise<TwinVide
     // of credits" and a shrug.
     const detail = await edgeFunctionErrorMessage(error);
     logger.warn("could not start a twin video", { error: detail ?? error.message });
+    // The project above exists only to give a render somewhere to file
+    // under; a render that never started leaves it empty and permanent
+    // otherwise, the one outcome nobody chose (a stray thread in their
+    // history that goes nowhere, for a video they were refused, often for
+    // something as ordinary as running out of credits).
+    await supabase.from("projects").delete().eq("id", projectId);
     return { status: "error", message: reasonFor(detail) };
   }
 
   const generationId = (data as { generationId?: string } | null)?.generationId;
-  if (!generationId) return { status: "error", message: "That video could not be started." };
+  if (!generationId) {
+    await supabase.from("projects").delete().eq("id", projectId);
+    return { status: "error", message: "That video could not be started." };
+  }
 
   // Without a message row the thread has nothing to show: the render is real,
   // but the chat page reads `project_thread`, not `video_generations`, and a

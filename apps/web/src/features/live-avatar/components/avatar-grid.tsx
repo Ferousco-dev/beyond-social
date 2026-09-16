@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/use-confirm";
 import { env } from "@/lib/env";
 import { deleteTwin, makeDefaultTwin, type TwinSummary } from "../delete-actions";
 import { startTwinTraining, ticketTwinFootage } from "../upload-actions";
+import { useTwinStatus } from "../hooks/use-twin-status";
 import { type TwinFootage } from "./create-twin-screen";
 import { AvatarList } from "./avatar-list";
 import { AvatarWizard } from "./avatar-wizard";
@@ -22,7 +23,7 @@ export function AvatarGrid({
   name: string;
 }): ReactNode {
   const router = useRouter();
-  const [avatars, setAvatars] = useState(initialTwins);
+  const { avatars, setAvatars, checkStatus, refreshConsent } = useTwinStatus(initialTwins);
   const [showWizard, setShowWizard] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -56,7 +57,7 @@ export function AvatarGrid({
         setDeletingId(null);
       }
     },
-    [router, confirm]
+    [router, confirm, setAvatars]
   );
 
   const handleSetDefault = useCallback(
@@ -78,7 +79,15 @@ export function AvatarGrid({
         setError(err instanceof Error ? err.message : "Failed to set default");
       }
     },
-    [router]
+    [router, setAvatars]
+  );
+
+  const handleRefreshConsent = useCallback(
+    async (avatarId: string) => {
+      const result = await refreshConsent(avatarId);
+      if (result.status !== "ok") setError(result.message);
+    },
+    [refreshConsent]
   );
 
   const handleWizardComplete = useCallback(
@@ -121,17 +130,22 @@ export function AvatarGrid({
         setShowWizard(false);
         router.refresh();
 
-        // Add training avatar to list
+        // Placeholder only: replaced by the real row once router.refresh()
+        // above lands and the sync effect picks it up. Carries the real
+        // consent link immediately rather than making someone wait for that
+        // round trip to find out HeyGen is waiting on them.
         if (result.training !== "failed") {
           setAvatars((current) => [
             ...current,
             {
-              id: crypto.randomUUID(),
+              id: result.avatarId,
               name: null,
               trainingStatus: "pending" as const,
               isDefault: false,
               createdAt: new Date().toISOString(),
               error: null,
+              consentUrl: result.consentUrl,
+              consentUrlExpired: false,
             },
           ]);
         }
@@ -140,7 +154,7 @@ export function AvatarGrid({
         setShowWizard(true);
       }
     },
-    [router]
+    [router, setAvatars]
   );
 
   if (avatars.length === 0 && !showWizard) {
@@ -197,6 +211,8 @@ export function AvatarGrid({
         onDelete={handleDelete}
         onSetDefault={handleSetDefault}
         onRetry={() => setShowWizard(true)}
+        onCheckStatus={checkStatus}
+        onRefreshConsent={handleRefreshConsent}
         isDeleting={isDeleting}
         isDeletingId={deletingId}
       />

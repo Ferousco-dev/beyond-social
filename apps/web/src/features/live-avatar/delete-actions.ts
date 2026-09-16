@@ -19,6 +19,13 @@ export interface TwinSummary {
   readonly isDefault: boolean;
   readonly createdAt: string;
   readonly error: string | null;
+  /**
+   * HeyGen's hosted consent page for this row, when training is waiting on
+   * it. Without this a pending avatar and one waiting on a step nobody can
+   * see look identical, which is what "stuck at pending" reports usually are.
+   */
+  readonly consentUrl: string | null;
+  readonly consentUrlExpired: boolean;
 }
 
 /** Everything this person has recorded, newest first, default first of all. */
@@ -33,7 +40,9 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
 
   const { data } = await supabase
     .from("heygen_avatars")
-    .select("id, name, training_status, is_default, created_at, provider_error")
+    .select(
+      "id, name, training_status, is_default, created_at, provider_error, provider_consent_url, provider_consent_url_expires_at",
+    )
     .eq("user_id", user.id)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false });
@@ -45,6 +54,8 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
     is_default: boolean;
     created_at: string;
     provider_error: string | null;
+    provider_consent_url: string | null;
+    provider_consent_url_expires_at: string | null;
   }[];
 
   return rows.map((row) => ({
@@ -54,6 +65,10 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
     isDefault: row.is_default,
     createdAt: row.created_at,
     error: row.provider_error,
+    consentUrl: row.provider_consent_url,
+    consentUrlExpired: row.provider_consent_url_expires_at
+      ? Date.parse(row.provider_consent_url_expires_at) <= Date.now()
+      : false,
   }));
 }
 

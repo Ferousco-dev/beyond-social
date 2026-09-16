@@ -76,7 +76,13 @@ export async function ticketTwinFootage(contentType: string): Promise<TicketResu
 export type TrainingState = "pending" | "ready" | "failed";
 
 export type TrainingResult =
-  | { status: "ok"; training: TrainingState; trained: boolean; consentUrl: string | null }
+  | {
+      status: "ok";
+      avatarId: string;
+      training: TrainingState;
+      trained: boolean;
+      consentUrl: string | null;
+    }
   | { status: "error"; message: string };
 
 /**
@@ -116,94 +122,20 @@ export async function startTwinTraining(storagePath: string): Promise<TrainingRe
   }
 
   const result = data as {
+    avatarId?: string;
     status?: TrainingState;
     trained?: boolean;
     consentUrl?: string | null;
   } | null;
+  if (!result?.avatarId) {
+    return { status: "error", message: "Your recording was saved, but training could not start" };
+  }
   return {
     status: "ok",
-    training: result?.status ?? "pending",
-    trained: result?.trained ?? false,
-    consentUrl: result?.consentUrl ?? null,
-  };
-}
-
-export interface TwinStatus {
-  readonly training: TrainingState | null;
-  readonly error: string | null;
-  readonly consentUrl: string | null;
-  readonly consentUrlExpired: boolean;
-  /** Set once the phone has uploaded, so the desktop knows to pick it up. */
-  readonly handoffPath: string | null;
-}
-
-/**
- * What the screen is waiting on: this person's twin, and any footage a phone
- * has just finished sending.
- *
- * Both in one read because the desktop is polling for whichever arrives first,
- * and asking twice a second for two things separately is two round trips to
- * answer one question.
- */
-export async function twinStatus(): Promise<TwinStatus> {
-  const empty: TwinStatus = {
-    training: null,
-    error: null,
-    consentUrl: null,
-    consentUrlExpired: false,
-    handoffPath: null,
-  };
-  if (!isSupabaseConfigured) return empty;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return empty;
-
-  const [avatar, handoff] = await Promise.all([
-    /*
-     * Ordered rather than fetched as the caller's one row. Since a person may
-     * hold several avatars, `.maybeSingle()` here threw the moment somebody
-     * recorded a second one; this screen is watching the recording that was
-     * just made, which is the newest, and the library orders itself the same
-     * way so the two never disagree about which avatar is being talked about.
-     */
-    supabase
-      .from("heygen_avatars")
-      .select(
-        "training_status, provider_error, provider_consent_url, provider_consent_url_expires_at",
-      )
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1),
-    supabase
-      .from("avatar_handoffs")
-      .select("storage_path, claimed_at")
-      .not("claimed_at", "is", null)
-      .order("claimed_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-
-  const row = (
-    (avatar.data ?? []) as {
-      training_status: TrainingState;
-      provider_error: string | null;
-      provider_consent_url: string | null;
-      provider_consent_url_expires_at: string | null;
-    }[]
-  )[0];
-  const claimed = handoff.data as { storage_path: string | null } | null;
-
-  return {
-    training: row?.training_status ?? null,
-    error: row?.provider_error ?? null,
-    consentUrl: row?.provider_consent_url ?? null,
-    consentUrlExpired: row?.provider_consent_url_expires_at
-      ? Date.parse(row.provider_consent_url_expires_at) <= Date.now()
-      : false,
-    handoffPath: claimed?.storage_path ?? null,
+    avatarId: result.avatarId,
+    training: result.status ?? "pending",
+    trained: result.trained ?? false,
+    consentUrl: result.consentUrl ?? null,
   };
 }
 
