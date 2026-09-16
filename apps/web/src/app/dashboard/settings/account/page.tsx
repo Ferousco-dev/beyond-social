@@ -27,8 +27,8 @@ export default async function AccountPage() {
       <section className="mt-8 rounded-xl border border-hairline p-5">
         <h2 className="text-sm font-medium text-ink">Your avatars</h2>
         <p className="mt-1 mb-4 text-sm text-ink-soft">
-          Trained copies of your face and voice, held here and at the provider that generates from
-          them.
+          Trained copies of your face and voice, held here and at HeyGen, which is what generates
+          videos from them.
         </p>
         <TwinLibrary twins={twins} />
       </section>

@@ -63,7 +63,7 @@ export function AvatarPanel({
         ) : null}
 
         <h2 id="avatar-heading" className="mt-4 text-2xl font-semibold tracking-[-0.02em] text-ink">
-          {primary?.name ?? "Your digital twin"}
+          {primary?.name ?? "Your avatar"}
         </h2>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
           A recording of you, trained once, so a video can be made in your own face and voice.

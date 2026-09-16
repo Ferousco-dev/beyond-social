@@ -121,8 +121,8 @@ export function TwinLibrary({
             {confirming === twin.id ? (
               <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                 <p className="text-sm text-ink">
-                  This removes the trained avatar and the recording it came from, here and at the
-                  provider. Recording again makes a different avatar, not this one back.
+                  This removes the trained avatar and the recording it came from, here and at
+                  HeyGen. Recording again makes a different avatar, not this one back.
                 </p>
                 <label className="mt-2 block text-xs text-ink-soft" htmlFor={`confirm-${twin.id}`}>
                   Type <span className="font-medium text-ink">{label}</span> to confirm
@@ -139,7 +139,7 @@ export function TwinLibrary({
                     type="button"
                     disabled={typed.trim() !== label || busy !== null}
                     onClick={() => void act(twin.id, () => deleteTwin(twin.id))}
-                    className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-destructive px-3 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-destructive px-3 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {busy === twin.id ? <Spinner className="size-4" /> : null}
                     Delete permanently

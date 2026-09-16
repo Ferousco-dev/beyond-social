@@ -195,7 +195,7 @@ export function WebcamRecorder({
             </button>
             {tooShort ? (
               <p className="text-sm text-ink-soft">
-                That is {clock(recorder.seconds)}. A twin needs at least{" "}
+                That is {clock(recorder.seconds)}. Your avatar needs at least{" "}
                 {clock(recorder.minSeconds)} to train on.
               </p>
             ) : null}
