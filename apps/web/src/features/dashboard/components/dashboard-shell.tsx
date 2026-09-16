@@ -119,15 +119,20 @@ export function DashboardShell({
             </CommandPalette>
 
             {/* Was href="#", so the upgrade call to action did nothing at all.
-                Padded to a real tap target too: it was 20px tall. */}
-            <button
-              type="button"
-              onClick={() => setUpgradeOpen(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-primary transition-opacity pointer-coarse:min-h-11 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <Sparkle className="size-4 fill-current" aria-hidden />
-              Upgrade
-            </button>
+                Padded to a real tap target too: it was 20px tall.
+                Studio is the top plan, so someone already on it has nothing to
+                upgrade to; the button offered a modal with every option
+                disabled rather than admitting there wasn't a next step. */}
+            {user.plan !== "studio" && (
+              <button
+                type="button"
+                onClick={() => setUpgradeOpen(true)}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-primary transition-opacity pointer-coarse:min-h-11 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Sparkle className="size-4 fill-current" aria-hidden />
+                Upgrade
+              </button>
+            )}
           </div>
         </header>
 

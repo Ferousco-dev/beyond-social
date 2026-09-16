@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 import { EmptyState } from "@/components/ui/empty-state";
+import { useConfirm } from "@/components/ui/use-confirm";
 import { env } from "@/lib/env";
 import { deleteTwin, makeDefaultTwin, type TwinSummary } from "../delete-actions";
 import { startTwinTraining, ticketTwinFootage } from "../upload-actions";
@@ -26,10 +27,19 @@ export function AvatarGrid({
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { confirm, dialog } = useConfirm();
 
   const handleDelete = useCallback(
     async (avatarId: string) => {
-      if (!window.confirm("Delete this avatar? This cannot be undone.")) return;
+      // Native window.confirm is unstyled, blockable by the browser, and the
+      // only dialog left in this feature not using the app's own confirm.
+      const agreed = await confirm({
+        title: "Delete this avatar?",
+        description: "This cannot be undone. Any video you already made with it is unaffected.",
+        confirmLabel: "Delete it",
+        tone: "destructive",
+      });
+      if (!agreed) return;
 
       setIsDeleting(true);
       setDeletingId(avatarId);
@@ -46,7 +56,7 @@ export function AvatarGrid({
         setDeletingId(null);
       }
     },
-    [router]
+    [router, confirm]
   );
 
   const handleSetDefault = useCallback(
@@ -161,20 +171,15 @@ export function AvatarGrid({
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">Your avatars</h2>
-          <p className="text-sm text-ink-soft">
-            Record once, reuse for every video. The default is used when you don&apos;t pick one.
-          </p>
-        </div>
+      {dialog}
+      <div className="mb-6 flex items-center justify-end">
         <button
           type="button"
           onClick={() => {
             setError(null);
             setShowWizard(true);
           }}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <Plus className="size-4" />
           New avatar

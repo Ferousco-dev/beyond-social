@@ -1978,6 +1978,7 @@ export type Database = {
           clone_status: string;
           consent_version: number;
           created_at: string;
+          generation_id: string | null;
           id: string;
           phrase: string;
           poll_count: number;
@@ -1992,6 +1993,7 @@ export type Database = {
           clone_status?: string;
           consent_version: number;
           created_at?: string;
+          generation_id?: string | null;
           id?: string;
           phrase: string;
           poll_count?: number;
@@ -2006,6 +2008,7 @@ export type Database = {
           clone_status?: string;
           consent_version?: number;
           created_at?: string;
+          generation_id?: string | null;
           id?: string;
           phrase?: string;
           poll_count?: number;
@@ -2015,7 +2018,15 @@ export type Database = {
           user_id?: string;
           voice_clone_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "voice_profiles_generation_id_fkey";
+            columns: ["generation_id"];
+            isOneToOne: false;
+            referencedRelation: "video_generations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: {

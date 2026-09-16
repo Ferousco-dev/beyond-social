@@ -12,12 +12,18 @@
 // both refuse a row that has already settled and report whether they actually
 // moved it, so a batch that dies halfway through and runs again charges and
 // refunds nothing twice.
+//
+// Also fires generation.completed/generation.failed, the same events
+// kie-callback fires for every other video type. Nothing did for a twin video
+// until this: a subscriber heard about a rendered kie.ai video or avatar
+// image and never heard about a rendered twin video at all.
 import { adminClient } from "../_shared/credits.ts";
 import { isCronRequestAuthorised } from "../_shared/cron-auth.ts";
 import { json, serve } from "../_shared/http.ts";
 import { getVideo, isHeygenConfigured } from "../_shared/heygen.ts";
 import { persistRender } from "../_shared/store.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
+import { deliverEvent } from "../_shared/webhooks.ts";
 
 /** Bounded so one run cannot spend an unbounded amount of the provider's quota. */
 const BATCH = 20;
@@ -105,15 +111,30 @@ serve(async (request) => {
           });
           continue;
         }
+        // The kie.ai path fires this from its own callback; a twin video has
+        // no equivalent, so nothing did until now, which meant a subscriber
+        // heard about every video except this kind.
+        await deliverEvent(
+          admin,
+          row.user_id,
+          "generation.completed",
+          { generation_id: row.id, result_url: resultUrl },
+          traceId,
+        );
         ready += 1;
         continue;
       }
 
       if (video.status === "failed") {
-        await admin.rpc("fail_generation_by_id", {
-          p_generation: row.id,
-          p_error: video.error ?? "The provider could not render this video",
-        });
+        const reason = video.error ?? "The provider could not render this video";
+        await admin.rpc("fail_generation_by_id", { p_generation: row.id, p_error: reason });
+        await deliverEvent(
+          admin,
+          row.user_id,
+          "generation.failed",
+          { generation_id: row.id, error: reason },
+          traceId,
+        );
         failed += 1;
         continue;
       }
@@ -121,6 +142,13 @@ serve(async (request) => {
       const ageMinutes = (Date.now() - new Date(row.created_at).getTime()) / 60_000;
       if (ageMinutes >= MAX_AGE_MINUTES) {
         await admin.rpc("fail_generation_by_id", { p_generation: row.id, p_error: STUCK_REASON });
+        await deliverEvent(
+          admin,
+          row.user_id,
+          "generation.failed",
+          { generation_id: row.id, error: STUCK_REASON },
+          traceId,
+        );
         failed += 1;
       }
     } catch (caught) {

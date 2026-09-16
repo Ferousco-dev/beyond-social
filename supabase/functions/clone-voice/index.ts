@@ -145,6 +145,10 @@ serve(async (request) => {
         clone_status: "pending",
         voice_clone_id: result.voiceCloneId,
         clone_error: null,
+        // What poll-voice-clone settles once the clone resolves: without
+        // this, the credit reserved above stays held against a row nothing
+        // ever marks ready or refunds.
+        generation_id: generation.id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.id);

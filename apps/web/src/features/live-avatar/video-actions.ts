@@ -36,6 +36,14 @@ export type TwinVideoReadiness =
 const UNAVAILABLE: Record<string, string> = {
   provider_unconfigured: "Video from your avatar is not switched on for this workspace yet.",
   unpriced: "Video from your avatar is not switched on yet: it has no credit price set.",
+  /*
+   * Distinct from the two reasons above on purpose. Those are real, durable
+   * facts about this workspace; this one is "the check itself didn't finish,"
+   * which used to be reported with the exact same wording as "nobody has
+   * turned this on." A person cannot tell those apart, and only one of them
+   * is something reloading the page fixes.
+   */
+  check_failed: "Couldn't check whether video is ready. Refresh the page to try again.",
 };
 
 /**
@@ -45,26 +53,26 @@ const UNAVAILABLE: Record<string, string> = {
  * function rather than reading a second copy of them: two places to configure
  * one thing is one place to forget.
  */
-/** Longer than a healthy probe, shorter than the request timeout above it. */
-const PROBE_TIMEOUT_MS = 2_500;
+/**
+ * HeyGen's function is called rarely enough to cold-start, which this once
+ * assumed would never matter because the answer was always going to be "not
+ * configured" anyway. Now that a real key and price exist, a cold start that
+ * outran the old 2.5s budget reported the exact same "not switched on"
+ * message a genuinely unconfigured workspace gets, which is indistinguishable
+ * from broken. Widened past a realistic cold start, and the timeout path no
+ * longer claims to know something it does not.
+ */
+const PROBE_TIMEOUT_MS = 8_000;
 
 export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
-  const unavailable = { ready: false, reason: UNAVAILABLE.provider_unconfigured! } as const;
-  if (!isSupabaseConfigured) return unavailable;
+  if (!isSupabaseConfigured) {
+    return { ready: false, reason: UNAVAILABLE.provider_unconfigured! };
+  }
 
   /*
-   * Bounded, because this blocks the page that renders it.
-   *
-   * The assets page awaits this before it can send a byte, and it is a round
-   * trip to an edge function that is currently certain to refuse: there is no
-   * HeyGen key, so the answer is always "unavailable". A question whose answer
-   * is known is not worth waiting on, and it is definitely not worth failing a
-   * whole screen for, which is what happens when a slow one runs past the
-   * request timeout and the error boundary catches the page instead.
-   *
-   * Two and a half seconds is longer than a healthy call and shorter than any
-   * timeout above it, so a stall degrades to the same "unavailable" the refusal
-   * already produces rather than taking the library down with it.
+   * Bounded, because this blocks the page that renders it: a hung call must
+   * not take the whole library down with it. Distinct from a real refusal,
+   * though — see `check_failed` above.
    */
   const supabase = await createClient();
   const probe = supabase.functions.invoke("generate-heygen-avatar", { body: { probe: true } });
@@ -73,13 +81,13 @@ export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
 
   if (settled === null) {
     logger.warn("twin video readiness probe timed out", { ms: PROBE_TIMEOUT_MS });
-    return unavailable;
+    return { ready: false, reason: UNAVAILABLE.check_failed! };
   }
 
   const { data, error } = settled;
   if (error) {
     logger.warn("could not read twin video readiness", { error: error.message });
-    return unavailable;
+    return { ready: false, reason: UNAVAILABLE.check_failed! };
   }
 
   const result = data as { ready?: boolean; reason?: string; cost?: number } | null;
@@ -88,7 +96,7 @@ export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
   }
   return {
     ready: false,
-    reason: UNAVAILABLE[result?.reason ?? ""] ?? unavailable.reason,
+    reason: UNAVAILABLE[result?.reason ?? ""] ?? UNAVAILABLE.check_failed!,
   };
 }
 

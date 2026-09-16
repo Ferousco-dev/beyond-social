@@ -1,7 +1,6 @@
 "use client";
 
 import { CheckCircle2, Loader, Trash2, AlertCircle, Star } from "lucide-react";
-import Link from "next/link";
 import { type ReactNode } from "react";
 import { type TwinSummary } from "../delete-actions";
 
@@ -55,7 +54,7 @@ export function AvatarList({
             {/* Default star badge */}
             {avatar.isDefault && (
               <div className="absolute top-2 right-2 bg-primary rounded-full p-1.5">
-                <Star className="size-3 fill-white text-white" />
+                <Star className="size-3 fill-paper text-paper" />
               </div>
             )}
 
@@ -95,12 +94,17 @@ export function AvatarList({
             {/* Actions */}
             <div className="flex gap-2 mt-3 pt-3 border-t border-hairline">
               {avatar.trainingStatus === "ready" && (
-                <Link
-                  href="/dashboard"
-                  className="flex-1 px-2 py-1.5 text-center text-xs font-medium text-white bg-primary rounded hover:opacity-90 transition-opacity"
+                // Jumps down the page rather than away from it: the form that
+                // actually uses this avatar is the section right below, and a
+                // link to /dashboard used to send someone looking for "use it"
+                // to the general chat composer instead, which does not use a
+                // trained twin at all.
+                <a
+                  href="#twin-speak-heading"
+                  className="flex-1 px-2 py-1.5 text-center text-xs font-medium text-paper bg-primary rounded hover:opacity-90 transition-opacity"
                 >
                   Use in a video
-                </Link>
+                </a>
               )}
               {avatar.trainingStatus === "ready" && !avatar.isDefault && (
                 <button
