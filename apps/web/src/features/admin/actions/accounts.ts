@@ -13,7 +13,8 @@ const restoreSchema = z.object({ userId: z.string().uuid() });
 /** Restores a deleted account, the counterpart to the deletion the audit log already recorded. */
 export async function restoreAccount(input: z.input<typeof restoreSchema>): Promise<ActionResult> {
   const parsed = restoreSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();

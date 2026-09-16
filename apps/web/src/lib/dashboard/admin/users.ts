@@ -77,7 +77,8 @@ export async function searchUsers(
   }
 
   const last = users.at(-1);
-  const nextCursor = users.length === limit && last ? { createdAt: last.createdAt, id: last.id } : null;
+  const nextCursor =
+    users.length === limit && last ? { createdAt: last.createdAt, id: last.id } : null;
 
   return { users, nextCursor };
 }

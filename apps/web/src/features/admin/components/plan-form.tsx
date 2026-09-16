@@ -47,7 +47,10 @@ export function PlanForm({
   }
 
   return (
-    <ActionCard title="Plan" description="Comp or repair an account's plan. This does not touch Stripe.">
+    <ActionCard
+      title="Plan"
+      description="Comp or repair an account's plan. This does not touch Stripe."
+    >
       <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>

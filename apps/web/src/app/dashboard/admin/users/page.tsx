@@ -23,7 +23,9 @@ export default async function AdminUsersPage({
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Users</h1>
-      <p className="mt-1 text-sm text-ink-soft">Search accounts and manage credits, plan and access.</p>
+      <p className="mt-1 text-sm text-ink-soft">
+        Search accounts and manage credits, plan and access.
+      </p>
 
       <div className="mt-6 flex gap-1.5 border-b border-hairline">
         <Link

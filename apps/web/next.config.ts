@@ -60,12 +60,14 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    // The microphone is allowed for this origin only, because recording a voice
-    // clip is a feature of the app. An empty list blocks every origin including
-    // ours, so the browser refuses before it can even ask, and the failure
-    // arrives as the same error a user denial would produce. Camera and
-    // location stay closed: nothing here uses them.
-    value: "camera=(), microphone=(self), geolocation=(), browsing-topics=()",
+    // Camera and microphone are allowed for this origin only: recording a
+    // voice clip and recording an avatar are both features of the app, and an
+    // empty list blocks every origin including ours, so the browser refuses
+    // before it can even ask, arriving as the same error a user denial would
+    // produce. Camera used to be closed here on the belief nothing used it,
+    // which stopped webcam avatar recording from working at all in
+    // production. Location and topics stay closed: nothing here uses them.
+    value: "camera=(self), microphone=(self), geolocation=(), browsing-topics=()",
   },
   { key: "X-DNS-Prefetch-Control", value: "on" },
 ];

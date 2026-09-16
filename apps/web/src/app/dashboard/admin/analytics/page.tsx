@@ -33,15 +33,16 @@ export default async function AdminAnalyticsPage({
   const { days: daysParam } = await searchParams;
   const days = [7, 30, 90].includes(Number(daysParam)) ? Number(daysParam) : 30;
 
-  const [totals, plans, signups, actives, generations, spendDaily, spendByModel] = await Promise.all([
-    getUserTotals(),
-    getSubscriptionsByPlan(),
-    getSignupsDaily(days),
-    getActiveUsersDaily(days),
-    getGenerationsDaily(days),
-    getAiSpendDaily(days),
-    getAiSpendByModel(days),
-  ]);
+  const [totals, plans, signups, actives, generations, spendDaily, spendByModel] =
+    await Promise.all([
+      getUserTotals(),
+      getSubscriptionsByPlan(),
+      getSignupsDaily(days),
+      getActiveUsersDaily(days),
+      getGenerationsDaily(days),
+      getAiSpendDaily(days),
+      getAiSpendByModel(days),
+    ]);
 
   const totalCost = spendDaily.reduce((sum, p) => sum + p.costUsd, 0);
 
@@ -70,7 +71,9 @@ export default async function AdminAnalyticsPage({
         </div>
         <div className="rounded-xl border border-hairline bg-paper p-4">
           <p className="text-xs text-ink-soft">AI spend ({days}d)</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">${totalCost.toFixed(2)}</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
+            ${totalCost.toFixed(2)}
+          </p>
         </div>
         <div className="rounded-xl border border-hairline bg-paper p-4">
           <p className="text-xs text-ink-soft">Plans represented</p>

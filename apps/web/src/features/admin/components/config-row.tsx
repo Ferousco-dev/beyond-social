@@ -36,7 +36,9 @@ export function ConfigRow({ row }: { readonly row: AppConfigRow }) {
           <p className="truncate font-mono text-xs text-ink">{row.key}</p>
           <span
             className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-              row.takesEffect === "immediate" ? "bg-success/10 text-success" : "bg-cloud text-ink-soft"
+              row.takesEffect === "immediate"
+                ? "bg-success/10 text-success"
+                : "bg-cloud text-ink-soft"
             }`}
           >
             {row.takesEffect === "immediate" ? "immediate" : "needs redeploy"}

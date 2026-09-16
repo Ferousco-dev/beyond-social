@@ -12,8 +12,8 @@ export default async function AdminSecretsPage() {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Secrets</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Metadata only. No value is ever readable here; the registry says whether one is set and when it
-        last rotated.
+        Metadata only. No value is ever readable here; the registry says whether one is set and when
+        it last rotated.
       </p>
 
       <ul className="mt-6 divide-y divide-hairline rounded-xl border border-hairline bg-paper">

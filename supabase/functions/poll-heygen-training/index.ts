@@ -79,7 +79,11 @@ serve(async (request) => {
           })
           .eq("id", row.id);
         if (error) {
-          log("error", "failed to mark avatar ready", { traceId, id: row.id, error: error.message });
+          log("error", "failed to mark avatar ready", {
+            traceId,
+            id: row.id,
+            error: error.message,
+          });
           throw new Error(`Failed to update avatar ${row.id}: ${error.message}`);
         }
         ready += 1;
@@ -98,7 +102,11 @@ serve(async (request) => {
           })
           .eq("id", row.id);
         if (error) {
-          log("error", "failed to mark avatar failed", { traceId, id: row.id, error: error.message });
+          log("error", "failed to mark avatar failed", {
+            traceId,
+            id: row.id,
+            error: error.message,
+          });
           throw new Error(`Failed to update avatar ${row.id}: ${error.message}`);
         }
         failed += 1;
@@ -126,7 +134,11 @@ serve(async (request) => {
         })
         .eq("id", row.id);
       if (updateError) {
-        log("error", "failed to update avatar poll count", { traceId, id: row.id, error: updateError.message });
+        log("error", "failed to update avatar poll count", {
+          traceId,
+          id: row.id,
+          error: updateError.message,
+        });
         throw new Error(`Failed to update avatar ${row.id}: ${updateError.message}`);
       }
       if (stuck) failed += 1;

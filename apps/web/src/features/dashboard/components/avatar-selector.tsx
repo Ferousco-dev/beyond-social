@@ -10,10 +10,7 @@ interface AvatarSelectorProps {
   onSelect: (avatarId: string | null) => void;
 }
 
-export function AvatarSelector({
-  selectedAvatarId,
-  onSelect,
-}: AvatarSelectorProps): ReactNode {
+export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorProps): ReactNode {
   const { avatars, loading } = useAvatars();
   const [open, setOpen] = useState(false);
 
@@ -48,11 +45,7 @@ export function AvatarSelector({
       {open ? (
         <>
           {/* Backdrop to close dropdown */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setOpen(false)}
-            aria-hidden
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
 
           {/* Dropdown menu */}
           <div className="absolute top-full right-0 z-50 mt-2 min-w-48 rounded-lg border border-hairline bg-paper shadow-card">
@@ -87,9 +80,7 @@ export function AvatarSelector({
                   <div className="flex items-center gap-2">
                     <CheckCircle2
                       className={`size-3 ${
-                        selectedAvatarId === avatar.id
-                          ? "text-primary"
-                          : "text-ink-soft"
+                        selectedAvatarId === avatar.id ? "text-primary" : "text-ink-soft"
                       }`}
                       aria-hidden
                     />

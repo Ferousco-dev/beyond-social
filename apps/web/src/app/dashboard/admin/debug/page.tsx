@@ -13,7 +13,9 @@ export default async function AdminDebugPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Debug console</h1>
-      <p className="mt-1 text-sm text-ink-soft">Trace one record, inspect failures in full, retry stuck work.</p>
+      <p className="mt-1 text-sm text-ink-soft">
+        Trace one record, inspect failures in full, retry stuck work.
+      </p>
 
       <section className="mt-6 rounded-xl border border-hairline bg-paper p-5">
         <h2 className="text-sm font-semibold text-ink">Trace lookup</h2>
@@ -27,7 +29,9 @@ export default async function AdminDebugPage() {
 
       <section className="mt-4 rounded-xl border border-hairline bg-paper p-5">
         <h2 className="text-sm font-semibold text-ink">Failure explorer</h2>
-        <p className="mt-1 text-xs text-ink-soft">Untruncated errors, filterable by kind and window.</p>
+        <p className="mt-1 text-xs text-ink-soft">
+          Untruncated errors, filterable by kind and window.
+        </p>
         <div className="mt-3">
           <FailureExplorer />
         </div>

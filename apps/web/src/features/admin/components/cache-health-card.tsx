@@ -21,7 +21,9 @@ export function CacheHealthCard({ cache }: { readonly cache: CacheHealth | null 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div>
           <p className="text-xs text-ink-soft">Hit rate (24h)</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">{hitRate.toFixed(1)}%</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+            {hitRate.toFixed(1)}%
+          </p>
         </div>
         <div>
           <p className="text-xs text-ink-soft">Live entries</p>
@@ -29,11 +31,15 @@ export function CacheHealthCard({ cache }: { readonly cache: CacheHealth | null 
         </div>
         <div>
           <p className="text-xs text-ink-soft">Expired, unswept</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">{cache.expiredEntries}</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+            {cache.expiredEntries}
+          </p>
         </div>
         <div>
           <p className="text-xs text-ink-soft">Embeddings cached</p>
-          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">{cache.embeddingEntries}</p>
+          <p className="mt-0.5 text-lg font-semibold tabular-nums text-ink">
+            {cache.embeddingEntries}
+          </p>
         </div>
       </div>
     </section>

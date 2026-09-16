@@ -30,7 +30,10 @@ export interface TwinVideoRun {
   readonly start: (request: { avatarId: string; script: string }) => void;
 }
 
-export function useTwinVideo(onStarted?: () => void, onProjectCreated?: (projectId: string) => void): TwinVideoRun {
+export function useTwinVideo(
+  onStarted?: () => void,
+  onProjectCreated?: (projectId: string) => void,
+): TwinVideoRun {
   const router = useRouter();
   const [phase, setPhase] = useState<TwinVideoPhase>({ kind: "idle" });
   const [generationId, setGenerationId] = useState<string | null>(null);

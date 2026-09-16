@@ -116,12 +116,7 @@ export function AvatarWizard({
 
           {recording && (
             <div className="mb-6 overflow-hidden rounded-xl border border-hairline">
-              <video
-                src={recording.url}
-                controls
-                playsInline
-                className="aspect-video w-full"
-              />
+              <video src={recording.url} controls playsInline className="aspect-video w-full" />
             </div>
           )}
 

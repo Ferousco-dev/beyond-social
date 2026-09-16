@@ -14,7 +14,10 @@ export function DeletedAccountsPanel({ accounts }: { readonly accounts: DeletedA
 
   if (accounts.length === 0) {
     return (
-      <EmptyState title="No deleted accounts" body="Nobody is currently in the deletion grace period." />
+      <EmptyState
+        title="No deleted accounts"
+        body="Nobody is currently in the deletion grace period."
+      />
     );
   }
 
@@ -35,9 +38,14 @@ export function DeletedAccountsPanel({ accounts }: { readonly accounts: DeletedA
     <div>
       <ul className="divide-y divide-hairline rounded-xl border border-hairline bg-paper">
         {accounts.map((account) => (
-          <li key={account.userId} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <li
+            key={account.userId}
+            className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+          >
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">{account.email ?? account.userId}</p>
+              <p className="truncate text-sm font-medium text-ink">
+                {account.email ?? account.userId}
+              </p>
               <p className="mt-0.5 text-xs text-ink-soft">
                 Deleted {new Date(account.deletedAt).toLocaleDateString()}
                 {account.deletionReason ? ` — ${account.deletionReason}` : ""}

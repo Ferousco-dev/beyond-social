@@ -22,13 +22,7 @@ const BADGE: Record<CloneStatus, { label: string; className: string } | null> = 
  * rather than for any separation of concern beyond that: this is still just
  * the enrolled-voice card's footer.
  */
-export function VoiceCloneAction({
-  status,
-  error,
-}: {
-  status: CloneStatus;
-  error: string | null;
-}) {
+export function VoiceCloneAction({ status, error }: { status: CloneStatus; error: string | null }) {
   const [cloneStatus, setCloneStatus] = useState(status);
   const [cloneError, setCloneError] = useState(error);
   const [pending, startTransition] = useTransition();

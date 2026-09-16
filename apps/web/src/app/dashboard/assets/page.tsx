@@ -17,26 +17,39 @@ export default async function AssetsPage() {
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
       <header className="pb-8">
         <h1 className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
-          Your avatars
+          Your avatar
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Record yourself once and use your avatar in every video. Select an avatar to generate videos.
+          Record yourself once. From then on, write anything and your avatar speaks it in your own
+          voice, in a new video.
         </p>
       </header>
 
+      {/*
+       * One flow, not two unrelated cards: step 1 is record/pick an avatar,
+       * step 2 is right underneath it because "it's ready" and "use it" used
+       * to be separated by a whole section boundary, which read as two
+       * different features rather than the next step of the same one.
+       */}
       <div className="space-y-8">
-        {/* Avatar Library Section */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-ink">Your avatar library</h2>
-          </div>
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
+            1. Record or choose an avatar
+          </h2>
           <AvatarGrid twins={twins} name={user.email ?? "User"} />
         </section>
 
-        {/* Video Generation Section */}
-        <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
-          <TwinSpeak twins={twins} readiness={readiness} />
-        </section>
+        {/* TwinSpeak renders nothing with no avatar recorded yet, so this
+            section would otherwise be a labelled empty box: the library
+            above is already telling that person to record one. */}
+        {twins.length > 0 && (
+          <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft mb-2">
+              2. Write what it should say
+            </h2>
+            <TwinSpeak twins={twins} readiness={readiness} />
+          </section>
+        )}
       </div>
     </div>
   );

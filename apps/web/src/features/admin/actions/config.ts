@@ -12,13 +12,20 @@ const setConfigSchema = z.object({
   key: z.string().min(1),
   // The RPC itself validates the value against the row's declared value_type,
   // so the shape check here only keeps obviously malformed input from a request.
-  value: z.union([z.string(), z.number(), z.boolean(), z.record(z.unknown()), z.array(z.unknown())]),
+  value: z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.record(z.unknown()),
+    z.array(z.unknown()),
+  ]),
 });
 
 /** Sets one app_config value. The database validates it against value_type and audits the change. */
 export async function setAppConfig(input: z.input<typeof setConfigSchema>): Promise<ActionResult> {
   const parsed = setConfigSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();

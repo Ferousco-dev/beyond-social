@@ -18,7 +18,8 @@ const creditsSchema = z.object({
 /** Sets an account's credit allowance and consumption. The RPC requires a reason. */
 export async function setUserCredits(input: z.input<typeof creditsSchema>): Promise<ActionResult> {
   const parsed = creditsSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();
@@ -45,7 +46,8 @@ const planSchema = z.object({
 /** Overrides an account's plan and credit allowance. Does not touch Stripe. */
 export async function setUserPlan(input: z.input<typeof planSchema>): Promise<ActionResult> {
   const parsed = planSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();
@@ -76,7 +78,8 @@ export async function setUserSuspension(
   input: z.input<typeof suspensionSchema>,
 ): Promise<ActionResult> {
   const parsed = suspensionSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
   if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
 
   const supabase = await createClient();

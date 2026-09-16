@@ -25,7 +25,11 @@ function main(): void {
     // `claim_queued_renders` directly against the database and needs no queue
     // here. Running it from both places only meant two consumers racing the
     // same claim for no benefit.
-    disposers.push(stopScheduler, () => worker.close(), () => queue.close());
+    disposers.push(
+      stopScheduler,
+      () => worker.close(),
+      () => queue.close(),
+    );
     logger.info("Publishing queue started");
   } else {
     logger.warn("Queue disabled; set REDIS_URL and Supabase service credentials to enable it");

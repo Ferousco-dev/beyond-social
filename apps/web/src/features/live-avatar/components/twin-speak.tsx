@@ -65,20 +65,25 @@ export function TwinSpeak({
 
   return (
     <section aria-labelledby="twin-speak-heading">
-      <h3 id="twin-speak-heading" className="text-lg font-semibold text-ink mb-2">
+      <h3 id="twin-speak-heading" className="sr-only">
         Generate a video
       </h3>
       <p className="text-sm text-ink-soft mb-6">
-        Write a script below. Your avatar will speak it in its own voice and the video lands in your library.
+        Your avatar speaks this in its own voice, and the video lands in your library.
         <br />
-        <span className="font-medium text-primary">Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}</span>
+        <span className="font-medium text-primary">
+          Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}
+        </span>
       </p>
 
       <div className="mt-6 flex flex-col gap-4">
         {/* Avatar Selection */}
         {usable.length > 1 ? (
           <div className="rounded-lg border border-hairline p-4 bg-cloud/50">
-            <label htmlFor="twin-speak-avatar" className="block text-xs font-semibold text-ink-soft uppercase tracking-wide">
+            <label
+              htmlFor="twin-speak-avatar"
+              className="block text-xs font-semibold text-ink-soft uppercase tracking-wide"
+            >
               Select which avatar to use
             </label>
             <select

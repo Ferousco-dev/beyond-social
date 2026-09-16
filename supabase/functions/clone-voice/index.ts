@@ -123,7 +123,10 @@ serve(async (request) => {
 
   const reservation = await reserveCreditsAt(admin, generation.id, cost);
   if (!reservation.held) {
-    log("error", "voice clone credit reservation refused", { traceId, generationId: generation.id });
+    log("error", "voice clone credit reservation refused", {
+      traceId,
+      generationId: generation.id,
+    });
     await abandonRun(admin, generation.id, reservation.reason);
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
@@ -145,6 +148,10 @@ serve(async (request) => {
         clone_status: "pending",
         voice_clone_id: result.voiceCloneId,
         clone_error: null,
+        // What poll-voice-clone settles once the clone resolves: without
+        // this, the credit reserved above stays held against a row nothing
+        // ever marks ready or refunds.
+        generation_id: generation.id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", row.id);
@@ -161,7 +168,11 @@ serve(async (request) => {
       voiceCloneId: result.voiceCloneId,
       generationId: generation.id,
     });
-    return json({ status: "pending", voiceCloneId: result.voiceCloneId, generationId: generation.id });
+    return json({
+      status: "pending",
+      voiceCloneId: result.voiceCloneId,
+      generationId: generation.id,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log("error", "voice clone failed", { traceId, error: message });
