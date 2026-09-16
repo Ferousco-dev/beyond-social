@@ -69,7 +69,7 @@ export function AvatarGrid({
             current.map((a) => ({
               ...a,
               isDefault: a.id === avatarId,
-            }))
+            })),
           );
           router.refresh();
         } else {
@@ -105,7 +105,10 @@ export function AvatarGrid({
 
         // Step 2: Upload the file to signed URL
         const baseType = footage.file.type.split(";")[0]!;
-        const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+        const storage = createClient(
+          env.NEXT_PUBLIC_SUPABASE_URL,
+          env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        );
         const { error: uploadError } = await storage.storage
           .from("avatar-footage")
           .uploadToSignedUrl(ticketed.ticket.path, ticketed.ticket.token, footage.file, {
