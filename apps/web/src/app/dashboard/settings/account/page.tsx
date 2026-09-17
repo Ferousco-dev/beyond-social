@@ -6,6 +6,7 @@ import { IndustryForm } from "@/features/settings/components/industry-form";
 import { PasswordForm } from "@/features/settings/components/password-form";
 import { TwinLibrary } from "@/features/live-avatar/components/twin-library";
 import { listTwins } from "@/features/live-avatar/delete-actions";
+import { ReplayChecklistButton } from "@/features/onboarding/components/replay-checklist-button";
 import { EnrollSection } from "@/features/voice/enroll-section";
 import { getIndustry } from "@/lib/profile/industry";
 import { getAccount } from "@/lib/settings/account";
@@ -41,6 +42,15 @@ export default async function AccountPage() {
           Record a short sample, then clone it so your videos can say things you never recorded.
         </p>
         <EnrollSection />
+      </section>
+      {/* Below the guided sections above, not with them: this doesn't ask for
+          anything, it just brings back a panel that was closed. */}
+      <section className="mt-8 rounded-xl border border-hairline p-5">
+        <h2 className="text-sm font-medium text-ink">Getting started</h2>
+        <p className="mt-1 mb-4 text-sm text-ink-soft">
+          Bring back the checklist that walks through your first video, voice and connection.
+        </p>
+        <ReplayChecklistButton />
       </section>
       <DangerZone email={account.email} />
     </section>
