@@ -2,7 +2,7 @@
 
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,8 +26,13 @@ export function UserSearch({
   const [users, setUsers] = useState(initialUsers);
   const [cursor, setCursor] = useState(initialCursor);
   const [pending, startTransition] = useTransition();
+  const isFirstRun = useRef(true);
 
   useEffect(() => {
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
     const handle = window.setTimeout(() => {
       startTransition(() => {
         void searchUsersAction(query, null, plan).then((result) => {

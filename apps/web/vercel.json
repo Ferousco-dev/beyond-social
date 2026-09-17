@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
   "regions": ["arn1"],
   "crons": [
     {
@@ -18,10 +19,5 @@
       "path": "/api/cron/poll-heygen",
       "schedule": "*/5 * * * *"
     }
-  ],
-  "git": {
-    "deploymentEnabled": {
-      "main": false
-    }
-  }
+  ]
 }
