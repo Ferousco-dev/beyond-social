@@ -165,7 +165,7 @@ export async function AiSpendChart({ days }: { days: number }) {
           points: spendDaily.map((p) => ({ day: p.day, value: p.costUsd })),
         },
       ]}
-      formatValue={(v) => `$${v.toFixed(2)}`}
+      format="currency"
     />
   );
 }

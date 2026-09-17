@@ -44,12 +44,19 @@ function shortDate(day: string): string {
  * Client component: the whole point of this chart is the cursor-following
  * crosshair and tooltip below, which need onMouseMove.
  */
+const FORMATTERS = {
+  number: (v: number) => v.toLocaleString(),
+  currency: (v: number) => `$${v.toFixed(2)}`,
+} as const;
+
 export function TrendChart({
   series,
-  formatValue,
+  format: formatKind = "number",
 }: {
   readonly series: ReadonlyArray<TrendSeries>;
-  readonly formatValue?: (value: number) => string;
+  /** Passed as a plain key rather than a function: this is a client
+   * component, and a function prop can't cross from a server component. */
+  readonly format?: keyof typeof FORMATTERS;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -57,7 +64,7 @@ export function TrendChart({
   const allValues = series.flatMap((s) => s.points.map((p) => p.value));
   const max = Math.max(1, ...allValues);
   const days = series[0]?.points.map((p) => p.day) ?? [];
-  const format = formatValue ?? ((v: number) => v.toLocaleString());
+  const format = FORMATTERS[formatKind];
 
   const plotWidth = WIDTH - PAD_LEFT - PAD_RIGHT;
   const plotHeight = HEIGHT - PAD_TOP - PAD_BOTTOM;
