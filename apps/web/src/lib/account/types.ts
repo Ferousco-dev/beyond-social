@@ -17,14 +17,19 @@ import { z } from "zod";
 export const DELETION_GRACE_PERIOD_DAYS = 30;
 
 /**
- * What a returning person is told when they sign in to a deleted account.
- *
- * Deliberately not the generic credentials error. Someone whose account was
- * deleted and who is told "invalid email or password" will reset their password,
- * fail again, and reset it again, because no password can fix this. Naming the
- * real state is also the only way they learn a restore is possible at all.
+ * Support address used when a recently deleted account can still be restored.
  */
-export const ACCOUNT_DELETED_MESSAGE = "This account has been deleted.";
+export const ACCOUNT_RESTORE_SUPPORT_EMAIL = "support@beyondsocial.app";
+
+/**
+ * Message shown when a deleted account is still within the restoration
+ * grace period.
+ */
+export const ACCOUNT_DELETED_MESSAGE =
+  `Your account was recently deleted. ` +
+  `If your account was deleted within the last ${DELETION_GRACE_PERIOD_DAYS} days, ` +
+  `it may still be restored. Please contact ${ACCOUNT_RESTORE_SUPPORT_EMAIL} ` +
+  `for assistance restoring your account.`;
 
 /**
  * Mirrors the exception `request_account_deletion` raises when the account is
@@ -56,6 +61,7 @@ export type DeletedAccount = {
   readonly email: string;
   readonly deletedAt: string;
   readonly reason: string | null;
+
   /** When the account stops being restorable and becomes erasable. */
   readonly erasableAt: string;
 };
@@ -69,9 +75,33 @@ export function isAlreadyDeletedError(message: string): boolean {
   return message.includes(DB_ALREADY_DELETED);
 }
 
+/**
+ * Returns true while the account is still inside the restoration grace period.
+ */
+export function isAccountRestorable(
+  deletedAt: string,
+  now: Date = new Date(),
+): boolean {
+  const deleted = new Date(deletedAt);
+
+  if (Number.isNaN(deleted.getTime())) {
+    return false;
+  }
+
+  const erasableAt = new Date(deleted);
+  erasableAt.setUTCDate(
+    erasableAt.getUTCDate() + DELETION_GRACE_PERIOD_DAYS,
+  );
+
+  return now < erasableAt;
+}
+
 export function toDeletedAccount(row: DeletedAccountRow): DeletedAccount {
   const erasable = new Date(row.deleted_at);
-  erasable.setUTCDate(erasable.getUTCDate() + DELETION_GRACE_PERIOD_DAYS);
+
+  erasable.setUTCDate(
+    erasable.getUTCDate() + DELETION_GRACE_PERIOD_DAYS,
+  );
 
   return {
     id: row.id,
