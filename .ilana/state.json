@@ -1,14 +1,14 @@
 {
   "ilana_version": "1.0.0",
-  "project": "beyond-social",
-  "mode": "TASK",
-  "phase": "08",
-  "gate": "G0",
-  "agent": "constructor",
+  "project": "Beyond Social AI capability completion",
+  "mode": "FLEET",
+  "phase": "04",
+  "gate": null,
+  "agent": "conductor",
   "process_style": "hybrid",
   "rigour": 3,
-  "open": ["DEF-002", "DEF-003", "DEF-005", "DEF-007"],
+  "open": ["CR-001"],
   "overrides": [],
-  "counters": { "DEF": 7, "DEC": 1, "GATE": 0 },
+  "counters": { "REQ": 0, "NFR": 0, "DOM": 0, "DES": 0, "TC": 0, "DEF": 0, "CR": 1 },
   "attempts": {}
 }

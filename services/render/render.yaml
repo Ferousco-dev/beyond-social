@@ -1,0 +1,44 @@
+# Render Blueprint for the render worker.
+#
+# The editor queues an export into `project_renders`; this worker is what
+# turns it into a file. It must never scale to zero — a stopped instance
+# claims nothing, so an export queued while it slept would sit there until
+# something else woke it, which is the exact failure this service exists to
+# prevent. `starter` is Render's cheapest plan that doesn't spin down on
+# inactivity; `free` does and is not usable here.
+#
+# Deploy: connect this repo in the Render dashboard and point it at this
+# file (New > Blueprint), or `render blueprints launch` with the Render CLI.
+# The two secrets below (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) have no
+# value here on purpose — Render prompts for them at blueprint creation and
+# stores them encrypted, the same reason they never lived in fly.toml before.
+#
+# frankfurt is the closest Render region to the Supabase project (Stockholm,
+# `arn` in Fly's naming) — Render has no Stockholm region. The worker streams
+# every source clip down and the finished file back up, so this distance is
+# paid on every export rather than once.
+services:
+  - type: web
+    name: beyond-social-render
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./services/render/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      # A queue that is empty most of the time does not need a fast poll.
+      # Exports arrive a few times an hour.
+      - key: RENDER_POLL_MS
+        value: "15000"
+      # One job saturates a core, so a second in parallel makes both slower
+      # rather than finishing either sooner. Raise only alongside the plan's
+      # CPU count.
+      - key: RENDER_CONCURRENCY
+        value: "1"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

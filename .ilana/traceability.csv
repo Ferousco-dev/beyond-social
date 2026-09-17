@@ -1,0 +1,13 @@
+req_id,requirement,type,priority,source,design_id,module,test_ids,result,status
+REQ-001,Creator testers can select every active compatible advanced video or avatar model,functional,must,"Owner interview 2026-09-16",,"",TC-001;TC-002,,specified
+REQ-002,Generation UI exposes Auto Recommended and Advanced model choices with costs and requirements,functional,must,"Owner interview 2026-09-16",,"",TC-003;TC-004,,specified
+REQ-003,Auto routes image plus voice plus prompt drafts to the avatar family,functional,must,"Owner interview 2026-09-16",,"",TC-005;TC-006,,specified
+REQ-004,Reference-to-video collects one driving video and one or more images,functional,must,"Owner interview 2026-09-16",,"",TC-007;TC-008,,specified
+REQ-005,Server validates capability prerequisites before debit or provider request,functional,must,"Owner interview and repository analysis 2026-09-16",,"",TC-009;TC-010,,specified
+REQ-006,HeyGen twin-video and voice-clone have documented positive credit-price gates,functional,must,"Owner interview 2026-09-16",,"",TC-011;TC-012,,specified
+REQ-007,Verification issues no paid provider request,functional,must,"Owner instruction 2026-09-16",,"",TC-013,,specified
+NFR-001,Every selectable model reveals cost and required inputs,non-functional,must,"Owner interview 2026-09-16",,"",TC-003,,specified
+NFR-002,Invalid requests create zero net debit and zero provider calls,non-functional,must,"Repository analysis 2026-09-16",,"",TC-009;TC-010;TC-012,,specified
+NFR-003,Sensitive media remains authenticated owned and consented,non-functional,must,"Owner interview and repository analysis 2026-09-16",,"",TC-010,,specified
+DOM-001,Avatar and voice media require likeness and voice consent controls,domain,must,"Normal SaaS safeguards baseline 2026-09-16",,"",TC-010,,specified
+DOM-002,Provider invocation and pricing remain server-enforced,domain,must,"Repository analysis 2026-09-16",,"",TC-009;TC-011;TC-012,,specified
