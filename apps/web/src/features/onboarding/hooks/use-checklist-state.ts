@@ -12,6 +12,27 @@ interface Stored {
 const DEFAULTS: Stored = { collapsed: false, dismissed: false };
 
 /**
+ * Puts the checklist back the way it looks on a first visit: expanded, not
+ * dismissed.
+ *
+ * Only this one key is touched. The checklist's own `done` steps come from
+ * the account's real data (see `getOnboardingProgress`), so replaying never
+ * un-does a video, a voice sample, or anything else the user actually made;
+ * it only clears the "I've seen this" preference stored on this device.
+ *
+ * A full navigation to the dashboard has to follow this call: the layout that
+ * renders the checklist does not remount on an in-app route change, so the
+ * component holding `dismissed` in memory would not otherwise notice.
+ */
+export function clearChecklistDismissal(): void {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Private mode and full quotas both land here; nothing to clean up.
+  }
+}
+
+/**
  * Where the panel starts when nothing has been stored yet.
  *
  * Open on a desktop, shut on a phone. Expanded, the panel is a fixed sheet
