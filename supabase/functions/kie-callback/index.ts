@@ -8,7 +8,6 @@ import { json, serve } from "../_shared/http.ts";
 import { authenticateCallback } from "../_shared/kie-callback-auth.ts";
 import { parseUrls } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
-import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
 
 interface CallbackBody {
@@ -96,20 +95,6 @@ serve(async (req) => {
     }
 
     log("info", "generation completed", { traceId, taskId });
-    if (generation) {
-      await deliverEvent(
-        admin,
-        generation.user_id,
-        "generation.completed",
-        {
-          generation_id: generation.id,
-          // The signed link, not the storage path: a receiver can fetch this, and
-          // it expires, which is the same contract the REST API gives.
-          result_url: resultUrl,
-        },
-        traceId,
-      );
-    }
   } else {
     const reason = body.msg ?? "Generation failed";
     const { data: transitioned, error } = await admin.rpc("fail_generation", {
@@ -138,18 +123,6 @@ serve(async (req) => {
     }
 
     log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
-    if (generation) {
-      await deliverEvent(
-        admin,
-        generation.user_id,
-        "generation.failed",
-        {
-          generation_id: generation.id,
-          error: reason,
-        },
-        traceId,
-      );
-    }
   }
 
   return json({ received: true });

@@ -1,22 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
-
-import { reportError } from "@/lib/firebase/report-error";
-
 import "./globals.css";
 
 export default function GlobalError({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    reportError(error, { boundary: "global" });
-  }, [error]);
-
   return (
     <html lang="en">
       <body>

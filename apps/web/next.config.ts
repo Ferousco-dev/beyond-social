@@ -29,10 +29,7 @@ const csp = [
   // production policy let any script on the page reach a service on the
   // visitor's own machine, which is a hole opened for our convenience and paid
   // for by them.
-  // Firebase Analytics and error reporting send beacons to these Google
-  // domains directly; the JS SDK does not inject an external <script> tag,
-  // so only connect-src needs to widen, not script-src.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai https://*.google-analytics.com https://*.analytics.google.com https://firebaseinstallations.googleapis.com${
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${
     isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : ""
   }`,
   /*

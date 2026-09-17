@@ -149,6 +149,9 @@ export function AvatarGrid({
               error: null,
               consentUrl: result.consentUrl,
               consentUrlExpired: false,
+              previewImageUrl: null,
+              previewVideoUrl: null,
+              recordingUrl: null,
             },
           ]);
         }

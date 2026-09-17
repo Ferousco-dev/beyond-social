@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronsUpDown, LogOut, Settings, Share2 } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, Share2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState, useTransition } from "react";
@@ -144,6 +144,19 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                   <span className="text-xs text-ink-soft">{PLAN_CATALOGUE[user.plan].name}</span>
                 </Link>
               </DropdownMenu.Item>
+              {/* Admin's own login and separate app went away with this: the
+                  console already lives at /dashboard/admin, gated server-side
+                  by the same is_admin() check that decided whether this row
+                  renders, so a non-admin who guesses the URL anyway still
+                  gets refused there regardless of what this menu shows. */}
+              {user.isAdmin ? (
+                <DropdownMenu.Item asChild>
+                  <Link href="/dashboard/admin" className={ROW}>
+                    Admin
+                    <ShieldCheck className={ICON} aria-hidden />
+                  </Link>
+                </DropdownMenu.Item>
+              ) : null}
             </div>
 
             <DropdownMenu.Separator className="h-px bg-hairline" />

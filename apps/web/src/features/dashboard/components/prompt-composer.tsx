@@ -44,11 +44,6 @@ interface PromptComposerProps {
   shots: readonly PendingShot[] | null;
   onShotsChange: (shots: readonly PendingShot[] | null) => void;
   /**
-   * What a video costs and what is left. Null when there is no backend to ask,
-   * in which case nothing is claimed about price.
-   */
-  credits: { readonly cost: number; readonly balance: number } | null;
-  /**
    * Stops reading the turn in flight. Absent where there is nothing to stop,
    * which is the dashboard composer: it navigates before a turn begins.
    */
@@ -78,7 +73,6 @@ export function PromptComposer({
   footage,
   shots,
   onShotsChange,
-  credits,
   onStop,
   selectedAvatarId,
   onSelectedAvatarChange,
@@ -102,7 +96,7 @@ export function PromptComposer({
   const sendReason = uploading
     ? "Wait for the upload to finish"
     : busy
-      ? "Wait for the current video to finish"
+      ? "Sending your message"
       : value.trim() === ""
         ? "Describe a video first"
         : "Send";
@@ -131,7 +125,7 @@ export function PromptComposer({
   }
 
   return (
-    <div className="rounded-[26px] bg-paper p-3 shadow-card">
+    <div className="rounded-[22px] border border-hairline bg-paper px-1 py-1">
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {/*
         A second, additive way to give an avatar render its voice: the
@@ -157,14 +151,6 @@ export function PromptComposer({
         </button>
       ) : null}
       {footage ? <FootageChip footage={footage} onRemove={() => onFootage(null)} /> : null}
-      {onSelectedAvatarChange ? (
-        <div className="px-1 pb-2">
-          <AvatarSelector
-            selectedAvatarId={selectedAvatarId ?? null}
-            onSelect={onSelectedAvatarChange}
-          />
-        </div>
-      ) : null}
       {shots !== null && shots.length > 0 ? (
         <ShotListEditor
           shots={shots}
@@ -225,18 +211,7 @@ export function PromptComposer({
         </p>
       ) : null}
 
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={handleKeyDown}
-        rows={1}
-        placeholder="Describe a video to create"
-        aria-label="Describe a video to create"
-        className="block max-h-44 w-full resize-none bg-transparent px-3 py-2.5 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
-      />
-
-      <div className="flex items-center justify-between px-1 pt-1.5">
+      <div className="flex min-h-9 items-end gap-1 px-1">
         <ComposeMenu
           projectId={projectId}
           onVoice={onVoice}
@@ -255,6 +230,22 @@ export function PromptComposer({
           }}
           onError={setError}
           onBusyChange={setUploading}
+        />
+        {onSelectedAvatarChange ? (
+          <AvatarSelector
+            selectedAvatarId={selectedAvatarId ?? null}
+            onSelect={onSelectedAvatarChange}
+          />
+        ) : null}
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          rows={1}
+          placeholder="Describe a video to create"
+          aria-label="Describe a video to create"
+          className="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <RecordButton
@@ -303,18 +294,6 @@ export function PromptComposer({
         brief, send it, and be refused. Stated quietly: this is a fact worth
         having, not a warning, right up until there is not enough for one video.
       */}
-      {credits !== null ? (
-        <p
-          className={cn(
-            "px-3 pt-1 text-xs",
-            credits.balance < credits.cost ? "text-destructive" : "text-ink-soft",
-          )}
-        >
-          {credits.balance < credits.cost
-            ? `A video costs ${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} and you have ${credits.balance}. Top up to keep generating.`
-            : `${credits.cost} ${credits.cost === 1 ? "credit" : "credits"} a video · ${credits.balance} left`}
-        </p>
-      ) : null}
     </div>
   );
 }

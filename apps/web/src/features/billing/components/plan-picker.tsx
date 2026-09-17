@@ -63,11 +63,15 @@ export function PlanPicker({
               key={plan.id}
               plan={plan}
               current={currentPlan === plan.id}
+              locked={plan.id === "studio"}
               busy={busyPlan === plan.id && pending}
               // Only a paid plan is bought, and only when there is a checkout
               // to buy it through.
               onUpgrade={
-                checkoutReady && UPGRADEABLE.includes(plan.id) && currentPlan !== plan.id
+                checkoutReady &&
+                plan.id !== "studio" &&
+                UPGRADEABLE.includes(plan.id) &&
+                currentPlan !== plan.id
                   ? () => upgrade(plan.id)
                   : undefined
               }
@@ -97,12 +101,14 @@ export function PlanPicker({
 function PlanColumn({
   plan,
   current,
+  locked,
   busy,
   onUpgrade,
   disabled,
 }: {
   plan: Plan;
   current: boolean;
+  locked: boolean;
   busy: boolean;
   onUpgrade?: () => void;
   disabled: boolean;
@@ -112,11 +118,16 @@ function PlanColumn({
   return (
     <div
       className={cn(
-        "flex flex-col border-hairline p-5 not-last:border-b sm:not-last:border-b-0 sm:not-last:border-r",
+        "relative flex flex-col border-hairline p-5 not-last:border-b sm:not-last:border-b-0 sm:not-last:border-r",
         current && "bg-canvas",
       )}
     >
-      <div className="flex h-5 items-center justify-between gap-2">
+      {locked ? (
+        <span className="absolute right-4 top-4 z-10 rounded-full bg-cloud px-2.5 py-1 text-[11px] font-medium text-ink-soft">
+          Coming soon
+        </span>
+      ) : null}
+      <div className={cn("flex h-5 items-center justify-between gap-2", locked && "blur-sm")}>
         <h3 className="text-sm font-semibold text-ink">{plan.name}</h3>
         {current ? (
           <span className="text-[11px] font-medium uppercase tracking-wider text-ink-soft">
@@ -125,7 +136,7 @@ function PlanColumn({
         ) : null}
       </div>
 
-      <p className="mt-3 flex min-h-8 items-baseline gap-1">
+      <p className={cn("mt-3 flex min-h-8 items-baseline gap-1", locked && "blur-sm")}>
         {price !== null ? (
           <>
             <span className="text-2xl font-semibold tracking-tight tabular-nums text-ink">
@@ -145,11 +156,11 @@ function PlanColumn({
        * The video count lives in the feature list, priced against the model
        * that plan actually runs.
        */}
-      <p className="mt-2 text-xs tabular-nums text-ink">
+      <p className={cn("mt-2 text-xs tabular-nums text-ink", locked && "blur-sm")}>
         {plan.credits.toLocaleString()} credits a month
       </p>
 
-      <ul className="mt-4 flex-1 space-y-2">
+      <ul className={cn("mt-4 flex-1 space-y-2", locked && "blur-sm")}>
         {plan.features.map((feature) => (
           <li key={feature} className="flex gap-2 text-xs leading-relaxed text-ink-soft">
             <Check className="mt-0.5 size-3 shrink-0 text-ink" aria-hidden />
@@ -158,7 +169,15 @@ function PlanColumn({
         ))}
       </ul>
 
-      {onUpgrade !== undefined ? (
+      {locked ? (
+        <button
+          type="button"
+          disabled
+          className="mt-5 inline-flex h-9 items-center justify-center rounded-full bg-ink px-4 text-xs font-medium text-canvas disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Coming soon
+        </button>
+      ) : onUpgrade !== undefined ? (
         <button
           type="button"
           onClick={onUpgrade}

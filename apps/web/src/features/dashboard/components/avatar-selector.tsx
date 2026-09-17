@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronDown } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useAvatars } from "@/features/live-avatar/hooks/use-avatars";
@@ -15,7 +15,10 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
   const [open, setOpen] = useState(false);
 
   const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready");
-  const selectedAvatar = avatars.find((a) => a.id === selectedAvatarId);
+  const selectedAvatar =
+    avatars.find((avatar) => avatar.id === selectedAvatarId) ??
+    readyAvatars.find((avatar) => avatar.isDefault) ??
+    readyAvatars[0];
 
   if (readyAvatars.length === 0) return null;
 
@@ -24,22 +27,31 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-sm text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex h-8 max-w-44 items-center gap-1.5 rounded-full border border-hairline px-1.5 text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         title="Select avatar"
       >
         {loading ? (
           <Spinner className="size-3" />
         ) : selectedAvatar ? (
           <>
-            <CheckCircle2 className="size-3 text-success" aria-hidden />
-            <span className="max-w-xs truncate text-xs font-medium">
-              {selectedAvatar.name || `Avatar ${selectedAvatar.id.slice(0, 8)}`}
+            {selectedAvatar.previewImageUrl ? (
+              // Provider-hosted preview image, selected by the owner in this control.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={selectedAvatar.previewImageUrl}
+                alt={selectedAvatar.name || "Selected avatar"}
+                className="size-5 rounded-full object-cover"
+              />
+            ) : (
+              <CheckCircle2 className="size-3.5 text-success" aria-hidden />
+            )}
+            <span className="max-w-28 truncate text-xs font-medium">
+              {selectedAvatar.name || "Avatar"}
             </span>
           </>
         ) : (
-          <span className="text-xs text-ink-soft">No avatar selected</span>
+          <span className="text-xs text-ink-soft">Avatar</span>
         )}
-        <ChevronDown className="size-3 text-ink-soft" aria-hidden />
       </button>
 
       {open ? (
@@ -48,7 +60,7 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
 
           {/* Dropdown menu */}
-          <div className="absolute top-full right-0 z-50 mt-2 min-w-48 rounded-lg border border-hairline bg-paper shadow-card">
+          <div className="absolute bottom-full left-0 z-50 mb-2 min-w-48 rounded-lg border border-hairline bg-paper shadow-card">
             <div className="max-h-60 overflow-y-auto">
               {/* Option to clear selection */}
               <button

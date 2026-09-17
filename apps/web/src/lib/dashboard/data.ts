@@ -24,6 +24,8 @@ export interface DashboardUser {
   readonly initials: string;
   /** The plan they are actually on. The sidebar said "Free plan" to everyone. */
   readonly plan: PlanId;
+  /** Whether the admin console link belongs in this person's account menu. */
+  readonly isAdmin: boolean;
 }
 
 export interface SidebarProject {

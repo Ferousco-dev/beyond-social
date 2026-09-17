@@ -100,5 +100,4 @@ dependency is needed and confirm before installing it.
 ## Git workflow
 
 `main` is protected. All work happens on branches and lands through reviewed
-pull requests. See [CONTRIBUTING.md](../CONTRIBUTING.md) for branch naming,
-commit style, and the pull request checklist.
+pull requests.

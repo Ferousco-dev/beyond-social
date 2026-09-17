@@ -10,6 +10,7 @@ import { PLAN_LIST, isPriced } from "@/lib/billing/plans";
  * honour. Deriving them removes the possibility rather than the likelihood.
  */
 export const PRICING_TIERS: readonly PricingTier[] = PLAN_LIST.map((plan) => ({
+  id: plan.id,
   name: plan.name,
   monthlyPriceUsd: plan.id === "free" ? 0 : isPriced(plan) ? plan.priceUsd : null,
   yearlyPriceUsd: plan.id === "free" ? 0 : isPriced(plan) ? plan.yearlyPriceUsd : null,

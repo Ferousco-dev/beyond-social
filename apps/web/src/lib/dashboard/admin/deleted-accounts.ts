@@ -29,12 +29,13 @@ export interface DeletedAccount {
   pastGracePeriod: boolean;
 }
 
-/** Deleted accounts, oldest first, working the grace-period queue. */
-export async function getDeletedAccounts(): Promise<DeletedAccount[]> {
+/** Deleted accounts, oldest first, working the grace-period queue. Capped: this
+ * was previously an unbounded query pulling the entire grace-period table. */
+export async function getDeletedAccounts(limit = 100): Promise<DeletedAccount[]> {
   if (!isSupabaseConfigured) return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("admin_deleted_accounts");
+  const { data, error } = await supabase.rpc("admin_deleted_accounts", { p_limit: limit });
   if (error || !data) return [];
 
   const rows: DeletedAccount[] = [];

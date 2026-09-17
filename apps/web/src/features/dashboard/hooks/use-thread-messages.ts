@@ -133,8 +133,9 @@ export function useThreadMessages(
     nextId: useCallback(() => `${OPTIMISTIC}${counter.current++}`, []),
     // A render outlives the request that started it: `sending` goes false as
     // soon as the reply arrives, while the video keeps rendering for about
-    // another minute. Sending again in that window starts a second render and
-    // spends a second credit, so the composer stays locked until it settles.
+    // another minute. This remains a transcript state, not a composer lock:
+    // each subsequent request independently passes the credit and provider
+    // gates before it can create another paid render.
     rendering: messages.some((message) => message.draft?.status === "generating"),
     watch,
     cancelDraft,

@@ -9,6 +9,7 @@ import { searchUsers, type UserSearchCursor, type UserSearchResult } from "@/lib
 export async function searchUsersAction(
   query: string,
   cursor: UserSearchCursor | null,
+  plan?: string,
 ): Promise<UserSearchResult> {
-  return searchUsers(query, cursor);
+  return searchUsers(query, cursor, 25, plan);
 }

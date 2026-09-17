@@ -15,9 +15,12 @@ const DEBOUNCE_MS = 300;
 export function UserSearch({
   initialUsers,
   initialCursor,
+  plan,
 }: {
   readonly initialUsers: AdminUserRow[];
   readonly initialCursor: UserSearchCursor | null;
+  /** Scope search and load-more to one plan, e.g. the Creator or Studio tab. */
+  readonly plan?: string;
 }) {
   const [query, setQuery] = useState("");
   const [users, setUsers] = useState(initialUsers);
@@ -27,18 +30,19 @@ export function UserSearch({
   useEffect(() => {
     const handle = window.setTimeout(() => {
       startTransition(() => {
-        void searchUsersAction(query, null).then((result) => {
+        void searchUsersAction(query, null, plan).then((result) => {
           setUsers(result.users);
           setCursor(result.nextCursor);
         });
       });
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plan changes remount this component via `key` on the page, so it need not retrigger this effect
   }, [query]);
 
   function loadMore() {
     startTransition(() => {
-      void searchUsersAction(query, cursor).then((result) => {
+      void searchUsersAction(query, cursor, plan).then((result) => {
         setUsers((prev) => [...prev, ...result.users]);
         setCursor(result.nextCursor);
       });
@@ -86,8 +90,8 @@ export function UserSearch({
                       Suspended
                     </span>
                   )}
-                  <span className="tabular-nums">
-                    {user.creditsUsed}/{user.creditsTotal} credits
+                  <span className="tabular-nums" title="Credits spent this period, of the allowance">
+                    {user.creditsUsed.toLocaleString()} spent / {user.creditsTotal.toLocaleString()}
                   </span>
                   <span>{user.plan ?? "no plan"}</span>
                 </div>

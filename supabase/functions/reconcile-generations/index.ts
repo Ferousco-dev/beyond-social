@@ -28,7 +28,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { json, serve } from "../_shared/http.ts";
 import { timingSafeEqual } from "../_shared/security.ts";
-import { deliverEvent } from "../_shared/webhooks.ts";
 import { log } from "../_shared/trace.ts";
 
 /**
@@ -133,13 +132,6 @@ serve(async (req) => {
       generationId: row.id,
       thresholdMinutes: STUCK_THRESHOLD_MINUTES,
     });
-    await deliverEvent(
-      admin,
-      row.user_id,
-      "generation.failed",
-      { generation_id: row.id, error: FAIL_REASON },
-      row.trace_id,
-    );
   }
 
   return json({

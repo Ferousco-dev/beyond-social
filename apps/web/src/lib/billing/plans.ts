@@ -122,7 +122,6 @@ export const PLAN_CATALOGUE: Readonly<Record<PlanId, Plan>> = {
       "60 videos a month, on the top model",
       "Brand kits",
       "Batch scheduling",
-      "API, webhooks, and MCP for your own tools",
       "Priority support",
     ],
     featured: false,

@@ -1,18 +1,23 @@
 import { type Metadata } from "next";
-import { type ReactNode } from "react";
+import { type ReactNode, Suspense } from "react";
 
-import {
-  getActiveUsersDaily,
-  getAiSpendByModel,
-  getAiSpendDaily,
-  getGenerationsDaily,
-  getSignupsDaily,
-  getSubscriptionsByPlan,
-  getUserTotals,
-} from "@/lib/dashboard/admin";
+import { AnalyticsExportButtons } from "@/features/admin/components/analytics-export";
 import { AnalyticsRangeTabs } from "@/features/admin/components/analytics-range-tabs";
-import { BarRow } from "@/features/admin/components/bar-row";
-import { AiSpendTable } from "@/features/admin/components/ai-spend-table";
+import {
+  ActiveUsersChart,
+  AiSpendByModel,
+  AiSpendChart,
+  ChartSkeleton,
+  GenerationsChart,
+  PlansBadges,
+  PlansSkeleton,
+  PlansTile,
+  SignupsChart,
+  SpendTile,
+  TableSkeleton,
+  TileSkeleton,
+  TotalsTiles,
+} from "./sections";
 
 export const metadata: Metadata = { title: "Admin · Analytics" };
 
@@ -33,19 +38,6 @@ export default async function AdminAnalyticsPage({
   const { days: daysParam } = await searchParams;
   const days = [7, 30, 90].includes(Number(daysParam)) ? Number(daysParam) : 30;
 
-  const [totals, plans, signups, actives, generations, spendDaily, spendByModel] =
-    await Promise.all([
-      getUserTotals(),
-      getSubscriptionsByPlan(),
-      getSignupsDaily(days),
-      getActiveUsersDaily(days),
-      getGenerationsDaily(days),
-      getAiSpendDaily(days),
-      getAiSpendByModel(days),
-    ]);
-
-  const totalCost = spendDaily.reduce((sum, p) => sum + p.costUsd, 0);
-
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -53,68 +45,62 @@ export default async function AdminAnalyticsPage({
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Analytics</h1>
           <p className="mt-1 text-sm text-ink-soft">Growth, engagement and AI spend trends.</p>
         </div>
-        <AnalyticsRangeTabs active={days} />
+        <div className="flex flex-wrap items-center gap-3">
+          <AnalyticsRangeTabs active={days} />
+          <AnalyticsExportButtons days={days} />
+        </div>
       </div>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-hairline bg-paper p-4">
-          <p className="text-xs text-ink-soft">Total users</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
-            {totals?.totalUsers.toLocaleString() ?? "—"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-hairline bg-paper p-4">
-          <p className="text-xs text-ink-soft">Active subscriptions</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
-            {totals?.activeSubscriptions.toLocaleString() ?? "—"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-hairline bg-paper p-4">
-          <p className="text-xs text-ink-soft">AI spend ({days}d)</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
-            ${totalCost.toFixed(2)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-hairline bg-paper p-4">
-          <p className="text-xs text-ink-soft">Plans represented</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{plans.length}</p>
-        </div>
+        <Suspense
+          fallback={
+            <>
+              <TileSkeleton />
+              <TileSkeleton />
+            </>
+          }
+        >
+          <TotalsTiles />
+        </Suspense>
+        <Suspense fallback={<TileSkeleton />}>
+          <SpendTile days={days} />
+        </Suspense>
+        <Suspense fallback={<TileSkeleton />}>
+          <PlansTile />
+        </Suspense>
       </div>
 
-      {plans.length > 0 && (
-        <div className="mt-6 flex flex-wrap gap-2">
-          {plans.map((plan) => (
-            <span
-              key={plan.plan}
-              className="rounded-full border border-hairline bg-paper px-3 py-1 text-xs text-ink"
-            >
-              {plan.plan}: {plan.subscriptions}
-              {plan.trialing > 0 ? ` (${plan.trialing} trialing)` : ""}
-            </span>
-          ))}
-        </div>
-      )}
+      <Suspense fallback={<PlansSkeleton />}>
+        <PlansBadges />
+      </Suspense>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <ChartCard title="Signups">
-          <BarRow points={signups.map((p) => ({ day: p.day, value: p.value }))} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <SignupsChart days={days} />
+          </Suspense>
         </ChartCard>
-        <ChartCard title="Daily actives">
-          <BarRow points={actives.map((p) => ({ day: p.day, value: p.dau }))} />
+        <ChartCard title="Active users">
+          <Suspense fallback={<ChartSkeleton />}>
+            <ActiveUsersChart days={days} />
+          </Suspense>
         </ChartCard>
         <ChartCard title="Generations">
-          <BarRow points={generations.map((p) => ({ day: p.day, value: p.total }))} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <GenerationsChart days={days} />
+          </Suspense>
         </ChartCard>
         <ChartCard title="AI spend">
-          <BarRow
-            points={spendDaily.map((p) => ({ day: p.day, value: p.costUsd }))}
-            formatValue={(v) => `$${v.toFixed(2)}`}
-          />
+          <Suspense fallback={<ChartSkeleton />}>
+            <AiSpendChart days={days} />
+          </Suspense>
         </ChartCard>
       </div>
 
       <div className="mt-6">
-        <AiSpendTable rows={spendByModel} />
+        <Suspense fallback={<TableSkeleton />}>
+          <AiSpendByModel days={days} />
+        </Suspense>
       </div>
     </div>
   );

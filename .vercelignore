@@ -1,6 +1,7 @@
 # Dependencies and build output; Vercel installs and builds from source.
 node_modules
 .next
+.next-dev
 dist
 .turbo
 

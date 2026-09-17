@@ -53,11 +53,15 @@ function toUserRow(row: z.infer<typeof userRowSchema>): AdminUserRow {
   };
 }
 
-/** Keyset-paginated account search. Returns an empty page when unavailable. */
+/**
+ * Keyset-paginated account search, optionally scoped to one plan. Returns an
+ * empty page when unavailable.
+ */
 export async function searchUsers(
   query: string,
   cursor: UserSearchCursor | null,
   limit = 25,
+  plan?: string,
 ): Promise<UserSearchResult> {
   if (!isSupabaseConfigured) return { users: [], nextCursor: null };
 
@@ -67,6 +71,7 @@ export async function searchUsers(
     p_cursor_created_at: cursor?.createdAt ?? undefined,
     p_cursor_id: cursor?.id ?? undefined,
     p_limit: limit,
+    p_plan: plan ?? undefined,
   });
   if (error || !data) return { users: [], nextCursor: null };
 

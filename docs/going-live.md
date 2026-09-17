@@ -143,34 +143,28 @@ neither of which belongs in a request.
 It needs no system ffmpeg. The binary ships inside `ffmpeg-static`, so any host
 that runs Node will do, and the image is a plain `node:22-slim`.
 
-1. Deploy from the **repo root**, since the Dockerfile copies workspace packages
-   that live above the service directory:
+1. In the Render dashboard: **New > Blueprint**, connect this repo, point it
+   at `services/render/render.yaml`. Render reads the Dockerfile, build
+   context, plan, and health check path from that file — nothing to
+   configure by hand beyond the two secrets below.
 
-   ```
-   fly deploy --config services/render/fly.toml --dockerfile services/render/Dockerfile
-   ```
-
-2. Set the two secrets it needs. Nothing else is required; the rest has
-   defaults in `fly.toml`:
-
-   ```
-   fly secrets set SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... --config services/render/fly.toml
-   ```
-
-   The service role key is what lets it claim rows and write to the `renders`
-   bucket, so it is a secret and never goes in `fly.toml`.
+2. Render prompts for `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` at
+   blueprint creation (declared `sync: false` in `render.yaml`, so they are
+   never committed). The service role key is what lets it claim rows and
+   write to the `renders` bucket.
 
 3. Confirm it is up. `GET /health` returns `{"status":"ok"}` while the loop is
    turning and 503 once a shutdown has started, so a rolling deploy drains
    rather than dropping a job halfway.
 
-Region is `arn` (Stockholm) to match the Supabase project: the worker streams
-every source clip down and the finished file back up, so the distance is paid on
-every export rather than once. Do not let the machine scale to zero. A stopped
-machine claims nothing, and an export queued while it slept would sit there
-until something else woke it.
+Region is `frankfurt`, the closest Render offers to the Supabase project
+(Stockholm): the worker streams every source clip down and the finished file
+back up, so the distance is paid on every export rather than once. Plan is
+`starter`, Render's cheapest tier that doesn't scale to zero — `free` spins
+down on inactivity, and a stopped instance claims nothing, so an export queued
+while it slept would sit there until something else woke it.
 
-Any container host works, not just Fly. The Dockerfile is standard and the
+Any container host works, not just Render. The Dockerfile is standard and the
 service takes `PORT` from the environment.
 
 ## 5. Payments (Stripe)
@@ -261,9 +255,9 @@ deno run --allow-read supabase/functions/_shared/kie-models.test.ts
 
 - `GET /api/health` returns liveness; `GET /api/ready` checks Supabase
   reachability (503 when degraded).
-- `GET /health` on both Fly services. A worker that is up but has no `REDIS_URL`
-  still answers, and logs that the queue is disabled, so check the log rather
-  than only the status code.
+- `GET /health` on the publish worker (Fly) and the render worker (Render). A
+  worker that is up but has no `REDIS_URL` still answers, and logs that the
+  queue is disabled, so check the log rather than only the status code.
 - Start a generation from a conversation: it should insert a
   `video_generations` row, and on completion the callback persists the render to
   the `renders` bucket and charges exactly one credit (idempotent via

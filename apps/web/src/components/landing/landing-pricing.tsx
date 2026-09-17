@@ -97,6 +97,7 @@ function PlanCard({
   position: "left" | "center" | "right";
 }): ReactNode {
   const price = isMonthly ? tier.monthlyPriceUsd : tier.yearlyPriceUsd;
+  const locked = tier.id === "studio";
 
   return (
     <motion.article
@@ -121,16 +122,20 @@ function PlanCard({
         tier.featured ? "border-primary bg-canvas" : "border-hairline bg-paper",
       )}
     >
-      {tier.featured ? (
+      {locked ? (
+        <span className="absolute right-6 top-6 z-10 rounded-full bg-cloud px-3 py-1 text-xs font-medium text-ink-soft">
+          Coming soon
+        </span>
+      ) : tier.featured ? (
         <div className="absolute top-0 right-6 flex -translate-y-1/2 items-center gap-1 rounded-full bg-primary px-3 py-1">
           <Star className="size-3.5 fill-current text-primary-foreground" aria-hidden />
           <span className="text-xs font-semibold text-primary-foreground">Most popular</span>
         </div>
       ) : null}
 
-      <p className="text-sm font-semibold text-ink">{tier.name}</p>
+      <p className={cn("text-sm font-semibold text-ink", locked && "blur-sm")}>{tier.name}</p>
 
-      <div className="mt-6 flex min-h-14 items-center justify-center gap-1.5">
+      <div className={cn("mt-6 flex min-h-14 items-center justify-center gap-1.5", locked && "blur-sm")}>
         {price !== null ? (
           <>
             <span className="text-[2.75rem] font-semibold leading-none tracking-tight tabular-nums text-ink">
@@ -152,15 +157,24 @@ function PlanCard({
         )}
       </div>
 
-      <p className="mt-1 text-xs text-ink-soft">
+      <p className={cn("mt-1 text-xs text-ink-soft", locked && "blur-sm")}>
         {price === null || tier.isFree ? " " : isMonthly ? "billed monthly" : "billed annually"}
       </p>
 
-      <p className="mt-4 text-sm leading-relaxed text-ink-soft">{tier.description}</p>
+      <p className={cn("mt-4 text-sm leading-relaxed text-ink-soft", locked && "blur-sm")}>
+        {tier.description}
+      </p>
 
-      <p className="mt-5 text-sm font-medium tabular-nums text-ink">{tier.videos}</p>
+      <p className={cn("mt-5 text-sm font-medium tabular-nums text-ink", locked && "blur-sm")}>
+        {tier.videos}
+      </p>
 
-      <ul className="mt-6 flex flex-1 flex-col gap-3 border-t border-hairline pt-6 text-left">
+      <ul
+        className={cn(
+          "mt-6 flex flex-1 flex-col gap-3 border-t border-hairline pt-6 text-left",
+          locked && "blur-sm",
+        )}
+      >
         {tier.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5 text-sm text-ink-soft">
             <Check className="mt-0.5 size-4 shrink-0 text-ink" aria-hidden />
@@ -169,15 +183,24 @@ function PlanCard({
         ))}
       </ul>
 
-      <Link
-        href={tier.href}
-        className={cn(
-          buttonVariants({ variant: tier.featured ? "default" : "outline" }),
-          "mt-7 w-full",
-        )}
-      >
-        {tier.cta}
-      </Link>
+      {locked ? (
+        <span
+          aria-disabled="true"
+          className="mt-7 inline-flex h-10 w-full cursor-not-allowed items-center justify-center rounded-md border border-hairline bg-ink px-4 text-sm font-medium text-canvas opacity-40"
+        >
+          Coming soon
+        </span>
+      ) : (
+        <Link
+          href={tier.href}
+          className={cn(
+            buttonVariants({ variant: tier.featured ? "default" : "outline" }),
+            "mt-7 w-full",
+          )}
+        >
+          {tier.cta}
+        </Link>
+      )}
     </motion.article>
   );
 }

@@ -1,27 +1,37 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { type TraceTimeline } from "@/lib/dashboard/admin";
 import { lookupTrace } from "../actions/debug-reads";
 
-export function TraceLookup() {
-  const [traceId, setTraceId] = useState("");
+/** Trace search box. Deep-linkable: Health board items link here with a
+ * pre-filled trace id that runs automatically on load. */
+export function TraceLookup({ initialTraceId }: { readonly initialTraceId?: string }) {
+  const [traceId, setTraceId] = useState(initialTraceId ?? "");
   const [result, setResult] = useState<TraceTimeline | null>(null);
   const [searched, setSearched] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!traceId.trim()) return;
+  function runLookup(id: string) {
+    if (!id.trim()) return;
     startTransition(() => {
-      void lookupTrace(traceId.trim()).then((timeline) => {
+      void lookupTrace(id.trim()).then((timeline) => {
         setResult(timeline);
         setSearched(true);
       });
     });
+  }
+
+  useEffect(() => {
+    if (initialTraceId) runLookup(initialTraceId);
+  }, [initialTraceId]);
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    runLookup(traceId);
   }
 
   return (

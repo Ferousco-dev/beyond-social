@@ -88,4 +88,3 @@ Run from the repository root; Turborepo fans each task out across the workspace.
 
 - [Architecture](docs/ARCHITECTURE.md): how the system fits together
 - [Development guide](docs/DEVELOPMENT.md): conventions and workflow
-- [Contributing](CONTRIBUTING.md): branching, commits, and pull requests

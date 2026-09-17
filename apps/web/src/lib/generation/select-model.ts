@@ -96,6 +96,9 @@ const EDIT =
 /** Asked for length, which is the one thing Seedance is here for. */
 const LONG_FORM = /\b(long(er)?[- ]?form|full length|30 ?s|45 ?s|60 ?s|a minute|minute[- ]long)\b/i;
 
+const REFERENCE_TO_VIDEO =
+  /\b(reference|character consistency|keep (the )?(person|subject|character) consistent)\b/i;
+
 export interface SelectionInput {
   readonly prompt: string;
   readonly plan: PlanId;
@@ -199,6 +202,16 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
     // still make something from the same brief, it just will not transfer the
     // movement.
     if (motion) return pick(motion, "You asked to carry the movement across from your footage.");
+  }
+
+  if (hasFootage && referenceImages > 0 && REFERENCE_TO_VIDEO.test(prompt)) {
+    const reference = firstUsable(["wan/2-7-r2v"], catalog, plan);
+    if (reference) {
+      return pick(
+        reference,
+        "You attached a reference video and images, so this keeps the subject consistent.",
+      );
+    }
   }
 
   if (hasFootage && EDIT.test(prompt)) {

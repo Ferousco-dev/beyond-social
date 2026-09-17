@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ExternalLink, Loader, Trash2, AlertCircle, Star } from "lucide-react";
+import { CheckCircle2, ExternalLink, Loader, Trash2, AlertCircle, Star, Video } from "lucide-react";
 import { type ReactNode } from "react";
 import { type TwinSummary } from "../delete-actions";
 
@@ -71,20 +71,46 @@ export function AvatarList({
           >
             {/* Avatar preview/visual area */}
             <div className="aspect-video bg-gradient-to-br from-primary/5 to-primary/10 flex items-center justify-center relative overflow-hidden">
-              {/* Status indicator circle */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  {avatar.trainingStatus === "ready" ? (
-                    <CheckCircle2 className="size-7 text-success" />
-                  ) : awaitingConsent ? (
-                    <ExternalLink className="size-7 text-primary" />
-                  ) : avatar.trainingStatus === "pending" ? (
-                    <Loader className="size-7 animate-spin text-primary" />
-                  ) : (
-                    <AlertCircle className="size-7 text-destructive" />
-                  )}
+              {avatar.trainingStatus === "ready" && avatar.previewVideoUrl ? (
+                <video
+                  src={avatar.previewVideoUrl}
+                  poster={avatar.previewImageUrl ?? undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="size-full object-cover"
+                  aria-label={`Preview of ${avatar.name || "this avatar"}`}
+                />
+              ) : avatar.trainingStatus === "ready" && avatar.recordingUrl ? (
+                <video
+                  src={avatar.recordingUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="size-full object-cover"
+                  aria-label={`Original recording for ${avatar.name || "this avatar"}`}
+                />
+              ) : avatar.trainingStatus === "ready" && avatar.previewImageUrl ? (
+                <img
+                  src={avatar.previewImageUrl}
+                  alt={`Preview of ${avatar.name || "this avatar"}`}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    {avatar.trainingStatus === "ready" ? (
+                      <CheckCircle2 className="size-7 text-success" />
+                    ) : awaitingConsent ? (
+                      <ExternalLink className="size-7 text-primary" />
+                    ) : avatar.trainingStatus === "pending" ? (
+                      <Loader className="size-7 animate-spin text-primary" />
+                    ) : (
+                      <AlertCircle className="size-7 text-destructive" />
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Default star badge */}
               {avatar.isDefault && (
@@ -122,7 +148,9 @@ export function AvatarList({
               </h3>
               <p className="text-xs text-ink-soft mt-1">
                 {avatar.trainingStatus === "ready"
-                  ? "Ready to use"
+                  ? avatar.previewVideoUrl
+                    ? "Play the preview to check your avatar before using it."
+                    : "Review your original recording while the avatar preview becomes available."
                   : awaitingConsent
                     ? "HeyGen needs you to confirm consent on their secure page before training can start."
                     : avatar.trainingStatus === "pending"
@@ -173,6 +201,11 @@ export function AvatarList({
                   >
                     Use in a video
                   </a>
+                )}
+                {avatar.trainingStatus === "ready" && (avatar.previewVideoUrl || avatar.recordingUrl) && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-1.5 text-xs text-ink-soft">
+                    <Video className="size-3" /> Preview
+                  </span>
                 )}
                 {avatar.trainingStatus === "ready" && !avatar.isDefault && (
                   <button
