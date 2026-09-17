@@ -1,5 +1,7 @@
 import { type LucideIcon } from "lucide-react";
 
+import { type PlanId } from "@/lib/billing/plans";
+
 export interface NavLink {
   readonly label: string;
   readonly href: string;
@@ -22,6 +24,7 @@ export interface Benefit {
 }
 
 export interface PricingTier {
+  readonly id: PlanId;
   readonly name: string;
   /** Null on the free plan (no charge) and on a plan not priced yet. */
   readonly monthlyPriceUsd: number | null;

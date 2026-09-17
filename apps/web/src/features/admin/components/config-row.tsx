@@ -17,6 +17,7 @@ export function ConfigRow({ row }: { readonly row: AppConfigRow }) {
   const [pending, startTransition] = useTransition();
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(row.value);
+  const isBillingPrice = row.area === "billing" && row.key.endsWith(".price_usd");
 
   function save() {
     setError(null);
@@ -45,6 +46,13 @@ export function ConfigRow({ row }: { readonly row: AppConfigRow }) {
           </span>
         </div>
         <p className="mt-0.5 text-xs text-ink-soft">{row.description}</p>
+        {isBillingPrice && (
+          <p className="mt-1.5 rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs font-medium text-destructive">
+            This changes what&apos;s displayed and how many credits the plan grants. It does NOT
+            change what Stripe actually charges — update the matching Stripe price separately, or
+            checkout and the pricing page will disagree.
+          </p>
+        )}
         {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
       </div>
 

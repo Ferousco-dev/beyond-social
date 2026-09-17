@@ -5,6 +5,7 @@ import { PLANS, type PlanId } from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getAuthUser } from "@/lib/supabase/session";
 
+import { isAdmin } from "./admin";
 import { type DashboardUser } from "./data";
 
 function toInitials(name: string): string {
@@ -23,6 +24,7 @@ const PLACEHOLDER: DashboardUser = {
   email: "alex@studio.com",
   initials: "AR",
   plan: "free",
+  isAdmin: false,
 };
 
 /** Anything unrecognised reads as free, which is the safe thing to display. */
@@ -39,7 +41,16 @@ export async function getCurrentUser(): Promise<DashboardUser> {
   const metadataName = authUser.user_metadata.full_name;
   const name = typeof metadataName === "string" ? metadataName : (authUser.email ?? "there");
   // The plan comes from the same request-scoped read the rest of the dashboard
-  // uses, so this costs nothing beyond the first caller.
-  const plan = asPlanId(await getCurrentPlan());
-  return { name, email: authUser.email ?? "", initials: toInitials(name), plan };
+  // uses, so this costs nothing beyond the first caller. The admin check rides
+  // alongside it for the same reason: this is the one place that already
+  // builds the identity every page reads, so it is where the account menu's
+  // admin row gets its answer rather than a second lookup nearer the menu.
+  const [plan, admin] = await Promise.all([getCurrentPlan(), isAdmin()]);
+  return {
+    name,
+    email: authUser.email ?? "",
+    initials: toInitials(name),
+    plan: asPlanId(plan),
+    isAdmin: admin,
+  };
 }

@@ -28,6 +28,7 @@ const CONSENT_VERSION = 2;
 
 /** The cheapest avatar model, used when the caller does not name one. */
 const DEFAULT_MODEL = "infinitalk/from-audio";
+const PLAN_RANK = { free: 0, creator: 1, studio: 2 } as const;
 
 /**
  * What resolution to ask each model for.
@@ -155,11 +156,17 @@ serve(async (req) => {
   const requested = body.model ?? DEFAULT_MODEL;
   const { data: model } = await supabase
     .from("model_catalog")
-    .select("id, is_active")
+    .select("id, is_active, min_plan")
     .eq("id", requested)
     .eq("family", "avatar")
     .maybeSingle();
   if (!model?.is_active) return json({ error: "That avatar model is not available" }, 503);
+  const { data: profile } = await supabase.from("profiles").select("plan").maybeSingle();
+  const plan = (profile as { plan?: keyof typeof PLAN_RANK } | null)?.plan ?? "free";
+  const minimum = model.min_plan as keyof typeof PLAN_RANK;
+  if ((PLAN_RANK[plan] ?? PLAN_RANK.free) < (PLAN_RANK[minimum] ?? Number.POSITIVE_INFINITY)) {
+    return json({ error: "Your plan does not include that avatar model" }, 403);
+  }
 
   /*
    * The row is written before the provider is called, because the credits are

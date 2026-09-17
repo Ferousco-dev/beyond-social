@@ -11,7 +11,7 @@ overrides:
   postcss: "^8.5.23"
   sharp: "^0.35.0"
   # tsup pins esbuild below GHSA-g7r4-m6w7-qqqr's fixed version through
-  # bundle-require, reached in apps/worker and services/mail's build tooling.
+  # bundle-require, reached in the worker's build tooling.
   esbuild: "^0.28.1"
   # Lint-time only, reached through eslint. Patch bumps within the ranges eslint
   # already asks for, so the audit is clean rather than noisy.
@@ -21,7 +21,6 @@ overrides:
 
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
-  "@firebase/util": true
   esbuild: true
   ffmpeg-static: true
   msgpackr-extract: true

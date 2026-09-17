@@ -95,3 +95,34 @@ export async function setUserSuspension(
   }
   return toActionResult(error);
 }
+
+const roleSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["user", "admin"]),
+  reason: z.string().min(1, "A reason is required"),
+});
+
+/**
+ * Promotes or demotes an account. The database refuses to change the
+ * caller's own role and refuses to demote the last remaining admin, and
+ * surfaces either as an error here.
+ */
+export async function setUserRole(input: z.input<typeof roleSchema>): Promise<ActionResult> {
+  const parsed = roleSchema.safeParse(input);
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  if (!isSupabaseConfigured) return { ok: false, error: "Supabase is not configured" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_set_user_role", {
+    p_user: parsed.data.userId,
+    p_role: parsed.data.role,
+    p_reason: parsed.data.reason,
+  });
+
+  if (!error) {
+    revalidatePath(`/dashboard/admin/users/${parsed.data.userId}`);
+    revalidatePath("/dashboard/admin/users");
+  }
+  return toActionResult(error);
+}

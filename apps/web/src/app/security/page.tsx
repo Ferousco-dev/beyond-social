@@ -43,29 +43,13 @@ export default function Page(): ReactNode {
 
         <Section title="Secrets are stored so they cannot be read back">
           <p>
-            API keys are stored as a SHA-256 hash plus a short prefix for display. The full key is
-            shown once, at creation. A stolen database dump yields nothing that authenticates.
-          </p>
-          <p>
-            Outbound webhook signing keys work the same way, and go further: the digest column is
-            revoked from client roles, so a browser session cannot receive even the hash. We
-            genuinely cannot show a signing secret again, and rotation is the only recovery path.
-            That is the honest cost of not being able to leak it.
-          </p>
-          <p>
             The admin console tracks which platform secrets are set and when they were last rotated.
             It stores no plaintext value and there is no function that returns one, so no privileged
             screen can print a live credential.
           </p>
         </Section>
 
-        <Section title="Webhooks are signed in both directions">
-          <p>
-            Webhooks we send carry a timestamp and an HMAC over that timestamp joined to the raw
-            body. Signing the body alone would leave the timestamp unauthenticated and let a
-            captured payload be replayed under a fresh one, so both are covered and signatures
-            expire.
-          </p>
+        <Section title="Payments are verified before processing">
           <p>
             Stripe webhooks we receive are verified against the raw body before anything in them is
             trusted. An unsigned or badly signed call is rejected at the door.

@@ -2,11 +2,15 @@ import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { Suspense } from "react";
 
 import { CreditsForm } from "@/features/admin/components/credits-form";
+import { DayRangeTabs } from "@/features/admin/components/day-range-tabs";
 import { PlanForm } from "@/features/admin/components/plan-form";
+import { RoleForm } from "@/features/admin/components/role-form";
 import { SuspensionForm } from "@/features/admin/components/suspension-form";
 import { getUserDetail } from "@/lib/dashboard/admin";
+import { SpendSkeleton, UserSpendSection } from "./spend-section";
 
 export const metadata: Metadata = { title: "Admin · User detail" };
 
@@ -19,8 +23,16 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default async function AdminUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminUserDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ days?: string }>;
+}) {
   const { id } = await params;
+  const { days: daysParam } = await searchParams;
+  const days = [7, 30, 90].includes(Number(daysParam)) ? Number(daysParam) : 30;
   const user = await getUserDetail(id);
   if (!user) notFound();
 
@@ -77,7 +89,7 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         />
       </dl>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+      <div className="mt-8 grid gap-4 lg:grid-cols-4">
         <CreditsForm
           userId={user.id}
           creditsTotal={user.creditsTotal}
@@ -85,6 +97,19 @@ export default async function AdminUserDetailPage({ params }: { params: Promise<
         />
         <PlanForm userId={user.id} plan={user.plan} creditsTotal={user.creditsTotal} />
         <SuspensionForm userId={user.id} suspended={user.suspendedAt !== null} />
+        <RoleForm userId={user.id} role={user.role ?? "user"} />
+      </div>
+
+      <div className="mt-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-ink">Credit spend</h2>
+          <DayRangeTabs basePath={`/dashboard/admin/users/${user.id}`} active={days} />
+        </div>
+        <div className="mt-4">
+          <Suspense key={days} fallback={<SpendSkeleton />}>
+            <UserSpendSection userId={user.id} days={days} />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

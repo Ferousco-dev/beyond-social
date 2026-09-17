@@ -10,6 +10,7 @@ import {
   Scissors,
   TrendingUp,
   UserRound,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { type Route } from "next";
@@ -128,6 +129,7 @@ export function ComposeMenu({
   const savedVoice = useSavedVoice();
   const saved = useBrandLibrary();
   const [picking, setPicking] = useState(false);
+  const [open, setOpen] = useState(false);
 
   // Inserted just before "Add your voice" rather than at a fixed index, so
   // adding or reordering an item above it cannot silently misplace this one.
@@ -169,16 +171,27 @@ export function ComposeMenu({
         className="hidden"
         onChange={footage.handleChange}
       />
-      <DropdownMenu.Root>
+      <DropdownMenu.Root open={open} onOpenChange={setOpen}>
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
             data-tip-anchor="compose-plus"
             aria-label="Add photos and more"
             disabled={photo.uploading || voice.uploading || footage.uploading}
-            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-full text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Plus className="size-4" />
+            <span className="relative size-4" aria-hidden>
+              <Plus
+                className={`absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none ${
+                  open ? "rotate-90 opacity-0" : "rotate-0 opacity-100"
+                }`}
+              />
+              <X
+                className={`absolute inset-0 size-4 transition-all duration-200 motion-reduce:transition-none ${
+                  open ? "rotate-0 opacity-100" : "-rotate-90 opacity-0"
+                }`}
+              />
+            </span>
           </button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>

@@ -93,7 +93,7 @@ export function LoginForm() {
           />
           {/* Named for what it does. It stores the address for next time; it
               does not extend the session, which persists either way. */}
-          Remember my email
+          Remember me
         </label>
         <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
           Forgot password?

@@ -4,6 +4,7 @@ import {
   Activity,
   Bug,
   ClipboardList,
+  Coins,
   KeyRound,
   LayoutDashboard,
   LineChart,
@@ -21,6 +22,7 @@ const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }
   { href: "/dashboard/admin/analytics", label: "Analytics", icon: LineChart },
   { href: "/dashboard/admin/audit", label: "Audit log", icon: ClipboardList },
   { href: "/dashboard/admin/config", label: "App config", icon: SlidersHorizontal },
+  { href: "/dashboard/admin/model-pricing", label: "Model pricing", icon: Coins },
   { href: "/dashboard/admin/secrets", label: "Secrets", icon: KeyRound },
   { href: "/dashboard/admin/debug", label: "Debug", icon: Bug },
 ];
@@ -43,8 +45,15 @@ export function AdminNav() {
               key={href}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-full lg:rounded-lg ${
-                active ? "bg-ink text-canvas" : "text-ink-soft hover:bg-cloud hover:text-ink"
+              // Matches SettingsRail's treatment: a soft fill for the active
+              // row rather than an inverted block. The inverted "bg-ink
+              // text-canvas" pill this used to be was heavier than every
+              // other section nav in the app, so Admin was the one place
+              // that looked like a different product.
+              className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-full lg:rounded-lg lg:px-3 lg:py-2 ${
+                active
+                  ? "bg-cloud font-medium text-ink"
+                  : "text-ink-soft hover:bg-cloud/60 hover:text-ink"
               }`}
             >
               <Icon className="size-4 shrink-0" aria-hidden />

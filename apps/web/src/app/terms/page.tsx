@@ -53,16 +53,6 @@ export default function Page(): ReactNode {
             platform&rsquo;s rules. Those rules are theirs to enforce, and an account we cannot see
             into is an account we cannot defend.
           </p>
-          <p>
-            Your credentials. An API key is shown once, at creation, and stored only as a hash, so a
-            key you lose cannot be recovered and has to be revoked and replaced. A key is the whole
-            account as far as the API is concerned, including any agent you connect over MCP, so
-            treat handing one out as handing over read access.
-          </p>
-          <p>
-            Where you point a webhook. We will POST to the URL you register, signed with your
-            secret, and we do not check what is on the other end of it.
-          </p>
         </Section>
 
         <Section title="What we do not promise">

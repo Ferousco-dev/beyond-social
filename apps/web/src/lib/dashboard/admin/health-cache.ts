@@ -5,13 +5,24 @@ import { z } from "zod";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
+const rateLimitTopKeySchema = z.object({
+  identifier: z.string(),
+  count: z.coerce.number(),
+});
+
 const rateLimitScopeSchema = z.object({
   scope: z.string(),
   keys: z.coerce.number(),
   peak_count: z.coerce.number(),
   total_count: z.coerce.number(),
   window_ends_at: z.string(),
+  top_keys: z.array(rateLimitTopKeySchema).nullable(),
 });
+
+export interface RateLimitTopKey {
+  identifier: string;
+  count: number;
+}
 
 export interface RateLimitScope {
   scope: string;
@@ -19,6 +30,7 @@ export interface RateLimitScope {
   peakCount: number;
   totalCount: number;
   windowEndsAt: string;
+  topKeys: RateLimitTopKey[];
 }
 
 export interface RateLimitPressure {
@@ -53,6 +65,7 @@ export async function getRateLimitPressure(limit = 20): Promise<RateLimitPressur
       peakCount: s.peak_count,
       totalCount: s.total_count,
       windowEndsAt: s.window_ends_at,
+      topKeys: s.top_keys ?? [],
     })),
   };
 }

@@ -2,15 +2,12 @@ import {
   Brain,
   CreditCard,
   Gauge,
-  KeyRound,
   Palette,
   Share2,
   UserRound,
-  Webhook,
   type LucideIcon,
 } from "lucide-react";
 
-import { INTEGRATIONS_PLAN } from "@/lib/billing/entitlements";
 import { type PlanId } from "@/lib/billing/plans";
 
 /**
@@ -84,19 +81,5 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     // provider bills us, because only the first is a number they hold.
     description: "Credits spent, runs, and how fast models ran.",
     icon: Gauge,
-  },
-  {
-    href: "/dashboard/settings/api-keys",
-    label: "API keys",
-    description: "Call the API from your own code.",
-    icon: KeyRound,
-    plan: INTEGRATIONS_PLAN,
-  },
-  {
-    href: "/dashboard/settings/webhooks",
-    label: "Webhooks",
-    description: "Get a signed request when something finishes.",
-    icon: Webhook,
-    plan: INTEGRATIONS_PLAN,
   },
 ];

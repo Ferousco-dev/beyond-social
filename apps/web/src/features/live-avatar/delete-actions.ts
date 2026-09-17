@@ -26,6 +26,10 @@ export interface TwinSummary {
    */
   readonly consentUrl: string | null;
   readonly consentUrlExpired: boolean;
+  readonly previewImageUrl: string | null;
+  readonly previewVideoUrl: string | null;
+  /** A short-lived signed URL to the original recording for older twins. */
+  readonly recordingUrl: string | null;
 }
 
 /** Everything this person has recorded, newest first, default first of all. */
@@ -41,7 +45,7 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
   const { data } = await supabase
     .from("heygen_avatars")
     .select(
-      "id, name, training_status, is_default, created_at, provider_error, provider_consent_url, provider_consent_url_expires_at",
+      "id, name, training_status, is_default, created_at, storage_path, provider_error, provider_consent_url, provider_consent_url_expires_at, provider_preview_image_url, provider_preview_video_url",
     )
     .eq("user_id", user.id)
     .order("is_default", { ascending: false })
@@ -56,9 +60,17 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
     provider_error: string | null;
     provider_consent_url: string | null;
     provider_consent_url_expires_at: string | null;
+    provider_preview_image_url: string | null;
+    provider_preview_video_url: string | null;
+    storage_path: string;
   }[];
 
-  return rows.map((row) => ({
+  return Promise.all(rows.map(async (row) => {
+    const { data: recording } = await supabase.storage
+      .from("avatar-footage")
+      .createSignedUrl(row.storage_path, 10 * 60);
+
+    return {
     id: row.id,
     name: row.name,
     trainingStatus: row.training_status,
@@ -69,6 +81,10 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
     consentUrlExpired: row.provider_consent_url_expires_at
       ? Date.parse(row.provider_consent_url_expires_at) <= Date.now()
       : false,
+    previewImageUrl: row.provider_preview_image_url,
+    previewVideoUrl: row.provider_preview_video_url,
+    recordingUrl: recording?.signedUrl ?? null,
+    };
   }));
 }
 

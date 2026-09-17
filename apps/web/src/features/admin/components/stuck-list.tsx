@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { type Route } from "next";
+
 import { type StuckItem } from "@/lib/dashboard/admin";
 
 export function StuckList({ items }: { readonly items: StuckItem[] }) {
@@ -14,6 +17,24 @@ export function StuckList({ items }: { readonly items: StuckItem[] }) {
             <span className="text-ink-soft">{new Date(item.since).toLocaleString()}</span>
           </div>
           <p className="mt-0.5 truncate text-ink-soft">{item.detail}</p>
+          <div className="mt-1 flex gap-3">
+            {item.traceId && (
+              <Link
+                href={`/dashboard/admin/debug?trace=${encodeURIComponent(item.traceId)}` as Route}
+                className="text-ink-soft underline decoration-dotted hover:text-ink"
+              >
+                Trace →
+              </Link>
+            )}
+            {item.userId && (
+              <Link
+                href={`/dashboard/admin/users/${item.userId}` as Route}
+                className="text-ink-soft underline decoration-dotted hover:text-ink"
+              >
+                User →
+              </Link>
+            )}
+          </div>
         </li>
       ))}
     </ul>

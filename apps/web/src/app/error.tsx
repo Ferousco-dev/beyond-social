@@ -1,23 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
-import { reportError } from "@/lib/firebase/report-error";
 
 export default function Error({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    reportError(error, { boundary: "route" });
-  }, [error]);
-
   return (
     <main
       id="main"

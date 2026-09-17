@@ -54,7 +54,7 @@ export function RecordButton({
       className={
         recording
           ? "inline-flex h-9 cursor-pointer items-center gap-2 rounded-full bg-destructive px-3 text-paper transition-opacity hover:opacity-90"
-          : "inline-flex size-9 cursor-pointer items-center justify-center rounded-full border border-hairline text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
+          : "inline-flex size-9 cursor-pointer items-center justify-center rounded-full text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-50"
       }
     >
       {busy ? (

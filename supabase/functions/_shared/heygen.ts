@@ -26,7 +26,7 @@ const HEYGEN_BASE = "https://api.heygen.com/v3";
  * Every caller checks this first and no-ops when it is false, so the avatar
  * path ships and stays inert until a key exists rather than failing loudly on
  * an environment that was never meant to reach a provider. Same pattern the
- * app already uses for Firebase and for the video models priced at a guess.
+ * app already uses for the video models priced at a guess.
  */
 export function isHeygenConfigured(): boolean {
   return (Deno.env.get("HEYGEN_API_KEY") ?? "") !== "";
@@ -161,6 +161,8 @@ interface AvatarGroupResponse {
     status?: string | null;
     consent_status?: string | null;
     default_voice_id?: string | null;
+    preview_image_url?: string | null;
+    preview_video_url?: string | null;
     error?: { code?: string; message?: string } | null;
   } | null;
 }
@@ -174,6 +176,8 @@ export interface HeygenGroupStatus {
   /** The voice HeyGen assigns the twin. Required to generate anything with it. */
   readonly defaultVoiceId: string | null;
   readonly error: string | null;
+  readonly previewImageUrl: string | null;
+  readonly previewVideoUrl: string | null;
 }
 
 /** Where training has got to. Polled the same way kie jobs are. */
@@ -185,6 +189,8 @@ export async function getAvatarGroup(groupId: string): Promise<HeygenGroupStatus
     consentStatus: group?.consent_status ?? null,
     defaultVoiceId: group?.default_voice_id ?? null,
     error: group?.error ? describeError(group.error.message ?? group.error) : null,
+    previewImageUrl: group?.preview_image_url ?? null,
+    previewVideoUrl: group?.preview_video_url ?? null,
   };
 }
 

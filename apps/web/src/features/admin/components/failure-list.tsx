@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { type Route } from "next";
+
 import { type FailureItem } from "@/lib/dashboard/admin";
 
 export function FailureList({ items }: { readonly items: FailureItem[] }) {
@@ -21,6 +24,24 @@ export function FailureList({ items }: { readonly items: FailureItem[] }) {
             </span>
           </div>
           {item.error && <p className="mt-0.5 truncate text-destructive">{item.error}</p>}
+          <div className="mt-1 flex gap-3">
+            {item.traceId && (
+              <Link
+                href={`/dashboard/admin/debug?trace=${encodeURIComponent(item.traceId)}` as Route}
+                className="text-ink-soft underline decoration-dotted hover:text-ink"
+              >
+                Trace →
+              </Link>
+            )}
+            {item.userId && (
+              <Link
+                href={`/dashboard/admin/users/${item.userId}` as Route}
+                className="text-ink-soft underline decoration-dotted hover:text-ink"
+              >
+                User →
+              </Link>
+            )}
+          </div>
         </li>
       ))}
     </ul>

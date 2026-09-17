@@ -27,7 +27,9 @@ export interface RunPlan {
 
 export type Planned =
   | { readonly ok: true; readonly plan: RunPlan }
-  | { readonly ok: false; readonly error: string; readonly status: 400 | 503 };
+  | { readonly ok: false; readonly error: string; readonly status: 400 | 403 | 503 };
+
+const PLAN_RANK = { free: 0, creator: 1, studio: 2 } as const;
 
 /**
  * Settles the model and the shape of the request before anything is charged.
@@ -47,11 +49,18 @@ export async function planRun(
 ): Promise<Planned> {
   const { data: chosen } = await supabase
     .from("model_catalog")
-    .select("id, is_active")
+    .select("id, is_active, min_plan")
     .eq("id", requested.model ?? DEFAULT_MODEL)
     .eq("family", "video")
     .maybeSingle();
   if (!chosen?.is_active) return { ok: false, error: "That model is not available", status: 503 };
+
+  const { data: profile } = await supabase.from("profiles").select("plan").maybeSingle();
+  const plan = (profile as { plan?: keyof typeof PLAN_RANK } | null)?.plan ?? "free";
+  const minimum = chosen.min_plan as keyof typeof PLAN_RANK;
+  if ((PLAN_RANK[plan] ?? PLAN_RANK.free) < (PLAN_RANK[minimum] ?? Number.POSITIVE_INFINITY)) {
+    return { ok: false, error: "Your plan does not include that model", status: 403 };
+  }
 
   /*
    * Length is a property of the model, so it can only be settled once the model

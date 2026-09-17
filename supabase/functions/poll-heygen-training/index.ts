@@ -72,6 +72,8 @@ serve(async (request) => {
             provider_consent_status: group.consentStatus,
             provider_consent_url: null,
             provider_consent_url_expires_at: null,
+            provider_preview_image_url: group.previewImageUrl,
+            provider_preview_video_url: group.previewVideoUrl,
             trained_at: now,
             poll_count: row.poll_count + 1,
             provider_error: null,

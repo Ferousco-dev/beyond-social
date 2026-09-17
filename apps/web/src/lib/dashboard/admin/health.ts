@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server";
 const stuckItemSchema = z.object({
   kind: z.string(),
   id: z.string(),
+  trace_id: z.string().nullable(),
+  user_id: z.string().nullable(),
   detail: z.string(),
   since: z.string(),
 });
@@ -15,6 +17,8 @@ const stuckItemSchema = z.object({
 export interface StuckItem {
   kind: string;
   id: string;
+  traceId: string | null;
+  userId: string | null;
   detail: string;
   since: string;
 }
@@ -48,13 +52,22 @@ export async function getStuckPipeline(limit = 20): Promise<StuckPipeline | null
     observedAt: parsed.data.observed_at,
     generatingStuck: parsed.data.generating_stuck,
     publishingStuck: parsed.data.publishing_stuck,
-    items: parsed.data.items,
+    items: parsed.data.items.map((i) => ({
+      kind: i.kind,
+      id: i.id,
+      traceId: i.trace_id,
+      userId: i.user_id,
+      detail: i.detail,
+      since: i.since,
+    })),
   };
 }
 
 const failureItemSchema = z.object({
   kind: z.string(),
   id: z.string(),
+  trace_id: z.string().nullable(),
+  user_id: z.string().nullable(),
   detail: z.string(),
   error: z.string(),
   failed_at: z.string(),
@@ -63,6 +76,8 @@ const failureItemSchema = z.object({
 export interface FailureItem {
   kind: string;
   id: string;
+  traceId: string | null;
+  userId: string | null;
   detail: string;
   error: string;
   failedAt: string;
@@ -103,6 +118,8 @@ export async function getFailureFeed(sinceHours = 24, limit = 20): Promise<Failu
     items: parsed.data.items.map((i) => ({
       kind: i.kind,
       id: i.id,
+      traceId: i.trace_id,
+      userId: i.user_id,
       detail: i.detail,
       error: i.error,
       failedAt: i.failed_at,

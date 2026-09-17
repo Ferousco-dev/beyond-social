@@ -321,8 +321,10 @@ export function ConversationThread({
   const submit = useCallback(
     (text: string, seeded?: readonly PendingPhoto[]) => {
       const trimmed = text.trim();
-      // Checked here as well as on the button, which Enter bypasses.
-      if (trimmed === "" || sending || rendering) return;
+      // Checked here as well as on the button, which Enter bypasses. A provider
+      // render may outlive this request by minutes, but it does not block a
+      // separate turn: credit and provider gates remain server-side per run.
+      if (trimmed === "" || sending) return;
 
       setSending(true);
       setNotice(null);
@@ -582,7 +584,6 @@ export function ConversationThread({
       draft.shots,
       router,
       sending,
-      rendering,
       runAvatar,
       savedLikeness,
       useClonedVoice,
@@ -671,8 +672,7 @@ export function ConversationThread({
               onFootage={draft.setFootage}
               shots={draft.shots}
               onShotsChange={draft.setShots}
-              busy={sending || rendering}
-              credits={thread.credits}
+              busy={sending}
               onStop={sending ? turn.cancel : undefined}
               selectedAvatarId={selectedAvatarId}
               onSelectedAvatarChange={setSelectedAvatarId}

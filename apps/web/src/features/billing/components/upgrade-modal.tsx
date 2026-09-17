@@ -99,7 +99,8 @@ export function UpgradeModal({
                 isMonthly={isMonthly}
                 current={currentPlan === id}
                 busy={busyPlan === id && pending}
-                disabled={pending || !checkoutReady || currentPlan === id}
+                disabled={pending || !checkoutReady || currentPlan === id || id === "studio"}
+                locked={id === "studio"}
                 onUpgrade={() => upgrade(id)}
               />
             ))}
@@ -126,6 +127,7 @@ function PlanCard({
   current,
   busy,
   disabled,
+  locked,
   onUpgrade,
 }: {
   plan: Plan;
@@ -133,6 +135,7 @@ function PlanCard({
   current: boolean;
   busy: boolean;
   disabled: boolean;
+  locked: boolean;
   onUpgrade: () => void;
 }): ReactNode {
   const price = isMonthly ? plan.priceUsd : plan.yearlyPriceUsd;
@@ -145,13 +148,17 @@ function PlanCard({
         plan.featured ? "border-primary bg-canvas" : "border-hairline bg-paper",
       )}
     >
-      {plan.featured ? (
+      {locked ? (
+        <span className="absolute right-5 top-5 z-10 rounded-full bg-cloud px-2.5 py-1 text-[11px] font-medium text-ink-soft">
+          Coming soon
+        </span>
+      ) : plan.featured ? (
         <span className="absolute -top-2.5 right-5 rounded-full bg-primary px-2.5 py-0.5 text-[11px] font-semibold text-primary-foreground">
           Popular
         </span>
       ) : null}
 
-      <div className="flex items-center justify-between gap-2">
+      <div className={cn("flex items-center justify-between gap-2", locked && "blur-sm")}>
         <h3 className="text-sm font-semibold text-ink">{plan.name}</h3>
         {current ? (
           <span className="text-[11px] font-medium uppercase tracking-wider text-ink-soft">
@@ -160,7 +167,7 @@ function PlanCard({
         ) : null}
       </div>
 
-      <p className="mt-4 flex min-h-9 items-baseline gap-1">
+      <p className={cn("mt-4 flex min-h-9 items-baseline gap-1", locked && "blur-sm")}>
         {priced ? (
           <>
             <span className="text-3xl font-semibold tracking-tight tabular-nums text-ink">
@@ -173,9 +180,11 @@ function PlanCard({
         )}
       </p>
 
-      <p className="mt-1 text-xs tabular-nums text-ink-soft">{plan.credits} videos a month</p>
+      <p className={cn("mt-1 text-xs tabular-nums text-ink-soft", locked && "blur-sm")}>
+        {plan.credits} videos a month
+      </p>
 
-      <ul className="mt-4 flex-1 space-y-2">
+      <ul className={cn("mt-4 flex-1 space-y-2", locked && "blur-sm")}>
         {plan.features.map((feature) => (
           <li key={feature} className="flex gap-2 text-xs leading-relaxed text-ink-soft">
             <Check className="mt-0.5 size-3 shrink-0 text-ink" aria-hidden />
@@ -194,7 +203,7 @@ function PlanCard({
         )}
       >
         {busy ? <Spinner className="size-3.5" /> : null}
-        {current ? "Current plan" : `Get ${plan.name}`}
+        {locked ? "Coming soon" : current ? "Current plan" : `Get ${plan.name}`}
       </button>
     </div>
   );
