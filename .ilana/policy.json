@@ -1,0 +1,11 @@
+{
+  "ceremony": "standard",
+  "commit": {
+    "conventional": true,
+    "forbid_ai_attribution": true,
+    "header_max": 72
+  },
+  "stop_boundary": [
+    "Only the ten requested product-hardening items; no unrelated roadmap work"
+  ]
+}

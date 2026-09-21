@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 import { HEYGEN_CONSENT_VERSION } from "./consent";
+import { hasReachedAvatarLimit, MAX_CUSTOM_AVATARS } from "./avatar-limits";
 
 /**
  * Getting recorded footage from the browser into storage, and turning it into a
@@ -62,6 +63,18 @@ export async function ticketTwinFootage(contentType: string): Promise<TicketResu
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to save this recording" };
 
+  const { count, error: countError } = await supabase
+    .from("heygen_avatars")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  if (countError) return { status: "error", message: "Could not check your avatar library" };
+  if (hasReachedAvatarLimit(count ?? 0)) {
+    return {
+      status: "error",
+      message: `You can keep up to ${MAX_CUSTOM_AVATARS} avatars. Delete one before adding another.`,
+    };
+  }
+
   const extension = EXTENSIONS[parsed.data.contentType.split(";")[0]!];
   const path = `${user.id}/twin-${crypto.randomUUID()}.${extension}`;
   const { data, error } = await supabase.storage.from("avatar-footage").createSignedUploadUrl(path);
@@ -102,6 +115,18 @@ export async function startTwinTraining(storagePath: string): Promise<TrainingRe
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to finish your avatar" };
 
+  const { count, error: countError } = await supabase
+    .from("heygen_avatars")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+  if (countError) return { status: "error", message: "Could not check your avatar library" };
+  if (hasReachedAvatarLimit(count ?? 0)) {
+    return {
+      status: "error",
+      message: `You can keep up to ${MAX_CUSTOM_AVATARS} avatars. Delete one before adding another.`,
+    };
+  }
+
   // Checked here as well as in the function: a path outside the caller's own
   // prefix is either a bug or an attempt to train on somebody else's footage,
   // and it should not take a round trip to say so.
@@ -113,7 +138,7 @@ export async function startTwinTraining(storagePath: string): Promise<TrainingRe
     body: {
       storagePath,
       consentVersion: HEYGEN_CONSENT_VERSION,
-      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/avatar/new?heygen_setup=complete`,
+      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/assets?heygen_setup=complete`,
     },
   });
   if (error) {
@@ -153,7 +178,7 @@ export async function refreshHostedConsent(
   const { data, error } = await supabase.functions.invoke("create-heygen-consent", {
     body: {
       avatarId,
-      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/avatar/new?heygen_setup=complete`,
+      rerouteUrl: `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/dashboard/assets?heygen_setup=complete`,
     },
   });
   if (error) {

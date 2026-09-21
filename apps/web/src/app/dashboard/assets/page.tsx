@@ -1,5 +1,4 @@
 import { type Metadata } from "next";
-
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
 import { TwinSpeak } from "@/features/live-avatar/components/twin-speak";
@@ -36,20 +35,17 @@ export default async function AssetsPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
             1. Record or choose an avatar
           </h2>
-          <AvatarGrid twins={twins} name={user.email ?? "User"} />
+          <AvatarGrid twins={twins} name={user.email ?? "User"}>
+            {twins.length > 0 ? (
+              <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
+                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+                  2. Write what it should say
+                </h2>
+                <TwinSpeak twins={twins} readiness={readiness} />
+              </section>
+            ) : null}
+          </AvatarGrid>
         </section>
-
-        {/* TwinSpeak renders nothing with no avatar recorded yet, so this
-            section would otherwise be a labelled empty box: the library
-            above is already telling that person to record one. */}
-        {twins.length > 0 && (
-          <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft mb-2">
-              2. Write what it should say
-            </h2>
-            <TwinSpeak twins={twins} readiness={readiness} />
-          </section>
-        )}
       </div>
     </div>
   );

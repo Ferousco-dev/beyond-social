@@ -4,6 +4,7 @@ import { getCurrentPlan } from "@/lib/billing/current-plan";
 import { PLANS, type PlanId } from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getAuthUser } from "@/lib/supabase/session";
+import { createClient } from "@/lib/supabase/server";
 
 import { isAdmin } from "./admin";
 import { type DashboardUser } from "./data";
@@ -23,6 +24,7 @@ const PLACEHOLDER: DashboardUser = {
   name: "Alex Rivera",
   email: "alex@studio.com",
   initials: "AR",
+  avatarUrl: null,
   plan: "free",
   isAdmin: false,
 };
@@ -45,11 +47,21 @@ export async function getCurrentUser(): Promise<DashboardUser> {
   // alongside it for the same reason: this is the one place that already
   // builds the identity every page reads, so it is where the account menu's
   // admin row gets its answer rather than a second lookup nearer the menu.
-  const [plan, admin] = await Promise.all([getCurrentPlan(), isAdmin()]);
+  const supabase = await createClient();
+  const [plan, admin, profile] = await Promise.all([
+    getCurrentPlan(),
+    isAdmin(),
+    supabase.from("profiles").select("avatar_url").eq("id", authUser.id).maybeSingle(),
+  ]);
+  const avatarPath = profile.data?.avatar_url;
+  const { data: signedAvatar } = avatarPath
+    ? await supabase.storage.from("profile-avatars").createSignedUrl(avatarPath, 2 * 60 * 60)
+    : { data: null };
   return {
     name,
     email: authUser.email ?? "",
     initials: toInitials(name),
+    avatarUrl: signedAvatar?.signedUrl ?? null,
     plan: asPlanId(plan),
     isAdmin: admin,
   };

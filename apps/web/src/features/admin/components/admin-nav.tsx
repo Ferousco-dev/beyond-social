@@ -2,9 +2,11 @@
 
 import {
   Activity,
+  BookOpenText,
   Bug,
   ClipboardList,
   Coins,
+  CreditCard,
   KeyRound,
   LayoutDashboard,
   LineChart,
@@ -22,7 +24,9 @@ const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }
   { href: "/dashboard/admin/analytics", label: "Analytics", icon: LineChart },
   { href: "/dashboard/admin/audit", label: "Audit log", icon: ClipboardList },
   { href: "/dashboard/admin/config", label: "App config", icon: SlidersHorizontal },
+  { href: "/dashboard/admin/legal", label: "Legal", icon: BookOpenText },
   { href: "/dashboard/admin/model-pricing", label: "Model pricing", icon: Coins },
+  { href: "/dashboard/admin/provider-credits", label: "Provider credits", icon: CreditCard },
   { href: "/dashboard/admin/secrets", label: "Secrets", icon: KeyRound },
   { href: "/dashboard/admin/debug", label: "Debug", icon: Bug },
 ];
@@ -36,7 +40,10 @@ export function AdminNav() {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Admin sections" className="lg:w-52 lg:shrink-0">
+    <nav
+      aria-label="Admin sections"
+      className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:w-52 lg:shrink-0 lg:self-start lg:overflow-y-auto"
+    >
       <div className="scrollbar-none -mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0 lg:pb-0">
         {SECTIONS.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);

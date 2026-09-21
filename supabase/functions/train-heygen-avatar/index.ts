@@ -45,6 +45,7 @@ interface TrainBody {
 
 /** Kept short enough to read in a gallery tile. */
 const MAX_NAME = 60;
+const MAX_AVATARS_PER_USER = 5;
 
 function validRerouteUrl(value: string | undefined): string | null {
   const raw = (value ?? "").trim();
@@ -93,6 +94,15 @@ serve(async (request) => {
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id);
   const hasAvatar = (count ?? 0) > 0;
+  if ((count ?? 0) >= MAX_AVATARS_PER_USER) {
+    return json(
+      {
+        error: "avatar_limit_reached",
+        detail: `You can keep up to ${MAX_AVATARS_PER_USER} avatars.`,
+      },
+      409,
+    );
+  }
 
   /*
    * The row is written before the provider is called, and regardless of whether

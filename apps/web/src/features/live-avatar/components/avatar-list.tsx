@@ -39,6 +39,7 @@ export function AvatarList({
   onRetry,
   onCheckStatus,
   onRefreshConsent,
+  canCreate,
   isDeleting,
   isDeletingId,
 }: {
@@ -48,6 +49,7 @@ export function AvatarList({
   onRetry: () => void;
   onCheckStatus: () => Promise<void>;
   onRefreshConsent: (id: string) => Promise<void>;
+  canCreate: boolean;
   isDeleting: boolean;
   isDeletingId: string | null;
 }): ReactNode {
@@ -202,11 +204,12 @@ export function AvatarList({
                     Use in a video
                   </a>
                 )}
-                {avatar.trainingStatus === "ready" && (avatar.previewVideoUrl || avatar.recordingUrl) && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-1.5 text-xs text-ink-soft">
-                    <Video className="size-3" /> Preview
-                  </span>
-                )}
+                {avatar.trainingStatus === "ready" &&
+                  (avatar.previewVideoUrl || avatar.recordingUrl) && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-1.5 text-xs text-ink-soft">
+                      <Video className="size-3" /> Preview
+                    </span>
+                  )}
                 {avatar.trainingStatus === "ready" && !avatar.isDefault && (
                   <button
                     type="button"
@@ -216,7 +219,7 @@ export function AvatarList({
                     Set default
                   </button>
                 )}
-                {avatar.trainingStatus === "failed" && (
+                {avatar.trainingStatus === "failed" && canCreate && (
                   <button
                     type="button"
                     onClick={onRetry}

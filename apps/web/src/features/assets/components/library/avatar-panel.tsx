@@ -98,7 +98,7 @@ export function AvatarPanel({
         </dl>
 
         <Link
-          href={"/dashboard/avatar/new" as Route}
+          href={"/dashboard/assets" as Route}
           className="mt-6 inline-flex h-11 w-fit items-center gap-2 rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <Video className="size-4" aria-hidden />

@@ -3,6 +3,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronsUpDown, LogOut, Settings, Share2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState, useTransition } from "react";
 
@@ -36,10 +37,14 @@ const ROW =
 
 const ICON = "size-4 shrink-0 text-ink-soft";
 
-function Avatar({ initials }: { initials: string }): ReactNode {
+function Avatar({ initials, src }: { initials: string; src: string | null }): ReactNode {
   return (
-    <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-cloud text-xs font-medium text-ink">
-      {initials}
+    <span className="relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cloud text-xs font-medium text-ink">
+      {src ? (
+        <Image src={src} alt="" fill sizes="32px" unoptimized className="object-cover" />
+      ) : (
+        initials
+      )}
     </span>
   );
 }
@@ -85,7 +90,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
             compact ? "w-full justify-center p-1.5" : "w-full gap-2 p-1.5",
           )}
         >
-          <Avatar initials={user.initials} />
+          <Avatar initials={user.initials} src={user.avatarUrl} />
           {compact ? null : (
             <>
               <span className="min-w-0 flex-1">
@@ -117,7 +122,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                 <span className="block truncate text-sm font-medium text-ink">{user.name}</span>
                 <span className="block truncate text-xs text-ink-soft">{user.email}</span>
               </span>
-              <Avatar initials={user.initials} />
+              <Avatar initials={user.initials} src={user.avatarUrl} />
             </div>
 
             <DropdownMenu.Separator className="h-px bg-hairline" />
