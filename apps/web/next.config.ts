@@ -106,7 +106,11 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     // Marketing imagery is served from Unsplash's CDN.
-    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
+    remotePatterns: [
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "**.supabase.co" },
+      ...(isDev ? [{ protocol: "http" as const, hostname: "127.0.0.1", port: "54321" }] : []),
+    ],
   },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];

@@ -1,10 +1,12 @@
-import { Activity, Coins, ShieldAlert, Users } from "lucide-react";
+import { Activity, AlertTriangle, Coins, ShieldAlert, Users } from "lucide-react";
 import { type Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { FlagToggle } from "@/features/admin/components/flag-toggle";
 import { getFeatureFlags, getPendingCandidates, getPlatformStats } from "@/lib/dashboard/admin";
+import { getProviderCreditAccounts } from "@/lib/dashboard/admin/provider-credits";
 
 export const metadata: Metadata = { title: "Admin · Overview" };
 
@@ -113,11 +115,53 @@ async function PendingSection() {
   );
 }
 
+async function ProviderCreditAlerts() {
+  const accounts = await getProviderCreditAccounts();
+  const alerts = accounts.filter((account) => account.needsAttention);
+  if (alerts.length === 0) return null;
+
+  return (
+    <section
+      className="mt-6 rounded-xl border border-warning/30 bg-warning/10 p-4"
+      aria-labelledby="provider-credit-alerts"
+    >
+      <div className="flex gap-3">
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        <div>
+          <h2 id="provider-credit-alerts" className="text-sm font-semibold text-ink">
+            Provider credits need attention
+          </h2>
+          <ul className="mt-1 space-y-1 text-sm text-ink-soft">
+            {alerts.map((account) => (
+              <li key={account.key}>
+                <span className="capitalize">{account.provider}</span>{" "}
+                {account.daysUntilExpiry !== null && account.daysUntilExpiry < 0
+                  ? `expired ${Math.abs(account.daysUntilExpiry)} days ago.`
+                  : `expires in ${account.daysUntilExpiry} days.`}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/dashboard/admin/provider-credits"
+            className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4"
+          >
+            Review provider credits
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function AdminOverviewPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Overview</h1>
       <p className="mt-1 text-sm text-ink-soft">Platform health over the last 24 hours.</p>
+
+      <Suspense fallback={null}>
+        <ProviderCreditAlerts />
+      </Suspense>
 
       <Suspense fallback={<StatsSkeleton />}>
         <StatsSection />

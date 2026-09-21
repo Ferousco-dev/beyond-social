@@ -32,6 +32,8 @@
     "test:scrape": "tsx --tsconfig scripts/tsconfig.json scripts/scrape-smoke.ts",
     "test:optimization": "tsx --tsconfig scripts/tsconfig.json scripts/optimization-smoke.ts",
     "test:generation": "tsx --tsconfig scripts/tsconfig.json scripts/generation-smoke.ts",
+    "test:product-hardening": "tsx --tsconfig scripts/tsconfig.json scripts/product-hardening-smoke.ts",
+    "test:stress:local": "tsx --tsconfig scripts/tsconfig.json scripts/local-stress.ts",
     "test:credit-pack-webhook": "tsx --tsconfig scripts/tsconfig.json scripts/credit-pack-webhook-smoke.ts",
     "test:catalog": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/catalog-smoke.ts",
     "test:retrieval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/retrieval-hints-smoke.ts",

@@ -22,8 +22,11 @@ const DESTINATIONS = {
   "/dashboard/settings/connections": "Connections",
   "/dashboard/settings/usage": "Usage",
   "/dashboard/settings/memory": "Memory",
-  "/dashboard/assets": "Assets",
+  // Kept for replies already stored in conversation history. The route itself
+  // redirects to /dashboard/assets, so old advice stays clickable while new
+  // replies use the consolidated inline avatar flow.
   "/dashboard/avatar/new": "Record your avatar",
+  "/dashboard/assets": "Assets",
   "/dashboard/library": "Library",
   "/help": "Help centre",
 } as const satisfies Record<string, string>;

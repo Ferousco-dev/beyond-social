@@ -187,7 +187,10 @@ export function WebcamRecorder({
             </button>
             <button
               type="button"
-              onClick={recorder.reset}
+              onClick={() => {
+                recorder.reset();
+                void open(camera, microphone);
+              }}
               className="inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-lg border border-hairline px-3 text-sm text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               <RotateCcw className="size-4" aria-hidden />

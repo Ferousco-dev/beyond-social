@@ -1,0 +1,181 @@
+{
+  "base_commit": "3b617b5",
+  "branch": "codex/product-hardening",
+  "ceremony": "standard",
+  "completed": [
+    "MAINTAIN intake and scope guard",
+    "HeyGen non-enterprise capability review",
+    "Provider credit expiry alerts and admin editor",
+    "Generation path verification and non-enterprise HeyGen gating",
+    "Clickable profile avatar integrated into the Profile card",
+    "Admin-editable privacy and terms coming-soon pages",
+    "Status page redesign and browser verification",
+    "Avatar creation entry point and new-avatar layout correction",
+    "Isolated local stress test with disposable-account cleanup",
+    "Desktop admin navigation remains visible while admin content scrolls",
+    "New-avatar route no longer falls through to the existing avatar library",
+    "Five-avatar maximum enforced in UI, server actions, Edge Function, and database",
+    "Avatar empty state and recorder now share dashboard assets as one inline flow",
+    "All avatar creation links now target dashboard assets",
+    "Legacy avatar paths in stored chat replies render as clickable links",
+    "Camera and microphone tracks stop after recording and on every recorder exit",
+    "Avatar wizard exits loading and exposes retry when training returns an error",
+    "Video-generation controls stay hidden while the avatar recorder is active"
+  ],
+  "decision": [
+    "Custom Digital Twin API creation stays disabled by default because current HeyGen documentation requires Enterprise API access",
+    "The separate new-avatar route is retained only as a redirect for old links"
+  ],
+  "dirty_paths": 25,
+  "evidence": {
+    "admin-sidebar-lint": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-016"
+    },
+    "admin-sidebar-typecheck": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-015"
+    },
+    "avatar-camera-build": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-027"
+    },
+    "avatar-camera-lint": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-026"
+    },
+    "avatar-camera-typecheck": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-025"
+    },
+    "avatar-flow-build": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-021"
+    },
+    "avatar-flow-smoke": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-019"
+    },
+    "avatar-flow-typecheck": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-018"
+    },
+    "avatar-inline-flow-build": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-022"
+    },
+    "avatar-lifecycle-build": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-030"
+    },
+    "avatar-limit-db-test": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-017"
+    },
+    "avatar-schema-lint": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-020"
+    },
+    "avatar-wizard-lint": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-029"
+    },
+    "avatar-wizard-typecheck": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-028"
+    },
+    "final product hardening smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-014"
+    },
+    "final web typecheck": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-013"
+    },
+    "generation-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-006"
+    },
+    "legacy-avatar-link-smoke": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-023"
+    },
+    "legacy-avatar-link-typecheck": {
+      "exit": 0,
+      "head": "7496ad9",
+      "id": "EV-024"
+    },
+    "local-migrations": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-004"
+    },
+    "local-stress": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-011"
+    },
+    "model-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-007"
+    },
+    "next-typegen": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-002"
+    },
+    "product-hardening-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-005"
+    },
+    "web-typecheck": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-012"
+    }
+  },
+  "head": "7496ad9",
+  "limitation": [
+    "No paid provider requests during verification",
+    "Repository SQL tests do not emit TAP plans, so supabase test db exits unsuccessfully despite schema lint passing",
+    "Custom Digital Twin creation remains unavailable until HeyGen Enterprise API access is configured"
+  ],
+  "milestone": "CR-007 and CR-008 avatar lifecycle fixes",
+  "next": "Owner review",
+  "remaining": [],
+  "step": "complete",
+  "stop_boundary": [
+    "Only the ten requested product-hardening items; no unrelated roadmap work"
+  ],
+  "updated": "2026-09-21T19:51:13",
+  "verified": [
+    "Production build, lint, and typecheck pass",
+    "Generation smoke 16/16, model routing smoke 27/27, product hardening smoke 7/7",
+    "25 accounts and 500 concurrent health checks completed without failures",
+    "Admin sidebar typecheck and lint pass",
+    "Avatar limit database test, product smoke, schema lint, typecheck, lint, and production build pass",
+    "Inline avatar flow production build passes",
+    "Legacy avatar link smoke test and typecheck pass",
+    "Avatar lifecycle typecheck, lint, and production build pass"
+  ]
+}
