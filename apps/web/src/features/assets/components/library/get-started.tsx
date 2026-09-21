@@ -30,7 +30,7 @@ const CARDS: readonly Card[] = [
     title: "Record your avatar",
     body: "About a minute of you, once. Every future video can be made in your face and voice.",
     action: "Start recording",
-    href: "/dashboard/avatar/new" as Route,
+    href: "/dashboard/assets" as Route,
   },
   {
     icon: Mic,

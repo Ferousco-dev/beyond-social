@@ -1,6 +1,11 @@
 import { providerCreditExpiry } from "../src/lib/dashboard/admin/provider-credit-state";
 import { legalDocumentSchema } from "../src/lib/legal/schema";
 import { hasProfileImageSignature } from "../src/lib/settings/profile-image";
+import { splitReplyLinks } from "../src/lib/chat/links";
+import {
+  hasReachedAvatarLimit,
+  MAX_CUSTOM_AVATARS,
+} from "../src/features/live-avatar/avatar-limits";
 
 const results: string[] = [];
 let failures = 0;
@@ -45,6 +50,17 @@ check(
 check(
   "profile upload rejects a renamed executable",
   !hasProfileImageSignature("image/png", new Uint8Array([77, 90, 0, 0, 0, 0, 0, 0])),
+);
+
+check("avatar library accepts the fourth avatar", !hasReachedAvatarLimit(MAX_CUSTOM_AVATARS - 1));
+check("avatar library rejects a sixth avatar", hasReachedAvatarLimit(MAX_CUSTOM_AVATARS));
+
+const legacyAvatarLink = splitReplyLinks(
+  "You can record a trained avatar at /dashboard/avatar/new",
+).find((segment) => segment.kind === "link");
+check(
+  "stored avatar links remain clickable after the route consolidation",
+  legacyAvatarLink?.kind === "link" && legacyAvatarLink.href === "/dashboard/avatar/new",
 );
 
 process.stdout.write(

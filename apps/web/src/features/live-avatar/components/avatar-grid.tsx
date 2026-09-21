@@ -1,7 +1,6 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
@@ -14,26 +13,26 @@ import { startTwinTraining, ticketTwinFootage } from "../upload-actions";
 import { useTwinStatus } from "../hooks/use-twin-status";
 import { type TwinFootage } from "./create-twin-screen";
 import { AvatarList } from "./avatar-list";
-import { AvatarWizard } from "./avatar-wizard";
+import { AvatarWizard, type AvatarWizardResult } from "./avatar-wizard";
+import { hasReachedAvatarLimit, MAX_CUSTOM_AVATARS } from "../avatar-limits";
 
 export function AvatarGrid({
   twins: initialTwins,
   name,
-  customAvatarEnabled,
-  startInWizard = false,
+  children,
 }: {
   twins: readonly TwinSummary[];
   name: string;
-  customAvatarEnabled: boolean;
-  startInWizard?: boolean;
+  children?: ReactNode;
 }): ReactNode {
   const router = useRouter();
   const { avatars, setAvatars, checkStatus, refreshConsent } = useTwinStatus(initialTwins);
-  const [showWizard, setShowWizard] = useState(startInWizard && customAvatarEnabled);
+  const [showWizard, setShowWizard] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { confirm, dialog } = useConfirm();
+  const atAvatarLimit = hasReachedAvatarLimit(avatars.length);
 
   const handleDelete = useCallback(
     async (avatarId: string) => {
@@ -96,16 +95,14 @@ export function AvatarGrid({
   );
 
   const handleWizardComplete = useCallback(
-    async (footage: TwinFootage) => {
+    async (footage: TwinFootage): Promise<AvatarWizardResult> => {
       try {
         setError(null);
 
         // Step 1: Get storage ticket
         const ticketed = await ticketTwinFootage(footage.file.type);
         if (ticketed.status === "error") {
-          setError(ticketed.message);
-          setShowWizard(true);
-          return;
+          return ticketed;
         }
 
         // Step 2: Upload the file to signed URL
@@ -121,21 +118,16 @@ export function AvatarGrid({
           });
 
         if (uploadError) {
-          setError(uploadError.message);
-          setShowWizard(true);
-          return;
+          return { status: "error", message: uploadError.message };
         }
 
         // Step 3: Start training with the uploaded path
         const result = await startTwinTraining(ticketed.ticket.path);
         if (result.status === "error") {
-          setError(result.message);
-          setShowWizard(true);
-          return;
+          return result;
         }
 
-        // Reset wizard and refresh
-        setShowWizard(false);
+        // Refresh the server-backed library before the wizard reveals it.
         router.refresh();
 
         // Placeholder only: replaced by the real row once router.refresh()
@@ -160,32 +152,16 @@ export function AvatarGrid({
             },
           ]);
         }
+        return { status: "ok" };
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to start training");
-        setShowWizard(true);
+        return {
+          status: "error",
+          message: err instanceof Error ? err.message : "Failed to start training",
+        };
       }
     },
     [router, setAvatars],
   );
-
-  if (avatars.length === 0 && !customAvatarEnabled) {
-    return (
-      <div className="rounded-xl border border-hairline bg-paper p-5">
-        <h3 className="text-sm font-semibold text-ink">Custom avatars are coming soon</h3>
-        <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Custom Digital Twin creation requires HeyGen Enterprise API access, which this workspace
-          does not have. You can still make a talking-avatar video now by attaching a photo and a
-          voice clip in the composer.
-        </p>
-        <Link
-          href="/dashboard"
-          className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4"
-        >
-          Open the composer
-        </Link>
-      </div>
-    );
-  }
 
   if (avatars.length === 0 && !showWizard) {
     return (
@@ -208,7 +184,11 @@ export function AvatarGrid({
         >
           ← Back
         </button>
-        <AvatarWizard name={name} onComplete={handleWizardComplete} />
+        <AvatarWizard
+          name={name}
+          onComplete={handleWizardComplete}
+          onSuccess={() => setShowWizard(false)}
+        />
       </div>
     );
   }
@@ -216,6 +196,26 @@ export function AvatarGrid({
   return (
     <div>
       {dialog}
+      <div className="mb-6 flex items-center justify-end gap-3">
+        <span className="text-xs text-ink-soft">
+          {avatars.length} of {MAX_CUSTOM_AVATARS} avatars
+        </span>
+        {!atAvatarLimit ? (
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setShowWizard(true);
+            }}
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <Plus className="size-4" aria-hidden />
+            New avatar
+          </button>
+        ) : (
+          <span className="text-xs font-medium text-ink-soft">Avatar limit reached</span>
+        )}
+      </div>
       {error ? (
         <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -226,12 +226,14 @@ export function AvatarGrid({
         avatars={avatars}
         onDelete={handleDelete}
         onSetDefault={handleSetDefault}
-        onRetry={() => customAvatarEnabled && setShowWizard(true)}
+        onRetry={() => setShowWizard(true)}
         onCheckStatus={checkStatus}
         onRefreshConsent={handleRefreshConsent}
+        canCreate={!atAvatarLimit}
         isDeleting={isDeleting}
         isDeletingId={deletingId}
       />
+      {children ? <div className="mt-8">{children}</div> : null}
     </div>
   );
 }

@@ -131,7 +131,7 @@ export function DashboardHome({
          * still capture is why nobody could find the recorder.
          */}
         <Link
-          href={"/dashboard/avatar/new" as Route}
+          href={"/dashboard/assets" as Route}
           className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/15"
         >
           <Radio className="size-4" aria-hidden />

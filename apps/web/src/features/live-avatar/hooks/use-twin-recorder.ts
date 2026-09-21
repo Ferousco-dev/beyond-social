@@ -77,6 +77,8 @@ export function useTwinRecorder(onError: (message: string) => void) {
   const tickRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  /** Invalidates a pending getUserMedia call when the recorder is released. */
+  const requestRef = useRef(0);
   /**
    * Mirrors `seconds` for `onstop` to read.
    *
@@ -95,6 +97,11 @@ export function useTwinRecorder(onError: (message: string) => void) {
     void audioRef.current?.close();
     audioRef.current = null;
     setLevel(0);
+  }, []);
+
+  const stopTracks = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
   }, []);
 
   /**
@@ -129,18 +136,21 @@ export function useTwinRecorder(onError: (message: string) => void) {
   }, []);
 
   const release = useCallback(() => {
+    requestRef.current += 1;
     stopMeter();
     if (tickRef.current !== null) window.clearInterval(tickRef.current);
     tickRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
+    const activeRecorder = recorderRef.current;
     recorderRef.current = null;
-  }, [stopMeter]);
+    if (activeRecorder?.state === "recording") activeRecorder.stop();
+    stopTracks();
+  }, [stopMeter, stopTracks]);
 
   /** Opens both devices. Audio is not optional here; without it there is no twin. */
   const open = useCallback(
     async (cameraId?: string, microphoneId?: string): Promise<void> => {
       release();
+      const request = requestRef.current;
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: cameraId
@@ -155,6 +165,10 @@ export function useTwinRecorder(onError: (message: string) => void) {
             ? { deviceId: { exact: microphoneId } }
             : { echoCancellation: true, noiseSuppression: true },
         });
+        if (requestRef.current !== request) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
         streamRef.current = stream;
         startMeter(stream);
         setState("ready");
@@ -162,6 +176,7 @@ export function useTwinRecorder(onError: (message: string) => void) {
         // Labels are empty until permission is granted, so both pickers are
         // filled after the first successful open rather than before it.
         const list = await navigator.mediaDevices.enumerateDevices();
+        if (requestRef.current !== request) return;
         const named = (kind: MediaDeviceKind, fallback: string): MediaDeviceChoice[] =>
           list
             .filter((device) => device.kind === kind)
@@ -172,6 +187,7 @@ export function useTwinRecorder(onError: (message: string) => void) {
         setCameras(named("videoinput", "Camera"));
         setMicrophones(named("audioinput", "Microphone"));
       } catch (error) {
+        if (requestRef.current !== request) return;
         const denied = error instanceof DOMException && error.name === "NotAllowedError";
         onError(
           denied
@@ -198,6 +214,7 @@ export function useTwinRecorder(onError: (message: string) => void) {
 
     const mimeType = pickMimeType();
     const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const request = requestRef.current;
     chunksRef.current = [];
     recorderRef.current = recorder;
 
@@ -207,6 +224,9 @@ export function useTwinRecorder(onError: (message: string) => void) {
     recorder.onstop = () => {
       if (tickRef.current !== null) window.clearInterval(tickRef.current);
       tickRef.current = null;
+      stopMeter();
+      stopTracks();
+      if (requestRef.current !== request) return;
       const type = recorder.mimeType || mimeType || "video/webm";
       const blob = new Blob(chunksRef.current, { type });
       setRecording((previous) => {
@@ -235,7 +255,7 @@ export function useTwinRecorder(onError: (message: string) => void) {
         return next;
       });
     }, 1000);
-  }, [onError, stop]);
+  }, [onError, stop, stopMeter, stopTracks]);
 
   const reset = useCallback(() => {
     setRecording((previous) => {
@@ -243,7 +263,7 @@ export function useTwinRecorder(onError: (message: string) => void) {
       return null;
     });
     setSeconds(0);
-    setState(streamRef.current ? "ready" : "idle");
+    setState("idle");
   }, []);
 
   useEffect(() => release, [release]);

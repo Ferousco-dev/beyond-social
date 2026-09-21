@@ -9,6 +9,9 @@ import { type TwinRecording } from "../hooks/use-twin-recorder";
 
 type WizardStep = "record" | "confirm" | "uploading" | "done";
 
+export type AvatarWizardResult =
+  { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
+
 /**
  * Step-by-step wizard for creating a digital twin.
  *
@@ -18,9 +21,11 @@ type WizardStep = "record" | "confirm" | "uploading" | "done";
 export function AvatarWizard({
   name,
   onComplete,
+  onSuccess,
 }: {
   name: string;
-  onComplete: (footage: TwinFootage) => void;
+  onComplete: (footage: TwinFootage) => Promise<AvatarWizardResult>;
+  onSuccess: () => void;
 }): ReactNode {
   const [step, setStep] = useState<WizardStep>("record");
   const [recording, setRecording] = useState<TwinRecording | null>(null);
@@ -31,7 +36,7 @@ export function AvatarWizard({
     setStep("confirm");
   }, []);
 
-  const handleConfirm = useCallback(() => {
+  const handleConfirm = useCallback(async () => {
     if (!recording) return;
     setStep("uploading");
     setUploadError(null);
@@ -40,12 +45,24 @@ export function AvatarWizard({
     const file = new File([recording.blob], "avatar-recording.mp4", {
       type: recording.mimeType,
     });
-    onComplete({
-      file,
-      seconds: recording.seconds,
-      source: "webcam",
-    });
-  }, [recording, onComplete]);
+    try {
+      const result = await onComplete({
+        file,
+        seconds: recording.seconds,
+        source: "webcam",
+      });
+      if (result.status === "error") {
+        setUploadError(result.message);
+        setStep("confirm");
+      } else {
+        setStep("done");
+        onSuccess();
+      }
+    } catch {
+      setUploadError("Training could not start. Try again.");
+      setStep("confirm");
+    }
+  }, [recording, onComplete, onSuccess]);
 
   const handleRetry = useCallback(() => {
     setRecording(null);
