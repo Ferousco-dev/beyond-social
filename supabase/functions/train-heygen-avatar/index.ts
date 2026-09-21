@@ -72,6 +72,15 @@ serve(async (request) => {
   } = await supabase.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
+  const { data: feature, error: featureError } = await supabase
+    .from("feature_flags")
+    .select("enabled")
+    .eq("key", "heygen_custom_avatars")
+    .maybeSingle();
+  if (featureError || feature?.enabled !== true) {
+    return json({ error: "enterprise_api_required" }, 503);
+  }
+
   const body = (await request.json().catch(() => ({}))) as TrainBody;
   const storagePath = (body.storagePath ?? "").trim();
   if (storagePath === "") return json({ error: "missing_footage" }, 400);

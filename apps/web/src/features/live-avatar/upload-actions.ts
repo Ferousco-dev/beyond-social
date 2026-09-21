@@ -5,6 +5,7 @@ import { z } from "zod";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
+import { isFlagEnabled } from "@/lib/flags";
 
 import { HEYGEN_CONSENT_VERSION } from "./consent";
 
@@ -95,6 +96,13 @@ export type TrainingResult =
  */
 export async function startTwinTraining(storagePath: string): Promise<TrainingResult> {
   if (!isSupabaseConfigured) return { status: "error", message: "Training is not configured" };
+  if (!(await isFlagEnabled("heygen_custom_avatars", false))) {
+    return {
+      status: "error",
+      message:
+        "Custom avatar training needs HeyGen Enterprise API access. Use a photo and voice clip in the composer instead.",
+    };
+  }
 
   const supabase = await createClient();
   const {

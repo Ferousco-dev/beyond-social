@@ -22,6 +22,7 @@ export interface DashboardUser {
   readonly name: string;
   readonly email: string;
   readonly initials: string;
+  readonly avatarUrl: string | null;
   /** The plan they are actually on. The sidebar said "Free plan" to everyone. */
   readonly plan: PlanId;
   /** Whether the admin console link belongs in this person's account menu. */

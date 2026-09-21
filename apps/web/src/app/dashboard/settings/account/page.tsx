@@ -19,7 +19,11 @@ export default async function AccountPage() {
 
   return (
     <section className="mt-6 lg:mt-8">
-      <AccountForm email={account.email} fullName={account.fullName} />
+      <AccountForm
+        email={account.email}
+        fullName={account.fullName}
+        avatarUrl={account.avatarUrl}
+      />
       <IndustryForm industry={industry} />
       <PasswordForm />
       {/* Above the danger zone, not inside it: deleting a likeness is a normal

@@ -1,8 +1,10 @@
 import { type Metadata } from "next";
+import Link from "next/link";
 
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { createClient } from "@/lib/supabase/server";
+import { isFlagEnabled } from "@/lib/flags";
 
 export const metadata: Metadata = { title: "Create your avatar" };
 export const dynamic = "force-dynamic";
@@ -36,7 +38,34 @@ export default async function CreateAvatarPage() {
   const metadataName = user?.user_metadata?.full_name;
   const name = typeof metadataName === "string" ? metadataName : "";
 
-  const twins = await listTwins();
+  const [twins, customAvatarEnabled] = await Promise.all([
+    listTwins(),
+    isFlagEnabled("heygen_custom_avatars", false),
+  ]);
 
-  return <AvatarGrid name={name} twins={twins} />;
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <header className="mb-8">
+        <Link
+          href="/dashboard/assets"
+          className="text-sm font-medium text-primary underline underline-offset-4 hover:opacity-80"
+        >
+          ← Back to avatars
+        </Link>
+        <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">
+          Add a new avatar
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-soft">
+          Record the consent and training footage once, then reuse your avatar in future videos.
+        </p>
+      </header>
+
+      <AvatarGrid
+        name={name}
+        twins={twins}
+        customAvatarEnabled={customAvatarEnabled}
+        startInWizard
+      />
+    </div>
+  );
 }

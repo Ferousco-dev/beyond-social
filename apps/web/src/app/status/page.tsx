@@ -1,44 +1,102 @@
+import { Activity, CircleDashed, Clock3 } from "lucide-react";
 import { type Metadata } from "next";
-import { type ReactNode } from "react";
 
-import { PageShell, Prose } from "@/components/landing/page-shell";
+import { PageShell } from "@/components/landing/page-shell";
 
 import { HealthCheck } from "./health-check";
 
 export const metadata: Metadata = { title: "Service status" };
 
-export default function Page(): ReactNode {
+const SERVICES = [
+  { name: "Web application", detail: "Checked live from this page", live: true },
+  { name: "Video generation", detail: "Provider monitoring is being connected", live: false },
+  { name: "Social publishing", detail: "Platform monitoring is being connected", live: false },
+  { name: "Billing", detail: "Public monitoring is being connected", live: false },
+] as const;
+
+export default function StatusPage() {
   return (
     <PageShell
-      eyebrow="Resources"
-      title="Service status"
-      lede="There is no published status page yet. Rather than a green tick that is true by construction, this page runs one real check from your browser and reports only what that check found."
+      eyebrow="Status"
+      title="Beyond Social systems"
+      lede="A factual view of what we can measure publicly right now."
     >
-      <div className="flex flex-col gap-8">
-        <HealthCheck />
+      <div className="space-y-8">
+        <section className="rounded-2xl border border-hairline bg-paper p-5 sm:p-6">
+          <div className="flex items-start gap-3">
+            <Activity className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+            <div>
+              <h2 className="font-semibold text-ink">Partial monitoring available</h2>
+              <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                The web app has a live reachability check. Provider uptime and historical uptime are
+                not measured publicly yet, so this page does not claim they are operational.
+              </p>
+            </div>
+          </div>
+        </section>
 
-        <Prose>
-          <p>
-            The check above is a single request to the health endpoint, made from your browser
-            rather than from ours. When it has run, it tells you whether the web app answered you,
-            just now. It tells you nothing about the last hour, and it does not cover the parts of
-            the system most likely to be the thing that is broken: video generation runs on an
-            external provider, and publishing depends on each social platform&rsquo;s own API.
-          </p>
-          <p>
-            We are not recording uptime yet, so we have no history to show and will not print a
-            number we did not measure. A hardcoded &ldquo;all systems operational&rdquo; is worse
-            than no status page, because it is a claim that survives an outage.
-          </p>
-          <p>
-            If something is not working, email hello@beyondsocial.app. Include what you were doing
-            and roughly when. If you have an error with a trace id, send that too: it takes us
-            straight to the log line instead of a window to search.
-          </p>
-          <p>
-            When there is uptime worth publishing, this page will publish it, incidents included.
-          </p>
-        </Prose>
+        <section aria-labelledby="components-heading">
+          <h2 id="components-heading" className="text-sm font-semibold text-ink">
+            Components
+          </h2>
+          <div className="mt-3 overflow-hidden rounded-2xl border border-hairline bg-paper">
+            <ul className="divide-y divide-hairline">
+              {SERVICES.map((service) => (
+                <li
+                  key={service.name}
+                  className="flex items-center justify-between gap-4 px-5 py-4"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-ink">{service.name}</p>
+                    <p className="mt-0.5 text-xs text-ink-soft">{service.detail}</p>
+                  </div>
+                  <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cloud px-2.5 py-1 text-xs font-medium text-ink-soft">
+                    <CircleDashed className="size-3.5" aria-hidden />
+                    {service.live ? "Live check" : "Not monitored"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section aria-labelledby="live-heading">
+          <h2 id="live-heading" className="text-sm font-semibold text-ink">
+            Live web check
+          </h2>
+          <div className="mt-3">
+            <HealthCheck />
+          </div>
+        </section>
+
+        <section aria-labelledby="history-heading">
+          <h2 id="history-heading" className="text-sm font-semibold text-ink">
+            Incident history
+          </h2>
+          <div className="mt-3 rounded-2xl border border-hairline bg-paper p-5">
+            <div className="flex items-start gap-3">
+              <Clock3 className="mt-0.5 size-4 shrink-0 text-ink-soft" aria-hidden />
+              <div>
+                <p className="text-sm font-medium text-ink">No public history yet</p>
+                <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+                  Incident and uptime history will appear here once persistent monitoring is live.
+                  This is not a claim that there have been no incidents.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <p className="text-sm leading-relaxed text-ink-soft">
+          Having trouble? Email{" "}
+          <a
+            href="mailto:hello@beyondsocial.app"
+            className="text-primary underline underline-offset-4"
+          >
+            hello@beyondsocial.app
+          </a>{" "}
+          with what you were doing, when it happened, and the trace id if one was shown.
+        </p>
       </div>
     </PageShell>
   );

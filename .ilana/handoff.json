@@ -1,0 +1,85 @@
+{
+  "base_commit": "3b617b5",
+  "branch": "codex/product-hardening",
+  "ceremony": "standard",
+  "completed": [
+    "MAINTAIN intake and scope guard",
+    "HeyGen non-enterprise capability review",
+    "Provider credit expiry alerts and admin editor",
+    "Generation path verification and non-enterprise HeyGen gating",
+    "Clickable profile avatar integrated into the Profile card",
+    "Admin-editable privacy and terms coming-soon pages",
+    "Status page redesign and browser verification",
+    "Avatar creation entry point and new-avatar layout correction",
+    "Isolated local stress test with disposable-account cleanup"
+  ],
+  "decision": [
+    "Custom Digital Twin API creation stays disabled by default because current HeyGen documentation requires Enterprise API access"
+  ],
+  "dirty_paths": 50,
+  "evidence": {
+    "final product hardening smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-014"
+    },
+    "final web typecheck": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-013"
+    },
+    "generation-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-006"
+    },
+    "local-migrations": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-004"
+    },
+    "local-stress": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-011"
+    },
+    "model-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-007"
+    },
+    "next-typegen": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-002"
+    },
+    "product-hardening-smoke": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-005"
+    },
+    "web-typecheck": {
+      "exit": 0,
+      "head": "3b617b5",
+      "id": "EV-012"
+    }
+  },
+  "head": "3b617b5",
+  "limitation": [
+    "No paid provider requests during verification",
+    "Repository SQL tests do not emit TAP plans, so supabase test db exits unsuccessfully despite schema lint passing"
+  ],
+  "milestone": "CR-002 product hardening",
+  "next": "Owner review, then apply the three new migrations in the target environment",
+  "remaining": [],
+  "step": "complete",
+  "stop_boundary": [
+    "Only the ten requested product-hardening items; no unrelated roadmap work"
+  ],
+  "updated": "2026-09-21T19:16:07",
+  "verified": [
+    "Production build, lint, and typecheck pass",
+    "Generation smoke 16/16, model routing smoke 27/27, product hardening smoke 7/7",
+    "25 accounts and 500 concurrent health checks completed without failures"
+  ]
+}

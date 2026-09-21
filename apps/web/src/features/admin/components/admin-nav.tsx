@@ -2,9 +2,11 @@
 
 import {
   Activity,
+  BookOpenText,
   Bug,
   ClipboardList,
   Coins,
+  CreditCard,
   KeyRound,
   LayoutDashboard,
   LineChart,
@@ -22,7 +24,9 @@ const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }
   { href: "/dashboard/admin/analytics", label: "Analytics", icon: LineChart },
   { href: "/dashboard/admin/audit", label: "Audit log", icon: ClipboardList },
   { href: "/dashboard/admin/config", label: "App config", icon: SlidersHorizontal },
+  { href: "/dashboard/admin/legal", label: "Legal", icon: BookOpenText },
   { href: "/dashboard/admin/model-pricing", label: "Model pricing", icon: Coins },
+  { href: "/dashboard/admin/provider-credits", label: "Provider credits", icon: CreditCard },
   { href: "/dashboard/admin/secrets", label: "Secrets", icon: KeyRound },
   { href: "/dashboard/admin/debug", label: "Debug", icon: Bug },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { Plus } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
@@ -18,13 +19,17 @@ import { AvatarWizard } from "./avatar-wizard";
 export function AvatarGrid({
   twins: initialTwins,
   name,
+  customAvatarEnabled,
+  startInWizard = false,
 }: {
   twins: readonly TwinSummary[];
   name: string;
+  customAvatarEnabled: boolean;
+  startInWizard?: boolean;
 }): ReactNode {
   const router = useRouter();
   const { avatars, setAvatars, checkStatus, refreshConsent } = useTwinStatus(initialTwins);
-  const [showWizard, setShowWizard] = useState(false);
+  const [showWizard, setShowWizard] = useState(startInWizard && customAvatarEnabled);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -163,6 +168,25 @@ export function AvatarGrid({
     [router, setAvatars],
   );
 
+  if (avatars.length === 0 && !customAvatarEnabled) {
+    return (
+      <div className="rounded-xl border border-hairline bg-paper p-5">
+        <h3 className="text-sm font-semibold text-ink">Custom avatars are coming soon</h3>
+        <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-soft">
+          Custom Digital Twin creation requires HeyGen Enterprise API access, which this workspace
+          does not have. You can still make a talking-avatar video now by attaching a photo and a
+          voice clip in the composer.
+        </p>
+        <Link
+          href="/dashboard"
+          className="mt-4 inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-4"
+        >
+          Open the composer
+        </Link>
+      </div>
+    );
+  }
+
   if (avatars.length === 0 && !showWizard) {
     return (
       <EmptyState
@@ -192,20 +216,6 @@ export function AvatarGrid({
   return (
     <div>
       {dialog}
-      <div className="mb-6 flex items-center justify-end">
-        <button
-          type="button"
-          onClick={() => {
-            setError(null);
-            setShowWizard(true);
-          }}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          <Plus className="size-4" />
-          New avatar
-        </button>
-      </div>
-
       {error ? (
         <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
           {error}
@@ -216,7 +226,7 @@ export function AvatarGrid({
         avatars={avatars}
         onDelete={handleDelete}
         onSetDefault={handleSetDefault}
-        onRetry={() => setShowWizard(true)}
+        onRetry={() => customAvatarEnabled && setShowWizard(true)}
         onCheckStatus={checkStatus}
         onRefreshConsent={handleRefreshConsent}
         isDeleting={isDeleting}

@@ -11,3 +11,10 @@ NFR-002,Invalid requests create zero net debit and zero provider calls,non-funct
 NFR-003,Sensitive media remains authenticated owned and consented,non-functional,must,"Owner interview and repository analysis 2026-09-16",,"",TC-010,,specified
 DOM-001,Avatar and voice media require likeness and voice consent controls,domain,must,"Normal SaaS safeguards baseline 2026-09-16",,"",TC-010,,specified
 DOM-002,Provider invocation and pricing remain server-enforced,domain,must,"Repository analysis 2026-09-16",,"",TC-009;TC-011;TC-012,,specified
+REQ-008,Admins can record provider credit balances and receive a visible warning before expiry,functional,must,"Owner request 2026-09-21",,"admin/provider-credits",TC-014;TC-015,,specified
+REQ-009,Generation paths are verified without paid provider calls and unsupported HeyGen custom-twin setup is unavailable by default,functional,must,"Owner request and provider documentation 2026-09-21",,"generation/heygen",TC-016;TC-017;TC-018,,specified
+REQ-010,Users can upload replace and remove their profile image,functional,must,"Owner request 2026-09-21",,"settings/profile-image",TC-019;TC-020,,specified
+REQ-011,Privacy and terms pages default to coming soon and their public content is editable by admins,functional,must,"Owner request 2026-09-21",,"legal-documents",TC-021;TC-022,,specified
+REQ-012,The public status page presents a clear live snapshot without fabricated uptime history,functional,must,"Owner request 2026-09-21",,"status",TC-023,,specified
+NFR-004,Changed interfaces remain keyboard accessible responsive theme-aware and explicit about unavailable states,non-functional,must,"Owner request and repository design rules 2026-09-21",,"ui",TC-024,,specified
+NFR-005,Disposable-account stress testing must target local or explicitly isolated infrastructure and leave no production accounts,non-functional,must,"Owner authorization and safety boundary 2026-09-21",,"load-test",TC-025,,specified
