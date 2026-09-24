@@ -76,6 +76,13 @@ serve(async (req) => {
       generation.provider_task_id,
       info.resultUrls[0],
     );
+    if (!resultUrl) {
+      log("error", "could not persist a completed generation", {
+        taskId: generation.provider_task_id,
+        generationId: generation.id,
+      });
+      return json({ error: "Could not save this generation" }, 502);
+    }
     const { error } = await admin.rpc("complete_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_result_url: resultUrl,

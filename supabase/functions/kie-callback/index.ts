@@ -65,6 +65,14 @@ serve(async (req) => {
     const resultUrl = generation
       ? await persistRender(admin, generation.user_id, taskId, urls[0])
       : urls[0];
+    if (!resultUrl) {
+      log("error", "could not persist a completed generation from callback", {
+        traceId,
+        taskId,
+        generationId: generation?.id,
+      });
+      return json({ error: "Could not persist the generation" }, 500);
+    }
     const { data: transitioned, error } = await admin.rpc("complete_generation", {
       p_provider_task_id: taskId,
       p_result_url: resultUrl,

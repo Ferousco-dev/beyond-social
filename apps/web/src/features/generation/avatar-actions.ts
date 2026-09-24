@@ -92,9 +92,15 @@ export async function hasLikenessConsent(): Promise<boolean> {
   if (!isSupabaseConfigured) return false;
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+
   const { data } = await supabase
     .from("likeness_consents")
     .select("id")
+    .eq("user_id", user.id)
     .eq("statement_version", CONSENT_VERSION)
     .limit(1)
     .maybeSingle();

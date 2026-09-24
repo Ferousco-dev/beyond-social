@@ -262,6 +262,7 @@ export interface HeygenVideoRequest {
   readonly avatarId: string;
   readonly voiceId: string;
   readonly script: string;
+  readonly mode?: "script" | "cinematic";
   readonly title?: string;
   /** Where HeyGen posts completion, so this is not polled forever. */
   readonly callbackUrl?: string;
@@ -276,6 +277,24 @@ export interface HeygenVideoRequest {
  * exists to move past. 9:16 because everything this product makes is vertical.
  */
 export async function createAvatarVideo(request: HeygenVideoRequest): Promise<string> {
+  if (request.mode === "cinematic") {
+    const body = await call<{ data?: { video_id?: string } }>("/videos", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "cinematic_avatar",
+        prompt: request.script,
+        avatar_id: [request.avatarId],
+        aspect_ratio: "9:16",
+        resolution: "1080p",
+        duration: 8,
+        ...(request.title ? { title: request.title } : {}),
+      }),
+    });
+    const id = body.data?.video_id;
+    if (!id) throw new HeygenError(502, "HeyGen accepted the cinematic video but returned no id");
+    return id;
+  }
+
   const body = await call<{ data?: { video_id?: string } }>("/videos", {
     method: "POST",
     body: JSON.stringify({
