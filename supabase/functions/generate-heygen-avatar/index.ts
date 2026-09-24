@@ -58,6 +58,7 @@ interface GenerateBody {
   /** The conversation the render is filed under, as every other generation is. */
   projectId?: string;
   script?: string;
+  mode?: "script" | "cinematic";
   title?: string;
   /** Which likeness speaks. Absent means the caller's default. */
   avatarId?: string;
@@ -164,6 +165,7 @@ serve(async (request) => {
       avatarId: twin.lookId,
       voiceId: twin.voiceId,
       script,
+      mode: body.mode === "cinematic" ? "cinematic" : "script",
       ...(title ? { title } : {}),
     });
   } catch (error) {

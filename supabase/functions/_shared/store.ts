@@ -1,8 +1,7 @@
 // Copies a finished render from the (temporary) provider URL into the durable
-// `renders` bucket and returns the permanent public URL. Falls back to the
-// source URL if the copy fails, so a storage hiccup never loses the result;
-// every fallback is logged loudly, since the source URL expires and a
-// generation whose durable copy silently failed looks fine until it does.
+// `renders` bucket and returns the permanent public URL. A failed copy returns
+// null so callers leave the generation unsettled and retry rather than saving
+// a provider URL that will expire.
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isSafeRenderUrl, readBounded, MAX_RENDER_BYTES } from "./fetch-guard.ts";
 import { log } from "./trace.ts";
@@ -26,12 +25,9 @@ type PersistFailureReason =
 /**
  * The one place every persistence failure funnels through.
  *
- * `complete_generation` (0055_private_renders.sql) already infers a failed
- * copy from `result_path` coming back null, but nothing surfaces that at the
- * time it happens: the generation still completes and looks fine until the
- * temporary kie.ai URL it fell back to expires. This is what makes that
- * moment loud and greppable, distinct from every other warn/error line this
- * function might otherwise blend into.
+ * A persistence failure is logged here and handled by each caller before it
+ * settles the generation. Keeping the row unsettled lets the provider callback
+ * or poller retry while the source URL is still available.
  */
 function logPersistFailure(
   taskId: string,
@@ -39,7 +35,7 @@ function logPersistFailure(
   reason: PersistFailureReason,
   details: Record<string, unknown> = {},
 ): void {
-  log("error", "render persistence failed, falling back to temporary source url", {
+  log("error", "render persistence failed, generation left unsettled for retry", {
     taskId,
     userId,
     reason,
@@ -52,7 +48,7 @@ export async function persistRender(
   userId: string,
   taskId: string,
   sourceUrl: string,
-): Promise<string> {
+): Promise<string | null> {
   /*
    * The URL is checked before it is fetched, not after. It arrives in a webhook
    * body, and this function runs with the service role inside the platform's
@@ -61,13 +57,13 @@ export async function persistRender(
    */
   if (!isSafeRenderUrl(sourceUrl)) {
     logPersistFailure(taskId, userId, "unsafe_url");
-    return sourceUrl;
+    return null;
   }
 
   const response = await fetch(sourceUrl);
   if (!response.ok) {
     logPersistFailure(taskId, userId, "fetch_failed", { status: response.status });
-    return sourceUrl;
+    return null;
   }
 
   // A response that is not a video is not a render, whatever the URL claimed.
@@ -77,13 +73,13 @@ export async function persistRender(
     .toLowerCase();
   if (contentType !== "" && !ALLOWED_CONTENT_TYPES.includes(contentType)) {
     logPersistFailure(taskId, userId, "invalid_content_type", { contentType });
-    return sourceUrl;
+    return null;
   }
 
   const bytes = await readBounded(response, MAX_RENDER_BYTES);
   if (!bytes) {
     logPersistFailure(taskId, userId, "oversized");
-    return sourceUrl;
+    return null;
   }
 
   const path = `${userId}/${taskId}.mp4`;
@@ -93,11 +89,11 @@ export async function persistRender(
     .upload(path, bytes, { contentType: "video/mp4", upsert: true });
   if (error) {
     logPersistFailure(taskId, userId, "upload_error", { message: error.message });
-    return sourceUrl;
+    return null;
   }
 
   const { data } = admin.storage.from("renders").getPublicUrl(path);
-  return data?.publicUrl ? toBrowserOrigin(data.publicUrl) : sourceUrl;
+  return data?.publicUrl ? toBrowserOrigin(data.publicUrl) : null;
 }
 
 /**

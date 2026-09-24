@@ -96,6 +96,13 @@ serve(async (request) => {
           row.provider_task_id,
           video.videoUrl,
         );
+        if (!resultUrl) {
+          log("error", "could not persist a completed twin video", {
+            traceId,
+            generationId: row.id,
+          });
+          continue;
+        }
         const { error: completeError } = await admin.rpc("complete_generation", {
           p_provider_task_id: row.provider_task_id,
           p_result_url: resultUrl,
@@ -116,15 +123,37 @@ serve(async (request) => {
 
       if (video.status === "failed") {
         const reason = video.error ?? "The provider could not render this video";
-        await admin.rpc("fail_generation_by_id", { p_generation: row.id, p_error: reason });
-        failed += 1;
+        const { data: transitioned, error: failError } = await admin.rpc("fail_generation_by_id", {
+          p_generation: row.id,
+          p_error: reason,
+        });
+        if (failError) {
+          log("error", "could not settle a failed twin video", {
+            traceId,
+            generationId: row.id,
+            error: failError.message,
+          });
+          continue;
+        }
+        if (transitioned === true) failed += 1;
         continue;
       }
 
       const ageMinutes = (Date.now() - new Date(row.created_at).getTime()) / 60_000;
       if (ageMinutes >= MAX_AGE_MINUTES) {
-        await admin.rpc("fail_generation_by_id", { p_generation: row.id, p_error: STUCK_REASON });
-        failed += 1;
+        const { data: transitioned, error: failError } = await admin.rpc("fail_generation_by_id", {
+          p_generation: row.id,
+          p_error: STUCK_REASON,
+        });
+        if (failError) {
+          log("error", "could not settle a stuck twin video", {
+            traceId,
+            generationId: row.id,
+            error: failError.message,
+          });
+          continue;
+        }
+        if (transitioned === true) failed += 1;
       }
     } catch (caught) {
       // One provider error must not stop the batch: the next row may be fine,
