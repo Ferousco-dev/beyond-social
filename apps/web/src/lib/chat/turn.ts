@@ -24,7 +24,7 @@ import { foldShots } from "@/lib/generation/shot-fold";
 import { refinePrompt } from "@/lib/generation/refine";
 import { describeSavedSubjects, findSavedSubjects } from "@/lib/generation/saved-subjects";
 import { logger } from "@/lib/logger";
-import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
+import { edgeFunctionErrorDetails } from "@/lib/supabase/function-error";
 import {
   applyAnswers,
   buildClarification,
@@ -628,10 +628,15 @@ export async function runTurn(
         // `error.message` is a library-hardcoded string, the same for every
         // failure. The reason worth showing is in the response body, which
         // this reads back off `error.context`, a `FunctionsHttpError` only.
-        const detail = await edgeFunctionErrorMessage(error);
-        logger.warn("generation could not start", { error: error.message, detail });
+        const details = await edgeFunctionErrorDetails(error);
+        generationId = details.generationId;
+        logger.warn("generation could not start", {
+          error: error.message,
+          detail: details.message,
+          generationId: details.generationId,
+        });
         notice =
-          detail ?? "Could not start the video just now. Your message was saved, so try again.";
+          details.message ?? "Could not start the video just now. Your message was saved, so try again.";
         return;
       }
       generationId = (data as { generationId?: string } | null)?.generationId ?? null;
@@ -671,6 +676,16 @@ export async function runTurn(
    */
   const writeOrStream = async (): Promise<string> => {
     stage("replying");
+    if (intent.intent === "create") {
+      const status = "Generating your video now.";
+      events.onReplyChunk?.(status);
+      return status;
+    }
+    if (intent.intent === "adjust") {
+      const status = "Updating your video now.";
+      events.onReplyChunk?.(status);
+      return status;
+    }
     if (!events.onReplyChunk) return writeReply(replyContext);
 
     let assembled = "";

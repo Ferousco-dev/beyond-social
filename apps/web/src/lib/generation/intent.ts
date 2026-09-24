@@ -51,6 +51,14 @@ const resultSchema = z.object({
   durationSeconds: z.number().int().min(2).max(60).nullable().default(null),
 });
 
+const EXPLICIT_CREATE =
+  /\b(generate|create|render|produce|animate)\b[\s\S]*\b(video|clip|film|scene)\b/i;
+const NEGATED_CREATE = /\b(?:do not|don't|dont|never)\s+(?:generate|create|render|produce|animate)\b/i;
+
+export function isExplicitCreateRequest(message: string): boolean {
+  return EXPLICIT_CREATE.test(message) && !NEGATED_CREATE.test(message);
+}
+
 export interface Classification {
   readonly intent: Intent;
   readonly confidence: number;
@@ -183,6 +191,13 @@ export async function classify(
     // `adjust` is meaningless with nothing to adjust, and the model will still
     // occasionally pick it on a first message.
     if (parsed.intent === "adjust" && !hasPreviousVideo) {
+      return { ...parsed, intent: "create" };
+    }
+    // A new-generation verb is stronger than the presence of an older render
+    // in the thread. Without this guard, "generate a video..." can be routed
+    // to refinement, which asks about extending an old shot instead of calling
+    // the provider for the requested new render.
+    if (parsed.intent === "adjust" && isExplicitCreateRequest(message)) {
       return { ...parsed, intent: "create" };
     }
     return parsed;

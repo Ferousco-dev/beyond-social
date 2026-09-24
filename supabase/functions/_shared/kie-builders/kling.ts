@@ -4,8 +4,8 @@ import { type Builder, type MarketInput, UnsupportedModelError } from "../kie-mo
  * Kling 3.0.
  *
  * `duration` is a string of seconds ('3' to '15'), not a number, and
- * `aspect_ratio` has no `Auto`. Kling adapts the ratio to the images when they
- * are supplied, so the field is omitted in that case rather than fighting them.
+ * `aspect_ratio` has no `Auto`. The provider still requires a concrete ratio
+ * for image-to-video requests, so `Auto` is normalized to the house default.
  *
  * Multi-shot is a different request, not an extra field. The provider takes a
  * list of beats in one call and cuts between them itself, which is why length
@@ -23,10 +23,11 @@ export const klingVideo: Builder = (request) => {
     request.imageUrls.length > 0
       ? // Multi-shot honours only the opening frame, so sending the pair we
         // would send for a single shot would quietly drop the second.
-        { image_urls: request.shots.length > 0 ? request.imageUrls.slice(0, 1) : request.imageUrls }
-      : request.aspectRatio === "Auto"
-        ? {}
-        : { aspect_ratio: request.aspectRatio };
+        {
+          image_urls: request.shots.length > 0 ? request.imageUrls.slice(0, 1) : request.imageUrls,
+          aspect_ratio: request.aspectRatio === "Auto" ? "9:16" : request.aspectRatio,
+        }
+      : { aspect_ratio: request.aspectRatio === "Auto" ? "9:16" : request.aspectRatio };
 
   if (request.shots.length === 0) {
     return { prompt: request.prompt, duration: String(request.duration), ...framing };

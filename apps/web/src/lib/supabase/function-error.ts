@@ -8,7 +8,35 @@ import { z } from "zod";
  * `supabase/functions/_shared/http.ts`'s `json` helper and every call site
  * that reports a non-2xx: the body is always `{ error: "..." }`.
  */
-const errorBodySchema = z.object({ error: z.string().min(1) });
+const errorBodySchema = z.object({
+  error: z.string().min(1),
+  detail: z.string().optional(),
+  generationId: z.string().uuid().optional(),
+});
+
+export interface EdgeFunctionErrorDetails {
+  readonly message: string | null;
+  readonly generationId: string | null;
+}
+
+export async function edgeFunctionErrorDetails(error: unknown): Promise<EdgeFunctionErrorDetails> {
+  if (!(error instanceof FunctionsHttpError)) {
+    return { message: null, generationId: null };
+  }
+
+  try {
+    const body: unknown = await error.context.clone().json();
+    const parsed = errorBodySchema.safeParse(body);
+    return parsed.success
+      ? {
+          message: parsed.data.detail ?? parsed.data.error,
+          generationId: parsed.data.generationId ?? null,
+        }
+      : { message: null, generationId: null };
+  } catch {
+    return { message: null, generationId: null };
+  }
+}
 
 /**
  * The real reason an edge function refused a request.
@@ -25,13 +53,5 @@ const errorBodySchema = z.object({ error: z.string().min(1) });
  * body that does not parse is not something safe to show verbatim.
  */
 export async function edgeFunctionErrorMessage(error: unknown): Promise<string | null> {
-  if (!(error instanceof FunctionsHttpError)) return null;
-
-  try {
-    const body: unknown = await error.context.json();
-    const parsed = errorBodySchema.safeParse(body);
-    return parsed.success ? parsed.data.error : null;
-  } catch {
-    return null;
-  }
+  return (await edgeFunctionErrorDetails(error)).message;
 }

@@ -8,7 +8,7 @@ import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
 
-import { type Classification } from "./intent";
+import { isExplicitCreateRequest, type Classification } from "./intent";
 
 /**
  * Asking before spending.
@@ -83,6 +83,8 @@ export function needsClarification(context: ClarifyContext): ClarifyReason | nul
 
   // A question or an adjustment costs nothing to get slightly wrong.
   if (classification.intent !== "create") return null;
+
+  if (isExplicitCreateRequest(prompt)) return null;
 
   if (classification.confidence < CONFIDENCE_FLOOR) return "unsure";
 

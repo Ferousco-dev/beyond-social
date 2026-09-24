@@ -22,6 +22,7 @@ import { edgeFunctionErrorMessage } from "@/lib/supabase/function-error";
 const MAX_SCRIPT = 1500;
 
 const requestSchema = z.object({
+  projectId: z.string().min(1).optional(),
   avatarId: z.string().uuid(),
   script: z.string().trim().min(1, "Write what you want to say.").max(MAX_SCRIPT),
 });
@@ -123,17 +124,30 @@ export async function makeTwinVideo(request: TwinVideoRequest): Promise<TwinVide
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in again to make this video." };
 
-  // Created before the render, and only ever for a request that got this far,
-  // so abandoning the form leaves no empty thread behind.
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({ user_id: user.id, title: titleFrom(parsed.data.script) })
-    .select("id")
-    .single();
-  const projectId = (project as { id?: string } | null)?.id;
-  if (projectError || !projectId) {
-    logger.warn("could not open a project for a twin video", { error: projectError?.message });
-    return { status: "error", message: "That video could not be started." };
+  let projectId = parsed.data.projectId;
+  if (projectId) {
+    const { data: existingProject, error: projectError } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (projectError || !existingProject) {
+      return { status: "error", message: "That project could not be found." };
+    }
+  } else {
+    // Created before the render, and only ever for a request that got this far,
+    // so abandoning the form leaves no empty thread behind.
+    const { data: project, error: projectError } = await supabase
+      .from("projects")
+      .insert({ user_id: user.id, title: titleFrom(parsed.data.script) })
+      .select("id")
+      .single();
+    projectId = (project as { id?: string } | null)?.id;
+    if (projectError || !projectId) {
+      logger.warn("could not open a project for a twin video", { error: projectError?.message });
+      return { status: "error", message: "That video could not be started." };
+    }
   }
 
   const { data, error } = await supabase.functions.invoke("generate-heygen-avatar", {

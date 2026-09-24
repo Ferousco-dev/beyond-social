@@ -86,6 +86,12 @@ check(
 );
 
 check(
+  "kling image-to-video includes the required aspect ratio",
+  buildMarketInput("kling-3.0/video", { ...base, imageUrls: [I] }),
+  { prompt: "a cat", duration: "6", image_urls: [I], aspect_ratio: "9:16" },
+);
+
+check(
   "gemini uses image_urls and a STRING duration",
   buildMarketInput("gemini-omni-video", { ...base, imageUrls: [I] }),
   { prompt: "a cat", image_urls: [I], duration: "6", aspect_ratio: "9:16" },
