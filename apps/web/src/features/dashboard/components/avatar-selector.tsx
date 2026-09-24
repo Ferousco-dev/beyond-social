@@ -15,10 +15,7 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
   const [open, setOpen] = useState(false);
 
   const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready");
-  const selectedAvatar =
-    avatars.find((avatar) => avatar.id === selectedAvatarId) ??
-    readyAvatars.find((avatar) => avatar.isDefault) ??
-    readyAvatars[0];
+  const selectedAvatar = avatars.find((avatar) => avatar.id === selectedAvatarId);
 
   if (readyAvatars.length === 0) return null;
 
@@ -50,7 +47,7 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
             </span>
           </>
         ) : (
-          <span className="text-xs text-ink-soft">Avatar</span>
+          <span className="text-xs text-ink-soft">None</span>
         )}
       </button>
 
@@ -71,7 +68,9 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
                 }}
                 className="block w-full px-3 py-2 text-left text-xs transition-colors hover:bg-canvas"
               >
-                <span className="text-ink-soft">None</span>
+                <span className={selectedAvatarId === null ? "font-medium text-ink" : "text-ink-soft"}>
+                  None
+                </span>
               </button>
 
               {/* Avatar options */}

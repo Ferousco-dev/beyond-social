@@ -16,6 +16,7 @@ import { followUpsFor } from "@/lib/generation/follow-ups";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
 import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
+import { makeTwinVideo } from "@/features/live-avatar/video-actions";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { type AttachmentKind, type Thread } from "@/lib/chat/thread";
 
@@ -250,12 +251,35 @@ export function ConversationThread({
           return;
         }
 
+        const failedGenerationId = result.generationId;
+        const generationError = result.generationError;
+        if (generationError && failedGenerationId) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${nextId()}-reply`,
+              role: "assistant",
+              content: result.reply,
+              attachments: [],
+              draft: {
+                generationId: failedGenerationId,
+                status: "failed" as const,
+                resultUrl: null,
+                error: generationError,
+              },
+            },
+          ]);
+          notify(generationError);
+          if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+          return;
+        }
+
         if (result.notice) notify(result.notice, result.noticeUpgrade);
         router.refresh();
         if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
       })();
     },
-    [projectId, router, notify],
+    [projectId, router, notify, nextId, setMessages],
   );
 
   /**
@@ -279,12 +303,35 @@ export function ConversationThread({
           return;
         }
 
+        const failedGenerationId = result.generationId;
+        const generationError = result.generationError;
+        if (generationError && failedGenerationId) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${nextId()}-reply`,
+              role: "assistant",
+              content: result.reply,
+              attachments: [],
+              draft: {
+                generationId: failedGenerationId,
+                status: "failed" as const,
+                resultUrl: null,
+                error: generationError,
+              },
+            },
+          ]);
+          notify(generationError);
+          if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+          return;
+        }
+
         if (result.notice) notify(result.notice, result.noticeUpgrade);
         router.refresh();
         if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
       })();
     },
-    [projectId, router, notify],
+    [projectId, router, notify, nextId, setMessages],
   );
 
   const modelChoice = useModelConfirmation(projectId, proceedWithModel);
@@ -415,6 +462,40 @@ export function ConversationThread({
           return;
         }
 
+        // An explicitly selected HeyGen twin owns this render. With no
+        // selection, the normal KIE pipeline below handles the request.
+        if (selectedAvatarId) {
+          const twinResult = await makeTwinVideo({
+            projectId: projectId === "new" ? undefined : projectId,
+            avatarId: selectedAvatarId,
+            script: trimmed,
+          });
+          setSending(false);
+          if (twinResult.status !== "ok") {
+            setMessages((current) => current.filter((message) => message.id !== optimisticId));
+            setDraftPrompt(trimmed);
+            notify(twinResult.message);
+            return;
+          }
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${nextId()}-reply`,
+              role: "assistant",
+              content: "Your HeyGen avatar is generating this video now.",
+              attachments: [],
+              draft: {
+                generationId: twinResult.generationId,
+                status: "generating" as const,
+                resultUrl: null,
+              },
+            },
+          ]);
+          router.refresh();
+          if (projectId === "new") router.replace(`/dashboard/c/${twinResult.projectId}` as Route);
+          return;
+        }
+
         const validShots = shotList
           ?.filter((shot) => shot.prompt.trim().length > 0)
           .map((shot) => ({ prompt: shot.prompt.trim(), duration: shot.duration }));
@@ -422,6 +503,7 @@ export function ConversationThread({
         const payload = {
           projectId,
           prompt: trimmed,
+          generationMode: draft.generationMode,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
           videoPaths: clip ? [clip.path] : undefined,
@@ -588,6 +670,7 @@ export function ConversationThread({
       savedLikeness,
       useClonedVoice,
       clonedVoiceId,
+      selectedAvatarId,
       confirm,
       hold,
       sendTurn,
@@ -672,6 +755,8 @@ export function ConversationThread({
               onFootage={draft.setFootage}
               shots={draft.shots}
               onShotsChange={draft.setShots}
+              generationMode={draft.generationMode}
+              onGenerationModeChange={draft.setGenerationMode}
               busy={sending}
               onStop={sending ? turn.cancel : undefined}
               selectedAvatarId={selectedAvatarId}

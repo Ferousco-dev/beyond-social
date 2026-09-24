@@ -1,6 +1,7 @@
 import { type PendingPhoto } from "@/features/dashboard/components/compose-menu";
 import { type PendingShot } from "@/features/dashboard/components/shot-list-editor";
 import { type PendingVoice } from "@/features/dashboard/hooks/use-voice-upload";
+import { type GenerationMode } from "@/lib/chat/send-schema";
 
 /**
  * Filling the composer from somewhere else in the app.
@@ -19,6 +20,7 @@ const PROMPT_KEY = "bs:pending-prompt";
 const PHOTOS_KEY = "bs:pending-photos";
 const SHOTS_KEY = "bs:pending-shots";
 const VOICE_KEY = "bs:pending-voice";
+const MODE_KEY = "bs:pending-generation-mode";
 
 export interface ComposerSeed {
   readonly prompt: string;
@@ -32,6 +34,7 @@ export interface ComposerSeed {
    * an avatar render rather than a plain generation.
    */
   readonly voice?: PendingVoice | null;
+  readonly generationMode?: GenerationMode;
 }
 
 /** Leaves the seed for the composer. Does not navigate; the caller does that. */
@@ -53,6 +56,11 @@ export function leaveSeed(seed: ComposerSeed): void {
   // on a screen it never rendered.
   if (seed.voice && seed.voice.path !== "") {
     window.sessionStorage.setItem(VOICE_KEY, JSON.stringify(seed.voice));
+  }
+  if (seed.generationMode && seed.generationMode !== "auto") {
+    window.sessionStorage.setItem(MODE_KEY, seed.generationMode);
+  } else {
+    window.sessionStorage.removeItem(MODE_KEY);
   }
 }
 
@@ -83,6 +91,7 @@ export interface TakenSeed {
   readonly photos: readonly PendingPhoto[] | null;
   readonly shots: readonly PendingShot[] | null;
   readonly voice: PendingVoice | null;
+  readonly generationMode: GenerationMode;
 }
 
 /** Loose enough to catch a hand-edited value without importing a schema here. */
@@ -108,13 +117,20 @@ export function takeSeed(fallbackPrompt: string | null): TakenSeed {
     window.sessionStorage.removeItem(PHOTOS_KEY);
     window.sessionStorage.removeItem(SHOTS_KEY);
     window.sessionStorage.removeItem(VOICE_KEY);
-    return { prompt: null, photos: null, shots: null, voice: null };
+    window.sessionStorage.removeItem(MODE_KEY);
+    return { prompt: null, photos: null, shots: null, voice: null, generationMode: "auto" };
   }
+
+  const storedMode = window.sessionStorage.getItem(MODE_KEY);
+  window.sessionStorage.removeItem(MODE_KEY);
+  const generationMode: GenerationMode =
+    storedMode === "low" || storedMode === "middle" || storedMode === "high" ? storedMode : "auto";
 
   return {
     prompt,
     photos: takeJson(PHOTOS_KEY, (value): value is readonly PendingPhoto[] => Array.isArray(value)),
     shots: takeJson(SHOTS_KEY, (value): value is readonly PendingShot[] => Array.isArray(value)),
     voice: takeJson(VOICE_KEY, isPendingVoice),
+    generationMode,
   };
 }
