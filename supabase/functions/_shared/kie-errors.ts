@@ -33,6 +33,7 @@ const OUT_OF_FUNDS_NOTICE =
  */
 export function providerFailure(action: string, message: unknown, status: number): Error {
   const reported = typeof message === "string" && message.trim() !== "" ? message.trim() : null;
+  console.error("kie provider error", { action, message: reported, status });
   if (reported !== null && OUT_OF_FUNDS.test(reported)) return new Error(OUT_OF_FUNDS_NOTICE);
   return new Error(`kie.ai ${action} failed: ${reported ?? status}`);
 }
