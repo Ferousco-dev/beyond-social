@@ -21,6 +21,7 @@ export async function chooseModel(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
   prompt: string,
+  mode: "auto" | "low" | "middle" | "high",
   videoPaths: readonly string[] | undefined,
   hasFaceAndVoice: boolean,
   hasVoice: boolean,
@@ -73,6 +74,7 @@ export async function chooseModel(
 
     return selectModel({
       prompt,
+      mode,
       plan: (["free", "creator", "studio"].includes(plan ?? "") ? plan : "free") as PlanId,
       hasFaceAndVoice,
       hasVoice,

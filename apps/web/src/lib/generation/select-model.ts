@@ -101,6 +101,7 @@ const REFERENCE_TO_VIDEO =
 
 export interface SelectionInput {
   readonly prompt: string;
+  readonly mode?: "auto" | "low" | "middle" | "high";
   readonly plan: PlanId;
   /** True when a photo of a person and a voice clip were both attached. */
   readonly hasFaceAndVoice: boolean;
@@ -157,13 +158,28 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
           creditCost: model.creditCost,
           reason,
           // Only against what they would otherwise have paid. The same model is
-          // remarkable on one plan and ordinary on another.
-          worthConfirming: model.creditCost > (workhorse?.creditCost ?? 0),
+          // remarkable on one plan and ordinary on another. An explicit mode is
+          // already the user's confirmation, so only Auto asks again.
+          worthConfirming:
+            (input.mode ?? "auto") === "auto" && model.creditCost > (workhorse?.creditCost ?? 0),
           attachmentIgnored,
           voiceIgnored,
           alternative:
             workhorse === null ? null : { modelId: workhorse.id, creditCost: workhorse.creditCost },
         };
+
+    const mode = input.mode ?? "auto";
+    if (mode !== "auto" && !hasFaceAndVoice && !hasFootage) {
+      const eligible = catalog.filter((model) => usable(model, plan));
+      const ordered = [...eligible].sort((left, right) => left.creditCost - right.creditCost);
+      const target =
+        mode === "low"
+          ? firstUsable(["veo3_fast"], catalog, plan)
+          : mode === "high"
+            ? ordered.at(-1) ?? null
+            : ordered[Math.floor((ordered.length - 1) / 2)] ?? null;
+      if (target) return pick(target, `You selected ${mode} quality.`);
+    }
 
   /*
    * Order matters, and it is by how specific the evidence is.

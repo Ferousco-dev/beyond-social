@@ -251,12 +251,35 @@ export function ConversationThread({
           return;
         }
 
+        const failedGenerationId = result.generationId;
+        const generationError = result.generationError;
+        if (generationError && failedGenerationId) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${nextId()}-reply`,
+              role: "assistant",
+              content: result.reply,
+              attachments: [],
+              draft: {
+                generationId: failedGenerationId,
+                status: "failed" as const,
+                resultUrl: null,
+                error: generationError,
+              },
+            },
+          ]);
+          notify(generationError);
+          if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+          return;
+        }
+
         if (result.notice) notify(result.notice, result.noticeUpgrade);
         router.refresh();
         if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
       })();
     },
-    [projectId, router, notify],
+    [projectId, router, notify, nextId, setMessages],
   );
 
   /**
@@ -280,12 +303,35 @@ export function ConversationThread({
           return;
         }
 
+        const failedGenerationId = result.generationId;
+        const generationError = result.generationError;
+        if (generationError && failedGenerationId) {
+          setMessages((current) => [
+            ...current,
+            {
+              id: `${nextId()}-reply`,
+              role: "assistant",
+              content: result.reply,
+              attachments: [],
+              draft: {
+                generationId: failedGenerationId,
+                status: "failed" as const,
+                resultUrl: null,
+                error: generationError,
+              },
+            },
+          ]);
+          notify(generationError);
+          if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
+          return;
+        }
+
         if (result.notice) notify(result.notice, result.noticeUpgrade);
         router.refresh();
         if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
       })();
     },
-    [projectId, router, notify],
+    [projectId, router, notify, nextId, setMessages],
   );
 
   const modelChoice = useModelConfirmation(projectId, proceedWithModel);
@@ -457,6 +503,7 @@ export function ConversationThread({
         const payload = {
           projectId,
           prompt: trimmed,
+          generationMode: draft.generationMode,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
           videoPaths: clip ? [clip.path] : undefined,
@@ -708,6 +755,8 @@ export function ConversationThread({
               onFootage={draft.setFootage}
               shots={draft.shots}
               onShotsChange={draft.setShots}
+              generationMode={draft.generationMode}
+              onGenerationModeChange={draft.setGenerationMode}
               busy={sending}
               onStop={sending ? turn.cancel : undefined}
               selectedAvatarId={selectedAvatarId}

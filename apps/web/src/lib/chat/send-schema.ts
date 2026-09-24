@@ -13,6 +13,8 @@ import { ATTACHMENT_KINDS } from "@/lib/chat/attachment-kinds";
  */
 
 const ASPECT_RATIOS = ["16:9", "9:16", "Auto"] as const;
+export const GENERATION_MODES = ["auto", "low", "middle", "high"] as const;
+export type GenerationMode = (typeof GENERATION_MODES)[number];
 
 /** The composer's ceiling: four reference photos plus one voice clip. */
 const MAX_ATTACHMENTS = 5;
@@ -36,6 +38,8 @@ export const sendSchema = z.object({
   idempotencyKey: z.string().uuid().optional(),
   prompt: z.string().trim().min(1, "Describe the video first").max(2000),
   aspectRatio: z.enum(ASPECT_RATIOS).optional(),
+  /** Cost/quality preference. Auto keeps structural model selection. */
+  generationMode: z.enum(GENERATION_MODES).default("auto"),
   imageUrls: z.array(z.string().url()).max(4).optional(),
   /**
    * Footage to edit or copy motion from, as object paths in the video bucket.

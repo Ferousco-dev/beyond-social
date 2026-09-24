@@ -14,6 +14,7 @@ import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { SendButton } from "@/components/ui/send-button";
 import { cn } from "@/lib/utils";
+import { type GenerationMode } from "@/lib/chat/send-schema";
 
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
 import { FootageChip } from "./footage-chip";
@@ -22,6 +23,7 @@ import { ShotListEditor, type PendingShot } from "./shot-list-editor";
 import { VoiceChip } from "./voice-chip";
 import { Spinner } from "@/components/ui/spinner";
 import { AvatarSelector } from "./avatar-selector";
+import { GenerationModeSelector } from "./generation-mode-selector";
 
 interface PromptComposerProps {
   value: string;
@@ -43,6 +45,8 @@ interface PromptComposerProps {
   /** The shot list for multi-shot generation. Null when not using shots. */
   shots: readonly PendingShot[] | null;
   onShotsChange: (shots: readonly PendingShot[] | null) => void;
+  generationMode?: GenerationMode;
+  onGenerationModeChange?: (mode: GenerationMode) => void;
   /**
    * Stops reading the turn in flight. Absent where there is nothing to stop,
    * which is the dashboard composer: it navigates before a turn begins.
@@ -73,6 +77,8 @@ export function PromptComposer({
   footage,
   shots,
   onShotsChange,
+  generationMode,
+  onGenerationModeChange,
   onStop,
   selectedAvatarId,
   onSelectedAvatarChange,
@@ -237,6 +243,10 @@ export function PromptComposer({
             onSelect={onSelectedAvatarChange}
           />
         ) : null}
+        <GenerationModeSelector
+          mode={generationMode ?? "auto"}
+          onChange={onGenerationModeChange ?? (() => {})}
+        />
         <textarea
           ref={textareaRef}
           value={value}

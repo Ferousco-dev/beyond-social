@@ -144,6 +144,8 @@ export type SendResult =
       intent: "create" | "adjust" | "ask" | "chat";
       /** Present when the video pipeline refused, so the UI can say why. */
       notice?: string;
+      /** Present when a provider run was created but failed before rendering. */
+      generationError?: string;
       /** True when `notice` is a denial an upgrade would fix. */
       noticeUpgrade: boolean;
     }
@@ -186,7 +188,7 @@ export async function runTurn(
   name: string,
   events: TurnEvents = {},
 ): Promise<SendResult> {
-  const { aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
+  const { aspectRatio, imageUrls, videoPaths, attachments, shots, generationMode } = parsed;
   const user = { id: userId };
   const stage = (next: TurnStage): void => events.onStage?.(next);
 
@@ -365,13 +367,14 @@ export async function runTurn(
    * brief and the attachments, none of which the project insert changes, so
    * moving it up costs nothing.
    */
-  const preference = await preferredModel(supabase, user.id, "video");
+  const preference = generationMode === "auto" ? await preferredModel(supabase, user.id, "video") : null;
   const choice =
     preference === null
       ? await chooseModel(
           supabase,
           user.id,
           prompt,
+          generationMode,
           videoPaths,
           showsPerson && voiceAttached,
           voiceAttached,
@@ -507,6 +510,7 @@ export async function runTurn(
   const history = toHistory(previous.data);
 
   let generationId: string | null = null;
+  let generationError: string | undefined;
   let notice: string | undefined;
   let noticeUpgrade = false;
 
@@ -630,6 +634,7 @@ export async function runTurn(
         // this reads back off `error.context`, a `FunctionsHttpError` only.
         const details = await edgeFunctionErrorDetails(error);
         generationId = details.generationId;
+        generationError = details.message ?? undefined;
         logger.warn("generation could not start", {
           error: error.message,
           detail: details.message,
@@ -647,7 +652,8 @@ export async function runTurn(
       logger.warn("generation could not start", {
         error: error instanceof Error ? error.message : String(error),
       });
-      notice = "Could not start the video just now. Your message was saved, so try again.";
+      generationError = "Could not start the video just now. Your message was saved, so try again.";
+      notice = generationError;
     }
   };
 
@@ -786,6 +792,7 @@ export async function runTurn(
     reply,
     intent: intent.intent,
     notice,
+    generationError,
     noticeUpgrade,
   };
 }

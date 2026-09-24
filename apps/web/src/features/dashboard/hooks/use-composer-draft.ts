@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { takeSeed } from "@/lib/composer/seed";
+import { type GenerationMode } from "@/lib/chat/send-schema";
 
 import { type PendingPhoto } from "../components/compose-menu";
 import { type PendingFootage } from "./use-footage-upload";
@@ -33,6 +34,8 @@ export interface ComposerDraft {
   readonly setFootage: Dispatch<SetStateAction<PendingFootage | null>>;
   readonly shots: readonly PendingShot[] | null;
   readonly setShots: Dispatch<SetStateAction<readonly PendingShot[] | null>>;
+  readonly generationMode: GenerationMode;
+  readonly setGenerationMode: (value: GenerationMode) => void;
   /** True when it was filled from elsewhere and has not been sent yet. */
   readonly seeded: boolean;
   /** Everything the composer holds, emptied. Called as a turn is sent. */
@@ -48,6 +51,7 @@ export function useComposerDraft(
   const [voice, setVoice] = useState<PendingVoice | null>(null);
   const [footage, setFootage] = useState<PendingFootage | null>(null);
   const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
+  const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [seeded, setSeeded] = useState(false);
 
   /**
@@ -70,6 +74,7 @@ export function useComposerDraft(
     if (seed.photos) setPhotos(seed.photos);
     if (seed.shots) setShots(seed.shots);
     if (seed.voice) setVoice(seed.voice);
+    setGenerationMode(seed.generationMode);
 
     setPrompt(seed.prompt);
     setSeeded(true);
@@ -83,6 +88,7 @@ export function useComposerDraft(
     setVoice(null);
     setFootage(null);
     setShots(null);
+    setGenerationMode("auto");
     setSeeded(false);
   }, []);
 
@@ -102,6 +108,8 @@ export function useComposerDraft(
     setFootage,
     shots,
     setShots,
+    generationMode,
+    setGenerationMode,
     seeded,
     clear,
   };
