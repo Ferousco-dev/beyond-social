@@ -39,6 +39,10 @@ const rowSchema = z.object({
   generation_model: z.string().nullable().default(null),
   // Why it failed, in the provider's words. Defaulted for the same reason.
   generation_error: z.string().nullable().default(null),
+  // One of ErrorCategory (`_shared/kie-errors.ts`), migration 0131. Defaulted
+  // for the same reason as `generation_model`, and also null on any row that
+  // failed before that migration classified failures.
+  generation_error_code: z.string().nullable().default(null),
   // `project_thread` coalesces to an empty array, so this is never null. The
   // default covers a stale build reading a thread before the migration lands.
   attachments: z.array(attachmentRowSchema).default([]),
@@ -61,6 +65,14 @@ export interface MessageDraft {
    * the client has just created optimistically.
    */
   readonly error?: string | null;
+  /**
+   * The normalized category behind `error` (`insufficient_credits`,
+   * `provider_unavailable`, and the rest of `ErrorCategory` in
+   * `_shared/kie-errors.ts`). Lets a caller tell "try again" apart from "fix
+   * your input" without parsing the message. Null on anything that predates
+   * migration 0131 or never failed.
+   */
+  readonly errorCode?: string | null;
   /**
    * When the turn was recorded, ISO 8601. Absent on a draft the client has
    * just created optimistically, which has not been persisted yet.
@@ -123,6 +135,7 @@ function toMessage(
           resultUrl: row.result_path ? (renders.get(row.result_path) ?? null) : null,
           model: row.generation_model ?? null,
           error: row.generation_error,
+          errorCode: row.generation_error_code,
           startedAt: row.created_at,
         }
       : undefined,

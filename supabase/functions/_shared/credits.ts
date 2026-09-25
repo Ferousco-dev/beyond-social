@@ -78,11 +78,18 @@ function settle(data: unknown, error: { message: string } | null): Reservation {
  *
  * By id rather than by provider task id, because the whole point of reserving
  * before dispatch is that a run can now fail while it still has no task id.
+ *
+ * `errorCode` is one of `ErrorCategory` (`_shared/kie-errors.ts`), typed as a
+ * plain string here rather than imported so this file does not have to know
+ * about the provider's error shape. Optional, so a caller that has no
+ * classification to give does not have to invent one; the column it lands in
+ * is nullable for exactly that reason.
  */
 export async function abandonRun(
   admin: SupabaseClient,
   generationId: string,
   reason: string,
+  errorCode?: string,
 ): Promise<boolean> {
   // False means the run had already settled, so nothing was refunded. Returned
   // rather than swallowed: a caller that announces a failure needs to know
@@ -90,6 +97,7 @@ export async function abandonRun(
   const { data } = await admin.rpc("fail_generation_by_id", {
     p_generation: generationId,
     p_error: reason,
+    ...(errorCode === undefined ? {} : { p_error_code: errorCode }),
   });
   return data === true;
 }
