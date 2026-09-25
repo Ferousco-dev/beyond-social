@@ -81,6 +81,7 @@ export function DashboardHome({
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-12">
         <BriefFlow
+          greeting={greeting}
           onSkip={() => setComposing(true)}
           onUse={(brief) => start(brief)}
           recents={recents}

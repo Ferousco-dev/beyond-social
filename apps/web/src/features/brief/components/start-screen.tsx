@@ -3,6 +3,7 @@
 import { ArrowRight, Clock, Lightbulb, Package, PenLine, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 /**
  * Where a new video starts.
@@ -14,10 +15,13 @@ import Link from "next/link";
  * for anybody who already knows what they want.
  */
 export function StartScreen({
+  greeting,
   onRefine,
   onSkip,
   recents = [],
 }: {
+  /** Shown as the heading. Empty until the client resolves it. */
+  greeting: string;
   onRefine: () => void;
   onSkip: () => void;
   /** The last few projects, so starting fresh does not hide the work in flight. */
@@ -26,12 +30,14 @@ export function StartScreen({
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-paper px-3.5 py-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
-          <Lightbulb className="size-3.5" aria-hidden />
-          Content intelligence
-        </span>
-        <h1 className="mt-5 text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          Where do you want to start?
+        <h1
+          aria-live="polite"
+          className={cn(
+            "min-h-[2.5rem] text-balance text-3xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-4xl",
+            greeting ? "opacity-100" : "opacity-0",
+          )}
+        >
+          {greeting || "Welcome back"}
         </h1>
         <p className="mx-auto mt-3 max-w-md text-balance text-sm text-ink-soft">
           Borrow what is working on TikTok, turn a rough idea into a brief, or put your own product

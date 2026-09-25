@@ -55,7 +55,7 @@ export function MessageAttachments({
 
   return (
     <ul
-      className="flex flex-wrap justify-end gap-2"
+      className="flex flex-wrap gap-2"
       aria-label={`${attachments.length} attachment${attachments.length === 1 ? "" : "s"}`}
     >
       {usable.map((attachment) => (
