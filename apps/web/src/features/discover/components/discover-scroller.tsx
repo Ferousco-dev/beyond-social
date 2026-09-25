@@ -8,11 +8,10 @@ import { ScriptSheet, type ScriptTake } from "@/features/script/components/scrip
 import { leaveSeed } from "@/lib/composer/seed";
 import { looksLikeUrl, parseSocialUrl } from "@/lib/social-scrape/url";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
-import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
-import { analysePostAction } from "../analyse-actions";
 import { classifyPosts } from "../classify-actions";
 import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
+import { usePostAnalysis } from "../hooks/use-post-analysis";
 import { PLATFORM_NAME } from "../lib/platforms";
 import { suggestQueries } from "../query-actions";
 import { searchSocial } from "../search-actions";
@@ -96,9 +95,6 @@ export function DiscoverScroller({
   const [suggested, setSuggested] = useState<readonly string[] | null>(null);
   const { history, remember, clear } = useSearchHistory();
   const [pending, startTransition] = useTransition();
-  const [reading, setReading] = useState<DiscoverPost | null>(null);
-  const [analysis, setAnalysis] = useState<PostAnalysis | null>(null);
-  const [analysing, startAnalysis] = useTransition();
   /** Open once the user asks for a script rather than the paragraph. */
   const [scripting, setScripting] = useState(false);
   const [humanFilter, setHumanFilter] = useState<HumanFilter>("all");
@@ -291,6 +287,18 @@ export function DiscoverScroller({
     [router],
   );
 
+  const {
+    reading,
+    analysis,
+    analysisTier,
+    analysing,
+    analysingDeep,
+    costs,
+    openAsInspiration,
+    openAsInspirationDeep,
+    close: closeAnalysis,
+  } = usePostAnalysis({ setNotice, seed });
+
   /**
    * Seeds a new chat with a compiled script and its beats.
    *
@@ -302,56 +310,10 @@ export function DiscoverScroller({
     (take: ScriptTake) => {
       leaveSeed({ prompt: take.compiled.prompt, shots: take.compiled.shots, photos: take.photos });
       setScripting(false);
-      setReading(null);
-      setAnalysis(null);
+      closeAnalysis();
       router.push("/dashboard/c/new" as Route);
     },
-    [router],
-  );
-
-  /**
-   * Reads the post, then offers what it found.
-   *
-   * A failure falls back to naming the post rather than dead-ending: a weaker
-   * brief still beats a button that does nothing.
-   */
-  const openAsInspiration = useCallback(
-    (post: DiscoverPost) => {
-      setNotice(null);
-      setAnalysis(null);
-      setReading(post);
-
-      startAnalysis(async () => {
-        const result = await analysePostAction({
-          handle: post.handle,
-          caption: post.caption,
-          viewCount: post.viewCount,
-          likeCount: post.likeCount,
-          commentCount: post.commentCount,
-          shareCount: post.shareCount,
-          durationSeconds: post.durationSeconds,
-          hashtags: [...post.hashtags],
-          transcript: post.transcript,
-        });
-
-        if (result.status === "ok") {
-          setAnalysis(result.analysis);
-          return;
-        }
-
-        setReading(null);
-        seed(
-          [
-            `Make a video in the style of this ${PLATFORM_NAME[post.platform]} post by @${post.handle}.`,
-            post.caption ? `The original caption was: ${post.caption}` : "",
-            `Reference: ${post.url}`,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        );
-      });
-    },
-    [seed],
+    [router, closeAnalysis],
   );
 
   const rawPosts = results?.posts ?? [];
@@ -484,6 +446,10 @@ export function DiscoverScroller({
               post={selected}
               analysing={analysing}
               onUse={() => openAsInspiration(selected)}
+              analysingDeep={analysingDeep}
+              onUseDeep={() => openAsInspirationDeep(selected)}
+              inspirationCost={costs?.inspiration ?? null}
+              deepCost={costs?.deep ?? null}
             />
           ) : null
         }
@@ -500,15 +466,13 @@ export function DiscoverScroller({
 
       <AnalysisSheet
         analysis={analysis}
+        tier={analysisTier}
         handle={reading?.handle ?? ""}
         // Stands aside while the script is being written, so the two sheets are
         // never stacked on top of each other.
         open={reading !== null && analysis !== null && !scripting}
         onOpenChange={(next) => {
-          if (!next && !scripting) {
-            setReading(null);
-            setAnalysis(null);
-          }
+          if (!next && !scripting) closeAnalysis();
         }}
         onUse={seed}
         onWriteScript={() => setScripting(true)}
