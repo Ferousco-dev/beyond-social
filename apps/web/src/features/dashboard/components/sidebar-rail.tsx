@@ -1,14 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import {
-  LibraryBig,
-  MessageSquare,
-  PanelLeft,
-  PenSquare,
-  Settings,
-  TrendingUp,
-} from "lucide-react";
+import { LibraryBig, MessageSquare, PanelLeft, PenSquare, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -37,7 +30,6 @@ const LINKS = [
   { href: "/dashboard", label: "New", icon: PenSquare },
   { href: "/dashboard/library", label: "Library", icon: LibraryBig },
   { href: "/dashboard/trends", label: "Discover", icon: TrendingUp },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function SidebarRail({

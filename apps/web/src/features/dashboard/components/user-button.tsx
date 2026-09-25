@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronsUpDown, LogOut, Share2, ShieldCheck } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, Share2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -131,9 +131,12 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                 OAuth round trip and comes back to a URL, which a menu cannot
                 receive, so these have to be real routes. */}
             <div className="p-1.5">
-              {/* General Settings is a direct sidebar item now, not repeated
-                  here; these are the two destinations that live only under
-                  the account menu. */}
+              <DropdownMenu.Item asChild>
+                <Link href="/dashboard/settings" className={ROW}>
+                  Settings
+                  <Settings className={ICON} aria-hidden />
+                </Link>
+              </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
                 <Link href="/dashboard/settings/connections" className={ROW}>
                   Connectors
