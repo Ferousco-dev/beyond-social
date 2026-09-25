@@ -54,7 +54,7 @@ export function EditorTopBar({
 
         <Link
           href={backHref}
-          aria-label="Back to chat"
+          aria-label="Back to project"
           className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-ink transition-colors hover:bg-cloud"
         >
           <ArrowLeft className="size-5" />

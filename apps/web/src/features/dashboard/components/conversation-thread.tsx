@@ -161,7 +161,7 @@ export function ConversationThread({
       attachments: AttachmentRef[],
     ): Promise<boolean> => {
       if (projectId === "new") {
-        notify("Send a message first, then attach a photo and a voice clip.");
+        notify("Send a request first, then attach a photo and a voice clip.");
         return false;
       }
 

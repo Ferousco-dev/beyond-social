@@ -158,7 +158,7 @@ export function ExportButton({
         type="button"
         onClick={start}
         disabled={disabled || state.kind === "working"}
-        title={disabled ? "Send a message in the chat first, so there is a project to export" : ""}
+        title={disabled ? "Start a project first, so there is something to export" : ""}
         className={cn(
           "inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-hairline px-3.5 text-xs font-medium text-ink transition-colors",
           "hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
