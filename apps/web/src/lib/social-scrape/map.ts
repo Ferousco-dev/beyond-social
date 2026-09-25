@@ -121,6 +121,8 @@ export function mapScrapedPost(platform: ScrapePlatform, raw: unknown): ScrapedP
       asText(
         pick(row, ["videoMeta.coverUrl", "covers.default", "cover", "thumbnailUrl", "displayUrl"]),
       ) || null,
+    // The scraper says nothing about who is in the shot; classified separately.
+    showsPerson: null,
   };
 
   if (platform === "tiktok") {

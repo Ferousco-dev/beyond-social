@@ -16,6 +16,8 @@ export interface DiscoverPost {
   readonly viewCount: number | null;
   /** Poster frame, from the scrape or the public oEmbed endpoint. Null when unavailable. */
   readonly thumbnailUrl: string | null;
+  /** Whether the thumbnail shows a person. Null until classified. */
+  readonly showsPerson: boolean | null;
 
   /*
    * The rest of what the Research API reported, carried so a post can be

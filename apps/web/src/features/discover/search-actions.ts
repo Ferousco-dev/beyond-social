@@ -9,6 +9,7 @@ import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { SCRAPE_PLATFORMS } from "@/lib/social-scrape/types";
 import { fetchPosters } from "@/lib/tiktok/oembed";
 
+import { toDiscoverPost } from "./map";
 import { type DiscoverPost, type DiscoverResult } from "./types";
 
 /**
@@ -75,21 +76,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
     const missing = platform === "tiktok" ? posts.filter((post) => post.thumbnailUrl === null) : [];
     const posters = await fetchPosters(missing.map((post) => post.url));
 
-    const results: DiscoverPost[] = posts.map((post) => ({
-      platform: post.platform,
-      videoId: post.videoId,
-      handle: post.handle,
-      url: post.url,
-      caption: post.description,
-      viewCount: post.viewCount,
-      thumbnailUrl: post.thumbnailUrl ?? posters.get(post.url)?.thumbnailUrl ?? null,
-      likeCount: post.likeCount,
-      commentCount: post.commentCount,
-      shareCount: post.shareCount,
-      durationSeconds: post.durationSeconds,
-      hashtags: post.hashtags,
-      transcript: post.transcript,
-    }));
+    const results: DiscoverPost[] = posts.map((post) => toDiscoverPost(post, posters));
 
     return { status: "ok", posts: results, countryCode };
   } catch (error) {
