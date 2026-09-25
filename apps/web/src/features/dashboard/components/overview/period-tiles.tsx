@@ -33,7 +33,7 @@ function buildTiles(counts: PeriodCounts): readonly Tile[] {
     {
       label: `Projects started, ${WINDOW_LABEL.toLowerCase()}`,
       value: counts.projectsStarted,
-      detail: counts.projectsStarted === 0 ? "No new projects" : "New conversations",
+      detail: counts.projectsStarted === 0 ? "No new projects" : "Across your workspace",
     },
   ];
 }
