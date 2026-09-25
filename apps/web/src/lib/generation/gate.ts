@@ -13,16 +13,17 @@ import { DENIAL_COPY, type DenialReason } from "@/lib/credits/types";
  */
 
 /**
- * The model a video run actually uses today.
+ * The model a video run falls back to when nothing chose one.
  *
- * `supabase/functions/generate-video/index.ts` does not send a model, so
- * `createVideoTask` falls to its `veo3_fast` default and the generation row
- * falls to the same column default, which is what `complete_generation` prices
- * from. Checking any other model would gate a run against a price and a tier
- * that are not the ones charged. When the edge function starts forwarding a
- * chosen model, this constant is the thing that moves.
+ * `turn.ts` normally forwards the chooser's own pick to `checkVideoRun`, so
+ * this is only reached when that pick is unavailable (`chooseModel` failed or
+ * returned nothing). It has to match `generate-video`'s own fallback
+ * (`DEFAULT_MODEL` in `supabase/functions/generate-video/plan.ts`), which is
+ * what the edge function and `complete_generation` actually price from when no
+ * model is named. Seedance, not Kling: this path has no plan to check against,
+ * and Kling is creator-and-up while Seedance is free-eligible.
  */
-export const DEFAULT_VIDEO_MODEL_ID = "veo3_fast";
+export const DEFAULT_VIDEO_MODEL_ID = "bytedance/seedance-1.5-pro";
 
 export type RunGate =
   | {

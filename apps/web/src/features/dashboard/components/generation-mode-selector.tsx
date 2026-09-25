@@ -7,7 +7,7 @@ import { type GenerationMode } from "@/lib/chat/send-schema";
 
 const OPTIONS: readonly { mode: GenerationMode; label: string; description: string }[] = [
   { mode: "auto", label: "Auto", description: "Best fit" },
-  { mode: "low", label: "Low", description: "Veo" },
+  { mode: "low", label: "Low", description: "Fast & light" },
   { mode: "middle", label: "Middle", description: "Balanced" },
   { mode: "high", label: "High", description: "Most capable" },
 ];

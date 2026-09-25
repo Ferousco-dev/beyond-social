@@ -21,18 +21,27 @@ function check(name: string, passed: boolean, detail = ""): void {
 }
 
 const CATALOG: readonly CatalogModel[] = [
-  { id: "veo3_fast", creditCost: 6, minPlan: "free", capabilities: [], isActive: true },
-  { id: "veo3_lite", creditCost: 3, minPlan: "free", capabilities: [], isActive: true },
-  { id: "veo3", creditCost: 12, minPlan: "free", capabilities: [], isActive: true },
+  // Deactivated by migration 0130: Kling-first, Veo and Wan retired for now.
+  // Kept here, inactive, for the same reason the migration deactivates rather
+  // than deletes: these are the rows a reactivation would flip back on.
+  { id: "veo3_fast", creditCost: 6, minPlan: "free", capabilities: [], isActive: false },
+  { id: "veo3_lite", creditCost: 3, minPlan: "free", capabilities: [], isActive: false },
+  { id: "veo3", creditCost: 12, minPlan: "free", capabilities: [], isActive: false },
   {
     id: "wan/2-6-video-to-video",
     creditCost: 30,
     minPlan: "studio",
     capabilities: [],
-    isActive: true,
+    isActive: false,
   },
-  { id: "wan/2-7-videoedit", creditCost: 30, minPlan: "studio", capabilities: [], isActive: true },
-  { id: "wan/2-7-r2v", creditCost: 30, minPlan: "studio", capabilities: [], isActive: true },
+  {
+    id: "wan/2-7-videoedit",
+    creditCost: 30,
+    minPlan: "studio",
+    capabilities: [],
+    isActive: false,
+  },
+  { id: "wan/2-7-r2v", creditCost: 30, minPlan: "studio", capabilities: [], isActive: false },
   {
     id: "bytedance/seedance-1.5-pro",
     creditCost: 3,
@@ -40,7 +49,9 @@ const CATALOG: readonly CatalogModel[] = [
     capabilities: [],
     isActive: true,
   },
-  { id: "kling-3.0/video", creditCost: 30, minPlan: "free", capabilities: [], isActive: true },
+  { id: "gemini-omni-video", creditCost: 30, minPlan: "creator", capabilities: [], isActive: true },
+  // creator-and-up since migration 0070; free plans route to Seedance instead.
+  { id: "kling-3.0/video", creditCost: 30, minPlan: "creator", capabilities: [], isActive: true },
   {
     id: "kling-3.0/motion-control",
     creditCost: 60,
@@ -68,6 +79,7 @@ const choose = (
   prompt: string,
   plan: "free" | "creator" | "studio",
   extra: {
+    mode?: "auto" | "low" | "middle" | "high";
     hasFaceAndVoice?: boolean;
     hasVoice?: boolean;
     hasFootage?: boolean;
@@ -76,6 +88,7 @@ const choose = (
 ) =>
   selectModel({
     prompt,
+    mode: extra.mode ?? "auto",
     plan,
     hasFaceAndVoice: extra.hasFaceAndVoice ?? false,
     // A face and a voice implies the voice, so the caller only has to say so
@@ -89,9 +102,18 @@ const choose = (
 {
   const out = choose("a video about my coffee shop", "free");
   check(
-    "a free account gets Veo, the cheap tier's workhorse",
-    out?.modelId === "veo3_fast" && out.creditCost === 6,
+    "a free account gets Seedance, the cheap tier's workhorse",
+    out?.modelId === "bytedance/seedance-1.5-pro" && out.creditCost === 3,
     `${out?.modelId} ${out?.creditCost}cr`,
+  );
+}
+
+{
+  const out = choose("anything", "studio", { mode: "low" });
+  check(
+    "explicit low quality picks the cheap model over the plan's workhorse",
+    out?.modelId === "bytedance/seedance-1.5-pro",
+    out?.modelId ?? "none",
   );
 }
 
@@ -171,7 +193,7 @@ const choose = (
   const out = choose("match the movement from this clip", "free", { hasFootage: true });
   check(
     "a plan that cannot run motion control still gets a video",
-    out?.modelId === "veo3_fast",
+    out?.modelId === "bytedance/seedance-1.5-pro",
     out?.modelId ?? "none",
   );
 }
@@ -200,7 +222,7 @@ const choose = (
   const out = choose("a video of a long haired cat", "free");
   check(
     "a word boundary keeps a substring from changing the model",
-    out?.modelId === "veo3_fast",
+    out?.modelId === "bytedance/seedance-1.5-pro",
     out?.modelId ?? "none",
   );
 }
@@ -229,8 +251,12 @@ const choose = (
 }
 
 {
+  // Seedance is the free tier's only usable model in this catalogue: Kling
+  // and Gemini Omni are both creator-and-up. Switching it off leaves a free
+  // plan with nothing it can run, and that has to come back as nothing rather
+  // than a model the account cannot afford.
   const offline = CATALOG.map((model) =>
-    model.id === "veo3_fast" ? { ...model, isActive: false } : model,
+    model.id === "bytedance/seedance-1.5-pro" ? { ...model, isActive: false } : model,
   );
   const out = selectModel({
     prompt: "anything",
@@ -242,8 +268,29 @@ const choose = (
     catalog: offline,
   });
   check(
-    "an inactive workhorse falls through to one that is running",
-    out?.modelId === "kling-3.0/video",
+    "a free plan with its only workhorse switched off gets nothing rather than a plan it cannot run",
+    out === null,
+    String(out),
+  );
+}
+
+{
+  // The same outage on a paying plan is not a dead end: Kling is still there.
+  const offline = CATALOG.map((model) =>
+    model.id === "kling-3.0/video" ? { ...model, isActive: false } : model,
+  );
+  const out = selectModel({
+    prompt: "anything",
+    plan: "studio",
+    hasFaceAndVoice: false,
+    hasVoice: false,
+    hasFootage: false,
+    referenceImages: 0,
+    catalog: offline,
+  });
+  check(
+    "a paying plan's inactive workhorse falls through to the other backup",
+    out?.modelId === "bytedance/seedance-1.5-pro" || out?.modelId === "gemini-omni-video",
     out?.modelId ?? "none",
   );
 }
@@ -276,16 +323,9 @@ const choose = (
 
 {
   // And once it is switched on, it is what footage should reach.
-  const withRestyle = [
-    ...CATALOG,
-    {
-      id: "wan/2-6-video-to-video",
-      creditCost: 30,
-      minPlan: "studio" as const,
-      capabilities: [],
-      isActive: true,
-    },
-  ];
+  const withRestyle = CATALOG.map((model) =>
+    model.id === "wan/2-6-video-to-video" ? { ...model, isActive: true } : model,
+  );
   const out = selectModel({
     prompt: "make this look like film",
     plan: "studio",
@@ -318,7 +358,7 @@ const choose = (
   const out = choose("a video about my coffee shop", "free");
   check(
     "the everyday model is its own alternative, so declining is always answerable",
-    out?.alternative?.modelId === "veo3_fast",
+    out?.alternative?.modelId === "bytedance/seedance-1.5-pro",
     out?.alternative?.modelId ?? "none",
   );
 }
@@ -329,7 +369,7 @@ const choose = (
   const out = choose("read this out for me", "free", { hasVoice: true });
   check(
     "a voice clip with no photo is reported as unusable",
-    out?.voiceIgnored === true && out.modelId === "veo3_fast",
+    out?.voiceIgnored === true && out.modelId === "bytedance/seedance-1.5-pro",
     `${out?.modelId} voiceIgnored=${out?.voiceIgnored}`,
   );
 }
@@ -363,23 +403,68 @@ check(
     "kling-3.0/motion-control",
   choose("copy the movement onto her", "studio", { hasFootage: true })?.modelId ?? "none",
 );
+/*
+ * The three Wan reads (edit, restyle, multi-reference) are deactivated by
+ * migration 0130, so each falls through to the workhorse today rather than to
+ * Wan. The routing logic that would use them is unchanged and still worth
+ * covering, so each also gets a second check on a catalogue with that one
+ * model switched back on, the same way the restyle toggle above does.
+ */
 check(
-  "changing something inside the footage is an edit",
+  "an edit falls through to the workhorse while Wan is off",
   choose("replace the background with a beach", "studio", { hasFootage: true })?.modelId ===
-    "wan/2-7-videoedit",
+    "kling-3.0/video",
   choose("replace the background with a beach", "studio", { hasFootage: true })?.modelId ?? "none",
 );
+{
+  const withEdit = CATALOG.map((model) =>
+    model.id === "wan/2-7-videoedit" ? { ...model, isActive: true } : model,
+  );
+  const out = selectModel({
+    prompt: "replace the background with a beach",
+    plan: "studio",
+    hasFaceAndVoice: false,
+    hasVoice: false,
+    hasFootage: true,
+    referenceImages: 0,
+    catalog: withEdit,
+  });
+  check(
+    "changing something inside the footage is an edit, once Wan is back on",
+    out?.modelId === "wan/2-7-videoedit",
+    out?.modelId ?? "none",
+  );
+}
 check(
-  "footage with no narrower reading is a restyle",
+  "footage with no narrower reading falls through to the workhorse while Wan is off",
   choose("make it look like an anime", "studio", { hasFootage: true })?.modelId ===
-    "wan/2-6-video-to-video",
+    "kling-3.0/video",
   choose("make it look like an anime", "studio", { hasFootage: true })?.modelId ?? "none",
 );
 check(
-  "several stills ask for the model that holds a subject steady",
-  choose("her in a park", "studio", { referenceImages: 3 })?.modelId === "wan/2-7-r2v",
+  "several stills fall through to the workhorse while Wan is off",
+  choose("her in a park", "studio", { referenceImages: 3 })?.modelId === "kling-3.0/video",
   choose("her in a park", "studio", { referenceImages: 3 })?.modelId ?? "none",
 );
+{
+  const withReference = CATALOG.map((model) =>
+    model.id === "wan/2-7-r2v" ? { ...model, isActive: true } : model,
+  );
+  const out = selectModel({
+    prompt: "her in a park",
+    plan: "studio",
+    hasFaceAndVoice: false,
+    hasVoice: false,
+    hasFootage: false,
+    referenceImages: 3,
+    catalog: withReference,
+  });
+  check(
+    "several stills ask for the model that holds a subject steady, once Wan is back on",
+    out?.modelId === "wan/2-7-r2v",
+    out?.modelId ?? "none",
+  );
+}
 check(
   "one still is an ordinary generation, not a reference run",
   choose("her in a park", "studio", { referenceImages: 1 })?.modelId === "kling-3.0/video",
