@@ -97,7 +97,7 @@ export function ThreadTranscript({
       {groupTurns(messages).map((group) => (
         <div
           key={group[0]!.id}
-          className="flex flex-col gap-2 rounded-2xl border border-hairline bg-paper/60 p-4 sm:p-5"
+          className="flex flex-col gap-2 rounded-3xl border border-hairline bg-paper/60 p-4 sm:p-5"
         >
           {group.map((message) => (
             <MessageBubble

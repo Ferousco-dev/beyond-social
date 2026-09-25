@@ -33,7 +33,7 @@ export function StartScreen({
         <h1
           aria-live="polite"
           className={cn(
-            "min-h-[2.5rem] text-balance text-3xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-4xl",
+            "min-h-[2.5rem] text-balance text-4xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-5xl",
             greeting ? "opacity-100" : "opacity-0",
           )}
         >
@@ -45,15 +45,15 @@ export function StartScreen({
         </p>
       </div>
 
-      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           href={"/dashboard/trends" as Route}
-          className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col rounded-3xl border border-hairline bg-paper p-7 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <TrendingUp className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Find what is working</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Find what is working</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Search TikTok by topic, scroll real posts, and pick one to build from.
           </p>
@@ -66,12 +66,12 @@ export function StartScreen({
         <button
           type="button"
           onClick={onRefine}
-          className="group flex cursor-pointer flex-col rounded-2xl border border-hairline bg-paper p-6 text-left transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex cursor-pointer flex-col rounded-3xl border border-hairline bg-paper p-7 text-left transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <Lightbulb className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Refine my idea</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Refine my idea</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Bring a rough concept. You will be asked a few things, then handed a brief.
           </p>
@@ -86,12 +86,12 @@ export function StartScreen({
             it was knowing to attach a photo from the plus menu inside a thread. */}
         <Link
           href={"/dashboard/assets" as Route}
-          className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col rounded-3xl border border-hairline bg-paper p-7 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <Package className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Feature a product</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Feature a product</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Upload a photo of what you sell, and the video features that exact thing.
           </p>

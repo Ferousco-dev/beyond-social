@@ -48,7 +48,7 @@ export function PeriodTiles({
   return (
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {buildTiles(counts).map((tile) => (
-        <div key={tile.label} className="rounded-xl border border-hairline bg-paper p-3.5">
+        <div key={tile.label} className="rounded-2xl border border-hairline bg-paper p-3.5">
           <dt className="text-xs text-ink-soft">{tile.label}</dt>
           <dd className="mt-1.5">
             <span className="text-2xl font-semibold tabular-nums leading-none text-ink">

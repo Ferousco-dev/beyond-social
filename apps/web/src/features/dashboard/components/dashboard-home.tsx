@@ -98,7 +98,7 @@ export function DashboardHome({
       <h1
         aria-live="polite"
         className={cn(
-          "mb-10 min-h-[2.5rem] text-balance text-center text-3xl font-semibold tracking-tight text-ink transition-opacity duration-500",
+          "mb-10 min-h-[2.5rem] text-balance text-center text-4xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-5xl",
           greeting ? "opacity-100" : "opacity-0",
         )}
       >
