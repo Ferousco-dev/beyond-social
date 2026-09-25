@@ -96,8 +96,12 @@ const SYSTEM_KEY = "discover.analysis.system";
 const SYSTEM =
   "You work out the repeatable format behind a short-form video from the little that is measurable about it. You are rigorous about the line between what you were told and what you are guessing, and you never describe footage you have not seen.";
 
-/** Only the signals that are actually present, each labelled as what it is. */
-function evidence(post: AnalysablePost): string {
+/**
+ * Only the signals that are actually present, each labelled as what it is.
+ * Exported so `deep-analyse.ts` can reuse it as supporting context alongside
+ * the video, rather than reformatting the same caption and numbers block.
+ */
+export function evidence(post: AnalysablePost): string {
   const lines = [
     `Account: @${post.handle}`,
     post.caption ? `Caption: ${post.caption.slice(0, 500)}` : "",

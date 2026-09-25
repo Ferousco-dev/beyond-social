@@ -1,7 +1,9 @@
 "use client";
 
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ExternalLink, Eye, Sparkles } from "lucide-react";
 
+import { DENIAL_COPY, type RunCheck } from "@/lib/credits/types";
+import { creditWord } from "@/lib/generation/confirm-model";
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 
@@ -27,10 +29,19 @@ export function PostDetail({
   post,
   analysing,
   onUse,
+  analysingDeep,
+  onUseDeep,
+  inspirationCost,
+  deepCost,
 }: {
   post: DiscoverPost;
   analysing: boolean;
   onUse: () => void;
+  analysingDeep: boolean;
+  onUseDeep: () => void;
+  /** Null until priced. Both tiers cost credits; this is what each one costs. */
+  inspirationCost: RunCheck | null;
+  deepCost: RunCheck | null;
 }) {
   const name = PLATFORM_NAME[post.platform];
   const embedUrl =
@@ -97,7 +108,8 @@ export function PostDetail({
         <button
           type="button"
           onClick={onUse}
-          disabled={analysing}
+          disabled={analysing || analysingDeep || inspirationCost?.allowed === false}
+          title={inspirationCost?.allowed === false ? DENIAL_COPY[inspirationCost.reason] : undefined}
           className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
           {analysing ? (
@@ -106,6 +118,27 @@ export function PostDetail({
             <Sparkles className="size-3.5" aria-hidden />
           )}
           {analysing ? "Reading this post" : "Use as inspiration"}
+          {!analysing && inspirationCost ? (
+            <span className="text-[11px] font-normal opacity-75">
+              {creditWord(inspirationCost.creditCost)}
+            </span>
+          ) : null}
+        </button>
+
+        <button
+          type="button"
+          onClick={onUseDeep}
+          disabled={analysing || analysingDeep || deepCost?.allowed === false}
+          title={deepCost?.allowed === false ? DENIAL_COPY[deepCost.reason] : undefined}
+          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border border-hairline px-4 text-[13px] font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {analysingDeep ? <Spinner className="size-3.5" /> : <Eye className="size-3.5" aria-hidden />}
+          {analysingDeep ? "Watching this post" : "Watch and analyse deeply"}
+          {!analysingDeep && deepCost ? (
+            <span className="text-[11px] font-normal text-ink-soft">
+              {creditWord(deepCost.creditCost)}
+            </span>
+          ) : null}
         </button>
 
         <a

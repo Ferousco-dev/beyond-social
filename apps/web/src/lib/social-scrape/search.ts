@@ -28,7 +28,8 @@ const DEFAULT_ACTORS: Readonly<Record<ScrapePlatform, string>> = {
   instagram: "apify~instagram-scraper",
 };
 
-function actorFor(platform: ScrapePlatform): string {
+/** Exported so `video-fetch.ts` can re-scrape a known post through the same actor. */
+export function actorFor(platform: ScrapePlatform): string {
   const configured =
     platform === "tiktok" ? serverEnv.APIFY_TIKTOK_ACTOR : serverEnv.APIFY_INSTAGRAM_ACTOR;
   return configured.trim() !== "" ? configured : DEFAULT_ACTORS[platform];
