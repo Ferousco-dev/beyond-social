@@ -2,20 +2,24 @@
 
 import { useRouter } from "next/navigation";
 import { type Route } from "next";
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { ScriptSheet, type ScriptTake } from "@/features/script/components/script-sheet";
 import { leaveSeed } from "@/lib/composer/seed";
+import { looksLikeUrl, parseSocialUrl } from "@/lib/social-scrape/url";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 import { type PostAnalysis } from "@/lib/tiktok/analyse";
 
 import { analysePostAction } from "../analyse-actions";
+import { classifyPosts } from "../classify-actions";
 import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
 import { PLATFORM_NAME } from "../lib/platforms";
 import { suggestQueries } from "../query-actions";
 import { searchSocial } from "../search-actions";
 import { type DiscoverPost } from "../types";
+import { scrapePostFromUrl } from "../url-actions";
 import { AnalysisSheet } from "./analysis-sheet";
+import { HumanFilterControl, type HumanFilter } from "./human-filter";
 import { PostDetail } from "./post-detail";
 import { PostTile } from "./post-tile";
 import { ResultsGrid } from "./results-grid";
@@ -97,6 +101,9 @@ export function DiscoverScroller({
   const [analysing, startAnalysis] = useTransition();
   /** Open once the user asks for a script rather than the paragraph. */
   const [scripting, setScripting] = useState(false);
+  const [humanFilter, setHumanFilter] = useState<HumanFilter>("all");
+  /** Overrides `showsPerson` as classifications arrive, keyed by videoId. */
+  const [classified, setClassified] = useState<Record<string, boolean | null>>({});
 
   /*
    * Searches already answered, kept for the session.
@@ -186,9 +193,54 @@ export function DiscoverScroller({
   );
 
   /**
+   * Scrapes the one post a pasted link points to, rather than searching.
+   *
+   * A different shape of result from a search (one post, no ranking, no
+   * "show more"), so it goes through its own transition rather than being
+   * squeezed into `run`, which assumes a results page.
+   */
+  const runUrl = useCallback((url: string) => {
+    const ticket = ++latestSearch.current;
+    setQuery(url);
+    setNotice(null);
+    setSuggested(null);
+    setShown(PAGE);
+
+    startTransition(async () => {
+      const result = await scrapePostFromUrl({ url });
+      if (ticket !== latestSearch.current) return;
+
+      if (result.status !== "ok") {
+        setResults(null);
+        setSelectedId(null);
+        setNotice(
+          result.status === "unconfigured"
+            ? "Search is not connected yet."
+            : result.status === "unrecognised"
+              ? "That link is not a TikTok or Instagram post. Paste the post's own page, not a shortened link."
+              : result.status === "not_found"
+                ? "Could not find that post. It may be private or removed."
+                : result.message,
+        );
+        return;
+      }
+
+      setPlatform(result.post.platform);
+      setResults({
+        posts: [result.post],
+        term: `@${result.post.handle}`,
+        platform: result.post.platform,
+        countryCode: null,
+      });
+      setSelectedId(result.post.videoId);
+    });
+  }, []);
+
+  /**
    * What pressing Search does.
    *
-   * A short query is a search term and goes straight through. A long one is a
+   * A pasted link is scraped directly rather than searched for. A short
+   * query is a search term and goes straight through. A long one is a
    * description, which neither platform can search, so it is read into terms
    * and offered before anything is scraped: finding that out by spending a run
    * and showing nothing would cost money to teach the user their query was
@@ -198,6 +250,19 @@ export function DiscoverScroller({
     (term: string, on: ScrapePlatform) => {
       const text = term.trim();
       if (text.length < 2) return;
+      if (looksLikeUrl(text)) {
+        const social = parseSocialUrl(text);
+        if (social) {
+          runUrl(social.url);
+          return;
+        }
+        setResults(null);
+        setSelectedId(null);
+        setNotice(
+          "That link is not a TikTok or Instagram post. Paste the post's own page, not a shortened link.",
+        );
+        return;
+      }
       if (!readsLikeABrief(text)) {
         run(text, on);
         return;
@@ -289,7 +354,64 @@ export function DiscoverScroller({
     [seed],
   );
 
-  const posts = results?.posts ?? [];
+  const rawPosts = results?.posts ?? [];
+  // The cache can already answer some of these from a previous search, and the
+  // override map holds whatever has come back for this one so far, so a post
+  // never regresses from "known" back to "unknown" just because it is being
+  // re-rendered.
+  const posts = rawPosts.map((post) =>
+    post.videoId in classified ? { ...post, showsPerson: classified[post.videoId]! } : post,
+  );
+
+  /*
+   * Classifies whatever the current result set has not already answered.
+   *
+   * Runs after the grid has already rendered, not before: this is what keeps
+   * a search itself as fast as it always was, which is the client's own
+   * standing complaint about this page. The filter becomes usable a moment
+   * later instead of holding up every result for it.
+   */
+  useEffect(() => {
+    const unresolved = rawPosts.filter(
+      (post) => post.showsPerson === null && !(post.videoId in classified),
+    );
+    if (unresolved.length === 0) return;
+
+    let cancelled = false;
+    void classifyPosts({
+      posts: unresolved.map((post) => ({
+        platform: post.platform,
+        videoId: post.videoId,
+        thumbnailUrl: post.thumbnailUrl,
+      })),
+    }).then((result) => {
+      if (cancelled || result.status !== "ok") return;
+      setClassified((current) => {
+        const next = { ...current };
+        for (const post of unresolved) {
+          const key = `${post.platform}:${post.videoId}`;
+          if (key in result.classifications) next[post.videoId] = result.classifications[key]!;
+        }
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the result set, not `classified` itself, or every answer arriving would immediately requeue everything else in the same batch.
+  }, [rawPosts]);
+
+  const pendingCount = rawPosts.filter(
+    (post) => post.showsPerson === null && !(post.videoId in classified),
+  ).length;
+
+  const visiblePosts =
+    humanFilter === "all"
+      ? posts
+      : posts.filter((post) =>
+          humanFilter === "human" ? post.showsPerson === true : post.showsPerson === false,
+        );
+
   const selected = posts.find((post) => post.videoId === selectedId) ?? posts[0] ?? null;
 
   return (
@@ -336,11 +458,16 @@ export function DiscoverScroller({
         term={results?.term ?? ""}
         platform={results?.platform ?? platform}
         countryCode={results?.countryCode ?? null}
-        count={posts.length}
+        count={visiblePosts.length}
         suggestions={[...industryTerms, ...SUGGESTIONS]}
         onSuggestion={(term) => run(term, platform)}
         shown={shown}
         onShowMore={() => setShown((current) => current + PAGE)}
+        filter={
+          posts.length > 0 ? (
+            <HumanFilterControl value={humanFilter} onChange={setHumanFilter} pending={pendingCount} />
+          ) : null
+        }
         history={
           <SearchHistory
             history={history}
@@ -361,7 +488,7 @@ export function DiscoverScroller({
           ) : null
         }
       >
-        {posts.slice(0, shown).map((post) => (
+        {visiblePosts.slice(0, shown).map((post) => (
           <PostTile
             key={post.videoId}
             post={post}

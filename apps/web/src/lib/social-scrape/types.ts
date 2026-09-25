@@ -31,6 +31,13 @@ export interface ScrapedPost {
   readonly transcript: string | null;
   /** Poster frame. Scrapers return one, which saves a separate oEmbed lookup. */
   readonly thumbnailUrl: string | null;
+  /**
+   * Whether the thumbnail shows a person as the main subject. Null until
+   * classified: the scraper does not report this, so it is filled in by a
+   * separate vision pass and cached alongside the post once known, the same
+   * way a missing view count means "not reported" rather than zero.
+   */
+  readonly showsPerson: boolean | null;
 }
 
 /**
@@ -56,4 +63,5 @@ export const scrapedPostSchema = z.object({
   hashtags: z.array(z.string()),
   transcript: z.string().nullable(),
   thumbnailUrl: z.string().nullable(),
+  showsPerson: z.boolean().nullable(),
 }) satisfies z.ZodType<ScrapedPost>;

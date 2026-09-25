@@ -954,6 +954,27 @@ export type Database = {
         }
         Relationships: []
       }
+      post_classifications: {
+        Row: {
+          classified_at: string
+          platform: string
+          shows_person: boolean | null
+          video_id: string
+        }
+        Insert: {
+          classified_at?: string
+          platform: string
+          shows_person?: boolean | null
+          video_id: string
+        }
+        Update: {
+          classified_at?: string
+          platform?: string
+          shows_person?: boolean | null
+          video_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2771,6 +2792,7 @@ export type Database = {
         Returns: undefined
       }
       prune_idempotency_claims: { Args: never; Returns: number }
+      prune_post_classifications: { Args: { p_max_age?: string }; Returns: undefined }
       prune_scrape_cache: { Args: { p_max_age?: string }; Returns: undefined }
       rate_limit_hit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number }
