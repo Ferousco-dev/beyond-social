@@ -205,8 +205,11 @@ function reasonFor(detail: string | null): string {
   if (detail in UNAVAILABLE) return UNAVAILABLE[detail]!;
   if (detail === "not_ready") return "That avatar is still training. It will be usable shortly.";
   if (detail === "no_avatar") return "That avatar could not be found.";
+  if (detail === "voice_not_ready") {
+    return "This avatar is trained, but it has no voice yet. Add your voice in Settings to finish it.";
+  }
   if (detail === "incomplete_avatar") {
-    return "That avatar finished training without a voice, so it cannot speak yet.";
+    return "That avatar finished training with a gap on HeyGen's side. Try recording it again.";
   }
   // A reservation refusal is already a sentence, which is what makes running
   // out of credits readable instead of a code.

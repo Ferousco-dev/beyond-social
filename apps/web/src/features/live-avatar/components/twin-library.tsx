@@ -57,8 +57,10 @@ export function TwinLibrary({
     <div className="flex flex-col gap-3">
       {twins.map((twin) => {
         const label = twin.name ?? "Untitled avatar";
-        const ready = twin.trainingStatus === "ready";
+        const trained = twin.trainingStatus === "ready";
         const failed = twin.trainingStatus === "failed";
+        const ready = trained && twin.voiceReady;
+        const needsVoice = trained && !twin.voiceReady;
 
         return (
           <article key={twin.id} className="rounded-xl border border-hairline p-4">
@@ -78,14 +80,25 @@ export function TwinLibrary({
                     <CheckCircle2 className="size-3.5 text-success" aria-hidden />
                   ) : failed ? (
                     <CircleAlert className="size-3.5 text-destructive" aria-hidden />
+                  ) : needsVoice ? (
+                    <CircleAlert className="size-3.5 text-primary" aria-hidden />
                   ) : (
                     <Spinner className="size-3.5" />
                   )}
-                  {ready
-                    ? "Ready to use"
-                    : failed
-                      ? (twin.error ?? "Training did not finish")
-                      : "Still training"}
+                  {ready ? (
+                    "Ready to use"
+                  ) : failed ? (
+                    (twin.error ?? "Training did not finish")
+                  ) : needsVoice ? (
+                    <>
+                      1/2 &mdash; trained, but it has no voice yet.{" "}
+                      <a href="#your-voice" className="font-medium text-primary underline underline-offset-2">
+                        Add your voice
+                      </a>
+                    </>
+                  ) : (
+                    "Still training"
+                  )}
                   {" · "}
                   {new Date(twin.createdAt).toLocaleDateString()}
                 </p>

@@ -10,6 +10,7 @@ import {
   type SetStateAction,
 } from "react";
 
+import { useComposerDrop } from "../hooks/use-composer-drop";
 import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { SendButton } from "@/components/ui/send-button";
@@ -90,6 +91,14 @@ export function PromptComposer({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const canSubmit = value.trim().length > 0 && !busy && !uploading;
+  const drop = useComposerDrop({
+    projectId,
+    onPhotos: onPhotosChange,
+    onVoice,
+    onFootage,
+    onError: setError,
+    onBusyChange: setUploading,
+  });
   /*
    * Why the button is off, rather than only that it is.
    *
@@ -131,7 +140,23 @@ export function PromptComposer({
   }
 
   return (
-    <div className="rounded-[22px] border border-hairline bg-paper px-1 py-1">
+    <div
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+      className={cn(
+        "relative rounded-[22px] border px-1 py-1 transition-colors",
+        drop.dragging ? "border-primary border-dashed bg-primary/5" : "border-hairline bg-paper",
+      )}
+    >
+      {drop.dragging ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[22px] bg-paper/90 text-sm font-medium text-primary"
+        >
+          Drop to attach
+        </div>
+      ) : null}
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
       {/*
         A second, additive way to give an avatar render its voice: the

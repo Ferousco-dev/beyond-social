@@ -65,6 +65,11 @@ export function AvatarList({
         // and then simply waits, forever, on a step nobody showed them.
         const awaitingConsent = isAwaitingConsent(avatar);
         const needsNewConsentLink = needsFreshConsentLink(avatar);
+        // Trained is only half the story: a twin cannot speak without a
+        // cloned voice, one shared account-wide rather than per avatar (see
+        // `TwinSummary.voiceReady`). Kept distinct from `trainingStatus`
+        // below so "Ready" only ever means "usable," not "HeyGen is done."
+        const needsVoice = avatar.trainingStatus === "ready" && !avatar.voiceReady;
 
         return (
           <div
@@ -101,8 +106,10 @@ export function AvatarList({
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="size-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    {avatar.trainingStatus === "ready" ? (
+                    {avatar.trainingStatus === "ready" && avatar.voiceReady ? (
                       <CheckCircle2 className="size-7 text-success" />
+                    ) : needsVoice ? (
+                      <AlertCircle className="size-7 text-primary" />
                     ) : awaitingConsent ? (
                       <ExternalLink className="size-7 text-primary" />
                     ) : avatar.trainingStatus === "pending" ? (
@@ -125,20 +132,24 @@ export function AvatarList({
               <div className="absolute top-2 left-2">
                 <span
                   className={`text-xs font-medium px-2 py-1 rounded-full ${
-                    avatar.trainingStatus === "ready"
+                    avatar.trainingStatus === "ready" && avatar.voiceReady
                       ? "bg-success/20 text-success"
-                      : avatar.trainingStatus === "pending"
+                      : needsVoice
                         ? "bg-primary/20 text-primary"
-                        : "bg-destructive/20 text-destructive"
+                        : avatar.trainingStatus === "pending"
+                          ? "bg-primary/20 text-primary"
+                          : "bg-destructive/20 text-destructive"
                   }`}
                 >
-                  {avatar.trainingStatus === "ready"
+                  {avatar.trainingStatus === "ready" && avatar.voiceReady
                     ? "Ready"
-                    : awaitingConsent
-                      ? "Needs consent"
-                      : avatar.trainingStatus === "pending"
-                        ? "Training"
-                        : "Failed"}
+                    : needsVoice
+                      ? "1/2 — add voice"
+                      : awaitingConsent
+                        ? "Needs consent"
+                        : avatar.trainingStatus === "pending"
+                          ? "Training"
+                          : "Failed"}
                 </span>
               </div>
             </div>
@@ -149,16 +160,18 @@ export function AvatarList({
                 {avatar.name || `Avatar ${avatar.id.slice(0, 8)}`}
               </h3>
               <p className="text-xs text-ink-soft mt-1">
-                {avatar.trainingStatus === "ready"
+                {avatar.trainingStatus === "ready" && avatar.voiceReady
                   ? avatar.previewVideoUrl
                     ? "Play the preview to check your avatar before using it."
                     : "Review your original recording while the avatar preview becomes available."
-                  : awaitingConsent
-                    ? "HeyGen needs you to confirm consent on their secure page before training can start."
-                    : avatar.trainingStatus === "pending"
-                      ? "Learning a face and a voice takes a few minutes. You can leave this page, it carries on without you."
-                      : avatar.error ||
-                        "That didn't finish. Nothing was lost, recording again is safe."}
+                  : needsVoice
+                    ? "Trained and ready to speak, as soon as it has a voice to speak in."
+                    : awaitingConsent
+                      ? "HeyGen needs you to confirm consent on their secure page before training can start."
+                      : avatar.trainingStatus === "pending"
+                        ? "Learning a face and a voice takes a few minutes. You can leave this page, it carries on without you."
+                        : avatar.error ||
+                          "That didn't finish. Nothing was lost, recording again is safe."}
               </p>
 
               {/* Actions */}
@@ -191,7 +204,7 @@ export function AvatarList({
                     Check status
                   </button>
                 )}
-                {avatar.trainingStatus === "ready" && (
+                {avatar.trainingStatus === "ready" && avatar.voiceReady && (
                   // Jumps down the page rather than away from it: the form
                   // that actually uses this avatar is the section right
                   // below, and a link to /dashboard used to send someone
@@ -204,13 +217,23 @@ export function AvatarList({
                     Use in a video
                   </a>
                 )}
+                {needsVoice && (
+                  // Off this page: the voice section lives in account
+                  // settings, and there is nothing here that can finish it.
+                  <a
+                    href="/dashboard/settings/account#your-voice"
+                    className="flex-1 px-2 py-1.5 text-center text-xs font-medium text-paper bg-primary rounded hover:opacity-90 transition-opacity"
+                  >
+                    Add your voice
+                  </a>
+                )}
                 {avatar.trainingStatus === "ready" &&
                   (avatar.previewVideoUrl || avatar.recordingUrl) && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-1.5 text-xs text-ink-soft">
                       <Video className="size-3" /> Preview
                     </span>
                   )}
-                {avatar.trainingStatus === "ready" && !avatar.isDefault && (
+                {avatar.trainingStatus === "ready" && avatar.voiceReady && !avatar.isDefault && (
                   <button
                     type="button"
                     onClick={() => void onSetDefault(avatar.id)}

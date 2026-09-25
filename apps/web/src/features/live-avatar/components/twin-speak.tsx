@@ -44,7 +44,11 @@ export function TwinSpeak({
   twins: readonly TwinSummary[];
   readiness: TwinVideoReadiness;
 }): ReactNode {
-  const usable = twins.filter((twin) => twin.trainingStatus === "ready");
+  // Trained alone does not make a twin usable: it also needs this account's
+  // cloned voice, which is why the library above can show "ready" for
+  // training and still be a "1/2" for the avatar as a whole.
+  const usable = twins.filter((twin) => twin.trainingStatus === "ready" && twin.voiceReady);
+  const training = twins.filter((twin) => twin.trainingStatus === "ready" && !twin.voiceReady);
   const [avatarId, setAvatarId] = useState(usable[0]?.id ?? "");
   const [script, setScript] = useState("");
   const clear = useCallback(() => setScript(""), []);
@@ -54,6 +58,20 @@ export function TwinSpeak({
   // is already telling this person to record one.
   if (twins.length === 0) return null;
   if (!readiness.ready) return <Unavailable>{readiness.reason}</Unavailable>;
+  if (usable.length === 0 && training.length > 0) {
+    return (
+      <Unavailable>
+        Your avatar is trained, but it has no voice yet.{" "}
+        <Link
+          href={"/dashboard/settings/account#your-voice" as Route}
+          className="font-medium text-primary underline underline-offset-2"
+        >
+          Add your voice
+        </Link>{" "}
+        to finish it.
+      </Unavailable>
+    );
+  }
   if (usable.length === 0) {
     return (
       <Unavailable>Your avatar is still training. This opens as soon as it is ready.</Unavailable>
@@ -69,7 +87,7 @@ export function TwinSpeak({
         Generate a video
       </h3>
       <p className="text-sm text-ink-soft mb-6">
-        Your avatar speaks this in its own voice, and the video lands in your library.
+        Your avatar speaks this in your cloned voice, and the video lands in your library.
         <br />
         <span className="font-medium text-primary">
           Cost: {readiness.cost} {readiness.cost === 1 ? "credit" : "credits"}
@@ -101,7 +119,7 @@ export function TwinSpeak({
               ))}
             </select>
             <p className="mt-2 text-xs text-ink-soft">
-              Your avatar speaks with its trained voice automatically.
+              Speaks in your cloned voice, automatically.
             </p>
           </div>
         ) : (
@@ -110,7 +128,7 @@ export function TwinSpeak({
               {usable[0]?.name ?? `Avatar ${usable[0]?.id.slice(0, 8)}`}
             </p>
             <p className="text-xs text-ink-soft mt-1">
-              Your avatar speaks with its trained voice automatically.
+              Speaks in your cloned voice, automatically.
             </p>
           </div>
         )}
