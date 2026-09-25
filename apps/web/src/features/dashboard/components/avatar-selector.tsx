@@ -14,7 +14,10 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
   const { avatars, loading } = useAvatars();
   const [open, setOpen] = useState(false);
 
-  const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready");
+  // Trained alone is not enough: a twin cannot render without a cloned voice
+  // (see `TwinSummary.voiceReady`), and offering it here would only surface
+  // that as a failure after the composer already sent the request.
+  const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready" && a.voiceReady);
   const selectedAvatar = avatars.find((avatar) => avatar.id === selectedAvatarId);
 
   if (readyAvatars.length === 0) return null;

@@ -149,6 +149,10 @@ export function AvatarGrid({
               previewImageUrl: null,
               previewVideoUrl: null,
               recordingUrl: null,
+              // Unknown here regardless of the account's real voice status:
+              // this row is still training, so nothing can use it yet either
+              // way. The refresh above replaces it with the real value.
+              voiceReady: false,
             },
           ]);
         }
