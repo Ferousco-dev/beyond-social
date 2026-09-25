@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   LibraryBig,
   PenSquare,
+  Settings,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -76,6 +77,13 @@ const LINKS: readonly NavLink[] = [
     label: "Discover",
     icon: TrendingUp,
     motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
+  },
+  {
+    href: "/dashboard/settings" as Route,
+    label: "Settings",
+    icon: Settings,
+    // A gear turning, since that is the one thing this icon already means.
+    motion: "group-hover:rotate-45",
   },
 ];
 

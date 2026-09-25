@@ -20,7 +20,21 @@ export interface HistoryRow {
   readonly content: string;
   readonly generation_status?: string | null;
   readonly generation_error?: string | null;
+  readonly generation_error_code?: string | null;
 }
+
+/**
+ * Categories where trying the same request again is worth suggesting. Kept
+ * here rather than imported from `kie-errors.ts`, which is edge-function-only
+ * code the web app cannot reach across the Deno/Node boundary; the categories
+ * are a small, stable contract between the two rather than shared code.
+ */
+const RETRYABLE = new Set([
+  "insufficient_provider_credits",
+  "provider_unavailable",
+  "provider_rate_limited",
+  "network_error",
+]);
 
 /** Statuses that mean the run produced nothing. */
 function isSettledWithoutVideo(status: string | null | undefined): boolean {
@@ -31,10 +45,13 @@ function describe(row: HistoryRow): string {
   if (!isSettledWithoutVideo(row.generation_status)) return row.content;
 
   const reason = row.generation_error?.trim();
+  // Told whether trying again is worth suggesting, so the model does not have
+  // to guess it from the wording of a message it was never meant to parse.
+  const retry = row.generation_error_code && RETRYABLE.has(row.generation_error_code);
   // Parenthesised and appended rather than woven in, so it reads as a note on
   // the turn and cannot be mistaken for something the assistant said.
   const note = reason
-    ? `(The video for this turn did not finish: ${reason})`
+    ? `(The video for this turn did not finish: ${reason}${retry ? " Worth trying again." : ""})`
     : "(The video for this turn did not finish.)";
   return row.content ? `${row.content}\n\n${note}` : note;
 }

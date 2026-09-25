@@ -33,7 +33,7 @@ export function SaveIndicator({
   if (!canSave) {
     return (
       <span
-        title="This video is not part of a saved project, so changes here are not kept. Send a message in the chat to create one."
+        title="This video is not part of a saved project, so changes here are not kept. Start a project to create one."
         className="inline-flex min-h-8 items-center gap-1.5 rounded-full px-2 text-xs font-medium text-ink-soft"
       >
         <CloudOff className="size-3.5" aria-hidden />

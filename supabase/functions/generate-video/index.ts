@@ -10,6 +10,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
+import { categoryOf } from "../_shared/kie-errors.ts";
 import { createMarketVideoTask, createVideoTask } from "../_shared/kie.ts";
 import { buildMarketInput, UnsupportedModelError } from "../_shared/kie-models.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
@@ -188,7 +189,12 @@ serve(async (req) => {
       generationId: generation.id,
       model,
     });
-    await abandonRun(admin, generation.id, reservation.reason);
+    await abandonRun(
+      admin,
+      generation.id,
+      reservation.reason,
+      reservation.status === 402 ? "insufficient_credits" : "internal_error",
+    );
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
@@ -222,7 +228,7 @@ serve(async (req) => {
      */
     const message = error instanceof Error ? error.message : "Generation failed";
     // Nothing rendered, so the reservation is given back on the way out.
-    await abandonRun(admin, generation.id, message);
+    await abandonRun(admin, generation.id, message, categoryOf(error));
     if (error instanceof UnsupportedModelError) {
       log("error", "refused to dispatch a model with an unknown request shape", {
         traceId,
@@ -248,7 +254,7 @@ serve(async (req) => {
     // as failed. Refunding is the right side to err on: we cannot show a
     // result we have lost the handle to.
     log("error", "could not record the dispatched task", { traceId, taskId });
-    await abandonRun(admin, generation.id, "Could not follow this render");
+    await abandonRun(admin, generation.id, "Could not follow this render", "internal_error");
     return json({ error: "Could not record the generation", generationId: generation.id }, 500);
   }
 

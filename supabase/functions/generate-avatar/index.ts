@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
+import { categoryOf } from "../_shared/kie-errors.ts";
 import { createAvatarTask } from "../_shared/kie.ts";
 import { generateSpeech, isHeygenConfigured } from "../_shared/heygen.ts";
 import {
@@ -212,7 +213,12 @@ serve(async (req) => {
   const reservation = await reserveCredits(admin, generation.id);
   if (!reservation.held) {
     log("error", "avatar credit reservation refused", { traceId, generationId: generation.id });
-    await abandonRun(admin, generation.id, reservation.reason);
+    await abandonRun(
+      admin,
+      generation.id,
+      reservation.reason,
+      reservation.status === 402 ? "insufficient_credits" : "internal_error",
+    );
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
@@ -247,7 +253,7 @@ serve(async (req) => {
   } catch (error) {
     log("error", "could not hand the avatar inputs to the provider", { traceId });
     const message = error instanceof Error ? error.message : "Could not prepare the inputs";
-    await abandonRun(admin, generation.id, message);
+    await abandonRun(admin, generation.id, message, "internal_error");
     return json({ error: message, generationId: generation.id }, 502);
   }
 
@@ -263,7 +269,7 @@ serve(async (req) => {
    */
   if (!isAvatarModelSupported(model.id)) {
     log("error", "avatar model has no dispatcher", { traceId, model: model.id });
-    await abandonRun(admin, generation.id, "That avatar model cannot be dispatched");
+    await abandonRun(admin, generation.id, "That avatar model cannot be dispatched", "unsupported_operation");
     return json({ error: "unsupported_model", generationId: generation.id }, 503);
   }
 
@@ -283,11 +289,11 @@ serve(async (req) => {
   } catch (error) {
     log("error", "avatar task failed", { traceId });
     if (error instanceof UnsupportedModelError) {
-      await abandonRun(admin, generation.id, error.message);
+      await abandonRun(admin, generation.id, error.message, "unsupported_operation");
       return json({ error: error.message, generationId: generation.id }, 400);
     }
     const message = error instanceof Error ? error.message : "Generation failed";
-    await abandonRun(admin, generation.id, message);
+    await abandonRun(admin, generation.id, message, categoryOf(error));
     return json({ error: message, generationId: generation.id }, 502);
   }
 
@@ -301,7 +307,7 @@ serve(async (req) => {
     // as failed. Refunding is the right side to err on: we cannot show a
     // result we have lost the handle to.
     log("error", "could not record the dispatched avatar task", { traceId, taskId });
-    await abandonRun(admin, generation.id, "Could not follow this render");
+    await abandonRun(admin, generation.id, "Could not follow this render", "internal_error");
     return json({ error: "Could not record the generation", generationId: generation.id }, 500);
   }
 

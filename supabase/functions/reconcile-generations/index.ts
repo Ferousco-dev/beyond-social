@@ -102,6 +102,7 @@ serve(async (req) => {
     const { data: transitioned, error } = await admin.rpc("fail_generation_by_id", {
       p_generation: row.id,
       p_error: FAIL_REASON,
+      p_error_code: "timeout",
     });
     if (error) {
       log("error", "reconcile-generations: fail_generation_by_id failed", {

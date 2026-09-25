@@ -1,7 +1,14 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { LibraryBig, MessageSquare, PanelLeft, PenSquare, TrendingUp } from "lucide-react";
+import {
+  LibraryBig,
+  MessageSquare,
+  PanelLeft,
+  PenSquare,
+  Settings,
+  TrendingUp,
+} from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
@@ -21,13 +28,16 @@ import { UserButton } from "./user-button";
  * rather than one layout change away.
  */
 
+/** Icon above a small label, centred, rather than a bare icon with a tooltip. */
 const RAIL_ITEM =
-  "inline-flex size-9 items-center justify-center rounded-lg text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary pointer-coarse:size-11";
+  "flex w-16 cursor-pointer flex-col items-center gap-1.5 rounded-lg px-1 py-2 text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+const RAIL_LABEL = "text-[11px] leading-none font-medium";
 
 const LINKS = [
-  { href: "/dashboard", label: "New project", icon: PenSquare },
+  { href: "/dashboard", label: "New", icon: PenSquare },
   { href: "/dashboard/library", label: "Library", icon: LibraryBig },
   { href: "/dashboard/trends", label: "Discover", icon: TrendingUp },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
 
 export function SidebarRail({
@@ -47,7 +57,7 @@ export function SidebarRail({
         type="button"
         onClick={onExpand}
         aria-label="Open sidebar"
-        className={`${RAIL_ITEM} group relative`}
+        className="group relative inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <span className="absolute inset-0 flex items-center justify-center transition-opacity group-hover:opacity-0 group-focus-visible:opacity-0">
           <Logo showWordmark={false} className="[&_span]:size-6" />
@@ -55,18 +65,18 @@ export function SidebarRail({
         <PanelLeft className="size-5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
       </button>
 
-      <div className="mt-2 flex flex-col gap-1">
+      <div className="mt-3 flex flex-col gap-1.5">
         {LINKS.map((link) => (
-          <Link key={link.href} href={link.href as Route} title={link.label} className={RAIL_ITEM}>
+          <Link key={link.href} href={link.href as Route} className={RAIL_ITEM}>
             <link.icon className="size-5" aria-hidden />
-            <span className="sr-only">{link.label}</span>
+            <span className={RAIL_LABEL}>{link.label}</span>
           </Link>
         ))}
 
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger title="Projects" className={RAIL_ITEM}>
+          <DropdownMenu.Trigger className={RAIL_ITEM}>
             <MessageSquare className="size-5" aria-hidden />
-            <span className="sr-only">Projects</span>
+            <span className={RAIL_LABEL}>Projects</span>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content

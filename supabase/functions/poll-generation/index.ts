@@ -102,9 +102,14 @@ serve(async (req) => {
     return json({ status: "ready", resultUrl });
   }
   if (info.successFlag === 2 || info.successFlag === 3) {
+    // The status endpoints (`getJobInfo`/`getRecordInfo`) report a flag, not a
+    // reason, so there is no provider message to classify here the way the
+    // callback path can. `generation_failed` is the honest category for that:
+    // it says this did not work without guessing why.
     const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: generation.provider_task_id,
       p_error: "Generation failed",
+      p_error_code: "generation_failed",
     });
     if (error) {
       log("error", "fail_generation failed", {

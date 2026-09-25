@@ -23,10 +23,13 @@ import { StartScreen } from "./start-screen";
 type Stage = "start" | "idea" | "refine" | "brief";
 
 export function BriefFlow({
+  greeting,
   onSkip,
   onUse,
   recents = [],
 }: {
+  /** Shown as the start screen's heading. Empty until the client resolves it. */
+  greeting: string;
   onSkip: () => void;
   onUse: (brief: string) => void;
   recents?: readonly { id: string; title: string }[];
@@ -122,7 +125,12 @@ export function BriefFlow({
   return (
     <div className="w-full">
       {stage === "start" ? (
-        <StartScreen onRefine={() => setStage("idea")} onSkip={onSkip} recents={recents} />
+        <StartScreen
+          greeting={greeting}
+          onRefine={() => setStage("idea")}
+          onSkip={onSkip}
+          recents={recents}
+        />
       ) : null}
 
       {stage === "idea" ? (

@@ -27,14 +27,14 @@ export function MessageBubble({
 }): ReactNode {
   if (message.role === "user") {
     return (
-      // Attachments sit above the bubble, aligned with it, so the turn reads in
-      // the order it was composed: what was attached, then what was said.
-      <div className="flex flex-col items-end gap-2">
+      // A request, not a chat bubble: a quiet label above the result it
+      // produced, not a filled shape claiming its own side of the screen. This
+      // is a workbench, one thread of requests and their results, not a
+      // conversation between two speakers.
+      <div className="flex flex-col gap-2">
         <MessageAttachments attachments={message.attachments} />
         {message.content ? (
-          <div className="max-w-[80%] rounded-3xl bg-cloud px-4 py-2.5 text-ink">
-            {message.content}
-          </div>
+          <p className="text-sm font-medium text-ink-soft">{message.content}</p>
         ) : null}
       </div>
     );
