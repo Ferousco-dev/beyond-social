@@ -68,12 +68,14 @@ const RANK: Readonly<Record<PlanId, number>> = { free: 0, creator: 1, studio: 2 
 /**
  * The everyday generator for a plan.
  *
- * Veo stays the free tier's, which is the client's call rather than a technical
- * one: it is the cheapest way to let somebody try the product. A paying account
- * gets Kling, which is what they are paying for.
+ * Seedance is the free tier's: Kling is creator-and-up (migration 0070), and
+ * Seedance is the cheapest active model any plan can run, at half what Veo
+ * cost. A paying account gets Kling, which is what they are paying for. Veo
+ * and Wan are deactivated for now (migration 0130); Gemini Omni stays live as
+ * a paid-tier backup alongside Kling rather than a second workhorse.
  */
 const WORKHORSE: Readonly<Record<PlanId, string>> = {
-  free: "veo3_fast",
+  free: "bytedance/seedance-1.5-pro",
   creator: "kling-3.0/video",
   studio: "kling-3.0/video",
 };
@@ -136,8 +138,10 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
 
   const workhorse = firstUsable(
     // Falls back down the list rather than failing: a plan whose workhorse is
-    // inactive still gets a video.
-    [WORKHORSE[plan], "kling-3.0/video", "veo3_fast", "bytedance/seedance-1.5-pro"],
+    // inactive still gets a video. Veo is left off this list on purpose: it is
+    // deactivated in the catalogue (migration 0130), so keeping it here would
+    // only ever fall through to a model that can never be usable.
+    [WORKHORSE[plan], "kling-3.0/video", "bytedance/seedance-1.5-pro", "gemini-omni-video"],
     catalog,
     plan,
   );
@@ -174,7 +178,7 @@ export function selectModel(input: SelectionInput): ModelChoice | null {
       const ordered = [...eligible].sort((left, right) => left.creditCost - right.creditCost);
       const target =
         mode === "low"
-          ? firstUsable(["veo3_fast"], catalog, plan)
+          ? firstUsable(["bytedance/seedance-1.5-pro"], catalog, plan)
           : mode === "high"
             ? ordered.at(-1) ?? null
             : ordered[Math.floor((ordered.length - 1) / 2)] ?? null;

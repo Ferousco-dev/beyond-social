@@ -37,7 +37,7 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
   {
     question: "How realistic are the videos?",
     answer:
-      "They are generated with a WAN-class model from your own photos, producing ultra-realistic talking-avatar and product clips rather than obvious animation.",
+      "They are generated with a Kling-class model from your own photos, producing ultra-realistic talking-avatar and product clips rather than obvious animation.",
   },
   {
     question: "Can I edit a video after it is generated?",
