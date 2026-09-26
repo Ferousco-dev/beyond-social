@@ -58,7 +58,6 @@ export function ConversationThread({
   const [notice, setNotice] = useState<Notice | null>(null);
   const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
   const [sending, setSending] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   /*
    * Whether to speak the brief in the cloned voice instead of requiring a raw
    * clip. Off by default: the existing record-a-clip flow stays the primary
@@ -464,10 +463,10 @@ export function ConversationThread({
 
         // An explicitly selected HeyGen twin owns this render. With no
         // selection, the normal KIE pipeline below handles the request.
-        if (selectedAvatarId) {
+        if (draft.selectedAvatarId) {
           const twinResult = await makeTwinVideo({
             projectId: projectId === "new" ? undefined : projectId,
-            avatarId: selectedAvatarId,
+            avatarId: draft.selectedAvatarId,
             script: trimmed,
           });
           setSending(false);
@@ -670,7 +669,7 @@ export function ConversationThread({
       savedLikeness,
       useClonedVoice,
       clonedVoiceId,
-      selectedAvatarId,
+      draft.selectedAvatarId,
       confirm,
       hold,
       sendTurn,
@@ -759,8 +758,8 @@ export function ConversationThread({
               onGenerationModeChange={draft.setGenerationMode}
               busy={sending}
               onStop={sending ? turn.cancel : undefined}
-              selectedAvatarId={selectedAvatarId}
-              onSelectedAvatarChange={setSelectedAvatarId}
+              selectedAvatarId={draft.selectedAvatarId}
+              onSelectedAvatarChange={draft.setSelectedAvatarId}
               clonedVoiceAvailable={clonedVoiceId !== null && clonedVoiceId !== undefined}
               useClonedVoice={useClonedVoice}
               onUseClonedVoiceChange={setUseClonedVoice}

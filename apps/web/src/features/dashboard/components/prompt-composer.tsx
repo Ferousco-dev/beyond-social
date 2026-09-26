@@ -279,8 +279,11 @@ export function PromptComposer({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
-          placeholder="Describe a video to create"
-          aria-label="Describe a video to create"
+          // Once an avatar is picked, this box stops being a brief and
+          // becomes a script: whatever is typed is spoken back verbatim, not
+          // interpreted into a scene.
+          placeholder={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
+          aria-label={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
           className="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
         />
         <div className="flex items-center gap-2">
