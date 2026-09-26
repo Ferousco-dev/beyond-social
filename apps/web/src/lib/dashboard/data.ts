@@ -1,4 +1,4 @@
-import { CalendarClock, Clapperboard, Sparkles, TrendingUp, type LucideIcon } from "lucide-react";
+import { CalendarClock, Clapperboard, TrendingUp, type LucideIcon } from "lucide-react";
 
 import { type PlanId } from "@/lib/billing/plans";
 
@@ -110,16 +110,18 @@ export const PROJECT_GROUPS: readonly ProjectGroup[] = [
   },
 ];
 
+/**
+ * "Talking avatar" used to live here as a fourth plain text prompt, but
+ * unlike these three it cannot actually be answered by writing a better
+ * sentence: it needs a trained avatar picked, which is a different kind of
+ * click. It has its own bespoke button in `DashboardHome` instead, the same
+ * way "Go live" already does.
+ */
 export const SUGGESTIONS: readonly Suggestion[] = [
   {
     icon: Clapperboard,
     label: "Product video",
     prompt: "Create a 30-second product video for our newest release, upbeat and for Instagram.",
-  },
-  {
-    icon: Sparkles,
-    label: "Talking avatar",
-    prompt: "Make a talking-avatar video introducing our brand from these product photos.",
   },
   {
     icon: TrendingUp,

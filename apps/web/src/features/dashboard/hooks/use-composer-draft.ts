@@ -36,6 +36,9 @@ export interface ComposerDraft {
   readonly setShots: Dispatch<SetStateAction<readonly PendingShot[] | null>>;
   readonly generationMode: GenerationMode;
   readonly setGenerationMode: (value: GenerationMode) => void;
+  /** Which trained twin speaks this, if one was picked. */
+  readonly selectedAvatarId: string | null;
+  readonly setSelectedAvatarId: (value: string | null) => void;
   /** True when it was filled from elsewhere and has not been sent yet. */
   readonly seeded: boolean;
   /** Everything the composer holds, emptied. Called as a turn is sent. */
@@ -52,6 +55,7 @@ export function useComposerDraft(
   const [footage, setFootage] = useState<PendingFootage | null>(null);
   const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
 
   /**
@@ -74,6 +78,7 @@ export function useComposerDraft(
     if (seed.photos) setPhotos(seed.photos);
     if (seed.shots) setShots(seed.shots);
     if (seed.voice) setVoice(seed.voice);
+    if (seed.avatarId) setSelectedAvatarId(seed.avatarId);
     setGenerationMode(seed.generationMode);
 
     setPrompt(seed.prompt);
@@ -89,6 +94,7 @@ export function useComposerDraft(
     setFootage(null);
     setShots(null);
     setGenerationMode("auto");
+    setSelectedAvatarId(null);
     setSeeded(false);
   }, []);
 
@@ -110,6 +116,8 @@ export function useComposerDraft(
     setShots,
     generationMode,
     setGenerationMode,
+    selectedAvatarId,
+    setSelectedAvatarId,
     seeded,
     clear,
   };

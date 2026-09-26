@@ -1,7 +1,9 @@
 import { type Metadata } from "next";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
+import { getVoiceProfile } from "@/features/voice/actions";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
+import { enrollmentPhrase } from "@/lib/voice/phrase";
 
 export const metadata: Metadata = { title: "Assets" };
 export const dynamic = "force-dynamic";
@@ -16,8 +18,12 @@ export const dynamic = "force-dynamic";
  * composer, once an avatar is picked there.
  */
 export default async function AssetsPage() {
-  const user = await getCurrentUser();
-  const twins = await listTwins();
+  const [user, voice, twins] = await Promise.all([
+    getCurrentUser(),
+    getVoiceProfile(),
+    listTwins(),
+  ]);
+  const voiceProfile = voice.status === "ok" ? voice.profile : null;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
@@ -31,7 +37,12 @@ export default async function AssetsPage() {
         </p>
       </header>
 
-      <AvatarGrid twins={twins} name={user.email ?? "User"} />
+      <AvatarGrid
+        twins={twins}
+        name={user.email ?? "User"}
+        voiceProfile={voiceProfile}
+        voicePhrase={enrollmentPhrase(user.name)}
+      />
     </div>
   );
 }

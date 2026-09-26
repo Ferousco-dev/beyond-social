@@ -24,7 +24,7 @@ export interface VoiceProfile {
   readonly createdAt: string;
   readonly cloneStatus: CloneStatus;
   readonly cloneError: string | null;
-  /** Usable with `voiceCloneId` in `startAvatarGeneration` once ready. */
+  /** What a trained HeyGen twin speaks with, once this is ready (see `generate-heygen-avatar/twin.ts`). */
   readonly providerVoiceId: string | null;
 }
 

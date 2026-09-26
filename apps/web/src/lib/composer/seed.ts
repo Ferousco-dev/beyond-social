@@ -21,6 +21,7 @@ const PHOTOS_KEY = "bs:pending-photos";
 const SHOTS_KEY = "bs:pending-shots";
 const VOICE_KEY = "bs:pending-voice";
 const MODE_KEY = "bs:pending-generation-mode";
+const AVATAR_KEY = "bs:pending-avatar";
 
 export interface ComposerSeed {
   readonly prompt: string;
@@ -35,6 +36,13 @@ export interface ComposerSeed {
    */
   readonly voice?: PendingVoice | null;
   readonly generationMode?: GenerationMode;
+  /**
+   * A trained twin picked before the thread existed, from the home screen's
+   * own avatar picker. Carried the same way the voice clip is: the id alone,
+   * since the next screen re-reads the avatar's own state rather than
+   * trusting a stale copy of it.
+   */
+  readonly avatarId?: string | null;
 }
 
 /** Leaves the seed for the composer. Does not navigate; the caller does that. */
@@ -61,6 +69,12 @@ export function leaveSeed(seed: ComposerSeed): void {
     window.sessionStorage.setItem(MODE_KEY, seed.generationMode);
   } else {
     window.sessionStorage.removeItem(MODE_KEY);
+  }
+
+  if (seed.avatarId) {
+    window.sessionStorage.setItem(AVATAR_KEY, seed.avatarId);
+  } else {
+    window.sessionStorage.removeItem(AVATAR_KEY);
   }
 }
 
@@ -92,6 +106,7 @@ export interface TakenSeed {
   readonly shots: readonly PendingShot[] | null;
   readonly voice: PendingVoice | null;
   readonly generationMode: GenerationMode;
+  readonly avatarId: string | null;
 }
 
 /** Loose enough to catch a hand-edited value without importing a schema here. */
@@ -118,7 +133,15 @@ export function takeSeed(fallbackPrompt: string | null): TakenSeed {
     window.sessionStorage.removeItem(SHOTS_KEY);
     window.sessionStorage.removeItem(VOICE_KEY);
     window.sessionStorage.removeItem(MODE_KEY);
-    return { prompt: null, photos: null, shots: null, voice: null, generationMode: "auto" };
+    window.sessionStorage.removeItem(AVATAR_KEY);
+    return {
+      prompt: null,
+      photos: null,
+      shots: null,
+      voice: null,
+      generationMode: "auto",
+      avatarId: null,
+    };
   }
 
   const storedMode = window.sessionStorage.getItem(MODE_KEY);
@@ -126,11 +149,15 @@ export function takeSeed(fallbackPrompt: string | null): TakenSeed {
   const generationMode: GenerationMode =
     storedMode === "low" || storedMode === "middle" || storedMode === "high" ? storedMode : "auto";
 
+  const avatarId = window.sessionStorage.getItem(AVATAR_KEY);
+  window.sessionStorage.removeItem(AVATAR_KEY);
+
   return {
     prompt,
     photos: takeJson(PHOTOS_KEY, (value): value is readonly PendingPhoto[] => Array.isArray(value)),
     shots: takeJson(SHOTS_KEY, (value): value is readonly PendingShot[] => Array.isArray(value)),
     voice: takeJson(VOICE_KEY, isPendingVoice),
     generationMode,
+    avatarId,
   };
 }

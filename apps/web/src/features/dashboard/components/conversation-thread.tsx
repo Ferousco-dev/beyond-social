@@ -47,24 +47,14 @@ export interface SavedLikeness {
 export function ConversationThread({
   thread,
   savedLikeness,
-  clonedVoiceId,
 }: {
   thread: Thread;
   savedLikeness: SavedLikeness | null;
-  /** This caller's own ready cloned voice, if any. Null offers no toggle. */
-  clonedVoiceId?: string | null;
 }) {
   const router = useRouter();
   const [notice, setNotice] = useState<Notice | null>(null);
   const notify = useCallback((text: string, upgrade = false) => setNotice({ text, upgrade }), []);
   const [sending, setSending] = useState(false);
-  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
-  /*
-   * Whether to speak the brief in the cloned voice instead of requiring a raw
-   * clip. Off by default: the existing record-a-clip flow stays the primary
-   * path, this is an opt-in second one, additive rather than a replacement.
-   */
-  const [useClonedVoice, setUseClonedVoice] = useState(false);
 
   const { confirm, dialog } = useConfirm();
   const endRef = useRef<HTMLDivElement>(null);
@@ -150,13 +140,7 @@ export function ConversationThread({
     async (
       text: string,
       imageUrl: string,
-      /**
-       * Either the raw clip's URL, or this caller's own ready cloned voice
-       * id. Which one is meant is decided by the caller: exactly one of the
-       * two is ever passed, mirroring `startAvatarGeneration`'s own
-       * `.refine()`.
-       */
-      audio: { kind: "clip"; url: string } | { kind: "clone"; voiceCloneId: string },
+      audioUrl: string,
       optimisticId: string,
       attachments: AttachmentRef[],
     ): Promise<boolean> => {
@@ -166,15 +150,7 @@ export function ConversationThread({
       }
 
       const attempt = () =>
-        startAvatarGeneration({
-          projectId,
-          prompt: text,
-          imageUrl,
-          attachments,
-          ...(audio.kind === "clip"
-            ? { audioUrl: audio.url }
-            : { voiceCloneId: audio.voiceCloneId }),
-        });
+        startAvatarGeneration({ projectId, prompt: text, imageUrl, audioUrl, attachments });
       let result = await attempt();
 
       if (result.status === "consent") {
@@ -432,31 +408,7 @@ export function ConversationThread({
           ? [{ kind: "photo" as const, path: savedLikeness.path }, ...attachmentRefs]
           : attachmentRefs;
         if (voiceClip && face) {
-          const outcome = await runAvatar(
-            trimmed,
-            face,
-            { kind: "clip", url: voiceClip.url },
-            optimisticId,
-            faceRefs,
-          );
-          setSending(false);
-          if (outcome) return;
-          return;
-        }
-
-        /*
-         * The cloned-voice path: no raw clip attached, but a photo is, and
-         * the toggle is on. The brief itself is the script, the same way it
-         * already is for `AVATAR_REPLY`'s framing, so nothing new is typed.
-         */
-        if (useClonedVoice && clonedVoiceId && face) {
-          const outcome = await runAvatar(
-            trimmed,
-            face,
-            { kind: "clone", voiceCloneId: clonedVoiceId },
-            optimisticId,
-            faceRefs,
-          );
+          const outcome = await runAvatar(trimmed, face, voiceClip.url, optimisticId, faceRefs);
           setSending(false);
           if (outcome) return;
           return;
@@ -464,10 +416,10 @@ export function ConversationThread({
 
         // An explicitly selected HeyGen twin owns this render. With no
         // selection, the normal KIE pipeline below handles the request.
-        if (selectedAvatarId) {
+        if (draft.selectedAvatarId) {
           const twinResult = await makeTwinVideo({
             projectId: projectId === "new" ? undefined : projectId,
-            avatarId: selectedAvatarId,
+            avatarId: draft.selectedAvatarId,
             script: trimmed,
           });
           setSending(false);
@@ -668,9 +620,7 @@ export function ConversationThread({
       sending,
       runAvatar,
       savedLikeness,
-      useClonedVoice,
-      clonedVoiceId,
-      selectedAvatarId,
+      draft.selectedAvatarId,
       confirm,
       hold,
       sendTurn,
@@ -759,11 +709,8 @@ export function ConversationThread({
               onGenerationModeChange={draft.setGenerationMode}
               busy={sending}
               onStop={sending ? turn.cancel : undefined}
-              selectedAvatarId={selectedAvatarId}
-              onSelectedAvatarChange={setSelectedAvatarId}
-              clonedVoiceAvailable={clonedVoiceId !== null && clonedVoiceId !== undefined}
-              useClonedVoice={useClonedVoice}
-              onUseClonedVoiceChange={setUseClonedVoice}
+              selectedAvatarId={draft.selectedAvatarId}
+              onSelectedAvatarChange={draft.setSelectedAvatarId}
             />
 
             {/*

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Square, X } from "lucide-react";
+import { Square, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -57,11 +57,6 @@ interface PromptComposerProps {
   selectedAvatarId?: string | null;
   /** Called when avatar selection changes. */
   onSelectedAvatarChange?: (avatarId: string | null) => void;
-  /** Whether this caller has a ready cloned voice at all, so the chip can offer it. */
-  clonedVoiceAvailable?: boolean;
-  /** Whether "speak this in your voice" is on. Additive to, not instead of, `voice`. */
-  useClonedVoice?: boolean;
-  onUseClonedVoiceChange?: (value: boolean) => void;
 }
 
 export function PromptComposer({
@@ -83,9 +78,6 @@ export function PromptComposer({
   onStop,
   selectedAvatarId,
   onSelectedAvatarChange,
-  clonedVoiceAvailable,
-  useClonedVoice,
-  onUseClonedVoiceChange,
 }: PromptComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -159,29 +151,6 @@ export function PromptComposer({
         </div>
       ) : null}
       {voice ? <VoiceChip voice={voice} onRemove={() => onVoice(null)} /> : null}
-      {/*
-        A second, additive way to give an avatar render its voice: the
-        existing record-a-clip flow above is untouched, this only appears
-        once that path is not in use and this caller actually has a cloned
-        voice to offer. Photos gate it too: with none attached and no saved
-        likeness, there is nothing for the clone to speak over yet.
-      */}
-      {!voice && clonedVoiceAvailable && onUseClonedVoiceChange ? (
-        <button
-          type="button"
-          onClick={() => onUseClonedVoiceChange(!useClonedVoice)}
-          aria-pressed={useClonedVoice}
-          className={cn(
-            "mx-1 mb-2 flex items-center gap-2 rounded-2xl border px-3 py-2 text-xs font-medium transition-colors",
-            useClonedVoice
-              ? "border-primary bg-primary/10 text-primary"
-              : "border-hairline bg-canvas text-ink-soft hover:text-ink",
-          )}
-        >
-          <Sparkles className="size-3.5" aria-hidden />
-          {useClonedVoice ? "Speaking in your voice" : "Speak this in your voice"}
-        </button>
-      ) : null}
       {footage ? <FootageChip footage={footage} onRemove={() => onFootage(null)} /> : null}
       {shots !== null && shots.length > 0 ? (
         <ShotListEditor
@@ -279,8 +248,11 @@ export function PromptComposer({
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}
           rows={1}
-          placeholder="Describe a video to create"
-          aria-label="Describe a video to create"
+          // Once an avatar is picked, this box stops being a brief and
+          // becomes a script: whatever is typed is spoken back verbatim, not
+          // interpreted into a scene.
+          placeholder={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
+          aria-label={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
           className="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
         />
         <div className="flex items-center gap-2">
