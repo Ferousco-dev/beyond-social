@@ -29,11 +29,6 @@ const requestSchema = z.object({
 
 export type TwinVideoRequest = z.infer<typeof requestSchema>;
 
-/** Why the twin video path is unavailable, in words a person can act on. */
-export type TwinVideoReadiness =
-  | { readonly ready: true; readonly cost: number }
-  | { readonly ready: false; readonly reason: string };
-
 const UNAVAILABLE: Record<string, string> = {
   provider_unconfigured: "Video from your avatar is not switched on for this workspace yet.",
   unpriced: "Video from your avatar is not switched on yet: it has no credit price set.",
@@ -46,60 +41,6 @@ const UNAVAILABLE: Record<string, string> = {
    */
   check_failed: "Couldn't check whether video is ready. Refresh the page to try again.",
 };
-
-/**
- * Whether a script would be accepted, asked before one is written.
- *
- * Both gates are environment the app server does not hold, so this asks the
- * function rather than reading a second copy of them: two places to configure
- * one thing is one place to forget.
- */
-/**
- * HeyGen's function is called rarely enough to cold-start, which this once
- * assumed would never matter because the answer was always going to be "not
- * configured" anyway. Now that a real key and price exist, a cold start that
- * outran the old 2.5s budget reported the exact same "not switched on"
- * message a genuinely unconfigured workspace gets, which is indistinguishable
- * from broken. Widened past a realistic cold start, and the timeout path no
- * longer claims to know something it does not.
- */
-const PROBE_TIMEOUT_MS = 8_000;
-
-export async function twinVideoReadiness(): Promise<TwinVideoReadiness> {
-  if (!isSupabaseConfigured) {
-    return { ready: false, reason: UNAVAILABLE.provider_unconfigured! };
-  }
-
-  /*
-   * Bounded, because this blocks the page that renders it: a hung call must
-   * not take the whole library down with it. Distinct from a real refusal,
-   * though — see `check_failed` above.
-   */
-  const supabase = await createClient();
-  const probe = supabase.functions.invoke("generate-heygen-avatar", { body: { probe: true } });
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS));
-  const settled = await Promise.race([probe, timeout]);
-
-  if (settled === null) {
-    logger.warn("twin video readiness probe timed out", { ms: PROBE_TIMEOUT_MS });
-    return { ready: false, reason: UNAVAILABLE.check_failed! };
-  }
-
-  const { data, error } = settled;
-  if (error) {
-    logger.warn("could not read twin video readiness", { error: error.message });
-    return { ready: false, reason: UNAVAILABLE.check_failed! };
-  }
-
-  const result = data as { ready?: boolean; reason?: string; cost?: number } | null;
-  if (result?.ready === true && typeof result.cost === "number") {
-    return { ready: true, cost: result.cost };
-  }
-  return {
-    ready: false,
-    reason: UNAVAILABLE[result?.reason ?? ""] ?? UNAVAILABLE.check_failed!,
-  };
-}
 
 export type TwinVideoResult =
   { status: "ok"; generationId: string; projectId: string } | { status: "error"; message: string };
@@ -214,26 +155,4 @@ function reasonFor(detail: string | null): string {
   // A reservation refusal is already a sentence, which is what makes running
   // out of credits readable instead of a code.
   return /^[A-Z]/.test(detail) ? detail : "That video could not be started.";
-}
-
-export type TwinVideoState = "queued" | "generating" | "ready" | "failed" | "cancelled";
-
-export interface TwinVideoStatus {
-  readonly state: TwinVideoState;
-  readonly error: string | null;
-}
-
-/** Where one render has got to. Read under the caller's own session, so it is theirs by construction. */
-export async function twinVideoStatus(generationId: string): Promise<TwinVideoStatus | null> {
-  if (!isSupabaseConfigured) return null;
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("video_generations")
-    .select("status, error")
-    .eq("id", generationId)
-    .maybeSingle();
-
-  const row = data as { status: TwinVideoState; error: string | null } | null;
-  return row ? { state: row.status, error: row.error } : null;
 }

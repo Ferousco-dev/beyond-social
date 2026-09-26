@@ -1,6 +1,8 @@
 "use client";
 
 import { CheckCircle2, ExternalLink, Loader, Trash2, AlertCircle, Star, Video } from "lucide-react";
+import { type Route } from "next";
+import Link from "next/link";
 import { type ReactNode } from "react";
 import { type TwinSummary } from "../delete-actions";
 
@@ -205,17 +207,16 @@ export function AvatarList({
                   </button>
                 )}
                 {avatar.trainingStatus === "ready" && avatar.voiceReady && (
-                  // Jumps down the page rather than away from it: the form
-                  // that actually uses this avatar is the section right
-                  // below, and a link to /dashboard used to send someone
-                  // looking for "use it" to the general chat composer
-                  // instead, which does not use a trained twin at all.
-                  <a
-                    href="#twin-speak-heading"
+                  // Generating now happens in one place: the composer, once
+                  // this avatar is picked there. The dedicated "write what it
+                  // should say" panel this used to jump to on this same page
+                  // was a second way to do exactly that.
+                  <Link
+                    href={"/dashboard" as Route}
                     className="flex-1 px-2 py-1.5 text-center text-xs font-medium text-paper bg-primary rounded hover:opacity-90 transition-opacity"
                   >
                     Use in a video
-                  </a>
+                  </Link>
                 )}
                 {needsVoice && (
                   // Off this page: the voice section lives in account
