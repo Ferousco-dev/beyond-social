@@ -38,10 +38,27 @@ export function useComposerDrop({
   const voice = useVoiceUpload({ projectId, onVoice, onError, onBusyChange });
   const footage = useFootageUpload({ onFootage, onError, onBusyChange });
 
+  // Only react to a real file drag, not text selected and dragged from the
+  // page, which also fires these events but has nothing this can accept.
+  const isFileDrag = (event: DragEvent<HTMLElement>): boolean =>
+    event.dataTransfer.types.includes("Files");
+
+  /*
+   * `dragenter` fires once, before the repeating `dragover`, and the browser
+   * decides whether this element is a valid drop target from whichever of
+   * the two it sees first. Without `preventDefault()` here too, the very
+   * first event on a fresh drag was left unhandled, which is what made the
+   * browser fall back to its own default (typically opening the file as a
+   * page) instead of ever reaching `onDrop`.
+   */
+  const onDragEnter = useCallback((event: DragEvent<HTMLElement>) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    setDragging(true);
+  }, []);
+
   const onDragOver = useCallback((event: DragEvent<HTMLElement>) => {
-    // Only react to a real file drag, not text selected and dragged from the
-    // page, which also fires these events but has nothing this can accept.
-    if (!event.dataTransfer.types.includes("Files")) return;
+    if (!isFileDrag(event)) return;
     event.preventDefault();
     setDragging(true);
   }, []);
@@ -77,5 +94,5 @@ export function useComposerDrop({
     [photo, footage, voice, onError],
   );
 
-  return { dragging, onDragOver, onDragLeave, onDrop };
+  return { dragging, onDragEnter, onDragOver, onDragLeave, onDrop };
 }

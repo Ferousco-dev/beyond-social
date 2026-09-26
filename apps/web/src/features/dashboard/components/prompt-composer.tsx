@@ -141,6 +141,7 @@ export function PromptComposer({
 
   return (
     <div
+      onDragEnter={drop.onDragEnter}
       onDragOver={drop.onDragOver}
       onDragLeave={drop.onDragLeave}
       onDrop={drop.onDrop}
