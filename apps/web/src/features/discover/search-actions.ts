@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveCountryCode } from "@/lib/social-scrape/country";
 import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { SCRAPE_PLATFORMS } from "@/lib/social-scrape/types";
-import { fetchPosters } from "@/lib/tiktok/oembed";
 
 import { type DiscoverPost, type DiscoverResult } from "./types";
 
@@ -66,15 +65,13 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
     if (posts.length === 0) return { status: "ok", posts: [], countryCode };
 
     /*
-     * Posters only for the posts that arrived without one. The scraper returns a
-     * cover for most, so this is usually a short list, and a lookup that fails
-     * leaves a post with no still, which the scroller renders as a placeholder
-     * rather than dropping.
+     * Poster lookups are nice to have but not required for the result set. They
+     * are a second network round trip per search and they block the page from
+     * rendering while we wait for a CDN URL that is not required to open a post.
+     * The app should show the search results as soon as the scraper returns them,
+     * then enrich thumbnails opportunistically rather than making the search
+     * itself feel slow.
      */
-    // oEmbed here is TikTok's, so it is only worth asking for TikTok posts.
-    const missing = platform === "tiktok" ? posts.filter((post) => post.thumbnailUrl === null) : [];
-    const posters = await fetchPosters(missing.map((post) => post.url));
-
     const results: DiscoverPost[] = posts.map((post) => ({
       platform: post.platform,
       videoId: post.videoId,
@@ -82,7 +79,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
       url: post.url,
       caption: post.description,
       viewCount: post.viewCount,
-      thumbnailUrl: post.thumbnailUrl ?? posters.get(post.url)?.thumbnailUrl ?? null,
+      thumbnailUrl: post.thumbnailUrl ?? null,
       likeCount: post.likeCount,
       commentCount: post.commentCount,
       shareCount: post.shareCount,
