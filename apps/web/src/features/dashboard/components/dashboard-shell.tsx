@@ -45,7 +45,7 @@ export function DashboardShell({
       <aside
         className={cn(
           "hidden shrink-0 overflow-hidden border-r border-hairline transition-[width] duration-200 ease-out motion-reduce:transition-none lg:block",
-          collapsed ? "w-14" : "w-[260px]",
+          collapsed ? "w-20" : "w-[260px]",
         )}
       >
         {collapsed ? (

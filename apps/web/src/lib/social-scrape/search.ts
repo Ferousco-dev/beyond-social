@@ -28,7 +28,8 @@ const DEFAULT_ACTORS: Readonly<Record<ScrapePlatform, string>> = {
   instagram: "apify~instagram-scraper",
 };
 
-function actorFor(platform: ScrapePlatform): string {
+/** Exported so `video-fetch.ts` can re-scrape a known post through the same actor. */
+export function actorFor(platform: ScrapePlatform): string {
   const configured =
     platform === "tiktok" ? serverEnv.APIFY_TIKTOK_ACTOR : serverEnv.APIFY_INSTAGRAM_ACTOR;
   return configured.trim() !== "" ? configured : DEFAULT_ACTORS[platform];
@@ -94,6 +95,50 @@ export function inputFor(
     maxItems: limit,
     addParentData: false,
   };
+}
+
+/** The input for scraping one known post rather than searching for many. */
+function urlInputFor(platform: ScrapePlatform, url: string): Record<string, unknown> {
+  if (platform === "tiktok") {
+    return {
+      postURLs: [url],
+      shouldDownloadVideos: false,
+      shouldDownloadCovers: true,
+      shouldDownloadSubtitles: false,
+    };
+  }
+  return { directUrls: [url], addParentData: false };
+}
+
+/**
+ * Scrapes the one post a caller already has a link to, rather than searching
+ * for it. Used when someone pastes a TikTok or Instagram URL directly into
+ * Discover instead of a search term.
+ *
+ * Not cached the way a search is: this is one post rather than a results
+ * page, asked for once by whoever pasted the link, so there is no shared
+ * cost to amortise the way there is for a term forty people might search.
+ */
+export async function scrapePostByUrl(
+  platform: ScrapePlatform,
+  url: string,
+): Promise<ScrapedPost | null> {
+  if (!isApifyConfigured()) return null;
+
+  try {
+    const rows = await runActor(actorFor(platform), urlInputFor(platform, url));
+    for (const row of rows) {
+      const post = mapScrapedPost(platform, row);
+      if (post) return post;
+    }
+    return null;
+  } catch (error) {
+    logger.error("apify url scrape failed", {
+      platform,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export const isScrapeConfigured = isApifyConfigured;

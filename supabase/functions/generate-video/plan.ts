@@ -8,8 +8,15 @@ import {
   resolveShots,
 } from "../_shared/video-capabilities.ts";
 
-/** The model used when the caller does not name one. */
-export const DEFAULT_MODEL = "veo3_fast";
+/**
+ * The model used when the caller does not name one.
+ *
+ * Seedance rather than Kling: this fallback has no plan context to check
+ * against, and Kling is creator-and-up (migration 0070) while Seedance is
+ * free-eligible, so it is the one default that can never be refused for a
+ * tier reason. Veo, which used to sit here, is deactivated (migration 0130).
+ */
+export const DEFAULT_MODEL = "bytedance/seedance-1.5-pro";
 
 export interface RunPlan {
   readonly model: string;

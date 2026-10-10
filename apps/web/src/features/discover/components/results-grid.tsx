@@ -34,6 +34,7 @@ export function ResultsGrid({
   shown,
   onShowMore,
   history,
+  filter,
 }: {
   /** The tiles. */
   children: ReactNode;
@@ -56,6 +57,8 @@ export function ResultsGrid({
   onShowMore: () => void;
   /** Rendered under the suggestions when there is nothing to show yet. */
   history?: ReactNode;
+  /** The human-led filter, shown beside the result count once there is one. */
+  filter?: ReactNode;
 }) {
   if (busy) {
     return (
@@ -115,15 +118,18 @@ export function ResultsGrid({
       </aside>
 
       <div className="min-h-0 flex-1 lg:overflow-y-auto lg:pr-1">
-        <p className="pb-3 text-[13px] text-ink-soft">
-          Showing <span className="tabular-nums text-ink">{Math.min(shown, count)}</span> of{" "}
-          <span className="tabular-nums text-ink">{count}</span> for &ldquo;{term}&rdquo; on{" "}
-          {PLATFORM_NAME[platform]}
-          {/* Invisible request metadata decided this result set; said here rather
-              than left for the reader to notice the same term reads differently
-              another time. */}
-          {countryName(countryCode) ? `, biased to ${countryName(countryCode)}` : ""}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-3">
+          <p className="text-[13px] text-ink-soft">
+            Showing <span className="tabular-nums text-ink">{Math.min(shown, count)}</span> of{" "}
+            <span className="tabular-nums text-ink">{count}</span> for &ldquo;{term}&rdquo; on{" "}
+            {PLATFORM_NAME[platform]}
+            {/* Invisible request metadata decided this result set; said here rather
+                than left for the reader to notice the same term reads differently
+                another time. */}
+            {countryName(countryCode) ? `, biased to ${countryName(countryCode)}` : ""}
+          </p>
+          {filter}
+        </div>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{children}</ul>
 
         {/* Paged from the set already fetched, so this costs nothing: a second

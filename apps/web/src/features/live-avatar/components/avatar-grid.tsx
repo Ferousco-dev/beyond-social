@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { useConfirm } from "@/components/ui/use-confirm";
+import { type VoiceProfile } from "@/features/voice/actions";
 import { env } from "@/lib/env";
 import { deleteTwin, makeDefaultTwin, type TwinSummary } from "../delete-actions";
 import { startTwinTraining, ticketTwinFootage } from "../upload-actions";
@@ -19,10 +20,15 @@ import { hasReachedAvatarLimit, MAX_CUSTOM_AVATARS } from "../avatar-limits";
 export function AvatarGrid({
   twins: initialTwins,
   name,
+  voiceProfile,
+  voicePhrase,
   children,
 }: {
   twins: readonly TwinSummary[];
   name: string;
+  /** This account's saved voice, so the wizard can skip re-recording it. */
+  voiceProfile: VoiceProfile | null;
+  voicePhrase: string;
   children?: ReactNode;
 }): ReactNode {
   const router = useRouter();
@@ -149,6 +155,10 @@ export function AvatarGrid({
               previewImageUrl: null,
               previewVideoUrl: null,
               recordingUrl: null,
+              // Unknown here regardless of the account's real voice status:
+              // this row is still training, so nothing can use it yet either
+              // way. The refresh above replaces it with the real value.
+              voiceReady: false,
             },
           ]);
         }
@@ -187,7 +197,14 @@ export function AvatarGrid({
         <AvatarWizard
           name={name}
           onComplete={handleWizardComplete}
-          onSuccess={() => setShowWizard(false)}
+          onSuccess={() => {
+            setShowWizard(false);
+            // So the next avatar this session creates sees a voice recorded
+            // or cloned just now, rather than the snapshot this page loaded with.
+            router.refresh();
+          }}
+          voiceProfile={voiceProfile}
+          voicePhrase={voicePhrase}
         />
       </div>
     );

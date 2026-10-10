@@ -24,7 +24,7 @@ const GREETING =
  * make. Open-ended instructions are matched to those same actions; anything it
  * cannot map, it says so plainly rather than pretending.
  */
-export function EditorChat({
+export function EditorAssistant({
   className,
   onClose,
   editor,
@@ -87,13 +87,15 @@ export function EditorChat({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+      {/* A log of requests and what they did, not a conversation: no bubbles,
+          no side the reader's own words sit on. */}
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-3">
         {entries.map((entry) => (
           <p
             key={entry.id}
             className={cn(
-              "max-w-[85%] text-pretty rounded-xl px-3 py-2 text-xs leading-relaxed",
-              entry.role === "user" ? "ml-auto bg-cloud text-ink" : "bg-canvas text-ink-soft",
+              "text-pretty text-xs leading-relaxed",
+              entry.role === "user" ? "font-medium text-ink" : "text-ink-soft",
             )}
           >
             {entry.text}

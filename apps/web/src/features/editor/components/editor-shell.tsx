@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { type Route } from "next";
 import { useState, type ReactNode } from "react";
 
@@ -11,7 +11,7 @@ import { useAutosave } from "../hooks/use-autosave";
 import { useEditorState } from "../hooks/use-editor-state";
 import { useEditorShortcuts } from "../hooks/use-editor-shortcuts";
 import { usePlayback } from "../hooks/use-playback";
-import { EditorChat } from "./editor-chat";
+import { EditorAssistant } from "./editor-assistant";
 import { EditorPreview } from "./editor-preview";
 import { EditorTimeline } from "./editor-timeline";
 import { EditorToolPanel } from "./editor-tool-panel";
@@ -37,7 +37,7 @@ export function EditorShell({
   /** Platforms with credentials configured; the rest are shown as unavailable. */
   availablePlatforms: readonly string[];
 }): ReactNode {
-  const [chatOpen, setChatOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const editor = useEditorState(initialProject);
   const autosave = useAutosave({
@@ -83,21 +83,21 @@ export function EditorShell({
           />
           <EditorPreview playback={playback} editor={editor} />
 
-          {chatOpen ? (
-            <EditorChat
-              onClose={() => setChatOpen(false)}
+          {assistantOpen ? (
+            <EditorAssistant
+              onClose={() => setAssistantOpen(false)}
               editor={editor}
               className="absolute right-4 top-4 z-20 flex h-[calc(100%-2rem)] w-80 max-w-[calc(100%-2rem)]"
             />
           ) : (
             <button
               type="button"
-              onClick={() => setChatOpen(true)}
-              aria-label="Open chat"
+              onClick={() => setAssistantOpen(true)}
+              aria-label="Open assistant"
               className="absolute bottom-20 right-6 z-20 inline-flex h-12 cursor-pointer items-center gap-2 rounded-full bg-ink pl-4 pr-5 text-paper shadow-card transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <MessageSquare className="size-5" />
-              <span className="text-sm font-medium">Chat</span>
+              <Sparkles className="size-5" />
+              <span className="text-sm font-medium">Assistant</span>
             </button>
           )}
         </div>

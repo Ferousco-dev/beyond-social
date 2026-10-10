@@ -17,6 +17,26 @@ import { ThreadIntro } from "./thread-intro";
 export type Notice = { readonly text: string; readonly upgrade: boolean };
 
 /**
+ * One request and everything it produced, grouped into a single card.
+ *
+ * The data is still a flat list of turns; a workbench reads as request-and-
+ * result pairs, not a flat stream, so a new group starts at every user message
+ * and everything after it (the reply, the draft, a retried draft) joins that
+ * same card until the next request.
+ */
+function groupTurns(messages: readonly ChatMessage[]): (readonly ChatMessage[])[] {
+  const groups: ChatMessage[][] = [];
+  for (const message of messages) {
+    if (message.role === "user" || groups.length === 0) {
+      groups.push([message]);
+    } else {
+      groups[groups.length - 1]!.push(message);
+    }
+  }
+  return groups;
+}
+
+/**
  * Everything above the composer: the turns, what is happening now, and what to
  * do next.
  *
@@ -74,16 +94,23 @@ export function ThreadTranscript({
     >
       {messages.length === 0 ? <ThreadIntro seeded={seeded} /> : null}
 
-      {messages.map((message) => (
-        <MessageBubble
-          key={message.id}
-          message={message}
-          editorHref={editorHref}
-          onCancelDraft={onCancelDraft}
-          onRegenerate={onRegenerate}
-          onExtend={onExtend}
-          regeneratingId={regeneratingId}
-        />
+      {groupTurns(messages).map((group) => (
+        <div
+          key={group[0]!.id}
+          className="flex flex-col gap-2 rounded-3xl border border-hairline bg-paper/60 p-4 sm:p-5"
+        >
+          {group.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              editorHref={editorHref}
+              onCancelDraft={onCancelDraft}
+              onRegenerate={onRegenerate}
+              onExtend={onExtend}
+              regeneratingId={regeneratingId}
+            />
+          ))}
+        </div>
       ))}
 
       {/* Not while something is in flight or a question is waiting: both are

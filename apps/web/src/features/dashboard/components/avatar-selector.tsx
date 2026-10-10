@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useAvatars } from "@/features/live-avatar/hooks/use-avatars";
@@ -14,7 +14,10 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
   const { avatars, loading } = useAvatars();
   const [open, setOpen] = useState(false);
 
-  const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready");
+  // Trained alone is not enough: a twin cannot render without a cloned voice
+  // (see `TwinSummary.voiceReady`), and offering it here would only surface
+  // that as a failure after the composer already sent the request.
+  const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready" && a.voiceReady);
   const selectedAvatar = avatars.find((avatar) => avatar.id === selectedAvatarId);
 
   if (readyAvatars.length === 0) return null;
@@ -47,7 +50,12 @@ export function AvatarSelector({ selectedAvatarId, onSelect }: AvatarSelectorPro
             </span>
           </>
         ) : (
-          <span className="text-xs text-ink-soft">None</span>
+          // No icon-less bare "None": the closed trigger has to read as an
+          // avatar picker on its own, not only once something is chosen.
+          <>
+            <UserRound className="size-3.5 text-ink-soft" aria-hidden />
+            <span className="text-xs text-ink-soft">Avatar</span>
+          </>
         )}
       </button>
 

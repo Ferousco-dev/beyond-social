@@ -80,6 +80,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
       caption: post.description,
       viewCount: post.viewCount,
       thumbnailUrl: post.thumbnailUrl ?? null,
+      showsPerson: post.showsPerson ?? null,
       likeCount: post.likeCount,
       commentCount: post.commentCount,
       shareCount: post.shareCount,

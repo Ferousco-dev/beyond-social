@@ -30,6 +30,14 @@ export interface TwinSummary {
   readonly previewVideoUrl: string | null;
   /** A short-lived signed URL to the original recording for older twins. */
   readonly recordingUrl: string | null;
+  /**
+   * Whether this account has a cloned voice a trained twin can actually speak
+   * in. Account-level, not per-avatar: "my voice" is one thing, shared by
+   * every avatar. A twin with `trainingStatus === "ready"` but `voiceReady`
+   * false is only half done, which is what makes it unusable — the render
+   * path (`generate-heygen-avatar/twin.ts`) refuses it for the same reason.
+   */
+  readonly voiceReady: boolean;
 }
 
 /** Everything this person has recorded, newest first, default first of all. */
@@ -42,14 +50,18 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data } = await supabase
-    .from("heygen_avatars")
-    .select(
-      "id, name, training_status, is_default, created_at, storage_path, provider_error, provider_consent_url, provider_consent_url_expires_at, provider_preview_image_url, provider_preview_video_url",
-    )
-    .eq("user_id", user.id)
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: voiceRow }] = await Promise.all([
+    supabase
+      .from("heygen_avatars")
+      .select(
+        "id, name, training_status, is_default, created_at, storage_path, provider_error, provider_consent_url, provider_consent_url_expires_at, provider_preview_image_url, provider_preview_video_url",
+      )
+      .eq("user_id", user.id)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase.from("voice_profiles").select("clone_status").eq("user_id", user.id).maybeSingle(),
+  ]);
+  const voiceReady = voiceRow?.clone_status === "ready";
 
   const rows = (data ?? []) as {
     id: string;
@@ -84,6 +96,7 @@ export async function listTwins(): Promise<readonly TwinSummary[]> {
     previewImageUrl: row.provider_preview_image_url,
     previewVideoUrl: row.provider_preview_video_url,
     recordingUrl: recording?.signedUrl ?? null,
+    voiceReady,
     };
   }));
 }

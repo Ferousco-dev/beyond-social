@@ -6,6 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { json, serve } from "../_shared/http.ts";
 import { authenticateCallback } from "../_shared/kie-callback-auth.ts";
+import { classifyFailure } from "../_shared/kie-errors.ts";
 import { parseUrls } from "../_shared/kie.ts";
 import { persistRender } from "../_shared/store.ts";
 import { log } from "../_shared/trace.ts";
@@ -104,10 +105,19 @@ serve(async (req) => {
 
     log("info", "generation completed", { traceId, taskId });
   } else {
-    const reason = body.msg ?? "Generation failed";
+    /*
+     * This is the failure path most renders actually take: a task that
+     * started and was rejected or failed later, rather than one refused at
+     * dispatch. It used to write `body.msg` onto the row verbatim, which is
+     * kie's own wording reaching the thread unfiltered, the exact thing
+     * `providerFailure` exists to stop for the dispatch path. Classified the
+     * same way here, so both paths hand the user the same kind of answer.
+     */
+    const failure = classifyFailure({ message: body.msg });
     const { data: transitioned, error } = await admin.rpc("fail_generation", {
       p_provider_task_id: taskId,
-      p_error: reason,
+      p_error: failure.message,
+      p_error_code: failure.category,
     });
     if (error) {
       log("error", "fail_generation failed", {
@@ -130,7 +140,16 @@ serve(async (req) => {
       return json({ received: true });
     }
 
-    log("warn", "generation failed", { traceId, taskId, code: body.code, reason });
+    log("warn", "generation failed", {
+      traceId,
+      taskId,
+      code: body.code,
+      category: failure.category,
+      // Kept in the log only. `body.msg`, kie's own wording, is what
+      // `classifyFailure` decided whether to keep or replace; the row and the
+      // thread only ever see `failure.message`.
+      providerMessage: body.msg ?? null,
+    });
   }
 
   return json({ received: true });

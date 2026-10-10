@@ -20,14 +20,24 @@ import { cn } from "@/lib/utils";
  * worth showing; presenting it as though it were a high one is not.
  */
 
-const CONFIDENCE: Readonly<Record<PostAnalysis["confidence"], { label: string; tone: string }>> = {
-  high: { label: "Read from the caption and transcript", tone: "bg-primary/10 text-primary" },
-  medium: { label: "Partly inferred", tone: "bg-cloud text-ink-soft" },
-  low: { label: "Mostly inferred from the caption", tone: "bg-cloud text-ink-soft" },
+const CONFIDENCE: Readonly<
+  Record<"inspiration" | "deep", Record<PostAnalysis["confidence"], { label: string; tone: string }>>
+> = {
+  inspiration: {
+    high: { label: "Read from the caption and transcript", tone: "bg-primary/10 text-primary" },
+    medium: { label: "Partly inferred", tone: "bg-cloud text-ink-soft" },
+    low: { label: "Mostly inferred from the caption", tone: "bg-cloud text-ink-soft" },
+  },
+  deep: {
+    high: { label: "Read from the footage itself", tone: "bg-primary/10 text-primary" },
+    medium: { label: "Partly inferred from an ambiguous clip", tone: "bg-cloud text-ink-soft" },
+    low: { label: "Mostly inferred; the clip was hard to read", tone: "bg-cloud text-ink-soft" },
+  },
 };
 
 export function AnalysisSheet({
   analysis,
+  tier,
   handle,
   open,
   onOpenChange,
@@ -35,6 +45,8 @@ export function AnalysisSheet({
   onWriteScript,
 }: {
   analysis: PostAnalysis | null;
+  /** Which tier produced this read: whether the video itself was watched. */
+  tier: "inspiration" | "deep";
   handle: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,7 +54,7 @@ export function AnalysisSheet({
   /** Takes the same analysis further: a shot-by-shot script rather than a paragraph. */
   onWriteScript: () => void;
 }) {
-  const confidence = analysis ? CONFIDENCE[analysis.confidence] : null;
+  const confidence = analysis ? CONFIDENCE[tier][analysis.confidence] : null;
   const beats = analysis ? structureBeats(analysis.structure) : [];
 
   return (
@@ -56,8 +68,9 @@ export function AnalysisSheet({
                 {analysis.format}
               </Dialog.Title>
               <Dialog.Description className="mt-1.5 text-xs text-ink-soft">
-                What we could work out from @{handle}&rsquo;s post. We cannot see the video itself,
-                only what TikTok reports about it.
+                {tier === "deep"
+                  ? `What we could work out from @${handle}’s post, having watched the clip itself.`
+                  : `What we could work out from @${handle}’s post. We have not seen the video itself, only what the platform reports about it.`}
               </Dialog.Description>
 
               {confidence ? (

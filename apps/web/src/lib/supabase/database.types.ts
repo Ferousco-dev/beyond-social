@@ -954,6 +954,27 @@ export type Database = {
         }
         Relationships: []
       }
+      post_classifications: {
+        Row: {
+          classified_at: string
+          platform: string
+          shows_person: boolean | null
+          video_id: string
+        }
+        Insert: {
+          classified_at?: string
+          platform: string
+          shows_person?: boolean | null
+          video_id: string
+        }
+        Update: {
+          classified_at?: string
+          platform?: string
+          shows_person?: boolean | null
+          video_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -2584,6 +2605,14 @@ export type Database = {
         Returns: string
       }
       credit_balance: { Args: never; Returns: number }
+      debit_model_credits: {
+        Args: {
+          p_external_ref?: string
+          p_model: string
+          p_user: string
+        }
+        Returns: boolean
+      }
       editor_document_save: {
         Args: {
           p_document: Json
@@ -2598,11 +2627,15 @@ export type Database = {
         Returns: undefined
       }
       fail_generation: {
-        Args: { p_error: string; p_provider_task_id: string }
+        Args: {
+          p_error: string
+          p_error_code?: string
+          p_provider_task_id: string
+        }
         Returns: boolean
       }
       fail_generation_by_id: {
-        Args: { p_error: string; p_generation: string }
+        Args: { p_error: string; p_error_code?: string; p_generation: string }
         Returns: boolean
       }
       grant_credits: {
@@ -2771,6 +2804,7 @@ export type Database = {
         Returns: undefined
       }
       prune_idempotency_claims: { Args: never; Returns: number }
+      prune_post_classifications: { Args: { p_max_age?: string }; Returns: undefined }
       prune_scrape_cache: { Args: { p_max_age?: string }; Returns: undefined }
       rate_limit_hit: {
         Args: { p_key: string; p_limit: number; p_window_seconds: number }
@@ -2782,6 +2816,10 @@ export type Database = {
       }
       rate_limit_prune: { Args: never; Returns: number }
       refresh_credit_cache: { Args: { p_user: string }; Returns: undefined }
+      refund_model_credits: {
+        Args: { p_external_ref: string }
+        Returns: boolean
+      }
       request_account_deletion: {
         Args: { p_reason?: string }
         Returns: {

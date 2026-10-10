@@ -68,7 +68,7 @@ export function LibraryGrid({
         className="mt-10"
         icon={LibraryBig}
         title="Nothing here yet"
-        body="Videos you generate, and the photos and voice clips you attach to a message, collect here so you can find your way back to the conversation they belong to."
+        body="Videos you generate, and the photos and voice clips you attach to a request, collect here so you can find your way back to the project they belong to."
         action={{ label: "Make your first video", href: "/dashboard" as Route }}
       />
     );

@@ -40,7 +40,7 @@ export default async function AccountPage() {
       {/* A sibling of the avatar library above rather than folded into it:
           the face and the voice are separately consented, separately
           deletable assets, and the enrolment card already says so. */}
-      <section className="mt-8 rounded-xl border border-hairline p-5">
+      <section id="your-voice" className="mt-8 rounded-xl border border-hairline p-5">
         <h2 className="text-sm font-medium text-ink">Your voice</h2>
         <p className="mt-1 mb-4 text-sm text-ink-soft">
           Record a short sample, then clone it so your videos can say things you never recorded.

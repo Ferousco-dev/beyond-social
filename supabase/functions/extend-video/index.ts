@@ -16,6 +16,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { abandonRun, adminClient, reserveCredits } from "../_shared/credits.ts";
 import { json, serve } from "../_shared/http.ts";
 import { callbackUrl } from "../_shared/kie-callback-auth.ts";
+import { categoryOf } from "../_shared/kie-errors.ts";
 import { createMarketVideoTask, extendVideoTask } from "../_shared/kie.ts";
 import { log, traceIdFrom } from "../_shared/trace.ts";
 import { capabilityOf, resolveDuration } from "../_shared/video-capabilities.ts";
@@ -127,7 +128,12 @@ serve(async (req) => {
   const reservation = await reserveCredits(admin, generation.id);
   if (!reservation.held) {
     log("error", "extension credit reservation refused", { traceId, generationId: generation.id });
-    await abandonRun(admin, generation.id, reservation.reason);
+    await abandonRun(
+      admin,
+      generation.id,
+      reservation.reason,
+      reservation.status === 402 ? "insufficient_credits" : "internal_error",
+    );
     return json({ error: reservation.reason, generationId: generation.id }, reservation.status);
   }
 
@@ -156,7 +162,7 @@ serve(async (req) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not continue";
     // Nothing rendered, so the reservation is given back on the way out.
-    await abandonRun(admin, generation.id, message);
+    await abandonRun(admin, generation.id, message, categoryOf(error));
     return json({ error: message, generationId: generation.id }, 502);
   }
 
@@ -170,7 +176,7 @@ serve(async (req) => {
     // as failed. Refunding is the right side to err on: we cannot show a
     // result we have lost the handle to.
     log("error", "could not record the dispatched extension task", { traceId, taskId });
-    await abandonRun(admin, generation.id, "Could not follow this render");
+    await abandonRun(admin, generation.id, "Could not follow this render", "internal_error");
     return json({ error: "Could not record the extension", generationId: generation.id }, 500);
   }
 

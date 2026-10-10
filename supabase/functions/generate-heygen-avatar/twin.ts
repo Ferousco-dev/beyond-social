@@ -30,6 +30,11 @@ interface TwinRow {
   training_status: string;
 }
 
+interface VoiceRow {
+  provider_voice_id: string | null;
+  clone_status: string;
+}
+
 const COLUMNS = "id, provider_look_id, provider_voice_id, training_status";
 
 /**
@@ -40,20 +45,38 @@ const COLUMNS = "id, provider_look_id, provider_voice_id, training_status";
  * screen shows at the top rather than an arbitrary one. Read under the caller's
  * own client, so row-level security is what scopes it to their avatars and a
  * named id belonging to somebody else is simply not found.
+ *
+ * The voice that speaks is never the twin's own `provider_voice_id`: that is a
+ * generic voice HeyGen auto-assigns the moment training finishes, not the
+ * caller's voice, and a digital twin of somebody that does not sound like them
+ * is not the product. `voice_profiles` is account-level, one per user rather
+ * than one per avatar, because it is the same recorded voice whichever twin is
+ * speaking. So a twin is only ever "ready" once training finished AND that
+ * account's voice has been cloned; either alone is the "1/2" the library shows.
  */
 export async function findTwin(
   supabase: SupabaseClient,
   avatarId: string | undefined,
 ): Promise<TwinLookup> {
   const query = supabase.from("heygen_avatars").select(COLUMNS);
-  const { data, error } = await (avatarId
-    ? query.eq("id", avatarId).limit(1)
-    : query
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1));
+  const [{ data, error }, { data: voiceData, error: voiceError }] = await Promise.all([
+    avatarId
+      ? query.eq("id", avatarId).limit(1)
+      : query
+          .order("is_default", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1),
+    supabase
+      .from("voice_profiles")
+      .select("provider_voice_id, clone_status")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   if (error) return { ok: false, error: "lookup_failed", status: 500, detail: error.message };
+  if (voiceError) {
+    return { ok: false, error: "lookup_failed", status: 500, detail: voiceError.message };
+  }
 
   const row = ((data ?? []) as TwinRow[])[0] ?? null;
   if (!row) return { ok: false, error: "no_avatar", status: 404 };
@@ -64,12 +87,19 @@ export async function findTwin(
     // recording is still training is how they end up with two.
     return { ok: false, error: "not_ready", status: 409, detail: row.training_status };
   }
-  if (!row.provider_look_id || !row.provider_voice_id) {
+  if (!row.provider_look_id) {
     return { ok: false, error: "incomplete_avatar", status: 409 };
+  }
+
+  const voice = voiceData as VoiceRow | null;
+  if (!voice || voice.clone_status !== "ready" || !voice.provider_voice_id) {
+    // The half of "1/2" the twin itself cannot fix: training finished, but
+    // there is no cloned voice yet for it to speak in.
+    return { ok: false, error: "voice_not_ready", status: 409, detail: voice?.clone_status ?? "none" };
   }
 
   return {
     ok: true,
-    twin: { id: row.id, lookId: row.provider_look_id, voiceId: row.provider_voice_id },
+    twin: { id: row.id, lookId: row.provider_look_id, voiceId: voice.provider_voice_id },
   };
 }

@@ -82,5 +82,5 @@ export function useFootageUpload({ onFootage, onError, onBusyChange }: Options) 
     [upload],
   );
 
-  return { inputRef, open, uploading, handleChange };
+  return { inputRef, open, uploading, upload, handleChange };
 }

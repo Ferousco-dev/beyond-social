@@ -3,6 +3,7 @@
 import { ArrowRight, Clock, Lightbulb, Package, PenLine, TrendingUp } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 /**
  * Where a new video starts.
@@ -14,10 +15,13 @@ import Link from "next/link";
  * for anybody who already knows what they want.
  */
 export function StartScreen({
+  greeting,
   onRefine,
   onSkip,
   recents = [],
 }: {
+  /** Shown as the heading. Empty until the client resolves it. */
+  greeting: string;
   onRefine: () => void;
   onSkip: () => void;
   /** The last few projects, so starting fresh does not hide the work in flight. */
@@ -26,12 +30,14 @@ export function StartScreen({
   return (
     <div className="mx-auto w-full max-w-3xl">
       <div className="text-center">
-        <span className="inline-flex items-center gap-2 rounded-full border border-hairline bg-paper px-3.5 py-1.5 text-xs font-medium uppercase tracking-wide text-ink-soft">
-          <Lightbulb className="size-3.5" aria-hidden />
-          Content intelligence
-        </span>
-        <h1 className="mt-5 text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-          Where do you want to start?
+        <h1
+          aria-live="polite"
+          className={cn(
+            "min-h-[2.5rem] text-balance text-4xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-5xl",
+            greeting ? "opacity-100" : "opacity-0",
+          )}
+        >
+          {greeting || "Welcome back"}
         </h1>
         <p className="mx-auto mt-3 max-w-md text-balance text-sm text-ink-soft">
           Borrow what is working on TikTok, turn a rough idea into a brief, or put your own product
@@ -39,15 +45,15 @@ export function StartScreen({
         </p>
       </div>
 
-      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         <Link
           href={"/dashboard/trends" as Route}
-          className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col rounded-3xl border border-hairline bg-paper p-7 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <TrendingUp className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Find what is working</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Find what is working</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Search TikTok by topic, scroll real posts, and pick one to build from.
           </p>
@@ -60,12 +66,12 @@ export function StartScreen({
         <button
           type="button"
           onClick={onRefine}
-          className="group flex cursor-pointer flex-col rounded-2xl border border-hairline bg-paper p-6 text-left transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex cursor-pointer flex-col rounded-3xl border border-hairline bg-paper p-7 text-left transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <Lightbulb className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Refine my idea</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Refine my idea</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Bring a rough concept. You will be asked a few things, then handed a brief.
           </p>
@@ -80,12 +86,12 @@ export function StartScreen({
             it was knowing to attach a photo from the plus menu inside a thread. */}
         <Link
           href={"/dashboard/assets" as Route}
-          className="group flex flex-col rounded-2xl border border-hairline bg-paper p-6 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="group flex flex-col rounded-3xl border border-hairline bg-paper p-7 transition-colors hover:border-ink-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          <span className="inline-flex size-11 items-center justify-center rounded-xl bg-cloud">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-cloud">
             <Package className="size-5 text-ink-soft transition-colors group-hover:text-ink" />
           </span>
-          <h2 className="mt-5 text-base font-semibold text-ink">Feature a product</h2>
+          <h2 className="mt-5 text-lg font-semibold text-ink">Feature a product</h2>
           <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft">
             Upload a photo of what you sell, and the video features that exact thing.
           </p>

@@ -3,12 +3,13 @@
 import { type Route } from "next";
 import Link from "next/link";
 
-import { Radio } from "lucide-react";
+import { Radio, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { LiveCaptureDialog } from "@/components/media/live-capture-dialog";
 import { BriefFlow } from "@/features/brief/components/brief-flow";
+import { useAvatars } from "@/features/live-avatar/hooks/use-avatars";
 import { Coachmark } from "@/features/tips/components/coachmark";
 import { TIPS } from "@/lib/tips/tips";
 import { SUGGESTIONS } from "@/lib/dashboard/data";
@@ -41,6 +42,7 @@ export function DashboardHome({
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
   const [voice, setVoice] = useState<PendingVoice | null>(null);
   const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [greeting, setGreeting] = useState("");
   const [composing, setComposing] = useState(false);
   const [live, setLive] = useState(false);
@@ -51,6 +53,11 @@ export function DashboardHome({
     onError: setLiveError,
     onBusyChange: () => {},
   });
+  const { avatars } = useAvatars();
+  // Trained alone is not enough: a twin cannot speak without a cloned voice
+  // (see `TwinSummary.voiceReady`), same rule the composer's own picker uses.
+  const readyAvatars = avatars.filter((a) => a.trainingStatus === "ready" && a.voiceReady);
+  const defaultAvatarId = (readyAvatars.find((a) => a.isDefault) ?? readyAvatars[0])?.id ?? null;
 
   // Resolved on the client: the greeting depends on the visitor's own clock,
   // which the server cannot know without causing a hydration mismatch.
@@ -64,6 +71,7 @@ export function DashboardHome({
       text: string,
       attachments: readonly PendingPhoto[] = [],
       clip: PendingVoice | null = null,
+      avatarId: string | null = null,
     ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
@@ -71,7 +79,7 @@ export function DashboardHome({
       // Photos and a voice clip are already uploaded and signed by this point,
       // so only the references travel. Without this the attachment was
       // accepted here, shown here, and then silently dropped by the navigation.
-      leaveSeed({ prompt: trimmed, photos: attachments, voice: clip, generationMode });
+      leaveSeed({ prompt: trimmed, photos: attachments, voice: clip, generationMode, avatarId });
       router.push("/dashboard/c/new");
     },
     [generationMode, router],
@@ -81,6 +89,7 @@ export function DashboardHome({
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-12">
         <BriefFlow
+          greeting={greeting}
           onSkip={() => setComposing(true)}
           onUse={(brief) => start(brief)}
           recents={recents}
@@ -97,7 +106,7 @@ export function DashboardHome({
       <h1
         aria-live="polite"
         className={cn(
-          "mb-10 min-h-[2.5rem] text-balance text-center text-3xl font-semibold tracking-tight text-ink transition-opacity duration-500",
+          "mb-10 min-h-[2.5rem] text-balance text-center text-4xl font-semibold tracking-tight text-ink transition-opacity duration-500 sm:text-5xl",
           greeting ? "opacity-100" : "opacity-0",
         )}
       >
@@ -107,7 +116,7 @@ export function DashboardHome({
       <PromptComposer
         value={prompt}
         onChange={setPrompt}
-        onSubmit={() => start(prompt, photos, voice)}
+        onSubmit={() => start(prompt, photos, voice, selectedAvatarId)}
         // There is no project yet, so an upload here is filed against none and
         // carried into the thread the first message creates.
         projectId="new"
@@ -122,6 +131,8 @@ export function DashboardHome({
         busy={false}
         generationMode={generationMode}
         onGenerationModeChange={setGenerationMode}
+        selectedAvatarId={selectedAvatarId}
+        onSelectedAvatarChange={setSelectedAvatarId}
       />
 
       {liveError ? (
@@ -145,6 +156,30 @@ export function DashboardHome({
           <Radio className="size-4" aria-hidden />
           Go live
         </Link>
+        {/*
+         * Not a text prompt: "talking avatar" cannot be answered by writing
+         * a better sentence, it needs an actual trained twin picked. With one
+         * ready, this picks it and hands the composer to a script; with none,
+         * there is nothing to pick yet, so it goes to where one gets made.
+         */}
+        {readyAvatars.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setSelectedAvatarId(defaultAvatarId)}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-hairline bg-paper px-4 py-2.5 text-sm text-ink transition-colors hover:bg-cloud"
+          >
+            <UserRound className="size-4 text-ink-soft" aria-hidden />
+            Talking avatar
+          </button>
+        ) : (
+          <Link
+            href={"/dashboard/assets" as Route}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-hairline bg-paper px-4 py-2.5 text-sm text-ink transition-colors hover:bg-cloud"
+          >
+            <UserRound className="size-4 text-ink-soft" aria-hidden />
+            Talking avatar
+          </Link>
+        )}
         {SUGGESTIONS.map((suggestion) => (
           <button
             key={suggestion.label}

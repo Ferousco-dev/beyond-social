@@ -14,50 +14,34 @@ import { AVATAR_REPLY } from "./avatar-copy";
 import { CONSENT_VERSION } from "./consent";
 
 /**
- * Talking avatars: a photo of a person plus an audio track, rendered as that
- * person speaking it.
+ * Talking avatars: a photo of a person plus a raw voice clip, rendered as
+ * that person speaking it.
  *
- * The provider lip-syncs an audio file, and that file comes from one of two
- * places: a raw clip the caller attached (`audioUrl`), or a script spoken by
- * the caller's own cloned voice (`voiceCloneId` + `prompt` doubling as the
- * script). Exactly one, enforced below with `.refine()` rather than a
- * discriminated union: the two paths share every other field, and a union
- * would duplicate the whole shape for one differing pair of keys.
+ * The provider lip-syncs the audio file the caller attached.
  */
 
-const startSchema = z
-  .object({
-    projectId: z.string().min(1),
-    prompt: z.string().trim().min(1, "Describe what should happen").max(2000),
-    imageUrl: z.string().url(),
-    audioUrl: z.string().url().optional(),
-    /**
-     * The caller's own cloned voice, from `voice_profiles.provider_voice_id`.
-     * When present, `prompt` doubles as the script HeyGen speaks: this flow
-     * has no separate "what to say" field because the brief already is one.
-     */
-    voiceCloneId: z.string().min(1).optional(),
-    /**
-     * The same objects as the two URLs above, by path rather than signed link.
-     * The URLs are what the provider fetches and they expire; these are what the
-     * thread keeps so the turn still shows its photo and clip on a later visit.
-     */
-    attachments: z
-      .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
-      .max(2)
-      .optional(),
-    /**
-     * Which avatar model. Left to the edge function when absent, which picks the
-     * cheapest. Not validated here beyond being a string: the catalogue is the
-     * authority and the edge function checks it against the avatar family, so
-     * duplicating the list would just be a second thing to keep in step.
-     */
-    model: z.string().min(1).optional(),
-  })
-  .refine((value) => Boolean(value.audioUrl) !== Boolean(value.voiceCloneId), {
-    message: "Provide either a voice clip or a cloned voice, not both",
-    path: ["audioUrl"],
-  });
+const startSchema = z.object({
+  projectId: z.string().min(1),
+  prompt: z.string().trim().min(1, "Describe what should happen").max(2000),
+  imageUrl: z.string().url(),
+  audioUrl: z.string().url(),
+  /**
+   * The same objects as the two URLs above, by path rather than signed link.
+   * The URLs are what the provider fetches and they expire; these are what the
+   * thread keeps so the turn still shows its photo and clip on a later visit.
+   */
+  attachments: z
+    .array(z.object({ kind: z.enum(ATTACHMENT_KINDS), path: z.string().min(1) }))
+    .max(2)
+    .optional(),
+  /**
+   * Which avatar model. Left to the edge function when absent, which picks the
+   * cheapest. Not validated here beyond being a string: the catalogue is the
+   * authority and the edge function checks it against the avatar family, so
+   * duplicating the list would just be a second thing to keep in step.
+   */
+  model: z.string().min(1).optional(),
+});
 
 export type AvatarResult =
   | { status: "ok"; generationId: string }
@@ -150,10 +134,7 @@ export async function startAvatarGeneration(
   const body = {
     ...rest,
     imagePath: attachments?.find((item) => item.kind === "photo")?.path,
-    // Absent entirely on the cloned-voice path: there is no raw clip to hand
-    // to storage, only a script for the edge function to speak with
-    // `voiceCloneId`.
-    audioPath: rest.audioUrl ? attachments?.find((item) => item.kind === "audio")?.path : undefined,
+    audioPath: attachments?.find((item) => item.kind === "audio")?.path,
   };
   const { data, error } = await supabase.functions.invoke("generate-avatar", { body });
 

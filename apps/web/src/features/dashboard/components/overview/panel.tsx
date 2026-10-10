@@ -18,7 +18,7 @@ export function Panel({
   readonly children: ReactNode;
 }): ReactNode {
   return (
-    <section className="flex flex-col rounded-2xl border border-hairline bg-paper">
+    <section className="flex flex-col rounded-3xl border border-hairline bg-paper">
       <header className="flex items-baseline justify-between gap-3 px-4 pb-3 pt-3.5">
         <h2 className="text-sm font-semibold text-ink">{title}</h2>
         <p className="shrink-0 text-xs tabular-nums text-ink-soft">{meta}</p>

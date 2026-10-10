@@ -1,16 +1,29 @@
 import { type Metadata } from "next";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
-import { TwinSpeak } from "@/features/live-avatar/components/twin-speak";
-import { twinVideoReadiness } from "@/features/live-avatar/video-actions";
+import { getVoiceProfile } from "@/features/voice/actions";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
+import { enrollmentPhrase } from "@/lib/voice/phrase";
 
 export const metadata: Metadata = { title: "Assets" };
 export const dynamic = "force-dynamic";
 
+/**
+ * Recording and managing avatars, not generating from them.
+ *
+ * A "write what it should say" panel used to live here too, but it was a
+ * second way to do exactly what the composer's own avatar picker already
+ * does (both call `makeTwinVideo`), and having two made it unclear where a
+ * video actually starts from. Generating now happens in one place: the
+ * composer, once an avatar is picked there.
+ */
 export default async function AssetsPage() {
-  const user = await getCurrentUser();
-  const [twins, readiness] = await Promise.all([listTwins(), twinVideoReadiness()]);
+  const [user, voice, twins] = await Promise.all([
+    getCurrentUser(),
+    getVoiceProfile(),
+    listTwins(),
+  ]);
+  const voiceProfile = voice.status === "ok" ? voice.profile : null;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
@@ -19,34 +32,17 @@ export default async function AssetsPage() {
           Your avatar
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Record yourself once. From then on, write anything and your avatar speaks it in your own
-          voice, in a new video.
+          Record yourself once. From then on, pick it in the composer and write anything: your
+          avatar speaks it in your own voice, in a new video.
         </p>
       </header>
 
-      {/*
-       * One flow, not two unrelated cards: step 1 is record/pick an avatar,
-       * step 2 is right underneath it because "it's ready" and "use it" used
-       * to be separated by a whole section boundary, which read as two
-       * different features rather than the next step of the same one.
-       */}
-      <div className="space-y-8">
-        <section className="space-y-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            1. Record or choose an avatar
-          </h2>
-          <AvatarGrid twins={twins} name={user.email ?? "User"}>
-            {twins.length > 0 ? (
-              <section className="rounded-2xl border border-hairline bg-paper p-6 md:p-8">
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                  2. Write what it should say
-                </h2>
-                <TwinSpeak twins={twins} readiness={readiness} />
-              </section>
-            ) : null}
-          </AvatarGrid>
-        </section>
-      </div>
+      <AvatarGrid
+        twins={twins}
+        name={user.email ?? "User"}
+        voiceProfile={voiceProfile}
+        voicePhrase={enrollmentPhrase(user.name)}
+      />
     </div>
   );
 }

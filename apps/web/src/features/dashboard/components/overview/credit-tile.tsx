@@ -12,7 +12,7 @@ const LOW_PERCENT = 25;
 export function CreditTile({ credits }: { readonly credits: CreditBalance | null }): ReactNode {
   if (!credits || credits.total <= 0) {
     return (
-      <div className="rounded-xl border border-hairline bg-paper p-3.5">
+      <div className="rounded-2xl border border-hairline bg-paper p-3.5">
         <dt className="text-xs text-ink-soft">Video credits</dt>
         <dd className="mt-1.5 text-sm text-ink-soft">Balance unavailable</dd>
       </div>
@@ -24,7 +24,7 @@ export function CreditTile({ credits }: { readonly credits: CreditBalance | null
   const low = percent <= LOW_PERCENT;
 
   return (
-    <div className="rounded-xl border border-hairline bg-paper p-3.5">
+    <div className="rounded-2xl border border-hairline bg-paper p-3.5">
       <dt className="text-xs text-ink-soft">Video credits</dt>
       <dd className="mt-1.5">
         <span className="text-2xl font-semibold tabular-nums leading-none text-ink">
