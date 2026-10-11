@@ -8,6 +8,8 @@ dist/
 .next-dev/
 out/
 build/
+docs
+
 
 # Turborepo
 .turbo/
@@ -40,6 +42,11 @@ coverage/
 
 # TypeScript
 *.tsbuildinfo
+
+# Go
+server/bin/
+*.exe
+*.test
 
 # Python (services/telegram-agent)
 __pycache__/

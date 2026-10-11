@@ -1,90 +1,61 @@
 # Beyond Social
 
-AI-powered social media video platform. Beyond Social takes a user from a
-conversational prompt to a finished, captioned short-form video and schedules it
-across TikTok, Instagram, Facebook, and YouTube Shorts...
+This repository is in a reset and rebuild phase. The goal is to preserve the
+existing interface while moving the application toward a Go-first backend with
+separate provider services and a clean domain boundary.
 
-This repository is a pnpm + Turborepo monorepo. It is under active development;
-the current state is the production-grade project foundation.
+## Architecture reset
 
-## Tech stack
+The active structure is now:
 
-| Concern     | Technology                              |
-| ----------- | --------------------------------------- |
-| Frontend    | Next.js (App Router), React 19          |
-| API layer   | Node.js                                 |
-| Data        | Supabase (Postgres, Auth, Storage)      |
-| Job queue   | BullMQ + Redis                          |
-| Payments    | Stripe + Apple Pay                      |
-| AI services | Higgsfield (WAN 2.6), Claude/GPT        |
-| Trends      | Firecrawl                               |
-| Publishing  | Upload-post                             |
-| Language    | TypeScript (strict), validated with Zod |
-
-## Repository layout
-
-```
+```text
 beyond-social/
+├── client/                Frontend alias for the preserved web app
+├── server/                Go backend scaffold and API entrypoint
+├── services/
+│   ├── apify/             Discovery and reference retrieval
+│   ├── kie/               Video generation and transformation
+│   ├── heygen/            Avatar and voice services
+│   └── gemini/            Orchestration and evaluation
 ├── apps/
-│   ├── web/                Next.js app (dashboard, editor, API routes)
-│   └── worker/             Background worker (BullMQ job processors)
-├── packages/
-│   ├── env/                Zod-validated environment boundary
-│   ├── eslint-config/      Shared ESLint flat config
-│   └── typescript-config/  Shared tsconfig bases
-├── docs/                   Architecture and development guides
-└── .github/                CI workflow and PR template
+│   └── web/               Existing frontend application retained intact
+├── packages/              Shared TypeScript packages
+├── archive/
+│   └── legacy/            Archived Node/Supabase integration stack
+├── docs/                  Architecture and implementation docs
+├── README.md
+├── .gitignore
+└── package.json
 ```
 
-The web app and the worker are separate deployables: Next.js runs on Vercel,
-while the worker is a long-running Node process that cannot live on serverless
-functions.
+The frontend remains intact and is preserved via the `client` alias pointing at
+`apps/web`, so the existing UI and design system are not redesigned or deleted
+as part of the reset. The legacy worker, render, and Supabase integration code
+has been moved into `archive/legacy` so the active branch reflects the rebuilt
+contract boundary without losing the recoverable implementation history.
 
-## Prerequisites
+## Active backend direction
 
-- Node.js `>=22` (see [`.nvmrc`](.nvmrc))
-- pnpm `>=11` (`corepack enable` provisions the pinned version)
+- `server/` is the Go application boundary.
+- `services/` hosts provider-specific adapters, with explicit contracts.
+- Supabase remains the infrastructure layer for PostgreSQL, auth, and storage.
+- The Go backend is responsible for auth, validation, permission enforcement,
+  orchestration, execution, job state, and retries.
 
-## Getting started
+## Legacy compatibility
 
-The quickest way, one command. It creates local env files on first run,
-installs dependencies if needed, and starts everything:
+The repository still contains the previous Node and Supabase implementation while
+we migrate the system. This is intentional: the reset establishes a clean
+boundary without discarding the working UI prematurely. The preserved frontend
+remains the source of truth for user experience while the new Go backend is
+introduced underneath it.
 
-```bash
-./start.sh
-```
+## Verification and next steps
 
-Prefer to do it by hand? That is equivalent to:
+- Backup branch: `backup/pre-reset-2026-10-11`
+- Application branch: `Feranmibranches`
+- Default remote branch: `origin/main`
 
-```bash
-pnpm install
-cp apps/web/.env.example apps/web/.env
-cp apps/worker/.env.example apps/worker/.env
-pnpm dev
-```
-
-Both `./start.sh` and `pnpm dev` run [`dev.sh`](dev.sh), which starts services
-one at a time with clean teardown. Do not run `turbo run dev` at the repo root;
-see the [development guide](docs/DEVELOPMENT.md#local-development-startup) for why.
-
-The web app serves on [http://localhost:3000](http://localhost:3000) and exposes
-a health check at `GET /api/health`. The worker exposes a liveness endpoint on
-`WORKER_PORT` (default `9100`) at `GET /health`.
-
-## Scripts
-
-Run from the repository root; Turborepo fans each task out across the workspace.
-
-| Command          | Description                            |
-| ---------------- | -------------------------------------- |
-| `pnpm dev`       | Start all apps in development          |
-| `pnpm build`     | Build every app and package            |
-| `pnpm lint`      | Lint the entire workspace              |
-| `pnpm typecheck` | Type-check the entire workspace        |
-| `pnpm format`    | Format the codebase with Prettier      |
-| `pnpm verify`    | Build, lint, and typecheck (CI parity) |
-
-## Documentation
-
-- [Architecture](docs/ARCHITECTURE.md): how the system fits together
-- [Development guide](docs/DEVELOPMENT.md): conventions and workflow
+The next implementation phase is to move the business orchestration and provider
+contracts from the legacy implementation into the Go service layer while keeping
+frontend behavior stable.
