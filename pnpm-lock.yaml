@@ -24,23 +24,23 @@ importers:
         specifier: ^2.3.3
         version: 2.10.4
 
-  apps/web:
+  client:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.111.0
         version: 0.111.0(zod@3.25.76)
       '@beyond-social/ai-gateway':
         specifier: workspace:*
-        version: link:../../packages/ai-gateway
+        version: link:../packages/ai-gateway
       '@beyond-social/env':
         specifier: workspace:*
-        version: link:../../packages/env
+        version: link:../packages/env
       '@beyond-social/prompt-engine':
         specifier: workspace:*
-        version: link:../../packages/prompt-engine
+        version: link:../packages/prompt-engine
       '@beyond-social/rate-limit':
         specifier: workspace:*
-        version: link:../../packages/rate-limit
+        version: link:../packages/rate-limit
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.81.0(react@19.2.7))
@@ -55,7 +55,7 @@ importers:
         version: 2.1.20(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@radix-ui/react-slot':
         specifier: ^1.3.0
-        version: 1.3.0(@types/react@19.2.17)(react@19.2.7)
+        version: 1.3.3(@types/react@19.2.17)(react@19.2.7)
       '@radix-ui/react-switch':
         specifier: ^1.3.7
         version: 1.3.7(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -119,10 +119,10 @@ importers:
     devDependencies:
       '@beyond-social/eslint-config':
         specifier: workspace:*
-        version: link:../../packages/eslint-config
+        version: link:../packages/eslint-config
       '@beyond-social/typescript-config':
         specifier: workspace:*
-        version: link:../../packages/typescript-config
+        version: link:../packages/typescript-config
       '@eslint/eslintrc':
         specifier: ^3.2.0
         version: 3.3.6

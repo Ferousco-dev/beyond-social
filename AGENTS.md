@@ -46,7 +46,7 @@ something would not pass senior review, do not ship it.
 ## Design and UI
 
 Follow [docs/ui.md](docs/ui.md) and [docs/color.md](docs/color.md) as the design
-source of truth. Design tokens are defined once in `apps/web/src/app/globals.css`.
+source of truth. Design tokens are defined once in `client/src/app/globals.css`.
 
 - Clean, minimal, premium. No AI-generated look, no clutter.
 - Do not fabricate images, mockups, logos, or screenshots. If an asset is

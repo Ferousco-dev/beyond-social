@@ -10,29 +10,26 @@ The active structure is now:
 
 ```text
 beyond-social/
-├── client/                Frontend alias for the preserved web app
+├── client/                Existing frontend application retained intact
 ├── server/                Go backend scaffold and API entrypoint
 ├── services/
 │   ├── apify/             Discovery and reference retrieval
 │   ├── kie/               Video generation and transformation
 │   ├── heygen/            Avatar and voice services
 │   └── gemini/            Orchestration and evaluation
-├── apps/
-│   └── web/               Existing frontend application retained intact
 ├── packages/              Shared TypeScript packages
-├── archive/
-│   └── legacy/            Archived Node/Supabase integration stack
 ├── docs/                  Architecture and implementation docs
 ├── README.md
 ├── .gitignore
-└── package.json
+├── package.json
+├── pnpm-workspace.yaml
+└── turbo.json
 ```
 
-The frontend remains intact and is preserved via the `client` alias pointing at
-`apps/web`, so the existing UI and design system are not redesigned or deleted
-as part of the reset. The legacy worker, render, and Supabase integration code
-has been moved into `archive/legacy` so the active branch reflects the rebuilt
-contract boundary without losing the recoverable implementation history.
+The frontend remains intact in `client`, and the old `apps/web` path has been
+removed from the active branch as part of the reset. The legacy worker, render,
+and Supabase integration code was removed from the active tree to keep the
+branch focused on the new Go and service boundary.
 
 ## Active backend direction
 

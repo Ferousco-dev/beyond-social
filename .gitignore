@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+**/node_modules/
+**/.pnpm-store/
 
 # Build outputs
 dist/
@@ -8,11 +10,16 @@ dist/
 .next-dev/
 out/
 build/
-docs
+**/.next/
+**/.next-dev/
+**/dist/
+**/build/
 
-
-# Turborepo
+# Tool caches
 .turbo/
+.vercel/
+**/.turbo/
+**/.vercel/
 
 # Environment
 .env
@@ -21,6 +28,10 @@ docs
 .env.*
 !.env.example
 !.env.*.example
+
+# Generated app metadata
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # Logs
 *.log
@@ -39,9 +50,6 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
-
-# TypeScript
-*.tsbuildinfo
 
 # Go
 server/bin/
