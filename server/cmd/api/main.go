@@ -1,40 +1,62 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"github.com/Ferousco-dev/beyond-social/server/internal/config"
+	"github.com/Ferousco-dev/beyond-social/server/internal/database"
+	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = fmt.Fprint(w, `{"status":"ok"}`)
-	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := config.LoadFromEnv()
+	if err != nil {
+		log.Fatalf("configuration error: %v", err)
 	}
 
-	addr := ":" + port
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("database connection failed: %v", err)
+	}
+	defer pool.Close()
+
+	if err := database.ApplyMigrations(ctx, pool, "migrations"); err != nil {
+		log.Fatalf("database migration failed: %v", err)
+	}
+
+	jobStore := database.NewJobStore(pool)
+	app := httpserver.NewApp(cfg, jobStore)
 	srv := &http.Server{
-		Addr:              addr,
-		Handler:           mux,
+		Addr:              ":" + cfg.HTTPPort,
+		Handler:           app.Handler(),
 		ReadHeaderTimeout: 3 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
-	log.Printf("server listening on %s", addr)
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	go func() {
+		log.Printf("server listening on %s", srv.Addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("http server error: %v", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown error: %v", err)
 	}
+	log.Println("server stopped cleanly")
 }
