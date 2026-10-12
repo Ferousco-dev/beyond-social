@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// ErrNoVideoFile means a post has no downloadable video file (a photo post, or a
+// removed one).
+var ErrNoVideoFile = errors.New("no downloadable video file for this post")
+
 var ErrUnsupportedURL = errors.New("not a supported TikTok or Instagram video URL")
 
 // ParsePageURL recognises a public TikTok or Instagram video page and returns

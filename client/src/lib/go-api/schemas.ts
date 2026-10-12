@@ -120,3 +120,38 @@ export type GoWorkflow = z.infer<typeof workflowSchema>;
 export const workflowResponse = z.object({ data: workflowSchema });
 export const workflowListResponse = z.object({ data: z.array(workflowSchema) });
 export const workflowStepsResponse = z.object({ data: z.array(workflowStepSchema) });
+
+export const chatMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+  workflow_id: z.string().optional(),
+  created_at: z.string(),
+});
+export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+export const conversationResponse = z.object({ data: z.object({ id: z.string(), title: z.string() }) });
+export const threadResponse = z.object({
+  data: z.object({
+    conversation: z.object({ id: z.string(), title: z.string() }),
+    messages: z.array(chatMessageSchema),
+  }),
+});
+export const exchangeResponse = z.object({
+  data: z.object({ user: chatMessageSchema, assistant: chatMessageSchema }),
+});
+
+export const creditsResponse = z.object({
+  data: z.object({
+    balance: z.number().int(),
+    history: z.array(
+      z.object({
+        kind: z.string(),
+        amount: z.number().int(),
+        balanceAfter: z.number().int(),
+        reason: z.string(),
+        createdAt: z.string(),
+      }),
+    ),
+  }),
+});

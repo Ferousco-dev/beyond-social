@@ -1,17 +1,14 @@
 import { z } from "zod";
 
 /**
- * Access has two independent dials, and the reason says which one stopped the
- * run. Conflating them produces the worst possible message: telling someone to
- * buy credits for a model their plan will never unlock.
+ * Why a run was refused. The only thing a user can fix by paying is the balance;
+ * there are no plans or tiers to unlock.
  */
 export const DENIAL_REASONS = [
   "not_authenticated",
   "unknown_model",
   "model_inactive",
-  /** The plan is too low. Buying credits will not help. */
-  "plan_tier",
-  /** The plan allows it; the balance does not cover it. */
+  /** The balance does not cover it. */
   "insufficient_credits",
   /**
    * The database never answered, so nothing about the model or the balance is
@@ -43,13 +40,12 @@ export const DENIAL_COPY: Readonly<Record<DenialReason, string>> = {
   not_authenticated: "Sign in to run a model.",
   unknown_model: "That model is not in the catalogue.",
   model_inactive: "That model is not available right now.",
-  plan_tier: "This model is on a higher plan. Upgrade to unlock it.",
   insufficient_credits: "Not enough credits for this run. Top up to continue.",
   check_failed: "Could not check your credits. Try again in a moment.",
 };
 
 /** Denials an upgrade actually fixes, as opposed to signing in again or retrying. */
-const UPGRADE_REASONS: ReadonlySet<DenialReason> = new Set(["plan_tier", "insufficient_credits"]);
+const UPGRADE_REASONS: ReadonlySet<DenialReason> = new Set(["insufficient_credits"]);
 
 export function isUpgradeReason(reason: DenialReason): boolean {
   return UPGRADE_REASONS.has(reason);

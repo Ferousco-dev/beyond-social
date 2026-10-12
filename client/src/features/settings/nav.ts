@@ -57,7 +57,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Palette,
   },
   {
-    href: "/dashboard/settings/usage",
+    href: "/dashboard/credits",
     label: "Usage",
     // Credits, not dollars: the page reports what the user spent, not what the
     // provider bills us, because only the first is a number they hold.

@@ -49,7 +49,7 @@ export const PRODUCT_FACTS = [
   "Their face, products and voice: /dashboard/assets",
   "Recording a trained avatar: /dashboard/assets",
   "Everything they have made: /dashboard/library",
-  "Credits and what they have spent: /dashboard/settings/usage",
+  "Credits and what they have spent: /dashboard/credits",
   "What you already remember about them: /dashboard/settings/memory",
   "Longer answers about charging, refunds, time zones and deleting an account: /help",
   "",

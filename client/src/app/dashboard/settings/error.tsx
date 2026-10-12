@@ -32,7 +32,7 @@ export default function SettingsError({
     <div className="mt-6 lg:mt-8">
       <ErrorState
         title="This setting did not load"
-        impact="Nothing changed. Your account, plan and connected platforms are stored on our side and none of them were touched by this; only this panel failed to render."
+        impact="Nothing changed. Your account, credits and connected platforms are stored on our side and none of them were touched by this; only this panel failed to render."
         action={{ label: "Try again", onClick: reset }}
         secondary={{ label: "All settings", href: "/dashboard/settings" }}
         reference={errorReference(error)}

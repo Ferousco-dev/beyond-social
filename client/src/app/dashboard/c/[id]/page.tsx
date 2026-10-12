@@ -1,15 +1,14 @@
 import { type Metadata } from "next";
+import { notFound } from "next/navigation";
+import { z } from "zod";
 
-import { WorkspaceShell } from "@/features/workspace/components/workspace-shell";
-import { type PickerAsset } from "@/features/workspace/components/asset-picker";
-import { DEMO_TAKES, demoPickerAssets, demoProject } from "@/features/workspace/lib/demo";
-import { getBrandLibrary } from "@/lib/assets/brand";
-import { getThread } from "@/lib/chat/thread";
+import { ChatView } from "@/features/conversation/components/chat-view";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
-import { getEditorDocument } from "@/lib/editor/document";
+import { goApi } from "@/lib/go-api/client";
+import { threadResponse } from "@/lib/go-api/schemas";
 
-export const metadata: Metadata = { title: "Project" };
-// The thread is per-user and changes on every turn, so it is never cached.
+export const metadata: Metadata = { title: "Assistant" };
+// A thread is per-user and changes on every message, so it is never cached.
 export const dynamic = "force-dynamic";
 
 export default async function ConversationPage({
@@ -17,66 +16,29 @@ export default async function ConversationPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ demo?: string }>;
+  searchParams: Promise<{ prompt?: string }>;
 }) {
   const { id } = await params;
-  // ?demo=1 fills the canvas, takes, and picker with sample clips so the whole
-  // layout reads as finished. Real data always wins when it exists.
-  const demo = (await searchParams)?.demo === "1";
-  /*
-   * The saved likeness rides along so a voice clip on its own can still become
-   * an avatar. The editor document loads here too: the canvas and the chat now
-   * share one screen, so one page load prepares both.
-   */
-  const [thread, library, document, user] = await Promise.all([
-    getThread(id),
-    getBrandLibrary(),
-    getEditorDocument(id),
-    getCurrentUser(),
-  ]);
-  const avatar = library.avatar;
-
-  const pickerAssets: PickerAsset[] = demo
-    ? demoPickerAssets()
-    : [
-        ...(avatar?.url
-          ? [{ id: avatar.id, label: avatar.label || "Avatar", url: avatar.url, kind: "avatar" }]
-          : []),
-        ...library.products.map((asset) => ({
-          id: asset.id,
-          label: asset.label || "Product",
-          url: asset.url,
-          kind: "image" as const,
-        })),
-        ...thread.messages.flatMap((message) =>
-          message.draft?.resultUrl
-            ? [
-                {
-                  id: message.draft.generationId,
-                  label: message.content.slice(0, 48) || "Take",
-                  url: message.draft.resultUrl,
-                  kind: "video" as const,
-                },
-              ]
-            : [],
-        ),
-      ];
-
+  const { prompt = "" } = await searchParams;
+  const user = await getCurrentUser();
   const firstName = user.name.split(" ")[0] ?? user.name;
 
+  if (id === "new") {
+    return <ChatView conversationId={null} initialMessages={[]} initialPrompt={prompt.slice(0, 2000)} firstName={firstName} />;
+  }
+  if (!z.string().uuid().safeParse(id).success) notFound();
+
+  const thread = await goApi(`/api/v1/conversations/${id}`, threadResponse);
+  if (!thread.ok) {
+    if (thread.status === 404) notFound();
+    throw new Error(thread.message);
+  }
   return (
-    <WorkspaceShell
-      thread={thread}
-      savedLikeness={avatar?.url ? { path: avatar.path, url: avatar.url } : null}
-      initialProject={demo ? demoProject() : document.project}
-      initialRevision={document.revision}
-      // A project that does not exist has nothing to attach a document to, so
-      // autosave stays off rather than failing on every keystroke.
-      canSave={thread.projectId !== null}
+    <ChatView
       conversationId={id}
-      userName={firstName}
-      pickerAssets={pickerAssets}
-      demoTakes={demo ? DEMO_TAKES : []}
+      initialMessages={thread.data.data.messages}
+      initialPrompt=""
+      firstName={firstName}
     />
   );
 }

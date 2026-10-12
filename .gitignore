@@ -77,3 +77,4 @@ next-env.d.ts
 logo/
 dump.rdb
 deno.lock
+docs/

@@ -1,7 +1,6 @@
 packages:
   - "client"
   - "packages/*"
-  - "services/*"
 
 overrides:
   # Dedupe ioredis so the worker and BullMQ share one version (their types must match).

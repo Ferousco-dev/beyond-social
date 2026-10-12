@@ -5,7 +5,7 @@ import { Logo } from "@/components/brand/logo";
 import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { SidebarNav } from "./sidebar-nav";
-import { SidebarProjects } from "./sidebar-projects";
+import { SidebarConversations } from "./sidebar-conversations";
 import { SidebarUsageCard } from "./sidebar-usage-card";
 import { UserButton } from "./user-button";
 
@@ -42,8 +42,8 @@ export function AppSidebar({
 
       <SidebarNav onNavigate={onNavigate} />
 
-      <nav aria-label="Projects" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
-        <SidebarProjects initialItems={projects} onNavigate={onNavigate} />
+      <nav aria-label="Recent chats" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
+        <SidebarConversations items={projects} onNavigate={onNavigate} />
       </nav>
 
       {credits ? <SidebarUsageCard credits={credits} /> : null}

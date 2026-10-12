@@ -169,3 +169,19 @@ func TestAdjustNeedsAReason(t *testing.T) {
 		t.Fatal("adjustment without a reason accepted")
 	}
 }
+
+func TestAnalysisIsAFlatPriceAndRefundedOnFailure(t *testing.T) {
+	m := newMem()
+	m.prices["video_analysis"] = Price{Credits: 2, Enabled: true}
+	m.balance["u1"] = 5
+	b := NewJobBiller(NewService(m))
+	ctx := context.Background()
+	job := jobs.Job{ID: "a1", UserID: "u1", Type: "video_analysis"}
+	if err := b.Reserve(ctx, job); err != nil || m.balance["u1"] != 3 {
+		t.Fatalf("reserve: %v balance=%d", err, m.balance["u1"])
+	}
+	job.Status = jobs.StatusFailed
+	if err := b.Finish(ctx, job); err != nil || m.balance["u1"] != 5 {
+		t.Fatalf("refund: %v balance=%d", err, m.balance["u1"])
+	}
+}

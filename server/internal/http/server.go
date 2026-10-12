@@ -43,6 +43,7 @@ type Deps struct {
 	HeygenWebhookSecret func(ctx context.Context) string
 	Vault               CredentialVault
 	Credits             CreditReader
+	Chat                ChatService
 	CreditAdmin         CreditAdmin
 	CreditLedger        CreditLedger
 	Probe               CredentialProbe
@@ -94,6 +95,11 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
+	mux.Handle("POST /api/v1/conversations", protected(http.HandlerFunc(a.createConversation)))
+	mux.Handle("GET /api/v1/conversations", protected(http.HandlerFunc(a.listConversations)))
+	mux.Handle("GET /api/v1/conversations/{id}", protected(http.HandlerFunc(a.getConversation)))
+	mux.Handle("DELETE /api/v1/conversations/{id}", protected(http.HandlerFunc(a.archiveConversation)))
+	mux.Handle("POST /api/v1/conversations/{id}/messages", protected(http.HandlerFunc(a.sendMessage)))
 	mux.Handle("GET /api/v1/credits", protected(http.HandlerFunc(a.myCredits)))
 	mux.Handle("GET /api/v1/admin/credits/prices", protected(a.requireAdmin(a.listPrices)))
 	mux.Handle("PUT /api/v1/admin/credits/prices/{action}", protected(a.requireAdmin(a.updatePrice)))

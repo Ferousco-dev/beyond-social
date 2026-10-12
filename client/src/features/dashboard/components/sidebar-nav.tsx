@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  CalendarClock,
   CircleUser,
-  LayoutDashboard,
-  LibraryBig,
   PenSquare,
   TrendingUp,
   type LucideIcon,
@@ -39,23 +36,10 @@ interface NavLink {
 const LINKS: readonly NavLink[] = [
   {
     href: "/dashboard/c/new" as Route,
-    label: "New project",
+    label: "New chat",
     icon: PenSquare,
     motion: "group-hover:-translate-y-px group-hover:-rotate-12",
     exact: true,
-  },
-  {
-    href: "/dashboard/overview" as Route,
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    motion: "group-hover:scale-110",
-  },
-  {
-    href: "/dashboard/library" as Route,
-    label: "Library",
-    icon: LibraryBig,
-    // The spine of a book tilting off the shelf as you reach for it.
-    motion: "group-hover:-rotate-6",
   },
   {
     href: "/dashboard/assets" as Route,
@@ -63,13 +47,6 @@ const LINKS: readonly NavLink[] = [
     icon: CircleUser,
     // The avatar coming into focus as you reach for it.
     motion: "group-hover:scale-110",
-  },
-  {
-    href: "/dashboard/schedule" as Route,
-    label: "Schedule",
-    icon: CalendarClock,
-    // A clock hand advancing, which is the one thing this page is about.
-    motion: "group-hover:rotate-12",
   },
   {
     href: "/dashboard/trends" as Route,

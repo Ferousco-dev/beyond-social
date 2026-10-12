@@ -96,23 +96,61 @@ func (c *Client) sdk(ctx context.Context) (*genai.Client, error) {
 	return client, nil
 }
 
+// Media is something the model watches or reads alongside the prompt: raw bytes
+// with their type, or a public URL the API fetches itself (YouTube links).
+type Media struct {
+	Data []byte
+	MIME string
+	URI  string
+}
+
+const (
+	textMaxOutput  = 4096
+	mediaMaxOutput = 8192
+	// Watching a video takes longer than reading a request.
+	mediaTimeout = 150 * time.Second
+)
+
 // GenerateJSON asks the model for one JSON document conforming to schema.
 // The schema is enforced by the API; callers still validate the decoded plan
 // because a conforming shape can carry disallowed content.
 func (c *Client) GenerateJSON(ctx context.Context, system, user string, schema *genai.Schema) ([]byte, Usage, error) {
+	return c.generate(ctx, system, user, nil, schema)
+}
+
+// GenerateJSONFromMedia is GenerateJSON with video, audio or pictures attached.
+// The media is data to describe, never instructions: callers say so in system.
+func (c *Client) GenerateJSONFromMedia(ctx context.Context, system, user string, media []Media, schema *genai.Schema) ([]byte, Usage, error) {
+	return c.generate(ctx, system, user, media, schema)
+}
+
+func (c *Client) generate(ctx context.Context, system, user string, media []Media, schema *genai.Schema) ([]byte, Usage, error) {
 	temperature := float32(0.2)
+	maxOut, timeout := int32(textMaxOutput), c.timeout
+	if len(media) > 0 {
+		maxOut, timeout = mediaMaxOutput, max(c.timeout, mediaTimeout)
+	}
 	config := &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(system, "system"),
 		ResponseMIMEType:  "application/json",
 		ResponseSchema:    schema,
 		Temperature:       &temperature,
-		MaxOutputTokens:   4096,
+		MaxOutputTokens:   maxOut,
 	}
-	contents := []*genai.Content{genai.NewContentFromText(user, "user")}
+	parts := make([]*genai.Part, 0, len(media)+1)
+	for _, m := range media {
+		if m.URI != "" {
+			parts = append(parts, genai.NewPartFromURI(m.URI, m.MIME))
+		} else {
+			parts = append(parts, genai.NewPartFromBytes(m.Data, m.MIME))
+		}
+	}
+	parts = append(parts, genai.NewPartFromText(user))
+	contents := []*genai.Content{genai.NewContentFromParts(parts, "user")}
 
 	var lastErr error
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		data, usage, err := c.attempt(ctx, contents, config)
+		data, usage, err := c.attempt(ctx, contents, config, timeout)
 		if err == nil {
 			return data, usage, nil
 		}
@@ -130,8 +168,8 @@ func (c *Client) GenerateJSON(ctx context.Context, system, user string, schema *
 	return nil, Usage{}, lastErr
 }
 
-func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config *genai.GenerateContentConfig) ([]byte, Usage, error) {
-	attemptCtx, cancel := context.WithTimeout(ctx, c.timeout)
+func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config *genai.GenerateContentConfig, timeout time.Duration) ([]byte, Usage, error) {
+	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	sdk, err := c.sdk(ctx)

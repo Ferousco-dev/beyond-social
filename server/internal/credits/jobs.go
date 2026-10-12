@@ -13,6 +13,7 @@ import (
 const (
 	jobTransform   = "video_transform"
 	jobAvatarVideo = "avatar_video"
+	jobAnalysis    = "video_analysis"
 
 	ActionAvatarVideoSecond = "avatar_video_second"
 
@@ -56,6 +57,9 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		action := fmt.Sprintf("%s:%v:%v", jobTransform, job.Input["duration"], job.Input["resolution"])
 		credits, err := b.svc.Quote(ctx, action)
 		return credits, action, err
+	case jobAnalysis:
+		credits, err := b.svc.Quote(ctx, jobAnalysis)
+		return credits, jobAnalysis, err
 	case jobAvatarVideo:
 		rate, err := b.svc.Quote(ctx, ActionAvatarVideoSecond)
 		if err != nil {

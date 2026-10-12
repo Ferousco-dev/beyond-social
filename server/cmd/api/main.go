@@ -12,10 +12,12 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
 	"github.com/Ferousco-dev/beyond-social/server/internal/apify"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
@@ -141,7 +143,23 @@ func run() error {
 		return err
 	}
 
+	analysisService := analysis.NewService(jobService)
+	analysisProcessor := &analysis.Processor{
+		Jobs: jobService, Watcher: geminiClient, Resolver: transformProcessor.Resolver,
+		Fetcher: transformProcessor.Fetcher, Alerts: alertService,
+	}
+
+	chatService := chat.NewService(
+		database.NewConversationStore(pool),
+		chat.NewModelRouter(geminiClient),
+		chat.NewWorkflowPlanner(orchestratorService, registry),
+	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+		return creditStore.Setting(ctx, "daily_chat_limit")
+	})
+	jobService.WithObserver(chatService)
+
 	app := httpserver.NewApp(httpserver.Deps{
+		Chat:                chatService,
 		Accounts:            accounts.NewService(database.NewProfileStore(pool)).WithGranter(creditService),
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
@@ -207,6 +225,13 @@ func run() error {
 					return jobService.Claim(ctx, transform.JobType, n, transform.Lease)
 				},
 				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "video_analysis", Capacity: 3, Timeout: analysis.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, analysis.JobType, n, analysis.Lease)
+				},
+				Handle: analysisProcessor.Handle,
 			},
 			&worker.Pool[avatars.Avatar]{
 				Name: "avatars", Capacity: 3, Timeout: time.Minute,

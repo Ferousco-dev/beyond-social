@@ -23,7 +23,8 @@ export function WorkflowPhaseView({
   error: string | null;
   onApprove: () => void;
   onCancel: () => void;
-  onReset: () => void;
+  /** Offered once a workflow is finished. Omit where there is nothing to start over. */
+  onReset?: () => void;
 }) {
   const questions =
     phase.name === "preview" && phase.workflow.status === "awaiting_clarification"
@@ -91,13 +92,15 @@ export function WorkflowPhaseView({
                 : `Workflow ${phase.workflow.status}.`}
           </p>
           <StepResultLinks steps={phase.workflow.steps} />
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-full border border-hairline text-sm font-medium text-ink transition-colors hover:bg-cloud"
-          >
-            New workflow
-          </button>
+          {onReset ? (
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex h-10 w-full cursor-pointer items-center justify-center rounded-full border border-hairline text-sm font-medium text-ink transition-colors hover:bg-cloud"
+            >
+              New workflow
+            </button>
+          ) : null}
         </>
       ) : null}
 

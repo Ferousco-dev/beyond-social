@@ -48,7 +48,7 @@ export function CreditTile({ credits }: { readonly credits: CreditBalance | null
           Resets in {dayCount(credits.resetsInDays)}
           {low ? (
             <Link
-              href={"/dashboard/settings/billing" as Route}
+              href={"/dashboard/credits" as Route}
               className="font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Upgrade

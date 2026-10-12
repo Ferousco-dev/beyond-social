@@ -51,7 +51,7 @@ export default function Page(): ReactNode {
 
         <Section title="Payments are verified before processing">
           <p>
-            Stripe webhooks we receive are verified against the raw body before anything in them is
+            Payment provider webhooks we receive are verified against the raw body before anything in them is
             trusted. An unsigned or badly signed call is rejected at the door.
           </p>
         </Section>

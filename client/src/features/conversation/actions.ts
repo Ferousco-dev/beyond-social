@@ -1,0 +1,55 @@
+"use server";
+
+import { z } from "zod";
+
+import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
+import {
+  conversationResponse,
+  exchangeResponse,
+  type ChatMessage,
+} from "@/lib/go-api/schemas";
+
+export type StartResult =
+  | { readonly status: "ok"; readonly conversationId: string }
+  | { readonly status: "error"; readonly message: string };
+
+export type SendResult =
+  | { readonly status: "ok"; readonly user: ChatMessage; readonly assistant: ChatMessage }
+  | { readonly status: "error"; readonly message: string };
+
+/** A turn waits on a model; the API gives up at 75 seconds. */
+const CHAT_TIMEOUT_MS = 80_000;
+
+const UNAVAILABLE = "The assistant is not available right now.";
+
+export async function startConversation(): Promise<StartResult> {
+  if (!isGoApiConfigured()) return { status: "error", message: UNAVAILABLE };
+  const result = await goApi("/api/v1/conversations", conversationResponse, { method: "POST" });
+  return result.ok
+    ? { status: "ok", conversationId: result.data.data.id }
+    : { status: "error", message: result.message };
+}
+
+const sendSchema = z.object({
+  conversationId: z.string().uuid(),
+  content: z.string().trim().min(1).max(2000),
+  /** One per attempt, so a retry after a dropped connection is not answered twice. */
+  idempotencyKey: z.string().min(8).max(128),
+});
+
+export async function sendChatMessage(input: z.input<typeof sendSchema>): Promise<SendResult> {
+  const parsed = sendSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Write a message of up to 2000 characters." };
+  if (!isGoApiConfigured()) return { status: "error", message: UNAVAILABLE };
+
+  const { conversationId, content, idempotencyKey } = parsed.data;
+  const result = await goApi(`/api/v1/conversations/${conversationId}/messages`, exchangeResponse, {
+    method: "POST",
+    body: { content },
+    headers: { "Idempotency-Key": idempotencyKey },
+    timeoutMs: CHAT_TIMEOUT_MS,
+  });
+  return result.ok
+    ? { status: "ok", user: result.data.data.user, assistant: result.data.data.assistant }
+    : { status: "error", message: result.message };
+}

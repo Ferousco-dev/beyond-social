@@ -39,10 +39,23 @@ type Biller interface {
 	Finish(ctx context.Context, job Job) error
 }
 
+// Observer is told once when a job reaches a final state, after its charge has
+// been settled or refunded. It must be safe to repeat.
+type Observer interface {
+	JobFinished(ctx context.Context, job Job)
+}
+
 type Service struct {
 	repo      Repository
 	publisher realtime.Publisher
 	biller    Biller
+	observers []Observer
+}
+
+// WithObserver adds a listener for finished jobs.
+func (s *Service) WithObserver(o Observer) *Service {
+	s.observers = append(s.observers, o)
+	return s
 }
 
 // WithBiller turns on charging. Without one every job is free.
@@ -99,6 +112,11 @@ func (s *Service) Advance(ctx context.Context, jobID string, update Update) (Job
 		// returned, because the job itself has already reached its final state.
 		if err := s.biller.Finish(ctx, updated); err != nil {
 			slog.Error("close job charge", "job_id", updated.ID, "user_id", updated.UserID, "error", err)
+		}
+	}
+	if updated.Status.Terminal() {
+		for _, o := range s.observers {
+			o.JobFinished(ctx, updated)
 		}
 	}
 	s.Publish(EventUpdated, updated)

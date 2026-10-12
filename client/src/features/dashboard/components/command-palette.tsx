@@ -4,7 +4,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   Clapperboard,
   CornerDownLeft,
-  LayoutDashboard,
   MessagesSquare,
   PenSquare,
   Search,
@@ -38,7 +37,7 @@ interface Item {
 const STATIC_ITEMS: Item[] = [
   {
     id: "new-project",
-    label: "New project",
+    label: "New chat",
     group: "Actions",
     icon: PenSquare,
     href: "/dashboard/c/new" as Route,
@@ -50,13 +49,6 @@ const STATIC_ITEMS: Item[] = [
     group: "Actions",
     icon: Clapperboard,
     href: "/dashboard/c/new" as Route,
-  },
-  {
-    id: "overview",
-    label: "Dashboard",
-    group: "Navigation",
-    icon: LayoutDashboard,
-    href: "/dashboard/overview" as Route,
   },
   {
     id: "trends",
@@ -155,7 +147,7 @@ export function CommandPalette({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={onInputKeyDown}
-              placeholder="Type a command or search projects..."
+              placeholder="Type a command or search chats..."
               aria-label="Command palette"
               className="h-12 w-full bg-transparent text-[15px] text-ink placeholder:text-ink-soft focus:outline-none"
             />

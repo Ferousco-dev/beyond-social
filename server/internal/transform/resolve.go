@@ -2,7 +2,6 @@ package transform
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/apify"
@@ -10,7 +9,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/video"
 )
 
-var ErrNoVideoFile = errors.New("no downloadable video file for this post")
+var ErrNoVideoFile = video.ErrNoVideoFile
 
 const (
 	resolveDeadline = 150 * time.Second

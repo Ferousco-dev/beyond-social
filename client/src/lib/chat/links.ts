@@ -20,7 +20,7 @@ import { type Route } from "next";
 const DESTINATIONS = {
   "/dashboard/schedule": "Schedule",
   "/dashboard/settings/connections": "Connections",
-  "/dashboard/settings/usage": "Usage",
+  "/dashboard/credits": "Usage",
   "/dashboard/settings/memory": "Memory",
   // Kept for replies already stored in conversation history. The route itself
   // redirects to /dashboard/assets, so old advice stays clickable while new
@@ -34,7 +34,7 @@ const DESTINATIONS = {
 export type AssistantDestination = keyof typeof DESTINATIONS;
 
 /**
- * Longest first, so `/dashboard/settings/usage` is not matched as
+ * Longest first, so `/dashboard/credits` is not matched as
  * `/dashboard/settings` with a stray word after it.
  */
 const PATTERN = new RegExp(

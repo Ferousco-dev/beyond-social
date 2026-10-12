@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
 )
 
@@ -55,7 +56,10 @@ func (c *Checker) Verify(ctx context.Context, name, value string) error {
 		_, err := c.get(ctx, c.HeygenBase+"/users/me", header("X-Api-Key", value))
 		return err
 	case secrets.NameGemini:
-		_, err := c.get(ctx, c.Gemini+"/models?pageSize=1", header("x-goog-api-key", value))
+		// Listing models succeeds for a key whose project is denied generation, so
+		// the check asks for one token of output instead.
+		_, err := c.do(ctx, http.MethodPost, c.Gemini+"/models/"+gemini.DefaultModel+":generateContent",
+			`{"contents":[{"parts":[{"text":"ping"}]}],"generationConfig":{"maxOutputTokens":1}}`, header("x-goog-api-key", value))
 		return err
 	}
 	return nil
@@ -130,9 +134,16 @@ func bearer(key string) func(*http.Request)  { return header("Authorization", "B
 func header(k, v string) func(*http.Request) { return func(r *http.Request) { r.Header.Set(k, v) } }
 
 func (c *Checker) get(ctx context.Context, url string, auth func(*http.Request)) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	return c.do(ctx, http.MethodGet, url, "", auth)
+}
+
+func (c *Checker) do(ctx context.Context, method, url, body string, auth func(*http.Request)) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, strings.NewReader(body))
 	if err != nil {
 		return nil, err
+	}
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	auth(req)
 	resp, err := c.HTTP.Do(req)
@@ -140,12 +151,12 @@ func (c *Checker) get(ctx context.Context, url string, auth func(*http.Request))
 		return nil, errors.New("the provider could not be reached")
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	answer, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
 		return nil, errors.New("the provider rejected this key")
 	case resp.StatusCode >= 300:
 		return nil, fmt.Errorf("the provider answered %d", resp.StatusCode)
 	}
-	return []byte(strings.TrimSpace(string(body))), nil
+	return []byte(strings.TrimSpace(string(answer))), nil
 }

@@ -153,3 +153,34 @@ func TestGenerateJSONCancelledContext(t *testing.T) {
 		t.Fatalf("expected cancellation error, got: %v", err)
 	}
 }
+
+func TestGenerateJSONFromMediaSendsBytesAndLinksBeforeThePrompt(t *testing.T) {
+	var calls int32
+	var body string
+	client, err := NewClient(Config{
+		APIKey: "k",
+		HTTPClient: &http.Client{Transport: stubTransport{
+			calls: &calls,
+			handler: func(_ int32, req *http.Request) *http.Response {
+				raw, _ := io.ReadAll(req.Body)
+				body = string(raw)
+				return jsonResponse(http.StatusOK, planBody)
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	media := []Media{{Data: []byte("fake-mp4"), MIME: "video/mp4"}, {URI: "https://www.youtube.com/watch?v=abc", MIME: "video/*"}}
+	if _, _, err := client.GenerateJSONFromMedia(context.Background(), "sys", "describe it", media, testSchema()); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"video/mp4", "ZmFrZS1tcDQ=", "youtube.com/watch?v=abc", "describe it"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("request is missing %q: %s", want, body)
+		}
+	}
+	if strings.Index(body, "ZmFrZS1tcDQ=") > strings.Index(body, "describe it") {
+		t.Fatal("the media must come before the prompt text")
+	}
+}

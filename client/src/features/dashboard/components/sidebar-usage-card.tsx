@@ -33,7 +33,7 @@ export function SidebarUsageCard({ credits }: { credits: Credits }): ReactNode {
       </p>
 
       <Link
-        href={"/dashboard/settings/usage" as Route}
+        href={"/dashboard/credits" as Route}
         className="mt-3 flex h-9 items-center justify-between rounded-xl bg-cloud px-3 text-sm font-medium text-ink transition-colors hover:bg-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Credit history

@@ -1,116 +1,58 @@
 import { type Metadata } from "next";
-import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { Suspense } from "react";
+import { notFound } from "next/navigation";
+import { type ReactNode } from "react";
+import { z } from "zod";
 
-import { CreditsForm } from "@/features/admin/components/credits-form";
-import { DayRangeTabs } from "@/features/admin/components/day-range-tabs";
-import { PlanForm } from "@/features/admin/components/plan-form";
-import { RoleForm } from "@/features/admin/components/role-form";
-import { SuspensionForm } from "@/features/admin/components/suspension-form";
-import { getUserDetail } from "@/lib/dashboard/admin";
-import { SpendSkeleton, UserSpendSection } from "./spend-section";
+import { AdjustCreditsForm } from "@/features/admin-console/components/adjust-credits-form";
+import { userLedgerResponse } from "@/lib/go-api/admin-schemas";
+import { goApi } from "@/lib/go-api/client";
 
-export const metadata: Metadata = { title: "Admin · User detail" };
+export const metadata: Metadata = { title: "Admin · User" };
 
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs text-ink-soft">{label}</dt>
-      <dd className="mt-0.5 text-sm text-ink">{value}</dd>
-    </div>
-  );
-}
-
-export default async function AdminUserDetailPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ days?: string }>;
-}) {
+export default async function AdminUserPage({ params }: { params: Promise<{ id: string }> }): Promise<ReactNode> {
   const { id } = await params;
-  const { days: daysParam } = await searchParams;
-  const days = [7, 30, 90].includes(Number(daysParam)) ? Number(daysParam) : 30;
-  const user = await getUserDetail(id);
-  if (!user) notFound();
+  if (!z.string().uuid().safeParse(id).success) notFound();
+  const result = await goApi(`/api/v1/admin/users/${id}/credits`, userLedgerResponse);
+  if (!result.ok) {
+    return <p role="alert" className="text-sm text-destructive">{result.message}</p>;
+  }
+  const { balance, history } = result.data.data;
 
   return (
     <div>
-      <Link
-        href="/dashboard/admin/users"
-        className="inline-flex items-center gap-1.5 text-sm text-ink-soft hover:text-ink"
-      >
-        <ArrowLeft className="size-3.5" aria-hidden />
-        Users
+      <Link href="/dashboard/admin/users" className="text-sm text-ink-soft hover:text-ink">
+        Back to users
       </Link>
+      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">{balance} credits</h1>
 
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">
-        {user.fullName ?? user.email ?? user.id}
-      </h1>
-      {user.suspendedAt && (
-        <p className="mt-1 text-sm text-destructive">
-          Suspended {new Date(user.suspendedAt).toLocaleDateString()} by{" "}
-          {user.suspendedByEmail ?? "unknown"} — {user.suspendedReason}
-        </p>
-      )}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-ink">Add or take back credits</h2>
+        <AdjustCreditsForm userId={id} />
+      </section>
 
-      <dl className="mt-6 grid gap-4 rounded-xl border border-hairline bg-paper p-5 sm:grid-cols-3">
-        <Field label="Email" value={user.email ?? "—"} />
-        <Field label="Plan" value={user.plan ?? "—"} />
-        <Field label="Role" value={user.role ?? "—"} />
-        <Field label="Credits" value={`${user.creditsUsed} / ${user.creditsTotal}`} />
-        <Field label="Projects" value={String(user.projectCount)} />
-        <Field label="Generations" value={String(user.generationCount)} />
-        <Field label="Messages" value={String(user.messageCount)} />
-        <Field label="Signed up" value={new Date(user.createdAt).toLocaleString()} />
-        <Field
-          label="Last active"
-          value={user.lastActiveAt ? new Date(user.lastActiveAt).toLocaleString() : "Never"}
-        />
-        <Field
-          label="Subscription"
-          value={
-            user.subscriptionStatus
-              ? `${user.subscriptionPlan ?? "—"} (${user.subscriptionStatus})`
-              : "None"
-          }
-        />
-        <Field
-          label="Renews / ends"
-          value={
-            user.subscriptionPeriodEnd
-              ? `${new Date(user.subscriptionPeriodEnd).toLocaleDateString()}${
-                  user.subscriptionCancelAtPeriodEnd ? " (cancels)" : ""
-                }`
-              : "—"
-          }
-        />
-      </dl>
-
-      <div className="mt-8 grid gap-4 lg:grid-cols-4">
-        <CreditsForm
-          userId={user.id}
-          creditsTotal={user.creditsTotal}
-          creditsUsed={user.creditsUsed}
-        />
-        <PlanForm userId={user.id} plan={user.plan} creditsTotal={user.creditsTotal} />
-        <SuspensionForm userId={user.id} suspended={user.suspendedAt !== null} />
-        <RoleForm userId={user.id} role={user.role ?? "user"} />
-      </div>
-
-      <div className="mt-8">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-ink">Credit spend</h2>
-          <DayRangeTabs basePath={`/dashboard/admin/users/${user.id}`} active={days} />
-        </div>
-        <div className="mt-4">
-          <Suspense key={days} fallback={<SpendSkeleton />}>
-            <UserSpendSection userId={user.id} days={days} />
-          </Suspense>
-        </div>
-      </div>
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold text-ink">History</h2>
+        {history.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-soft">Nothing yet.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
+            {history.map((row, index) => (
+              <li key={`${row.createdAt}-${index}`} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                <span className="min-w-0">
+                  <span className="block capitalize text-ink">{row.kind}</span>
+                  <span className="block truncate text-xs text-ink-soft">{row.reason}</span>
+                </span>
+                <span className="tabular-nums text-ink">
+                  {row.amount > 0 ? "+" : ""}
+                  {row.amount}
+                  <span className="ml-2 text-xs text-ink-soft">{row.balanceAfter}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

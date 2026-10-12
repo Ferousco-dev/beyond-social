@@ -4,6 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronsUpDown, LogOut, Settings, Share2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useState, useTransition } from "react";
 
@@ -56,7 +57,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
 
   // Signing out costs nothing but a sign in, so the wording stays light and the
   // confirm button is an ordinary one. The dialog exists because the control
-  // sits one slip below "Plan", not because the action is dangerous.
+  // sits one slip below "Credits", not because the action is dangerous.
   async function handleSignOut() {
     const confirmed = await confirm({
       title: "Sign out?",
@@ -140,7 +141,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
-                <Link href="/dashboard/settings/billing" className={ROW}>
+                <Link href={"/dashboard/credits" as Route} className={ROW}>
                   Credits
                   <span className="text-xs text-ink-soft">{user.credits}</span>
                 </Link>

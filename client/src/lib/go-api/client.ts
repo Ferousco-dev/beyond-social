@@ -25,9 +25,11 @@ export type GoApiResult<T> =
 const errorBodySchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
 
 interface RequestOptions {
-  readonly method?: "GET" | "POST" | "DELETE";
+  readonly method?: "GET" | "POST" | "PUT" | "DELETE";
   readonly body?: unknown;
   readonly headers?: Readonly<Record<string, string>>;
+  /** For calls that wait on a model; the default suits ordinary requests. */
+  readonly timeoutMs?: number;
 }
 
 /** Sends one request and validates the response against `schema`. */
@@ -52,7 +54,7 @@ export async function goApi<T>(
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       cache: "no-store",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
     });
 
     const payload: unknown = await response.json().catch(() => null);

@@ -12,7 +12,10 @@
  */
 
 /** Dashboard pages that run on the Go API today. Anything else is unavailable. */
-const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable"]);
+const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable", "/dashboard/credits"]);
+
+/** The admin console runs entirely on the Go API, so all of it is available. */
+const ADMIN_PREFIX = "/dashboard/admin";
 
 /** API routes still served by the web app. All the others carried credentials. */
 const ENABLED_API = new Set(["/api/health", "/api/ready"]);
@@ -28,6 +31,7 @@ export function routeAvailability(pathname: string): RouteAvailability {
   if (path.startsWith("/editor") || path.startsWith("/settings")) return "page-unavailable";
   if (path.startsWith("/dashboard")) {
     if (ENABLED_DASHBOARD.has(path)) return "available";
+    if (path === ADMIN_PREFIX || path.startsWith(`${ADMIN_PREFIX}/`)) return "available";
     // The combined project workspace (canvas + chat) runs here now.
     if (path === "/dashboard/c" || path.startsWith("/dashboard/c/")) return "available";
     return "page-unavailable";
