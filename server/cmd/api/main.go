@@ -28,6 +28,7 @@ import (
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"github.com/Ferousco-dev/beyond-social/server/internal/providers"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
@@ -143,23 +144,25 @@ func run() error {
 		return err
 	}
 
+	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	analysisService := analysis.NewService(jobService)
 	analysisProcessor := &analysis.Processor{
 		Jobs: jobService, Watcher: geminiClient, Resolver: transformProcessor.Resolver,
-		Fetcher: transformProcessor.Fetcher, Alerts: alertService,
+		Fetcher: transformProcessor.Fetcher, Uploads: mediaService, Alerts: alertService,
 	}
 
 	chatService := chat.NewService(
 		database.NewConversationStore(pool),
 		chat.NewModelRouter(geminiClient),
 		chat.NewWorkflowPlanner(orchestratorService, registry),
-	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
 
 	app := httpserver.NewApp(httpserver.Deps{
 		Chat:                chatService,
+		Media:               mediaService,
 		Accounts:            accounts.NewService(database.NewProfileStore(pool)).WithGranter(creditService),
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),

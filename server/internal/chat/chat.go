@@ -12,7 +12,9 @@ import (
 	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 )
 
@@ -46,15 +48,16 @@ type Conversation struct {
 }
 
 type Message struct {
-	ID             string    `json:"id"`
-	UserID         string    `json:"-"`
-	ConversationID string    `json:"conversation_id"`
-	Role           Role      `json:"role"`
-	Content        string    `json:"content"`
-	WorkflowID     string    `json:"workflow_id,omitempty"`
-	ReplyTo        string    `json:"reply_to,omitempty"`
-	JobID          string    `json:"job_id,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             string             `json:"id"`
+	UserID         string             `json:"-"`
+	ConversationID string             `json:"conversation_id"`
+	Role           Role               `json:"role"`
+	Content        string             `json:"content"`
+	WorkflowID     string             `json:"workflow_id,omitempty"`
+	ReplyTo        string             `json:"reply_to,omitempty"`
+	JobID          string             `json:"job_id,omitempty"`
+	Attachments    []media.Descriptor `json:"attachments,omitempty"`
+	CreatedAt      time.Time          `json:"created_at"`
 }
 
 type Store interface {
@@ -94,7 +97,14 @@ type Decision struct {
 }
 
 type Router interface {
-	Route(ctx context.Context, history []Turn, message string) (Decision, error)
+	// files are pictures and audio the model should look at or listen to.
+	Route(ctx context.Context, history []Turn, message string, files []gemini.Media) (Decision, error)
+}
+
+// Attachments resolves and reads what a message carries.
+type Attachments interface {
+	Resolve(ctx context.Context, userID string, ids []string) ([]media.Item, error)
+	Load(ctx context.Context, userID, id string, max int64) ([]byte, string, error)
 }
 
 // Outcome is what planning a request produced, already in words for the user.
@@ -115,6 +125,7 @@ type Service struct {
 	alerts  alerts.Reporter
 	// analyzer is optional: without it links are treated as ordinary text.
 	analyzer Analyzer
+	files    Attachments
 	// DailyLimit returns the most messages a user may send per day; 0 or false means no limit.
 	dailyLimit func(ctx context.Context) (int, bool, error)
 	now        func() time.Time
@@ -132,6 +143,12 @@ func (s *Service) WithEvents(p realtime.Publisher) *Service {
 // WithAlerts reports failures only an operator can fix (no credit, bad key).
 func (s *Service) WithAlerts(r alerts.Reporter) *Service {
 	s.alerts = r
+	return s
+}
+
+// WithAttachments turns on pictures, video and audio in messages.
+func (s *Service) WithAttachments(a Attachments) *Service {
+	s.files = a
 	return s
 }
 
@@ -162,9 +179,12 @@ func (s *Service) Thread(ctx context.Context, userID, id string) (Conversation, 
 	return c, msgs, err
 }
 
-func cleanMessage(raw string) (string, error) {
+func cleanMessage(raw string, allowEmpty bool) (string, error) {
 	text := strings.TrimSpace(raw)
 	n := utf8.RuneCountInString(text)
+	if n == 0 && allowEmpty {
+		return "", nil
+	}
 	if n == 0 || n > MaxMessageRunes {
 		return "", ErrInvalid
 	}

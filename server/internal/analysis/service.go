@@ -48,3 +48,24 @@ func (s *Service) Start(ctx context.Context, userID string, link Link, conversat
 	}
 	return job, isNew, nil
 }
+
+// StartMedia queues an analysis of a video the user uploaded. The file is
+// looked up by id when the job runs, so only its owner's job can read it.
+func (s *Service) StartMedia(ctx context.Context, userID, mediaID, conversationID, key string) (jobs.Job, bool, error) {
+	active, err := s.jobs.CountActive(ctx, userID, JobType)
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	if active >= maxActivePerUser {
+		return jobs.Job{}, false, ErrTooManyBusy
+	}
+	input := map[string]any{"media_id": mediaID, "kind": "upload"}
+	if conversationID != "" {
+		input["conversation_id"] = conversationID
+	}
+	job, isNew, err := s.jobs.Create(ctx, userID, JobType, input, key)
+	if err != nil {
+		return jobs.Job{}, false, fmt.Errorf("analysis: start: %w", err)
+	}
+	return job, isNew, nil
+}

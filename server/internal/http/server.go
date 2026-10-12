@@ -44,6 +44,7 @@ type Deps struct {
 	Vault               CredentialVault
 	Credits             CreditReader
 	Chat                ChatService
+	Media               MediaService
 	CreditAdmin         CreditAdmin
 	CreditLedger        CreditLedger
 	Probe               CredentialProbe
@@ -95,6 +96,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
+	mux.Handle("POST /api/v1/media", protected(http.HandlerFunc(a.requestMediaUpload)))
+	mux.Handle("POST /api/v1/media/{id}/confirm", protected(http.HandlerFunc(a.confirmMedia)))
+	mux.Handle("GET /api/v1/media/{id}/url", protected(http.HandlerFunc(a.mediaViewURL)))
 	mux.Handle("POST /api/v1/conversations", protected(http.HandlerFunc(a.createConversation)))
 	mux.Handle("GET /api/v1/conversations", protected(http.HandlerFunc(a.listConversations)))
 	mux.Handle("GET /api/v1/conversations/{id}", protected(http.HandlerFunc(a.getConversation)))

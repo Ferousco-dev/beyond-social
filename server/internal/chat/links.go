@@ -13,6 +13,7 @@ import (
 // Analyzer starts the background job that watches a linked video.
 type Analyzer interface {
 	Start(ctx context.Context, userID string, link analysis.Link, conversationID, key string) (jobs.Job, bool, error)
+	StartMedia(ctx context.Context, userID, mediaID, conversationID, key string) (jobs.Job, bool, error)
 }
 
 // WithAnalyzer turns on link handling: a supported video link in a message
@@ -27,14 +28,23 @@ const watchingReply = "I am watching that video now. It usually takes under a mi
 // sendLink answers a message that carries a video link.
 func (s *Service) sendLink(ctx context.Context, userID string, conv Conversation, user Message, link analysis.Link) (Exchange, error) {
 	job, _, err := s.analyzer.Start(ctx, userID, link, conv.ID, "analysis:"+user.ID)
-	if errors.Is(err, analysis.ErrTooManyBusy) {
-		return Exchange{}, ErrBusy
-	}
 	if err != nil {
-		return Exchange{}, err
+		return Exchange{}, mapAnalysisError(err)
 	}
+	return s.postWatching(ctx, userID, conv, user, job.ID)
+}
+
+func mapAnalysisError(err error) error {
+	if errors.Is(err, analysis.ErrTooManyBusy) {
+		return ErrBusy
+	}
+	return err
+}
+
+// postWatching tells the user an analysis is under way.
+func (s *Service) postWatching(ctx context.Context, userID string, conv Conversation, user Message, jobID string) (Exchange, error) {
 	assistant, err := s.store.AddAssistant(ctx, Message{
-		ConversationID: conv.ID, UserID: userID, Role: RoleAssistant, Content: watchingReply, ReplyTo: user.ID, JobID: job.ID,
+		ConversationID: conv.ID, UserID: userID, Role: RoleAssistant, Content: watchingReply, ReplyTo: user.ID, JobID: jobID,
 	})
 	if err != nil {
 		return Exchange{}, err

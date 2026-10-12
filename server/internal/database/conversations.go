@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 )
 
 const messageColumns = `id::text, user_id::text, conversation_id::text, role, content,
-	coalesce(workflow_id::text, ''), coalesce(reply_to::text, ''), created_at, coalesce(job_id::text, '')`
+	coalesce(workflow_id::text, ''), coalesce(reply_to::text, ''), created_at, coalesce(job_id::text, ''), attachments`
 
 // ConversationStore implements chat.Store. Every read filters on user_id in SQL,
 // so ownership does not depend on the HTTP layer.
@@ -45,8 +46,12 @@ func isInvalidText(err error) bool {
 func scanMessage(row pgx.Row) (chat.Message, error) {
 	var m chat.Message
 	var role string
-	err := row.Scan(&m.ID, &m.UserID, &m.ConversationID, &role, &m.Content, &m.WorkflowID, &m.ReplyTo, &m.CreatedAt, &m.JobID)
+	var attachments []byte
+	err := row.Scan(&m.ID, &m.UserID, &m.ConversationID, &role, &m.Content, &m.WorkflowID, &m.ReplyTo, &m.CreatedAt, &m.JobID, &attachments)
 	m.Role = chat.Role(role)
+	if err == nil && len(attachments) > 2 {
+		err = json.Unmarshal(attachments, &m.Attachments)
+	}
 	return m, err
 }
 
@@ -116,11 +121,18 @@ func (s *ConversationStore) Messages(ctx context.Context, userID, id string, lim
 }
 
 func (s *ConversationStore) AddUser(ctx context.Context, m chat.Message, key string) (chat.Message, bool, error) {
+	attachments, err := json.Marshal(m.Attachments)
+	if err != nil {
+		return chat.Message{}, false, err
+	}
+	if m.Attachments == nil {
+		attachments = []byte("[]")
+	}
 	saved, err := scanMessage(s.pool.QueryRow(ctx, `
-		insert into public.messages (conversation_id, user_id, role, content, idempotency_key)
-		values ($1, $2, 'user', $3, nullif($4, ''))
+		insert into public.messages (conversation_id, user_id, role, content, idempotency_key, attachments)
+		values ($1, $2, 'user', $3, nullif($4, ''), $5)
 		on conflict (conversation_id, idempotency_key) where idempotency_key is not null and role = 'user' do nothing
-		returning `+messageColumns, m.ConversationID, m.UserID, m.Content, key))
+		returning `+messageColumns, m.ConversationID, m.UserID, m.Content, key, attachments))
 	if err == nil {
 		return saved, true, nil
 	}

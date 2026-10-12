@@ -7,6 +7,8 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 )
 
@@ -18,10 +20,17 @@ type Exchange struct {
 
 // Send saves the user's message and answers it. Sending again with the same key
 // returns the earlier answer instead of asking the model a second time.
-func (s *Service) Send(ctx context.Context, userID, conversationID, content, key string) (Exchange, error) {
-	text, err := cleanMessage(content)
+func (s *Service) Send(ctx context.Context, userID, conversationID, content, key string, attachmentIDs []string) (Exchange, error) {
+	items, err := s.resolveAttachments(ctx, userID, attachmentIDs)
 	if err != nil {
 		return Exchange{}, err
+	}
+	text, err := cleanMessage(content, len(items) > 0)
+	if err != nil {
+		return Exchange{}, err
+	}
+	if text == "" {
+		text = attachedSummary(items)
 	}
 	conv, err := s.store.Get(ctx, userID, conversationID)
 	if err != nil {
@@ -31,7 +40,7 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 	if err := s.checkLimit(ctx, userID); err != nil {
 		return Exchange{}, err
 	}
-	user, isNew, err := s.store.AddUser(ctx, Message{ConversationID: conv.ID, UserID: userID, Role: RoleUser, Content: text}, key)
+	user, isNew, err := s.store.AddUser(ctx, Message{ConversationID: conv.ID, UserID: userID, Role: RoleUser, Content: text, Attachments: descriptors(items)}, key)
 	if err != nil {
 		return Exchange{}, err
 	}
@@ -47,11 +56,21 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 		}
 	}
 
+	if s.analyzer != nil {
+		if v, ok := firstOfKind(items, media.KindVideo); ok {
+			return s.sendVideo(ctx, userID, conv, user, v)
+		}
+	}
+
 	history, err := s.history(ctx, userID, conv.ID, user.ID)
 	if err != nil {
 		return Exchange{}, err
 	}
-	reply, workflowID, err := s.answer(ctx, userID, text, history, user.ID)
+	files, err := s.readableFiles(ctx, userID, items)
+	if err != nil {
+		return Exchange{}, err
+	}
+	reply, workflowID, err := s.answer(ctx, userID, text, history, user.ID, files)
 	if err != nil {
 		return Exchange{}, err
 	}
@@ -75,8 +94,8 @@ func (s *Service) finishTurn(ctx context.Context, userID string, conv Conversati
 	return Exchange{User: user, Assistant: assistant}
 }
 
-func (s *Service) answer(ctx context.Context, userID, text string, history []Turn, userMessageID string) (reply, workflowID string, err error) {
-	decision, err := s.router.Route(ctx, history, text)
+func (s *Service) answer(ctx context.Context, userID, text string, history []Turn, userMessageID string, files []gemini.Media) (reply, workflowID string, err error) {
+	decision, err := s.router.Route(ctx, history, text, files)
 	if err != nil {
 		alerts.Report(ctx, s.alerts, err, alerts.Context{Source: "chat", UserID: userID})
 		return "", "", err
@@ -100,7 +119,7 @@ func (s *Service) history(ctx context.Context, userID, conversationID, exceptID 
 	turns := make([]Turn, 0, len(msgs))
 	for _, m := range msgs {
 		if m.ID != exceptID {
-			turns = append(turns, Turn{Role: m.Role, Content: m.Content})
+			turns = append(turns, Turn{Role: m.Role, Content: m.Content + attachmentNote(m.Attachments)})
 		}
 	}
 	if len(turns) > historyTurns {

@@ -9,6 +9,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/video"
@@ -45,6 +46,11 @@ type Resolver interface {
 	Resolve(ctx context.Context, p video.Platform, pageURL string) (string, error)
 }
 
+// Uploads reads a user's own uploaded file, refusing anyone else's.
+type Uploads interface {
+	Load(ctx context.Context, userID, id string, max int64) ([]byte, string, error)
+}
+
 // Fetcher downloads untrusted media with size and address limits.
 type Fetcher interface {
 	Fetch(ctx context.Context, rawURL string, maxBytes int64) ([]byte, error)
@@ -55,8 +61,10 @@ type Processor struct {
 	Watcher  Watcher
 	Resolver Resolver
 	Fetcher  Fetcher
-	Alerts   alerts.Reporter
-	Now      func() time.Time
+	// Uploads reads a video the user uploaded. Optional.
+	Uploads Uploads
+	Alerts  alerts.Reporter
+	Now     func() time.Time
 }
 
 func (p *Processor) now() time.Time {
@@ -77,12 +85,20 @@ func (p *Processor) Handle(ctx context.Context, job jobs.Job) {
 	if !p.advance(ctx, job, jobs.Update{Status: jobs.StatusRunning, Stage: ptr(stageFetching), Progress: ptr(10)}) {
 		return
 	}
-	link, ok := ParseLink(str(job.Input, "url"))
-	if !ok {
-		p.fail(ctx, job, msgUnusable)
-		return
+	source := map[string]any{"kind": "upload"}
+	var media gemini.Media
+	var err error
+	if mediaID := str(job.Input, "media_id"); mediaID != "" {
+		media, err = p.loadUpload(ctx, job.UserID, mediaID)
+	} else {
+		link, ok := ParseLink(str(job.Input, "url"))
+		if !ok {
+			p.fail(ctx, job, msgUnusable)
+			return
+		}
+		source = map[string]any{"kind": string(link.Kind), "url": link.URL}
+		media, err = p.load(ctx, link)
 	}
-	media, err := p.load(ctx, link)
 	if err != nil {
 		p.failed(ctx, job, err)
 		return
@@ -102,7 +118,7 @@ func (p *Processor) Handle(ctx context.Context, job jobs.Job) {
 	}
 	p.advance(ctx, job, jobs.Update{
 		Status: jobs.StatusCompleted, Progress: ptr(100),
-		Result: map[string]any{"analysis": toMap(result), "source": map[string]any{"kind": string(link.Kind), "url": link.URL}},
+		Result: map[string]any{"analysis": toMap(result), "source": source},
 	})
 }
 
@@ -137,9 +153,9 @@ func (p *Processor) failed(ctx context.Context, job jobs.Job, err error) {
 	slog.Warn("video analysis failed", "job_id", job.ID, "attempt", job.RetryCount+1, "error", err)
 	var pe *provider.Error
 	switch {
-	case errors.Is(err, safenet.ErrTooLarge):
+	case errors.Is(err, safenet.ErrTooLarge), errors.Is(err, media.ErrTooLarge):
 		p.fail(ctx, job, msgTooLarge)
-	case errors.Is(err, safenet.ErrBadMediaType), errors.Is(err, safenet.ErrBlockedURL), errors.Is(err, video.ErrNoVideoFile):
+	case errors.Is(err, safenet.ErrBadMediaType), errors.Is(err, safenet.ErrBlockedURL), errors.Is(err, video.ErrNoVideoFile), errors.Is(err, media.ErrNotFound), errors.Is(err, media.ErrNotUploaded):
 		p.fail(ctx, job, msgUnusable)
 	case errors.As(err, &pe) && provider.Classify(err) == provider.ClassRejected:
 		p.fail(ctx, job, msgUnusable)
@@ -182,3 +198,14 @@ func str(m map[string]any, key string) string {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func (p *Processor) loadUpload(ctx context.Context, userID, id string) (gemini.Media, error) {
+	if p.Uploads == nil {
+		return gemini.Media{}, video.ErrNoVideoFile
+	}
+	data, mime, err := p.Uploads.Load(ctx, userID, id, MaxInlineBytes)
+	if err != nil {
+		return gemini.Media{}, err
+	}
+	return gemini.Media{Data: data, MIME: mime}, nil
+}

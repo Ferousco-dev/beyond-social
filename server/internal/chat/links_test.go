@@ -12,10 +12,18 @@ import (
 )
 
 type stubAnalyzer struct {
-	starts int
-	link   analysis.Link
-	key    string
-	err    error
+	starts  int
+	link    analysis.Link
+	key     string
+	mediaID string
+	err     error
+}
+
+func (a *stubAnalyzer) StartMedia(_ context.Context, _, mediaID, conversationID, key string) (jobs.Job, bool, error) {
+	a.starts++
+	a.key = key
+	a.mediaID = mediaID
+	return jobs.Job{ID: "job-1", Input: map[string]any{"conversation_id": conversationID}}, true, a.err
 }
 
 func (a *stubAnalyzer) Start(_ context.Context, _ string, link analysis.Link, conversationID, key string) (jobs.Job, bool, error) {
@@ -27,7 +35,7 @@ func (a *stubAnalyzer) Start(_ context.Context, _ string, link analysis.Link, co
 func TestALinkStartsAnAnalysisInsteadOfAskingTheModel(t *testing.T) {
 	store, router, an := newMem(), &stubRouter{decision: Decision{Reply: "should not be used"}}, &stubAnalyzer{}
 	svc := service(router, &stubPlanner{}, store).WithAnalyzer(an)
-	ex, err := svc.Send(context.Background(), "u1", "c1", "make one like https://youtu.be/dQw4w9WgXcQ for my shop", "k")
+	ex, err := svc.Send(context.Background(), "u1", "c1", "make one like https://youtu.be/dQw4w9WgXcQ for my shop", "k", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +58,7 @@ func TestLinkErrorsReachTheCaller(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			svc := service(&stubRouter{}, &stubPlanner{}, newMem()).WithAnalyzer(&stubAnalyzer{err: tc.err})
-			if _, err := svc.Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", ""); !errors.Is(err, tc.want) {
+			if _, err := svc.Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil); !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
@@ -59,7 +67,7 @@ func TestLinkErrorsReachTheCaller(t *testing.T) {
 
 func TestWithoutAnAnalyzerALinkIsJustText(t *testing.T) {
 	router := &stubRouter{decision: Decision{Reply: "ok"}}
-	if _, err := service(router, &stubPlanner{}, newMem()).Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", ""); err != nil || router.calls != 1 {
+	if _, err := service(router, &stubPlanner{}, newMem()).Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil); err != nil || router.calls != 1 {
 		t.Fatalf("calls=%d err=%v", router.calls, err)
 	}
 }

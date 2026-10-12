@@ -27,7 +27,7 @@ func (f fakeChat) Thread(_ context.Context, user, id string) (chat.Conversation,
 	return chat.Conversation{ID: id}, []chat.Message{{ID: "m1", Role: chat.RoleUser, Content: "hi"}}, nil
 }
 func (f fakeChat) Archive(context.Context, string, string) error { return nil }
-func (f fakeChat) Send(_ context.Context, _, _, content, _ string) (chat.Exchange, error) {
+func (f fakeChat) Send(_ context.Context, _, _, content, _ string, _ []string) (chat.Exchange, error) {
 	if f.err != nil {
 		return chat.Exchange{}, f.err
 	}

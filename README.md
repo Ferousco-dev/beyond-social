@@ -1,58 +1,80 @@
 # Beyond Social
 
-This repository is in a reset and rebuild phase. The goal is to preserve the
-existing interface while moving the application toward a Go-first backend with
-separate provider services and a clean domain boundary.
+Beyond Social is an AI-powered social media content platform. The web app brings
+content discovery, planning and generation, video editing, avatar workflows,
+and publishing tools into one workspace.
 
-## Architecture reset
+This repository contains the Next.js web app, a Go API with asynchronous
+workflows, and shared TypeScript packages. Supabase provides authentication,
+PostgreSQL, and storage.
 
-The active structure is now:
+## Repository layout
 
-```text
-beyond-social/
-├── client/                Existing frontend application retained intact
-├── server/                Go backend scaffold and API entrypoint
-├── services/
-│   ├── apify/             Discovery and reference retrieval
-│   ├── kie/               Video generation and transformation
-│   ├── heygen/            Avatar and voice services
-│   └── gemini/            Orchestration and evaluation
-├── packages/              Shared TypeScript packages
-├── docs/                  Architecture and implementation docs
-├── README.md
-├── .gitignore
-├── package.json
-├── pnpm-workspace.yaml
-└── turbo.json
+| Path        | Purpose                                                                                             |
+| ----------- | --------------------------------------------------------------------------------------------------- |
+| `client/`   | Next.js web application and browser-facing product features.                                        |
+| `server/`   | Go API, background job processing, and WebSocket events.                                            |
+| `packages/` | Shared AI gateway, environment validation, prompt engine, rate limiting, and tooling configuration. |
+| `docs/`     | Product, design, and engineering documentation.                                                     |
+
+The browser app and Go API are separate processes in local development. The Go
+API owns authenticated workflows such as discovery, video transformation,
+avatar registration, and job status. Some web features also use Next.js route
+handlers and server actions.
+
+## Requirements
+
+- Node.js 22 or newer
+- pnpm 11 or newer
+- Go 1.24 or newer
+- A Supabase project and a PostgreSQL connection for the API
+
+## Run locally
+
+Install JavaScript dependencies and create local environment files:
+
+```bash
+pnpm install
+cp client/.env.example client/.env.local
+cp server/.env.example server/.env
 ```
 
-The frontend remains intact in `client`, and the old `apps/web` path has been
-removed from the active branch as part of the reset. The legacy worker, render,
-and Supabase integration code was removed from the active tree to keep the
-branch focused on the new Go and service boundary.
+Fill in the required values in both files. The web app needs the Supabase URL
+and anon key, plus `NEXT_PUBLIC_API_URL` set to `http://localhost:8080` for the
+local Go API. The API needs its Supabase URL and database connection string.
+Provider credentials are needed for the workflows that use those providers;
+see the comments in each example file. Keep real credentials in the ignored
+local env files, never in commits.
 
-## Active backend direction
+Start the local stack:
 
-- `server/` is the Go application boundary.
-- `services/` hosts provider-specific adapters, with explicit contracts.
-- Supabase remains the infrastructure layer for PostgreSQL, auth, and storage.
-- The Go backend is responsible for auth, validation, permission enforcement,
-  orchestration, execution, job state, and retries.
+```bash
+pnpm dev
+```
 
-## Legacy compatibility
+The root command runs `dev.sh`: it builds and starts the Go API first, waits
+for its health endpoint, then starts the web app. By default, the web app is at
+`http://localhost:3000` and the API is at `http://localhost:8080`. Logs are
+written to `.dev-logs/`; press Ctrl+C to stop both processes. The API applies
+database migrations during startup.
 
-The repository still contains the previous Node and Supabase implementation while
-we migrate the system. This is intentional: the reset establishes a clean
-boundary without discarding the working UI prematurely. The preserved frontend
-remains the source of truth for user experience while the new Go backend is
-introduced underneath it.
+Do not run `turbo run dev` from the repository root. The curated startup script
+starts services sequentially to avoid running multiple cold-starting compilers
+at once.
 
-## Verification and next steps
+## Common commands
 
-- Backup branch: `backup/pre-reset-2026-10-11`
-- Application branch: `Feranmibranches`
-- Default remote branch: `origin/main`
+| Command                      | Description                                     |
+| ---------------------------- | ----------------------------------------------- |
+| `pnpm dev`                   | Start the local API and web app.                |
+| `pnpm build`                 | Build all Turbo workspaces.                     |
+| `pnpm lint`                  | Lint all workspaces.                            |
+| `pnpm typecheck`             | Type-check all workspaces.                      |
+| `pnpm verify`                | Run the workspace build, lint, and type checks. |
+| `cd server && go test ./...` | Run Go API tests.                               |
 
-The next implementation phase is to move the business orchestration and provider
-contracts from the legacy implementation into the Go service layer while keeping
-frontend behavior stable.
+## Further reading
+
+- [Web client guide](client/README.md): frontend setup, commands, and source layout.
+- [Go API guide](server/README.md): API routes, authentication, asynchronous
+  workflows, configuration, deployment, and Go tests.

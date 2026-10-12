@@ -9,6 +9,7 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"github.com/google/uuid"
 )
@@ -22,7 +23,7 @@ type ChatService interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]chat.Conversation, error)
 	Thread(ctx context.Context, userID, id string) (chat.Conversation, []chat.Message, error)
 	Archive(ctx context.Context, userID, id string) error
-	Send(ctx context.Context, userID, conversationID, content, key string) (chat.Exchange, error)
+	Send(ctx context.Context, userID, conversationID, content, key string, attachments []string) (chat.Exchange, error)
 }
 
 func (a *App) createConversation(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +115,8 @@ func (a *App) sendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Content string `json:"content"`
+		Content     string   `json:"content"`
+		Attachments []string `json:"attachments"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -126,7 +128,7 @@ func (a *App) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), turnTimeout)
 	defer cancel()
-	exchange, err := a.deps.Chat.Send(ctx, identity.UserID, id, req.Content, r.Header.Get("Idempotency-Key"))
+	exchange, err := a.deps.Chat.Send(ctx, identity.UserID, id, req.Content, r.Header.Get("Idempotency-Key"), req.Attachments)
 	if err != nil {
 		a.chatError(w, r, err)
 		return
@@ -146,6 +148,9 @@ func (a *App) chatError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, chat.ErrBusy):
 		w.Header().Set("Retry-After", "30")
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have too many active workflows; wait for one to finish")
+	case errors.Is(err, media.ErrNotFound), errors.Is(err, media.ErrUnsupported), errors.Is(err, media.ErrTooLarge),
+		errors.Is(err, media.ErrNotUploaded), errors.Is(err, media.ErrInvalid):
+		a.mediaError(w, r, err)
 	case writeCreditError(w, err):
 	default:
 		var providerErr *provider.Error
