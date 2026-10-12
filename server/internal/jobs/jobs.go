@@ -27,6 +27,8 @@ type Job struct {
 	UserID      string         `json:"user_id"`
 	Type        string         `json:"type"`
 	Status      Status         `json:"status"`
+	Stage       string         `json:"stage,omitempty"`
+	Progress    int            `json:"progress"`
 	Input       map[string]any `json:"input"`
 	Result      map[string]any `json:"result"`
 	Error       string         `json:"error,omitempty"`
@@ -35,13 +37,25 @@ type Job struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 	StartedAt   *time.Time     `json:"started_at,omitempty"`
 	CompletedAt *time.Time     `json:"completed_at,omitempty"`
+
+	// Internal bookkeeping, never serialised to clients.
+	ProviderTaskID string     `json:"-"`
+	IdempotencyKey string     `json:"-"`
+	NextRunAt      *time.Time `json:"-"`
 }
 
-// Change describes a lifecycle step applied by Repository.Transition.
-type Change struct {
-	To     Status
-	Result map[string]any
-	Error  string
+// Update is a system-side change applied by a worker. Zero values mean "leave
+// unchanged"; the store validates the status transition against the row it locks.
+type Update struct {
+	Status         Status
+	Stage          *string
+	Progress       *int
+	ProviderTaskID *string
+	Result         map[string]any
+	Error          string
+	RetryDelta     int
+	// NextRun reschedules a non-terminal job. Terminal jobs are never rescheduled.
+	NextRun *time.Time
 }
 
 // transitions is the full lifecycle. Completed, failed and ready are terminal.

@@ -2,39 +2,113 @@ package main
 
 import (
 	"context"
-	"log"
+	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/apify"
+	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
+	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
+	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
+	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
+	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
+	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
+	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
+	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
+	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
+	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
+	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
+	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
+	"github.com/Ferousco-dev/beyond-social/server/internal/worker"
+	"github.com/Ferousco-dev/beyond-social/server/migrations"
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("server exited", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cfg, err := config.LoadFromEnv()
 	if err != nil {
-		log.Fatalf("configuration error: %v", err)
+		return err
 	}
+	slog.SetDefault(newLogger(cfg))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	pool, err := database.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("database connection failed: %v", err)
+		return err
 	}
 	defer pool.Close()
 
-	if err := database.ApplyMigrations(ctx, pool, "migrations"); err != nil {
-		log.Fatalf("database migration failed: %v", err)
+	if err := database.ApplyMigrations(ctx, pool, migrations.FS); err != nil {
+		return err
 	}
 
-	jobStore := database.NewJobStore(pool)
-	app := httpserver.NewApp(cfg, jobStore)
+	hub := realtime.NewHub()
+	jobService := jobs.NewService(database.NewJobStore(pool), hub)
+	discoveryStore := database.NewDiscoveryStore(pool)
+	discoveryService := discovery.NewService(discoveryStore, hub)
+
+	apifyClient := apify.NewClient(cfg.APIFYToken)
+	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
+	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub)
+	transformProcessor := &transform.Processor{
+		Jobs:        jobService,
+		Provider:    kie.NewClient(cfg.KIEAPIKey),
+		Fetcher:     safenet.NewFetcher(45 * time.Second),
+		Resolver:    transform.ApifyResolver{API: apifyClient, Actors: actors},
+		CallbackURL: cfg.KIECallbackURL(),
+	}
+
+	heygenClient := heygen.NewClient(cfg.HeygenAPIKey)
+	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
+	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
+	avatarStore := database.NewAvatarStore(pool)
+	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService)
+	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore}
+	videoProcessor := &avatarvideo.Processor{
+		Jobs: jobService, Avatars: avatarService, Provider: heygenClient, CallbackURL: cfg.HeygenCallbackURL(),
+	}
+
+	app := httpserver.NewApp(httpserver.Deps{
+		Accounts:            accounts.NewService(database.NewProfileStore(pool)),
+		Avatars:             avatarService,
+		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
+		Voices:              voiceService,
+		AvatarVideo:         avatarvideo.NewService(jobService, avatarService, voiceService),
+		Videos:              videoProcessor,
+		VideoReconciler:     videoProcessor,
+		HeygenWebhookSecret: cfg.HeygenWebhookSecret,
+		Jobs:                jobService,
+		Discovery:           discoveryService,
+		Transform:           transform.NewService(jobService, discoveryService),
+		Reconciler:          transformProcessor,
+		WebhookHMACKey:      cfg.KIEWebhookHMACKey,
+		Verifier: auth.NewVerifier(auth.Options{
+			Issuer:      cfg.Issuer(),
+			JWKSURL:     cfg.JWKSURL(),
+			HS256Secret: cfg.SupabaseJWTSecret,
+		}),
+		Database:       pool,
+		Hub:            hub,
+		AllowedOrigins: cfg.AllowedOrigins,
+	})
+
 	srv := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
 		Handler:           app.Handler(),
@@ -43,20 +117,76 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
+	workers := make(chan struct{})
 	go func() {
-		log.Printf("server listening on %s", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("http server error: %v", err)
-			stop()
-		}
+		defer close(workers)
+		worker.Run(ctx, 2*time.Second,
+			&worker.Pool[discovery.Discovery]{
+				Name: "discovery", Capacity: 3, Timeout: 2 * time.Minute,
+				Claim: func(ctx context.Context, n int) ([]discovery.Discovery, error) {
+					return discoveryStore.Claim(ctx, n, discovery.Lease)
+				},
+				Handle: discoveryProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "video_transform", Capacity: 4, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, transform.JobType, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[avatars.Avatar]{
+				Name: "avatars", Capacity: 3, Timeout: time.Minute,
+				Claim: func(ctx context.Context, n int) ([]avatars.Avatar, error) {
+					return avatarStore.Claim(ctx, n, avatars.Lease)
+				},
+				Handle: avatarProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "avatar_video", Capacity: 4, Timeout: avatarvideo.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, avatarvideo.JobType, n, avatarvideo.Lease)
+				},
+				Handle: videoProcessor.Handle,
+			},
+		)
 	}()
 
-	<-ctx.Done()
+	serveErr := make(chan error, 1)
+	go func() {
+		slog.Info("server listening", "addr", srv.Addr, "env", cfg.Environment)
+		serveErr <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+	}
+
+	slog.Info("shutting down")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("graceful shutdown error: %v", err)
+	// Hijacked WebSocket connections are invisible to srv.Shutdown, so the hub
+	// closes them itself.
+	hub.Close(shutdownCtx)
+	select {
+	case <-workers:
+	case <-shutdownCtx.Done():
+		slog.Warn("background work did not finish before the shutdown deadline; leases will expire and it will resume")
 	}
-	log.Println("server stopped cleanly")
+	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	slog.Info("server stopped cleanly")
+	return nil
+}
+
+func newLogger(cfg config.Config) *slog.Logger {
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
+		level = slog.LevelInfo
+	}
+	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
 }

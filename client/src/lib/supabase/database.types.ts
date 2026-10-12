@@ -558,6 +558,12 @@ export type Database = {
       heygen_avatars: {
         Row: {
           consent_at: string | null
+          consent_reroute_url: string | null
+          footage_deleted_at: string | null
+          idempotency_key: string | null
+          next_run_at: string | null
+          selected_voice_id: string | null
+          submit_started_at: string | null
           consent_version: number
           created_at: string
           id: string
@@ -573,7 +579,7 @@ export type Database = {
           provider_preview_image_url: string | null
           provider_preview_video_url: string | null
           provider_voice_id: string | null
-          storage_path: string
+          storage_path: string | null
           trained_at: string | null
           training_claimed_at: string | null
           training_request_id: string | null
@@ -583,6 +589,12 @@ export type Database = {
         }
         Insert: {
           consent_at?: string | null
+          consent_reroute_url?: string | null
+          footage_deleted_at?: string | null
+          idempotency_key?: string | null
+          next_run_at?: string | null
+          selected_voice_id?: string | null
+          submit_started_at?: string | null
           consent_version: number
           created_at?: string
           id?: string
@@ -598,7 +610,7 @@ export type Database = {
           provider_preview_image_url?: string | null
           provider_preview_video_url?: string | null
           provider_voice_id?: string | null
-          storage_path: string
+          storage_path?: string | null
           trained_at?: string | null
           training_claimed_at?: string | null
           training_request_id?: string | null
@@ -608,6 +620,12 @@ export type Database = {
         }
         Update: {
           consent_at?: string | null
+          consent_reroute_url?: string | null
+          footage_deleted_at?: string | null
+          idempotency_key?: string | null
+          next_run_at?: string | null
+          selected_voice_id?: string | null
+          submit_started_at?: string | null
           consent_version?: number
           created_at?: string
           id?: string
@@ -623,7 +641,7 @@ export type Database = {
           provider_preview_image_url?: string | null
           provider_preview_video_url?: string | null
           provider_voice_id?: string | null
-          storage_path?: string
+          storage_path?: string | null
           trained_at?: string | null
           training_claimed_at?: string | null
           training_request_id?: string | null

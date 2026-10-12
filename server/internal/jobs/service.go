@@ -3,37 +3,41 @@ package jobs
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 )
 
-// Repository persists jobs. Every method that takes a userID must only ever
-// see or change rows owned by that user; a row owned by someone else is
-// indistinguishable from a missing one and yields ErrNotFound.
+// Repository persists jobs. Methods that take a userID only ever see or change
+// rows owned by that user; a row owned by someone else is indistinguishable
+// from a missing one and yields ErrNotFound. Methods without a userID are for
+// the trusted worker, which acts on rows it has already claimed.
 type Repository interface {
-	Create(ctx context.Context, job Job) (Job, error)
+	// Create inserts the job. With an idempotency key, a repeat returns the
+	// original job and created=false instead of inserting a duplicate.
+	Create(ctx context.Context, job Job) (created Job, isNew bool, err error)
 	List(ctx context.Context, userID string, limit, offset int) ([]Job, error)
 	Get(ctx context.Context, userID, jobID string) (Job, error)
-	Transition(ctx context.Context, userID, jobID string, change Change) (Job, error)
-}
+	CountActive(ctx context.Context, userID, jobType string) (int, error)
 
-// Publisher fans events out to the owning user's live connections. It must
-// never block: a slow or absent client cannot be allowed to stall job work.
-type Publisher interface {
-	Publish(userID string, event realtime.Event)
+	// Claim leases up to limit due jobs of a type, pushing their next_run_at
+	// out by lease so a crashed worker's jobs become due again on their own.
+	Claim(ctx context.Context, jobType string, limit int, lease time.Duration) ([]Job, error)
+	Advance(ctx context.Context, jobID string, update Update) (Job, error)
+	ByProviderTask(ctx context.Context, taskID string) (Job, error)
 }
 
 const (
-	EventCreated = "job.created"
 	EventUpdated = "job.updated"
+	EventCreated = "job.created"
 )
 
 type Service struct {
 	repo      Repository
-	publisher Publisher
+	publisher realtime.Publisher
 }
 
-func NewService(repo Repository, publisher Publisher) *Service {
+func NewService(repo Repository, publisher realtime.Publisher) *Service {
 	return &Service{repo: repo, publisher: publisher}
 }
 
@@ -42,30 +46,48 @@ type Page struct {
 	HasMore bool
 }
 
-func (s *Service) Create(ctx context.Context, userID, jobType string, input map[string]any) (Job, error) {
+// Create returns the job and whether it is new. A repeated idempotency key
+// yields the original job unchanged, without a second event.
+func (s *Service) Create(ctx context.Context, userID, jobType string, input map[string]any, idempotencyKey string) (Job, bool, error) {
 	job, err := NewJob(userID, jobType, input)
 	if err != nil {
-		return Job{}, err
+		return Job{}, false, err
 	}
-	created, err := s.repo.Create(ctx, job)
+	job.IdempotencyKey = idempotencyKey
+	created, isNew, err := s.repo.Create(ctx, job)
 	if err != nil {
-		return Job{}, err
+		return Job{}, false, err
 	}
-	s.publish(EventCreated, created)
-	return created, nil
+	if isNew {
+		s.Publish(EventCreated, created)
+	}
+	return created, isNew, nil
 }
 
-func (s *Service) Transition(ctx context.Context, userID, jobID string, change Change) (Job, error) {
-	updated, err := s.repo.Transition(ctx, userID, jobID, change)
+// Advance applies a worker update and tells the owner about it.
+func (s *Service) Advance(ctx context.Context, jobID string, update Update) (Job, error) {
+	updated, err := s.repo.Advance(ctx, jobID, update)
 	if err != nil {
 		return Job{}, err
 	}
-	s.publish(EventUpdated, updated)
+	s.Publish(EventUpdated, updated)
 	return updated, nil
 }
 
 func (s *Service) Get(ctx context.Context, userID, jobID string) (Job, error) {
 	return s.repo.Get(ctx, userID, jobID)
+}
+
+func (s *Service) CountActive(ctx context.Context, userID, jobType string) (int, error) {
+	return s.repo.CountActive(ctx, userID, jobType)
+}
+
+func (s *Service) Claim(ctx context.Context, jobType string, limit int, lease time.Duration) ([]Job, error) {
+	return s.repo.Claim(ctx, jobType, limit, lease)
+}
+
+func (s *Service) ByProviderTask(ctx context.Context, taskID string) (Job, error) {
+	return s.repo.ByProviderTask(ctx, taskID)
 }
 
 // List reads one extra row to learn whether another page exists.
@@ -80,7 +102,8 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) (P
 	return Page{Jobs: rows}, nil
 }
 
-func (s *Service) publish(eventType string, job Job) {
+// Publish pushes a job event to its owner. Safe to call without a publisher.
+func (s *Service) Publish(eventType string, job Job) {
 	if s.publisher == nil {
 		return
 	}

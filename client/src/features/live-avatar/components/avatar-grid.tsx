@@ -159,6 +159,7 @@ export function AvatarGrid({
               // this row is still training, so nothing can use it yet either
               // way. The refresh above replaces it with the real value.
               voiceReady: false,
+              voiceId: null,
             },
           ]);
         }

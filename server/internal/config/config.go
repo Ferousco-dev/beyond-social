@@ -28,8 +28,43 @@ type Config struct {
 	// HS256 secret. Projects on asymmetric signing keys are verified via JWKS.
 	SupabaseJWTSecret string
 
+	APIFYToken string
+	KIEAPIKey  string
+	// KIEWebhookHMACKey verifies callback signatures. Optional: without it
+	// callbacks are treated as hints only and the API is always re-queried.
+	KIEWebhookHMACKey string
+	// PublicBaseURL is where KIE can reach this service. Optional: without it
+	// no callback URL is sent and progress is tracked by polling alone.
+	PublicBaseURL       string
+	APIFYTikTokActor    string
+	APIFYInstagramActor string
+
+	HeygenAPIKey string
+	// HeygenWebhookSecret verifies webhook signatures. Optional: without it
+	// callbacks are treated as hints and the video is always re-read from HeyGen.
+	HeygenWebhookSecret string
+	// SupabaseServiceRoleKey lets the service hand a private recording to HeyGen
+	// through a signed URL and delete it afterwards. Server-side only.
+	SupabaseServiceRoleKey string
+
 	AllowedOrigins  []string
 	ShutdownTimeout time.Duration
+}
+
+// HeygenCallbackURL is the URL given to HeyGen, or empty when callbacks are disabled.
+func (c Config) HeygenCallbackURL() string {
+	if c.PublicBaseURL == "" {
+		return ""
+	}
+	return c.PublicBaseURL + "/api/v1/callbacks/heygen"
+}
+
+// KIECallbackURL is the URL given to KIE, or empty when callbacks are disabled.
+func (c Config) KIECallbackURL() string {
+	if c.PublicBaseURL == "" {
+		return ""
+	}
+	return c.PublicBaseURL + "/api/v1/callbacks/kie"
 }
 
 func (c Config) IsProduction() bool { return c.Environment == EnvProduction }
@@ -49,6 +84,17 @@ func LoadFromEnv() (Config, error) {
 		SupabaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("SUPABASE_URL")), "/"),
 		SupabaseJWTSecret: strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
 		AllowedOrigins:    splitList(os.Getenv("WEBSOCKET_ALLOWED_ORIGINS")),
+
+		APIFYToken:          strings.TrimSpace(os.Getenv("APIFY_API_TOKEN")),
+		KIEAPIKey:           strings.TrimSpace(os.Getenv("KIE_API_KEY")),
+		KIEWebhookHMACKey:   strings.TrimSpace(os.Getenv("KIE_WEBHOOK_HMAC_KEY")),
+		PublicBaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")), "/"),
+		APIFYTikTokActor:    strings.TrimSpace(os.Getenv("APIFY_TIKTOK_ACTOR")),
+		APIFYInstagramActor: strings.TrimSpace(os.Getenv("APIFY_INSTAGRAM_ACTOR")),
+
+		HeygenAPIKey:           strings.TrimSpace(os.Getenv("HEYGEN_API_KEY")),
+		HeygenWebhookSecret:    strings.TrimSpace(os.Getenv("HEYGEN_WEBHOOK_SECRET")),
+		SupabaseServiceRoleKey: strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY")),
 	}
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {
@@ -69,6 +115,22 @@ func LoadFromEnv() (Config, error) {
 		return Config{}, errors.New("SUPABASE_URL must use https in production")
 	}
 
+	if cfg.APIFYToken == "" {
+		return Config{}, errors.New("APIFY_API_TOKEN is required")
+	}
+	if cfg.KIEAPIKey == "" {
+		return Config{}, errors.New("KIE_API_KEY is required")
+	}
+	if cfg.HeygenAPIKey == "" {
+		return Config{}, errors.New("HEYGEN_API_KEY is required")
+	}
+	if cfg.SupabaseServiceRoleKey == "" {
+		return Config{}, errors.New("SUPABASE_SERVICE_ROLE_KEY is required")
+	}
+	if err := validatePublicURL(cfg); err != nil {
+		return Config{}, err
+	}
+
 	if cfg.DatabaseURL == "" {
 		if cfg.IsProduction() {
 			return Config{}, errors.New("DATABASE_URL is required in production")
@@ -87,6 +149,17 @@ func LoadFromEnv() (Config, error) {
 	cfg.ShutdownTimeout = timeout
 
 	return cfg, nil
+}
+
+func validatePublicURL(cfg Config) error {
+	if cfg.PublicBaseURL == "" {
+		return nil
+	}
+	u, err := url.Parse(cfg.PublicBaseURL)
+	if err != nil || u.Host == "" || (u.Scheme != "https" && !(u.Scheme == "http" && !cfg.IsProduction())) {
+		return errors.New("PUBLIC_BASE_URL must be an absolute https URL")
+	}
+	return nil
 }
 
 func validateOrigins(cfg Config) error {

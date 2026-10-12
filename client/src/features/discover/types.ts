@@ -31,6 +31,11 @@ export interface DiscoverPost {
   readonly hashtags: readonly string[];
   /** TikTok's own transcription of the speech, when it gave us one. */
   readonly transcript: string | null;
+  /**
+   * The Go API's id for this video, which is what a transformation is started
+   * from. Null for posts that did not come through a stored discovery.
+   */
+  readonly discoveryVideoId: string | null;
 }
 
 export type DiscoverResult =

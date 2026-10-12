@@ -1,15 +1,13 @@
 "use server";
 
-import { isSupabaseConfigured } from "@/lib/env";
-import { logger } from "@/lib/logger";
-import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
+
+import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
+import { avatarResponse, avatarsListResponse, type GoAvatar } from "@/lib/go-api/schemas";
 
 /**
- * Reading and erasing the caller's twin.
- *
- * The erase is a thin pass to the edge function, which is where it belongs: it
- * has to reach the provider, and a server action cannot hold the key that talks
- * to one.
+ * Reading and erasing the caller's avatars. All of it is a request to the Go
+ * API, which owns the data, the HeyGen account and the deletion rules.
  */
 
 export interface TwinSummary {
@@ -30,117 +28,63 @@ export interface TwinSummary {
   readonly previewVideoUrl: string | null;
   /** A short-lived signed URL to the original recording for older twins. */
   readonly recordingUrl: string | null;
-  /**
-   * Whether this account has a cloned voice a trained twin can actually speak
-   * in. Account-level, not per-avatar: "my voice" is one thing, shared by
-   * every avatar. A twin with `trainingStatus === "ready"` but `voiceReady`
-   * false is only half done, which is what makes it unusable — the render
-   * path (`generate-heygen-avatar/twin.ts`) refuses it for the same reason.
-   */
+  /** Whether the avatar has a voice to speak in. HeyGen clones one from the recording. */
   readonly voiceReady: boolean;
+  /** The HeyGen voice this avatar speaks with, when one is chosen. */
+  readonly voiceId: string | null;
 }
 
-/** Everything this person has recorded, newest first, default first of all. */
+const ownerId = z.string().uuid();
+
+function toSummary(avatar: GoAvatar): TwinSummary {
+  return {
+    id: avatar.id,
+    name: avatar.name,
+    trainingStatus: avatar.status === "ready" ? "ready" : avatar.status === "failed" ? "failed" : "pending",
+    isDefault: avatar.is_default,
+    createdAt: avatar.created_at,
+    error: avatar.error ?? null,
+    consentUrl: avatar.consent_url ?? null,
+    // The API drops a consent link once it has expired.
+    consentUrlExpired: false,
+    previewImageUrl: avatar.preview_image_url ?? null,
+    previewVideoUrl: avatar.preview_video_url ?? null,
+    // The recording is deleted as soon as training finishes.
+    recordingUrl: null,
+    voiceReady: avatar.voice_id !== undefined,
+    voiceId: avatar.voice_id ?? null,
+  };
+}
+
+/** Everything this person has recorded, default first, newest next. */
 export async function listTwins(): Promise<readonly TwinSummary[]> {
-  if (!isSupabaseConfigured) return [];
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return [];
-
-  const [{ data }, { data: voiceRow }] = await Promise.all([
-    supabase
-      .from("heygen_avatars")
-      .select(
-        "id, name, training_status, is_default, created_at, storage_path, provider_error, provider_consent_url, provider_consent_url_expires_at, provider_preview_image_url, provider_preview_video_url",
-      )
-      .eq("user_id", user.id)
-      .order("is_default", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase.from("voice_profiles").select("clone_status").eq("user_id", user.id).maybeSingle(),
-  ]);
-  const voiceReady = voiceRow?.clone_status === "ready";
-
-  const rows = (data ?? []) as {
-    id: string;
-    name: string | null;
-    training_status: TwinSummary["trainingStatus"];
-    is_default: boolean;
-    created_at: string;
-    provider_error: string | null;
-    provider_consent_url: string | null;
-    provider_consent_url_expires_at: string | null;
-    provider_preview_image_url: string | null;
-    provider_preview_video_url: string | null;
-    storage_path: string;
-  }[];
-
-  return Promise.all(rows.map(async (row) => {
-    const { data: recording } = await supabase.storage
-      .from("avatar-footage")
-      .createSignedUrl(row.storage_path, 10 * 60);
-
-    return {
-    id: row.id,
-    name: row.name,
-    trainingStatus: row.training_status,
-    isDefault: row.is_default,
-    createdAt: row.created_at,
-    error: row.provider_error,
-    consentUrl: row.provider_consent_url,
-    consentUrlExpired: row.provider_consent_url_expires_at
-      ? Date.parse(row.provider_consent_url_expires_at) <= Date.now()
-      : false,
-    previewImageUrl: row.provider_preview_image_url,
-    previewVideoUrl: row.provider_preview_video_url,
-    recordingUrl: recording?.signedUrl ?? null,
-    voiceReady,
-    };
-  }));
+  if (!isGoApiConfigured()) return [];
+  const result = await goApi("/api/v1/avatars?limit=50", avatarsListResponse);
+  return result.ok ? result.data.data.map(toSummary) : [];
 }
 
 export type DeleteResult = { status: "ok" } | { status: "error"; message: string };
 
 /**
- * Erases one avatar, here and at the provider.
- *
- * A provider refusal is surfaced rather than swallowed. Telling somebody their
- * likeness is gone while it is still trained somewhere else is the one answer
- * this must never give.
+ * Erases one avatar, at HeyGen and here. A provider refusal is surfaced rather
+ * than swallowed: telling somebody their likeness is gone while it is still
+ * trained somewhere else is the one answer this must never give.
  */
 export async function deleteTwin(avatarId: string): Promise<DeleteResult> {
-  if (!isSupabaseConfigured) return { status: "error", message: "Deletion is not configured" };
+  if (!ownerId.safeParse(avatarId).success) return { status: "error", message: "Unknown avatar." };
+  if (!isGoApiConfigured()) return { status: "error", message: "Deletion is not configured" };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Sign in again to delete your avatar" };
-
-  const { error } = await supabase.functions.invoke("delete-heygen-avatar", {
-    body: { avatarId },
-  });
-  if (error) {
-    logger.warn("could not delete a twin", { error: error.message });
-    return {
-      status: "error",
-      message: "Your avatar could not be deleted just now. Nothing was removed; try again.",
-    };
-  }
-
-  return { status: "ok" };
+  const result = await goApi(`/api/v1/avatars/${avatarId}`, z.null(), { method: "DELETE" });
+  return result.ok
+    ? { status: "ok" }
+    : { status: "error", message: "Your avatar could not be deleted just now. Nothing was removed; try again." };
 }
 
 /** Chooses which avatar speaks when a generation does not name one. */
 export async function makeDefaultTwin(avatarId: string): Promise<DeleteResult> {
-  if (!isSupabaseConfigured) return { status: "error", message: "Not configured" };
+  if (!ownerId.safeParse(avatarId).success) return { status: "error", message: "Unknown avatar." };
+  if (!isGoApiConfigured()) return { status: "error", message: "Not configured" };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("set_default_avatar", { p_avatar: avatarId });
-  if (error || data !== true) {
-    return { status: "error", message: "That avatar could not be made the default." };
-  }
-  return { status: "ok" };
+  const result = await goApi(`/api/v1/avatars/${avatarId}/default`, avatarResponse, { method: "POST" });
+  return result.ok ? { status: "ok" } : { status: "error", message: "That avatar could not be made the default." };
 }

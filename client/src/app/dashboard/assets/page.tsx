@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { listTwins } from "@/features/live-avatar/delete-actions";
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
+import { AvatarVideoPanel } from "@/features/live-avatar/components/avatar-video-panel";
 import { getVoiceProfile } from "@/features/voice/actions";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { enrollmentPhrase } from "@/lib/voice/phrase";
@@ -43,6 +44,8 @@ export default async function AssetsPage() {
         voiceProfile={voiceProfile}
         voicePhrase={enrollmentPhrase(user.name)}
       />
+
+      <AvatarVideoPanel twins={twins} />
     </div>
   );
 }

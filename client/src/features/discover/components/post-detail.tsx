@@ -7,6 +7,8 @@ import { creditWord } from "@/lib/generation/confirm-model";
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 
+import { TransformPanel } from "@/features/transform/components/transform-panel";
+
 import { PLATFORM_NAME, formatViews } from "../lib/platforms";
 import { type DiscoverPost } from "../types";
 import { Spinner } from "@/components/ui/spinner";
@@ -151,6 +153,11 @@ export function PostDetail({
           <ExternalLink className="size-3.5" aria-hidden />
         </a>
       </div>
+
+      {post.discoveryVideoId ? (
+        // Keyed so choosing another post starts from a clean panel.
+        <TransformPanel key={post.discoveryVideoId} videoId={post.discoveryVideoId} />
+      ) : null}
     </div>
   );
 }

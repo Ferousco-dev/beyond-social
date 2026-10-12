@@ -7,6 +7,17 @@ const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..
 
 const isDev = process.env.NODE_ENV !== "production";
 
+// The browser talks to the Go API directly in two places: the live-status
+// WebSocket and the phone recorder. Both need the API in connect-src.
+const apiOrigins = (() => {
+  try {
+    const url = process.env.NEXT_PUBLIC_API_URL ? new URL(process.env.NEXT_PUBLIC_API_URL) : null;
+    return url ? `${url.origin} ${url.origin.replace(/^http/, "ws")}` : "";
+  } catch {
+    return "";
+  }
+})();
+
 // Scoped Content-Security-Policy. Scripts still allow 'unsafe-inline' because
 // the App Router injects inline bootstrap scripts without a nonce; tightening
 // this to a nonce-based policy is tracked in docs/production-readiness.md.
@@ -29,7 +40,7 @@ const csp = [
   // production policy let any script on the page reach a service on the
   // visitor's own machine, which is a hole opened for our convenience and paid
   // for by them.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${apiOrigins ? ` ${apiOrigins}` : ""}${
     isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : ""
   }`,
   /*

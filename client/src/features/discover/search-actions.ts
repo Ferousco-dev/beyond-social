@@ -2,43 +2,28 @@
 
 import { z } from "zod";
 
+import { isGoApiConfigured } from "@/lib/go-api/client";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { resolveCountryCode } from "@/lib/social-scrape/country";
-import { isScrapeConfigured, searchPosts } from "@/lib/social-scrape/search";
 import { SCRAPE_PLATFORMS } from "@/lib/social-scrape/types";
 
-import { type DiscoverPost, type DiscoverResult } from "./types";
+import { runDiscovery } from "./go-discovery";
+import { type DiscoverResult } from "./types";
 
 /**
  * Searching a platform from the scroller.
  *
- * Through Apify. TikTok's own Research API was the first route and is gone: it
- * is the more authoritative of the two and reports a real transcript, but access
- * is granted case by case and commercial products are usually refused, so it was
- * a dependency on something that might never arrive. It is in the history if it
- * is ever worth reviving.
+ * The search itself now runs on the Go API, which calls Apify, keeps the
+ * user's search history, and enforces per-user limits. This action only checks
+ * the input and the session and passes the request on, so the Apify token and
+ * all provider handling stay on the Go side.
  *
- * The search runs on the server because the token does. What comes back is a
- * list of real posts, which the scroller then embeds one at a time.
+ * Paging is still done client-side from the one set returned: a second Apify
+ * run is a second charge and returns an overlapping page.
  */
-
-/**
- * How many one run fetches.
- *
- * Paging is done client-side from this set rather than by running the actor
- * again. A second run is a second charge and returns an overlapping page, since
- * neither actor takes a reliable offset, so "show more" would cost real money
- * to mostly repeat itself. Fetching more up front costs one larger run, and the
- * cache holds the whole set, so every later page and every repeat search is
- * free.
- */
-const RESULT_LIMIT = 60;
 
 const schema = z.object({
   query: z.string().trim().min(2, "Search for something a little longer").max(80),
-  // The Instagram scraper has been in `social-scrape` since the pivot and
-  // nothing could reach it, because this action named TikTok directly.
   platform: z.enum(SCRAPE_PLATFORMS).default("tiktok"),
 });
 
@@ -48,53 +33,18 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Try another search" };
   }
 
-  // Signed-in only. This spends a rate-limited quota against our own TikTok
-  // credentials, so it is not something an anonymous visitor gets to drive.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in to search." };
 
-  if (!isScrapeConfigured()) return { status: "unconfigured" };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
 
-  try {
-    const { platform } = parsed.data;
-    const countryCode = await resolveCountryCode();
-    const posts = await searchPosts(platform, parsed.data.query, RESULT_LIMIT, countryCode);
-    if (posts.length === 0) return { status: "ok", posts: [], countryCode };
-
-    /*
-     * Poster lookups are nice to have but not required for the result set. They
-     * are a second network round trip per search and they block the page from
-     * rendering while we wait for a CDN URL that is not required to open a post.
-     * The app should show the search results as soon as the scraper returns them,
-     * then enrich thumbnails opportunistically rather than making the search
-     * itself feel slow.
-     */
-    const results: DiscoverPost[] = posts.map((post) => ({
-      platform: post.platform,
-      videoId: post.videoId,
-      handle: post.handle,
-      url: post.url,
-      caption: post.description,
-      viewCount: post.viewCount,
-      thumbnailUrl: post.thumbnailUrl ?? null,
-      showsPerson: post.showsPerson ?? null,
-      likeCount: post.likeCount,
-      commentCount: post.commentCount,
-      shareCount: post.shareCount,
-      durationSeconds: post.durationSeconds,
-      hashtags: post.hashtags,
-      transcript: post.transcript,
-    }));
-
-    return { status: "ok", posts: results, countryCode };
-  } catch (error) {
-    logger.error("social search failed", {
-      platform: parsed.data.platform,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return { status: "error", message: "Could not reach that platform just now." };
+  const outcome = await runDiscovery(parsed.data);
+  if (outcome.status === "failed") {
+    logger.warn("discovery failed", { platform: parsed.data.platform, message: outcome.message });
+    return { status: "error", message: outcome.message };
   }
+  return { status: "ok", posts: outcome.posts, countryCode: null };
 }

@@ -1,0 +1,43 @@
+# Render blueprint for the Go API. Supabase provides Postgres, Auth and Storage;
+# Render only runs the service. Secrets are entered once in the Render dashboard
+# (sync: false) and never live in this file.
+services:
+  - name: beyond-social-api
+    type: web
+    runtime: go
+    plan: 0.5c-512mb
+    region: oregon
+    rootDir: server
+    buildCommand: go build -o bin/api ./cmd/api
+    startCommand: ./bin/api
+    # Liveness only. /ready also checks the database and is for monitoring.
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Use Supabase's pooled connection string (Settings > Database > Connection
+      # pooling, "Session" mode). The direct host is IPv6 only and Render cannot
+      # reach it.
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # The deployed frontend origin(s), comma separated, e.g. https://app.example.com
+      - key: WEBSOCKET_ALLOWED_ORIGINS
+        sync: false
+      # This service's own public https URL, used for provider callbacks.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: APIFY_API_TOKEN
+        sync: false
+      - key: KIE_API_KEY
+        sync: false
+      - key: KIE_WEBHOOK_HMAC_KEY
+        sync: false
+      - key: HEYGEN_API_KEY
+        sync: false
+      - key: HEYGEN_WEBHOOK_SECRET
+        sync: false

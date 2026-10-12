@@ -7,6 +7,7 @@ type Identity struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email,omitempty"`
 	Role   string `json:"role,omitempty"`
+	Name   string `json:"name,omitempty"`
 }
 
 type contextKey struct{}

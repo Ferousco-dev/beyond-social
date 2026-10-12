@@ -3,57 +3,35 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+	cfg.MaxConns = 10
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.HealthCheckPeriod = time.Minute
+	cfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	// Describe-based execution avoids named prepared statements, which break
+	// behind Supabase's transaction-mode pooler.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create pgx pool: %w", err)
 	}
-	if err := pool.Ping(ctx); err != nil {
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 	return pool, nil
-}
-
-func ApplyMigrations(ctx context.Context, pool *pgxpool.Pool, dir string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("read migration directory: %w", err)
-	}
-
-	files := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
-			continue
-		}
-		files = append(files, entry.Name())
-	}
-	sort.Strings(files)
-
-	for _, file := range files {
-		path := filepath.Join(dir, file)
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("read migration %s: %w", file, err)
-		}
-		statements := strings.Split(string(content), ";")
-		for _, statement := range statements {
-			trimmed := strings.TrimSpace(statement)
-			if trimmed == "" {
-				continue
-			}
-			if _, err := pool.Exec(ctx, trimmed); err != nil {
-				return fmt.Errorf("apply migration %s: %w", file, err)
-			}
-		}
-	}
-	return nil
 }

@@ -4,17 +4,16 @@ import { z } from "zod";
 
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
-import { isScrapeConfigured, scrapePostByUrl } from "@/lib/social-scrape/search";
+import { isGoApiConfigured } from "@/lib/go-api/client";
 import { parseSocialUrl } from "@/lib/social-scrape/url";
-import { fetchPosters } from "@/lib/tiktok/oembed";
 
-import { toDiscoverPost } from "./map";
+import { runDiscovery } from "./go-discovery";
 import { type DiscoverPost } from "./types";
 
 /**
- * Scraping the one post someone pastes a link to, rather than searching for
- * it. The same route in for a link a person already has, alongside the
- * keyword search that is Discover's other way in.
+ * Looking up the one post someone pastes a link to, rather than searching for
+ * it. Runs through the Go API like a search, so the post is stored and can be
+ * transformed.
  */
 
 const schema = z.object({ url: z.string().trim().url().max(2000) });
@@ -40,23 +39,13 @@ export async function scrapePostFromUrl(input: z.input<typeof schema>): Promise<
   const target = parseSocialUrl(parsed.data.url);
   if (!target) return { status: "unrecognised" };
 
-  if (!isScrapeConfigured()) return { status: "unconfigured" };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
 
-  try {
-    const post = await scrapePostByUrl(target.platform, target.url);
-    if (!post) return { status: "not_found" };
-
-    const posters =
-      target.platform === "tiktok" && !post.thumbnailUrl
-        ? await fetchPosters([post.url])
-        : new Map<string, { thumbnailUrl: string | null }>();
-
-    return { status: "ok", post: toDiscoverPost(post, posters) };
-  } catch (error) {
-    logger.error("post url scrape failed", {
-      platform: target.platform,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  const outcome = await runDiscovery({ url: target.url });
+  if (outcome.status === "failed") {
+    logger.warn("post url discovery failed", { platform: target.platform, message: outcome.message });
     return { status: "error", message: "Could not reach that post just now." };
   }
+  const [post] = outcome.posts;
+  return post ? { status: "ok", post } : { status: "not_found" };
 }

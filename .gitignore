@@ -63,18 +63,16 @@ __pycache__/
 # Next.js generated types
 next-env.d.ts
 
-# Local brand source drop (copies live in apps/web/public/brand)
 logo/
 .vercel
-
-# Redis dump written by the native redis-server dev.sh starts.
 dump.rdb
-
-# Written by `deno check`, which is only ever run by hand against the edge
-# functions. It pins nothing the deploy uses, so it is noise in the tree.
 deno.lock
 .env*
 .dev-pid
 
 
 
+
+# Go build output
+server/bin/
+server/api

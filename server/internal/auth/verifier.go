@@ -38,6 +38,11 @@ type claims struct {
 	jwt.RegisteredClaims
 	Email string `json:"email"`
 	Role  string `json:"role"`
+	// Supabase copies the sign-up metadata (name) into the access token.
+	Meta struct {
+		FullName string `json:"full_name"`
+		Name     string `json:"name"`
+	} `json:"user_metadata"`
 }
 
 func NewVerifier(opts Options) *Verifier {
@@ -76,7 +81,11 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Identity, error) {
 	if _, err := uuid.Parse(c.Subject); err != nil {
 		return Identity{}, fmt.Errorf("%w: subject is not a user id", ErrInvalidToken)
 	}
-	return Identity{UserID: c.Subject, Email: c.Email, Role: c.Role}, nil
+	name := c.Meta.FullName
+	if name == "" {
+		name = c.Meta.Name
+	}
+	return Identity{UserID: c.Subject, Email: c.Email, Role: c.Role, Name: name}, nil
 }
 
 func (v *Verifier) keyFor(ctx context.Context, t *jwt.Token) (any, error) {

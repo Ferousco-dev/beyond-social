@@ -21,3 +21,9 @@ func NewEvent(eventType, resourceID string, payload any) (Event, error) {
 	}
 	return Event{Type: eventType, ResourceID: resourceID, Timestamp: time.Now().UTC(), Payload: raw}, nil
 }
+
+// Publisher fans events out to one user's live connections. Implementations
+// must never block: a slow or absent client cannot be allowed to stall work.
+type Publisher interface {
+	Publish(userID string, event Event)
+}
