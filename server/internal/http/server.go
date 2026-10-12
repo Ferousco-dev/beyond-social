@@ -28,6 +28,7 @@ type Deps struct {
 	Transform      *transform.Service
 	Reconciler     Reconciler
 	WebhookHMACKey string
+	Workflows      WorkflowService
 
 	Accounts            *accounts.Service
 	Avatars             *avatars.Service
@@ -97,6 +98,14 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/discover", protected(http.HandlerFunc(a.createDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}/videos", protected(http.HandlerFunc(a.listDiscoveryVideos)))
+	mux.Handle("POST /api/v1/workflows", protected(http.HandlerFunc(a.submitWorkflow)))
+	mux.Handle("GET /api/v1/workflows", protected(http.HandlerFunc(a.listWorkflows)))
+	mux.Handle("GET /api/v1/workflows/{id}", protected(http.HandlerFunc(a.getWorkflow)))
+	mux.Handle("POST /api/v1/workflows/{id}/approve", protected(http.HandlerFunc(a.approveWorkflow)))
+	mux.Handle("POST /api/v1/workflows/{id}/start", protected(http.HandlerFunc(a.startWorkflow)))
+	mux.Handle("POST /api/v1/workflows/{id}/cancel", protected(http.HandlerFunc(a.cancelWorkflow)))
+	mux.Handle("GET /api/v1/workflows/{id}/history", protected(http.HandlerFunc(a.getWorkflowHistory)))
+	mux.Handle("GET /api/v1/workflows/{id}/steps/{step}", protected(http.HandlerFunc(a.getWorkflowStep)))
 
 	return withRecover(withLogging(jsonRouting(mux)))
 }

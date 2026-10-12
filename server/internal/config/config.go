@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 )
 
 const (
@@ -46,6 +48,12 @@ type Config struct {
 	// SupabaseServiceRoleKey lets the service hand a private recording to HeyGen
 	// through a signed URL and delete it afterwards. Server-side only.
 	SupabaseServiceRoleKey string
+
+	// GeminiAPIKey authenticates workflow planning. Server-side only: the key
+	// must never reach the browser.
+	GeminiAPIKey string
+	// GeminiModel overrides the default planning model.
+	GeminiModel string
 
 	AllowedOrigins  []string
 	ShutdownTimeout time.Duration
@@ -95,6 +103,9 @@ func LoadFromEnv() (Config, error) {
 		HeygenAPIKey:           strings.TrimSpace(os.Getenv("HEYGEN_API_KEY")),
 		HeygenWebhookSecret:    strings.TrimSpace(os.Getenv("HEYGEN_WEBHOOK_SECRET")),
 		SupabaseServiceRoleKey: strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY")),
+
+		GeminiAPIKey: strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
+		GeminiModel:  strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 	}
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {
@@ -126,6 +137,12 @@ func LoadFromEnv() (Config, error) {
 	}
 	if cfg.SupabaseServiceRoleKey == "" {
 		return Config{}, errors.New("SUPABASE_SERVICE_ROLE_KEY is required")
+	}
+	if cfg.GeminiAPIKey == "" {
+		return Config{}, errors.New("GEMINI_API_KEY is required")
+	}
+	if cfg.GeminiModel == "" {
+		cfg.GeminiModel = gemini.DefaultModel
 	}
 	if err := validatePublicURL(cfg); err != nil {
 		return Config{}, err

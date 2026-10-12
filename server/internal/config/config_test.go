@@ -8,7 +8,7 @@ func setEnv(t *testing.T, values map[string]string) {
 	if _, skip := values["NO_PROVIDER_KEYS"]; !skip {
 		values = withProviderKeys(values)
 	}
-	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "HEYGEN_API_KEY", "HEYGEN_WEBHOOK_SECRET", "SUPABASE_SERVICE_ROLE_KEY"} {
+	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "HEYGEN_API_KEY", "HEYGEN_WEBHOOK_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL"} {
 		t.Setenv(key, values[key])
 	}
 }
@@ -69,7 +69,7 @@ func TestLoadFromEnvParsesOrigins(t *testing.T) {
 }
 
 func withProviderKeys(values map[string]string) map[string]string {
-	out := map[string]string{"APIFY_API_TOKEN": "apify-test", "KIE_API_KEY": "kie-test", "HEYGEN_API_KEY": "heygen-test", "SUPABASE_SERVICE_ROLE_KEY": "service-test"}
+	out := map[string]string{"APIFY_API_TOKEN": "apify-test", "KIE_API_KEY": "kie-test", "HEYGEN_API_KEY": "heygen-test", "SUPABASE_SERVICE_ROLE_KEY": "service-test", "GEMINI_API_KEY": "gemini-test"}
 	for k, v := range values {
 		out[k] = v
 	}
@@ -82,6 +82,7 @@ func TestLoadFromEnvRequiresProviderCredentials(t *testing.T) {
 		"no kie key":          {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "NO_PROVIDER_KEYS": "1"},
 		"no heygen key":       {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "SUPABASE_SERVICE_ROLE_KEY": "s", "NO_PROVIDER_KEYS": "1"},
 		"no service role key": {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "HEYGEN_API_KEY": "h", "NO_PROVIDER_KEYS": "1"},
+		"no gemini key":       {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "HEYGEN_API_KEY": "h", "SUPABASE_SERVICE_ROLE_KEY": "s", "NO_PROVIDER_KEYS": "1"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			setEnv(t, env)

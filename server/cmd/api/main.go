@@ -18,11 +18,13 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
+	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
@@ -85,6 +87,27 @@ func run() error {
 		Jobs: jobService, Avatars: avatarService, Provider: heygenClient, CallbackURL: cfg.HeygenCallbackURL(),
 	}
 
+	geminiClient, err := gemini.NewClient(gemini.Config{APIKey: cfg.GeminiAPIKey, Model: cfg.GeminiModel})
+	if err != nil {
+		return err
+	}
+	registry := orchestrator.DefaultRegistry()
+	planner := orchestrator.NewPlanner(geminiClient, registry)
+	orchestratorService, err := orchestrator.NewService(orchestrator.Deps{
+		Store:     database.NewWorkflowStore(pool),
+		Planner:   planner,
+		Registry:  registry,
+		Discovery: discoveryService,
+		Transform: transform.NewService(jobService, discoveryService),
+		AvatarVid: avatarvideo.NewService(jobService, avatarService, voiceService),
+		Jobs:      jobService,
+		Publisher: hub,
+		Credits:   orchestrator.NewApprovalGate(registry),
+	})
+	if err != nil {
+		return err
+	}
+
 	app := httpserver.NewApp(httpserver.Deps{
 		Accounts:            accounts.NewService(database.NewProfileStore(pool)),
 		Avatars:             avatarService,
@@ -99,6 +122,7 @@ func run() error {
 		Transform:           transform.NewService(jobService, discoveryService),
 		Reconciler:          transformProcessor,
 		WebhookHMACKey:      cfg.KIEWebhookHMACKey,
+		Workflows:           orchestratorService,
 		Verifier: auth.NewVerifier(auth.Options{
 			Issuer:      cfg.Issuer(),
 			JWKSURL:     cfg.JWKSURL(),
@@ -148,6 +172,13 @@ func run() error {
 					return jobService.Claim(ctx, avatarvideo.JobType, n, avatarvideo.Lease)
 				},
 				Handle: videoProcessor.Handle,
+			},
+			&worker.Pool[orchestrator.Workflow]{
+				Name: "workflows", Capacity: 4, Timeout: orchestrator.EngineTimeout,
+				Claim: func(ctx context.Context, n int) ([]orchestrator.Workflow, error) {
+					return orchestratorService.ClaimWorkflows(ctx, n)
+				},
+				Handle: orchestratorService.HandleWorkflow,
 			},
 		)
 	}()
