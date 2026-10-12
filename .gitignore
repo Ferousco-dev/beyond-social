@@ -74,7 +74,12 @@ __pycache__/
 # Next.js generated types
 next-env.d.ts
 
-logo/
+
 dump.rdb
 deno.lock
 docs/
+
+# Local-only project files
+/AGENTS.md
+/CLAUDE.md
+/dev.sh
