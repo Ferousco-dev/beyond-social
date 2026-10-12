@@ -21,13 +21,20 @@ build/
 **/.turbo/
 **/.vercel/
 
-# Environment
+# Environment and secrets: only the *.example templates are committed
 .env
-.env.local
-.env.*.local
 .env.*
+**/.env
+**/.env.*
 !.env.example
 !.env.*.example
+!**/.env.example
+!**/.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
 
 # Generated app metadata
 *.tsbuildinfo
@@ -35,6 +42,7 @@ build/
 
 # Logs
 *.log
+yarn-error.log*
 npm-debug.log*
 pnpm-debug.log*
 .dev-logs/
@@ -53,8 +61,11 @@ coverage/
 
 # Go
 server/bin/
+/server/api
 *.exe
 *.test
+*.out
+*.prof
 
 # Python (services/telegram-agent)
 __pycache__/
@@ -66,4 +77,3 @@ next-env.d.ts
 logo/
 dump.rdb
 deno.lock
-server/api
