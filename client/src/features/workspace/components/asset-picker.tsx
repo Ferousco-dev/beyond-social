@@ -1,21 +1,15 @@
 "use client";
 
 import {
-  AudioLines,
+  ArrowDownWideNarrow,
   CalendarClock,
   ChevronDown,
-  FolderUp,
-  Image as ImageIcon,
-  LayoutGrid,
-  PersonStanding,
-  Smile,
+  Flower2,
   Upload,
-  Video,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Flower2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { AssetFilterNav, type AssetFilterId } from "./asset-filter-nav";
 
 export interface PickerAsset {
   readonly id: string;
@@ -31,19 +25,8 @@ interface AssetPickerProps {
   readonly assets: readonly PickerAsset[];
   readonly onClose: () => void;
   readonly onSelect: (asset: PickerAsset) => void;
+  readonly onUpload: (files: readonly File[]) => void;
 }
-
-const FILTERS = [
-  { id: "all", label: "All", icon: LayoutGrid },
-  { id: "image", label: "Images", icon: ImageIcon },
-  { id: "video", label: "Videos", icon: Video },
-  { id: "voice", label: "Voices", icon: AudioLines },
-  { id: "character", label: "Characters", icon: PersonStanding },
-  { id: "avatar", label: "Avatars", icon: Smile },
-  { id: "upload", label: "Uploads", icon: FolderUp },
-] as const;
-
-type FilterId = (typeof FILTERS)[number]["id"];
 
 export function AssetPicker({
   open,
@@ -52,9 +35,13 @@ export function AssetPicker({
   assets,
   onClose,
   onSelect,
+  onUpload,
 }: AssetPickerProps) {
-  const [filter, setFilter] = useState<FilterId>("all");
+  const [filter, setFilter] = useState<AssetFilterId>("all");
+  const [newestFirst, setNewestFirst] = useState(true);
+  const [sortKey, setSortKey] = useState<"date" | "name">("date");
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -72,12 +59,16 @@ export function AssetPicker({
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return assets.filter((asset) => {
+    const kept = assets.filter((asset) => {
       if (filter !== "all" && asset.kind !== filter) return false;
       if (needle !== "" && !asset.label.toLowerCase().includes(needle)) return false;
       return true;
     });
-  }, [assets, filter, query]);
+    const ordered = [...kept];
+    if (sortKey === "name") ordered.sort((a, b) => a.label.localeCompare(b.label));
+    if (sortKey === "date" && !newestFirst) ordered.reverse();
+    return ordered;
+  }, [assets, filter, query, newestFirst, sortKey]);
 
   if (!open) return null;
 
@@ -91,10 +82,12 @@ export function AssetPicker({
       <div className="flex flex-col gap-2 border-b border-hairline p-3 sm:flex-row sm:items-center">
         <button
           type="button"
+          onClick={() => setNewestFirst((first) => !first)}
+          aria-label={newestFirst ? "Showing newest first" : "Showing oldest first"}
           className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-full border border-hairline px-3 text-xs font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <CalendarClock className="size-3.5" aria-hidden />
-          Oct 12 - 12:10
+          {newestFirst ? "Newest first" : "Oldest first"}
           <ChevronDown className="size-3.5" aria-hidden />
         </button>
 
@@ -112,34 +105,35 @@ export function AssetPicker({
 
         <button
           type="button"
+          onClick={() => setSortKey((key) => (key === "date" ? "name" : "date"))}
+          aria-label={sortKey === "date" ? "Sorting by date" : "Sorting by name"}
           className="inline-flex min-h-10 cursor-pointer items-center gap-1 rounded-full border border-hairline px-3 text-xs font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          Recent
+          <ArrowDownWideNarrow className="size-3.5" aria-hidden />
+          {sortKey === "date" ? "Recent" : "Name"}
           <ChevronDown className="size-3.5" aria-hidden />
         </button>
       </div>
 
       <div className="grid max-h-[60vh] grid-cols-[160px_1fr] overflow-hidden">
         <nav aria-label="Asset types" className="space-y-1 overflow-y-auto border-r border-hairline p-2">
-          {FILTERS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setFilter(item.id)}
-              aria-pressed={filter === item.id}
-              className={cn(
-                "flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                filter === item.id
-                  ? "bg-cloud font-medium text-ink"
-                  : "text-ink-soft hover:bg-cloud/60 hover:text-ink",
-              )}
-            >
-              <item.icon className="size-4" aria-hidden />
-              {item.label}
-            </button>
-          ))}
+          <AssetFilterNav filter={filter} onChange={setFilter} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,video/*,audio/*"
+            multiple
+            aria-hidden
+            tabIndex={-1}
+            className="hidden"
+            onChange={(event) => {
+              onUpload(Array.from(event.target.files ?? []));
+              event.target.value = "";
+            }}
+          />
           <button
             type="button"
+            onClick={() => fileRef.current?.click()}
             className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Upload className="size-4" aria-hidden />

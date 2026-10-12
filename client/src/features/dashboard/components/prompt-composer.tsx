@@ -15,7 +15,6 @@ import { type PendingFootage } from "../hooks/use-footage-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
 import { SendButton } from "@/components/ui/send-button";
 import { cn } from "@/lib/utils";
-import { type GenerationMode } from "@/lib/chat/send-schema";
 
 import { ComposeMenu, type PendingPhoto } from "./compose-menu";
 import { FootageChip } from "./footage-chip";
@@ -24,7 +23,6 @@ import { ShotListEditor, type PendingShot } from "./shot-list-editor";
 import { VoiceChip } from "./voice-chip";
 import { Spinner } from "@/components/ui/spinner";
 import { AvatarSelector } from "./avatar-selector";
-import { GenerationModeSelector } from "./generation-mode-selector";
 
 interface PromptComposerProps {
   value: string;
@@ -46,8 +44,6 @@ interface PromptComposerProps {
   /** The shot list for multi-shot generation. Null when not using shots. */
   shots: readonly PendingShot[] | null;
   onShotsChange: (shots: readonly PendingShot[] | null) => void;
-  generationMode?: GenerationMode;
-  onGenerationModeChange?: (mode: GenerationMode) => void;
   /**
    * Stops reading the turn in flight. Absent where there is nothing to stop,
    * which is the dashboard composer: it navigates before a turn begins.
@@ -73,8 +69,6 @@ export function PromptComposer({
   footage,
   shots,
   onShotsChange,
-  generationMode,
-  onGenerationModeChange,
   onStop,
   selectedAvatarId,
   onSelectedAvatarChange,
@@ -238,10 +232,6 @@ export function PromptComposer({
             onSelect={onSelectedAvatarChange}
           />
         ) : null}
-        <GenerationModeSelector
-          mode={generationMode ?? "auto"}
-          onChange={onGenerationModeChange ?? (() => {})}
-        />
         <textarea
           ref={textareaRef}
           value={value}
@@ -251,9 +241,9 @@ export function PromptComposer({
           // Once an avatar is picked, this box stops being a brief and
           // becomes a script: whatever is typed is spoken back verbatim, not
           // interpreted into a scene.
-          placeholder={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
-          aria-label={selectedAvatarId ? "Write what your avatar should say" : "Describe a video to create"}
-          className="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1 text-base leading-7 text-ink placeholder:text-ink-soft focus:outline-none"
+          placeholder="Describe a shot"
+          aria-label="Describe a shot"
+          className="block max-h-32 min-h-9 flex-1 resize-none bg-transparent px-2 py-1 text-sm leading-6 text-ink placeholder:text-center placeholder:text-ink-soft focus:outline-none"
         />
         <div className="flex items-center gap-2">
           <RecordButton

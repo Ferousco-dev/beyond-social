@@ -38,7 +38,7 @@ interface NavLink {
 
 const LINKS: readonly NavLink[] = [
   {
-    href: "/dashboard" as Route,
+    href: "/dashboard/c/new" as Route,
     label: "New project",
     icon: PenSquare,
     motion: "group-hover:-translate-y-px group-hover:-rotate-12",

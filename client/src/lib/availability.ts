@@ -26,7 +26,12 @@ export function routeAvailability(pathname: string): RouteAvailability {
 
   if (path.startsWith("/api/")) return ENABLED_API.has(path) ? "available" : "api-unavailable";
   if (path.startsWith("/editor") || path.startsWith("/settings")) return "page-unavailable";
-  if (path.startsWith("/dashboard")) return ENABLED_DASHBOARD.has(path) ? "available" : "page-unavailable";
+  if (path.startsWith("/dashboard")) {
+    if (ENABLED_DASHBOARD.has(path)) return "available";
+    // The combined project workspace (canvas + chat) runs here now.
+    if (path === "/dashboard/c" || path.startsWith("/dashboard/c/")) return "available";
+    return "page-unavailable";
+  }
   return "available";
 }
 

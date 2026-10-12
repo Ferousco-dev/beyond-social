@@ -61,6 +61,7 @@ export function ThreadTranscript({
   onRegenerate,
   onExtend,
   endRef,
+  showIntro = true,
 }: {
   messages: readonly ChatMessage[];
   editorHref: Route;
@@ -80,6 +81,8 @@ export function ThreadTranscript({
   onRegenerate: (generationId: string) => void;
   onExtend: (generationId: string) => void;
   endRef: React.RefObject<HTMLDivElement | null>;
+  /** False where the parent already greets, so the thread stays quiet when empty. */
+  showIntro?: boolean;
 }) {
   return (
     /* Centred while empty, top-aligned once there is a thread to read. A fixed
@@ -92,7 +95,7 @@ export function ThreadTranscript({
         messages.length === 0 && "justify-center pb-24",
       )}
     >
-      {messages.length === 0 ? <ThreadIntro seeded={seeded} /> : null}
+      {messages.length === 0 && showIntro ? <ThreadIntro seeded={seeded} /> : null}
 
       {groupTurns(messages).map((group) => (
         <div

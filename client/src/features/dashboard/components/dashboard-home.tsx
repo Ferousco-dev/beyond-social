@@ -17,7 +17,6 @@ import { buildGreeting } from "@/lib/dashboard/greetings";
 import { cn } from "@/lib/utils";
 
 import { leaveSeed } from "@/lib/composer/seed";
-import { type GenerationMode } from "@/lib/chat/send-schema";
 import { type PendingPhoto } from "./compose-menu";
 import { usePhotoUpload } from "../hooks/use-photo-upload";
 import { type PendingVoice } from "../hooks/use-voice-upload";
@@ -41,7 +40,6 @@ export function DashboardHome({
   const [prompt, setPrompt] = useState("");
   const [photos, setPhotos] = useState<readonly PendingPhoto[]>([]);
   const [voice, setVoice] = useState<PendingVoice | null>(null);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [greeting, setGreeting] = useState("");
   const [composing, setComposing] = useState(false);
@@ -79,10 +77,10 @@ export function DashboardHome({
       // Photos and a voice clip are already uploaded and signed by this point,
       // so only the references travel. Without this the attachment was
       // accepted here, shown here, and then silently dropped by the navigation.
-      leaveSeed({ prompt: trimmed, photos: attachments, voice: clip, generationMode, avatarId });
+      leaveSeed({ prompt: trimmed, photos: attachments, voice: clip, avatarId });
       router.push("/dashboard/c/new");
     },
-    [generationMode, router],
+    [router],
   );
 
   if (!composing) {
@@ -129,8 +127,6 @@ export function DashboardHome({
         shots={null}
         onShotsChange={() => {}}
         busy={false}
-        generationMode={generationMode}
-        onGenerationModeChange={setGenerationMode}
         selectedAvatarId={selectedAvatarId}
         onSelectedAvatarChange={setSelectedAvatarId}
       />

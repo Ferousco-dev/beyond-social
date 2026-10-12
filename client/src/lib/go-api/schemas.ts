@@ -83,3 +83,40 @@ export const meResponse = z.object({
 
 export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
 export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });
+
+export const workflowStepSchema = z.object({
+  id: z.string(),
+  step_id: z.string(),
+  tool: z.string(),
+  args: z.record(z.string(), z.unknown()),
+  needs: z.array(z.string()),
+  status: z.enum(["pending", "running", "completed", "failed", "skipped"]),
+  attempts: z.number(),
+  output: z.record(z.string(), z.unknown()),
+  error: z.string(),
+});
+export type GoWorkflowStep = z.infer<typeof workflowStepSchema>;
+
+export const workflowSchema = z.object({
+  id: z.string(),
+  objective: z.string(),
+  status: z.enum([
+    "draft",
+    "awaiting_clarification",
+    "awaiting_approval",
+    "approved",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+  ]),
+  plan: z.record(z.string(), z.unknown()),
+  plan_hash: z.string(),
+  error: z.string(),
+  steps: z.array(workflowStepSchema),
+});
+export type GoWorkflow = z.infer<typeof workflowSchema>;
+
+export const workflowResponse = z.object({ data: workflowSchema });
+export const workflowListResponse = z.object({ data: z.array(workflowSchema) });
+export const workflowStepsResponse = z.object({ data: z.array(workflowStepSchema) });

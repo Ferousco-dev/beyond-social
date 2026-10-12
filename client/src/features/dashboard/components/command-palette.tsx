@@ -41,7 +41,7 @@ const STATIC_ITEMS: Item[] = [
     label: "New project",
     group: "Actions",
     icon: PenSquare,
-    href: "/dashboard" as Route,
+    href: "/dashboard/c/new" as Route,
     hint: "N",
   },
   {
@@ -49,7 +49,7 @@ const STATIC_ITEMS: Item[] = [
     label: "Generate a video",
     group: "Actions",
     icon: Clapperboard,
-    href: "/dashboard" as Route,
+    href: "/dashboard/c/new" as Route,
   },
   {
     id: "overview",

@@ -12,7 +12,7 @@ export function ThreadIntro({ seeded }: { seeded: boolean }) {
       {seeded ? (
         <>
           <p className="text-sm font-medium text-ink">Ready when you are</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+          <p className="mx-auto mt-2 max-w-sm text-balance text-sm leading-relaxed text-ink-soft">
             We have filled in the brief below. Read it over, change anything you want, then send it
             to start the render.
           </p>
@@ -20,7 +20,7 @@ export function ThreadIntro({ seeded }: { seeded: boolean }) {
       ) : (
         <>
           <p className="text-sm font-medium text-ink">Describe the video you want</p>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
+          <p className="mx-auto mt-2 max-w-sm text-balance text-sm leading-relaxed text-ink-soft">
             Say what it is for and who it is for. Add photos and they become the footage.
           </p>
         </>

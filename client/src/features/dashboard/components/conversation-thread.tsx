@@ -18,11 +18,11 @@ import { AVATAR_REPLY } from "@/features/generation/avatar-copy";
 import { CONSENT_STATEMENT } from "@/features/generation/consent";
 import { makeTwinVideo } from "@/features/live-avatar/video-actions";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { type AttachmentKind, type Thread } from "@/lib/chat/thread";
+import { type AttachmentKind, type ChatMessage, type Thread } from "@/lib/chat/thread";
 
 import { ConversationHeader } from "./conversation-header";
 import { PromptComposer } from "./prompt-composer";
-import { useComposerDraft } from "../hooks/use-composer-draft";
+import { useComposerDraft, type ComposerDraft } from "../hooks/use-composer-draft";
 import { useStreamedTurn } from "../hooks/use-streamed-turn";
 import { useThreadMessages } from "../hooks/use-thread-messages";
 import { type PendingPhoto } from "./compose-menu";
@@ -47,9 +47,24 @@ export interface SavedLikeness {
 export function ConversationThread({
   thread,
   savedLikeness,
+  showHeader = true,
+  editorHref: editorHrefOverride,
+  draft: draftProp,
+  onLiveMessages,
+  showIntro = true,
 }: {
   thread: Thread;
   savedLikeness: SavedLikeness | null;
+  /** False where the editor is already on screen, so the open-editor link goes away. */
+  showHeader?: boolean;
+  /** Overrides the separate-editor destination, which is switched off in the workspace. */
+  editorHref?: Route;
+  /** Lifted composer state, so the workspace picker can see unsent attachments. */
+  draft?: ComposerDraft;
+  /** Live messages for the workspace canvas and picker. Called on every change. */
+  onLiveMessages?: (messages: readonly ChatMessage[]) => void;
+  /** False where the parent already greets, so only the greeting shows when empty. */
+  showIntro?: boolean;
 }) {
   const router = useRouter();
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -60,7 +75,7 @@ export function ConversationThread({
   const endRef = useRef<HTMLDivElement>(null);
 
   const projectId = thread.projectId ?? "new";
-  const editorHref = `/editor/${projectId}` as Route;
+  const editorHref = editorHrefOverride ?? (`/editor/${projectId}` as Route);
 
   // What the thread is showing, and the drafts still moving in it.
   const {
@@ -75,8 +90,16 @@ export function ConversationThread({
     regeneratingId,
   } = useThreadMessages(thread, confirm, notify);
 
+  // The workspace mirrors these into its canvas and picker, so anything sent,
+  // attached, or rendered shows up there without a page reload.
+  const internalDraft = useComposerDraft(thread.projectId);
+  const draft = draftProp ?? internalDraft;
+
+  useEffect(() => {
+    onLiveMessages?.(messages);
+  }, [messages, onLiveMessages]);
+
   // What is in the composer and not yet sent. Cleared as a whole on send.
-  const draft = useComposerDraft(thread.projectId);
   /*
    * The two callbacks `submit` uses, destructured.
    *
@@ -640,13 +663,12 @@ export function ConversationThread({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4">
       {dialog}
-      <ConversationHeader title={thread.title} editorHref={editorHref} />
+      {showHeader ? <ConversationHeader title={thread.title} editorHref={editorHref} /> : null}
 
       <ThreadTranscript
         messages={messages}
         editorHref={editorHref}
-        seeded={draft.seeded}
-        sending={sending}
+        seeded={draft.seeded}        sending={sending}
         rendering={rendering}
         awaitingAnswer={clarify.pending !== null || modelChoice.pending !== null}
         partial={turn.partial}
@@ -659,6 +681,7 @@ export function ConversationThread({
         onRegenerate={(id) => void regenerate(id)}
         onExtend={(id) => void extend(id)}
         endRef={endRef}
+        showIntro={showIntro}
       />
 
       {/* pb-safe on the outer edge, so the composer clears the home indicator on
@@ -705,8 +728,6 @@ export function ConversationThread({
               onFootage={draft.setFootage}
               shots={draft.shots}
               onShotsChange={draft.setShots}
-              generationMode={draft.generationMode}
-              onGenerationModeChange={draft.setGenerationMode}
               busy={sending}
               onStop={sending ? turn.cancel : undefined}
               selectedAvatarId={draft.selectedAvatarId}
