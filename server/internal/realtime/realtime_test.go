@@ -281,3 +281,36 @@ func TestHubCloseDisconnectsClientsGracefully(t *testing.T) {
 		expectCloseCode(t, late, closeGoingAway)
 	}
 }
+
+func TestConnectionSurvivesPastTheWriteDeadlineToTheFirstHeartbeat(t *testing.T) {
+	// Pings come further apart than one write may take. A write deadline set
+	// before waiting would have expired by then and closed every connection at
+	// its first heartbeat.
+	r := newRig(t, func(o *Options) {
+		o.PingInterval = 300 * time.Millisecond
+		o.PongWait = 5 * time.Second
+		o.WriteWait = 60 * time.Millisecond
+	})
+	conn := r.connect(t, "tok-alice")
+	readEvent(t, conn) // connection.ready
+
+	pings := make(chan struct{}, 4)
+	conn.SetPingHandler(func(string) error { pings <- struct{}{}; return nil })
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+	for range 2 {
+		select {
+		case <-pings:
+		case <-time.After(2 * time.Second):
+			t.Fatal("the connection was closed before its heartbeat")
+		}
+	}
+	if r.connections(alice) != 1 {
+		t.Fatal("the connection is no longer registered")
+	}
+}

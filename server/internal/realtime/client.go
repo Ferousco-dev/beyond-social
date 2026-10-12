@@ -7,7 +7,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const writeWait = 10 * time.Second
+// defaultWriteWait bounds one write to a client.
+const defaultWriteWait = 10 * time.Second
 
 type client struct {
 	userID string
@@ -42,24 +43,30 @@ func (c *client) kill(code int) {
 
 // writeLoop is the only goroutine that writes to the connection. It also sends
 // the heartbeat pings that keep half-dead connections from lingering.
-func (c *client) writeLoop(pingInterval time.Duration) {
+func (c *client) writeLoop(pingInterval, writeWait time.Duration) {
 	ticker := time.NewTicker(pingInterval)
 	defer ticker.Stop()
 	defer c.conn.Close()
 
-	for {
+	// The deadline is set per write, never once per loop turn: a deadline set
+	// before waiting would already have passed by the time a ping is due, and
+	// every connection would die at the first heartbeat.
+	write := func(kind int, data []byte) error {
 		_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+		return c.conn.WriteMessage(kind, data)
+	}
+	for {
 		select {
 		case frame := <-c.send:
-			if err := c.conn.WriteMessage(websocket.TextMessage, frame); err != nil {
+			if err := write(websocket.TextMessage, frame); err != nil {
 				return
 			}
 		case <-ticker.C:
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := write(websocket.PingMessage, nil); err != nil {
 				return
 			}
 		case <-c.done:
-			_ = c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(c.closeCode, ""))
+			_ = write(websocket.CloseMessage, websocket.FormatCloseMessage(c.closeCode, ""))
 			return
 		}
 	}

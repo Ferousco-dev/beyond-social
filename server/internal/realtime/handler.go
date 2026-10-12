@@ -25,6 +25,8 @@ type Options struct {
 	AuthTimeout  time.Duration
 	PingInterval time.Duration
 	PongWait     time.Duration
+	// WriteWait bounds one write. Zero selects the default.
+	WriteWait time.Duration
 }
 
 const (
@@ -45,6 +47,9 @@ func NewHandler(opts Options) http.Handler {
 	}
 	if opts.PingInterval == 0 {
 		opts.PingInterval = 30 * time.Second
+	}
+	if opts.WriteWait == 0 {
+		opts.WriteWait = defaultWriteWait
 	}
 	if opts.PongWait == 0 {
 		opts.PongWait = 2 * opts.PingInterval
@@ -67,7 +72,7 @@ func NewHandler(opts Options) http.Handler {
 		}
 		if !opts.Hub.begin() {
 			_ = conn.WriteControl(websocket.CloseMessage,
-				websocket.FormatCloseMessage(closeGoingAway, "shutting down"), time.Now().Add(writeWait))
+				websocket.FormatCloseMessage(closeGoingAway, "shutting down"), time.Now().Add(defaultWriteWait))
 			_ = conn.Close()
 			return
 		}
@@ -80,7 +85,7 @@ func serve(ctx context.Context, conn *websocket.Conn, opts Options) {
 	identity, ok := authenticate(ctx, conn, opts)
 	if !ok {
 		_ = conn.WriteControl(websocket.CloseMessage,
-			websocket.FormatCloseMessage(closePolicyBreach, "unauthorized"), time.Now().Add(writeWait))
+			websocket.FormatCloseMessage(closePolicyBreach, "unauthorized"), time.Now().Add(defaultWriteWait))
 		_ = conn.Close()
 		return
 	}
@@ -88,7 +93,7 @@ func serve(ctx context.Context, conn *websocket.Conn, opts Options) {
 	c := newClient(identity.UserID, conn)
 	if !opts.Hub.add(c) {
 		_ = conn.WriteControl(websocket.CloseMessage,
-			websocket.FormatCloseMessage(closeTryAgainLater, "too many connections"), time.Now().Add(writeWait))
+			websocket.FormatCloseMessage(closeTryAgainLater, "too many connections"), time.Now().Add(defaultWriteWait))
 		_ = conn.Close()
 		return
 	}
@@ -101,7 +106,7 @@ func serve(ctx context.Context, conn *websocket.Conn, opts Options) {
 	}
 
 	writerDone := make(chan struct{})
-	go func() { defer close(writerDone); c.writeLoop(opts.PingInterval) }()
+	go func() { defer close(writerDone); c.writeLoop(opts.PingInterval, opts.WriteWait) }()
 
 	c.readLoop(opts.PongWait)
 	c.stop(closeGoingAway)
