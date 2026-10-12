@@ -259,7 +259,7 @@ func TestHeygenCallbackSignatureAndReconcile(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
 	rec := &videoRecorder{}
 	h.deps.VideoReconciler = rec
-	h.deps.HeygenWebhookSecret = "whsec"
+	h.deps.HeygenWebhookSecret = func(context.Context) string { return "whsec" }
 	h.rebuild()
 
 	if code := heygenCallback(h, heygenBody, heygen.SignWebhook("whsec", []byte(heygenBody))); code != http.StatusOK {

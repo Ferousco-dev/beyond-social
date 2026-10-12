@@ -62,6 +62,7 @@ func (a *App) createAvatarVideo(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, avatarvideo.ErrTooManyBusy):
 		w.Header().Set("Retry-After", "30")
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have too many videos in progress; wait for one to finish")
+	case writeCreditError(w, err):
 	default:
 		writeInternal(w, r, err)
 	}

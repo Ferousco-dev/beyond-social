@@ -3,6 +3,7 @@ package transform
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"time"
 
@@ -68,6 +69,7 @@ func (p *Processor) prepFailed(ctx context.Context, job jobs.Job, err error) {
 	if ctx.Err() != nil {
 		return
 	}
+	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "video transform", UserID: job.UserID, Resource: job.ID})
 	slog.Warn("preparing video failed", "job_id", job.ID, "attempt", job.RetryCount+1, "error", err)
 	switch {
 	case errors.Is(err, safenet.ErrTooLarge):
@@ -88,6 +90,7 @@ func (p *Processor) prepFailed(ctx context.Context, job jobs.Job, err error) {
 // may be retried; a connection error is ambiguous and could mean the task was created.
 func (p *Processor) submitFailed(ctx context.Context, job jobs.Job, err error) {
 	var pe *provider.Error
+	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "video transform", UserID: job.UserID, Resource: job.ID})
 	slog.Warn("task submission failed", "job_id", job.ID, "error", err)
 	switch {
 	case !errors.As(err, &pe) || pe.Status == 0:

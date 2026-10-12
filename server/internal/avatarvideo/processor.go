@@ -3,6 +3,7 @@ package avatarvideo
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"strings"
 	"time"
@@ -43,6 +44,7 @@ type Processor struct {
 	Jobs        *jobs.Service
 	Avatars     AvatarLookup
 	Provider    Provider
+	Alerts      alerts.Reporter
 	CallbackURL string // empty when no public URL is configured; polling still works
 	Now         func() time.Time
 }
@@ -103,6 +105,7 @@ func (p *Processor) submit(ctx context.Context, job jobs.Job) {
 		if ctx.Err() != nil {
 			return
 		}
+		alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "avatar video", UserID: job.UserID, Resource: job.ID})
 		slog.Warn("video submission failed", "job_id", job.ID, "attempt", job.RetryCount+1, "error", err)
 		if !provider.IsTransient(err) {
 			p.fail(ctx, job, msgUnavailable)
@@ -123,6 +126,7 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 		if ctx.Err() != nil {
 			return
 		}
+		alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "avatar video", UserID: job.UserID, Resource: job.ID})
 		slog.Warn("video lookup failed", "job_id", job.ID, "error", err)
 		if provider.IsTransient(err) {
 			p.reschedule(ctx, job, slowPoll)

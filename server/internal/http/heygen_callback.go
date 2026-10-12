@@ -29,7 +29,7 @@ func (a *App) heygenCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusRequestEntityTooLarge, "request_too_large", "callback body is too large")
 		return
 	}
-	if secret := a.deps.HeygenWebhookSecret; secret != "" {
+	if secret := webhookSecret(r.Context(), a.deps.HeygenWebhookSecret); secret != "" {
 		if err := heygen.VerifyWebhook(secret, body, r.Header.Get("signature")); err != nil {
 			slog.Warn("heygen callback rejected", "reason", err.Error())
 			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid callback signature")

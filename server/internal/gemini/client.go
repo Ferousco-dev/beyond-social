@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"google.golang.org/genai"
@@ -22,7 +24,11 @@ const DefaultTimeout = 60 * time.Second
 const maxAttempts = 3
 
 type Config struct {
+	// APIKey is a fixed key. Ignored when KeyFunc is set.
 	APIKey string
+	// KeyFunc supplies the key per request, so a key an admin pastes in takes
+	// effect without a restart.
+	KeyFunc provider.KeyFunc
 	// Empty selects DefaultModel.
 	Model string
 	// Empty selects DefaultTimeout. Applies per attempt.
@@ -32,9 +38,14 @@ type Config struct {
 }
 
 type Client struct {
-	client  *genai.Client
-	model   string
-	timeout time.Duration
+	keyFn      provider.KeyFunc
+	httpClient *http.Client
+	model      string
+	timeout    time.Duration
+
+	mu     sync.Mutex
+	key    string
+	client *genai.Client
 }
 
 // Usage mirrors the token counts Gemini reports, for spend guardrails.
@@ -45,8 +56,12 @@ type Usage struct {
 }
 
 func NewClient(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
-		return nil, errors.New("gemini: API key is required")
+	keyFn := cfg.KeyFunc
+	if keyFn == nil {
+		if strings.TrimSpace(cfg.APIKey) == "" {
+			return nil, errors.New("gemini: an API key or key source is required")
+		}
+		keyFn = provider.StaticKey(cfg.APIKey)
 	}
 	model := cfg.Model
 	if model == "" {
@@ -56,15 +71,29 @@ func NewClient(cfg Config) (*Client, error) {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
+	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, timeout: timeout}, nil
+}
+
+// sdk returns the SDK client for the current key, rebuilding it only when the
+// key has changed.
+func (c *Client) sdk(ctx context.Context) (*genai.Client, error) {
+	key, err := c.keyFn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.client != nil && key == c.key {
+		return c.client, nil
+	}
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
-		APIKey:     cfg.APIKey,
-		Backend:    genai.BackendGeminiAPI,
-		HTTPClient: cfg.HTTPClient,
+		APIKey: key, Backend: genai.BackendGeminiAPI, HTTPClient: c.httpClient,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini: create client: %w", err)
 	}
-	return &Client{client: client, model: model, timeout: timeout}, nil
+	c.key, c.client = key, client
+	return client, nil
 }
 
 // GenerateJSON asks the model for one JSON document conforming to schema.
@@ -105,9 +134,13 @@ func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config 
 	attemptCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	resp, err := c.client.Models.GenerateContent(attemptCtx, c.model, contents, config)
+	sdk, err := c.sdk(ctx)
 	if err != nil {
-		return nil, Usage{}, fmt.Errorf("gemini: generate content: %w", err)
+		return nil, Usage{}, err
+	}
+	resp, err := sdk.Models.GenerateContent(attemptCtx, c.model, contents, config)
+	if err != nil {
+		return nil, Usage{}, wrapError(err)
 	}
 	text := strings.TrimSpace(resp.Text())
 	if text == "" {
@@ -124,22 +157,33 @@ func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config 
 	return []byte(text), usage, nil
 }
 
-// retryable covers rate limits and transient server failures. Anything else,
-// including auth and bad-request errors, returns immediately. The SDK reports
-// failures as an APIError value, not a pointer.
-func retryable(err error) bool {
+// wrapError turns the SDK's failure into a classified provider error. The
+// provider's message is kept for logs and classification only; callers show
+// users provider.UserMessage, never this text.
+func wrapError(err error) error {
 	var apiErr genai.APIError
 	if !errors.As(err, &apiErr) {
-		return false
+		return &provider.Error{Provider: "gemini", Message: "request failed: " + err.Error(), Transient: errors.Is(err, context.DeadlineExceeded), Err: err}
 	}
-	switch apiErr.Code {
-	case http.StatusTooManyRequests,
-		http.StatusInternalServerError,
-		http.StatusBadGateway,
-		http.StatusServiceUnavailable,
-		http.StatusGatewayTimeout:
+	msg := apiErr.Message
+	if len(msg) > 300 {
+		msg = msg[:300]
+	}
+	return &provider.Error{Provider: "gemini", Status: apiErr.Code, Code: apiErr.Status, Message: msg, Transient: retryableStatus(apiErr.Code)}
+}
+
+// retryable covers rate limits and transient server failures, but not an
+// exhausted quota, which retrying only makes worse.
+func retryable(err error) bool {
+	var pe *provider.Error
+	return errors.As(err, &pe) && pe.Transient && provider.Classify(err) == provider.ClassTransient
+}
+
+func retryableStatus(code int) bool {
+	switch code {
+	case http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway,
+		http.StatusServiceUnavailable, http.StatusGatewayTimeout:
 		return true
-	default:
-		return false
 	}
+	return false
 }

@@ -2,6 +2,7 @@ package avatars
 
 import (
 	"context"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"net/http"
 	"time"
@@ -110,6 +111,7 @@ func (p *Processor) submitFailed(ctx context.Context, a Avatar, err error) {
 	if ctx.Err() != nil {
 		return
 	}
+	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "avatar training", UserID: a.UserID, Resource: a.ID})
 	slog.Warn("avatar submit failed", "avatar_id", a.ID, "attempt", a.PollCount+1, "error", err)
 	if !retryable(err) {
 		p.fail(ctx, a, msgUnavailable)
@@ -136,6 +138,7 @@ func (p *Processor) pollFailed(ctx context.Context, a Avatar, err error) {
 	if ctx.Err() != nil {
 		return
 	}
+	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "avatar training", UserID: a.UserID, Resource: a.ID})
 	slog.Warn("avatar status check failed", "avatar_id", a.ID, "error", err)
 	if !provider.IsTransient(err) && heygen.HTTPStatus(err) != 404 {
 		p.fail(ctx, a, msgUnavailable)

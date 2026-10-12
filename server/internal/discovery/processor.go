@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"time"
 
@@ -30,6 +31,8 @@ type Processor struct {
 	scraper   apify.API
 	actors    apify.Actors
 	publisher realtime.Publisher
+	alerts    alerts.Reporter
+	biller    Biller
 	now       func() time.Time
 }
 
@@ -112,6 +115,7 @@ func (p *Processor) finish(ctx context.Context, d Discovery, run apify.Run) erro
 	if err != nil {
 		return err
 	}
+	p.closeCharge(ctx, d, true)
 	publish(p.publisher, done)
 	return nil
 }
@@ -126,6 +130,7 @@ func (p *Processor) handleError(ctx context.Context, d Discovery, err error) {
 	if ctx.Err() != nil {
 		return // shutting down; the lease expires and the row is picked up again
 	}
+	alerts.Report(ctx, p.alerts, err, alerts.Context{Source: "discovery", UserID: d.UserID, Resource: d.ID})
 	slog.Warn("discovery step failed", "discovery_id", d.ID, "attempt", d.RetryCount+1, "error", err)
 	if !provider.IsTransient(err) {
 		p.fail(ctx, d, msgFailed)
@@ -152,9 +157,35 @@ func (p *Processor) fail(ctx context.Context, d Discovery, message string) {
 		}
 		return
 	}
+	p.closeCharge(ctx, d, false)
 	publish(p.publisher, updated)
+}
+
+// closeCharge settles or refunds. A failure is logged, not returned: the search
+// is already final and the sweeper closes anything missed.
+func (p *Processor) closeCharge(ctx context.Context, d Discovery, delivered bool) {
+	if p.biller == nil {
+		return
+	}
+	closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err := p.biller.Close(closeCtx, d.UserID, d.ID, delivered); err != nil {
+		slog.Error("close search charge", "discovery_id", d.ID, "user_id", d.UserID, "error", err)
+	}
 }
 
 func backoff(attempt int) time.Duration {
 	return time.Duration(5<<attempt) * time.Second // 5s, 10s, 20s
+}
+
+// WithAlerts reports failures only an operator can fix (no credit, bad key).
+func (p *Processor) WithAlerts(r alerts.Reporter) *Processor {
+	p.alerts = r
+	return p
+}
+
+// WithBiller closes the charge when a search finishes.
+func (p *Processor) WithBiller(b Biller) *Processor {
+	p.biller = b
+	return p
 }

@@ -33,7 +33,7 @@ func (a *App) kieCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "callback has no task id")
 		return
 	}
-	if key := a.deps.WebhookHMACKey; key != "" {
+	if key := webhookSecret(r.Context(), a.deps.WebhookHMACKey); key != "" {
 		err := kie.VerifyCallback(key, taskID, r.Header.Get("X-Webhook-Timestamp"), r.Header.Get("X-Webhook-Signature"), time.Now())
 		if err != nil {
 			slog.Warn("callback rejected", "reason", err.Error())

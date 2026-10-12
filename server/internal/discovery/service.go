@@ -30,9 +30,23 @@ type Params struct {
 	Limit    int
 }
 
+// Biller charges for searches. Close settles a delivered search and refunds a
+// failed one; it must be safe to repeat.
+type Biller interface {
+	Reserve(ctx context.Context, userID, discoveryID string) error
+	Close(ctx context.Context, userID, discoveryID string, delivered bool) error
+}
+
 type Service struct {
 	repo      Repository
 	publisher realtime.Publisher
+	biller    Biller
+}
+
+// WithBiller turns on charging. Without one searches are free.
+func (s *Service) WithBiller(b Biller) *Service {
+	s.biller = b
+	return s
 }
 
 func NewService(repo Repository, publisher realtime.Publisher) *Service {
@@ -56,6 +70,15 @@ func (s *Service) Create(ctx context.Context, userID string, p Params) (Discover
 	created, err := s.repo.Create(ctx, d)
 	if err != nil {
 		return Discovery{}, err
+	}
+	if s.biller != nil {
+		if err := s.biller.Reserve(ctx, userID, created.ID); err != nil {
+			// Not charged, so close the search rather than leave it for a worker.
+			if _, failErr := s.repo.Advance(ctx, created.ID, Update{Status: StatusFailed, Error: "not charged"}); failErr != nil {
+				slog.Error("close unfunded discovery", "discovery_id", created.ID, "error", failErr)
+			}
+			return Discovery{}, err
+		}
 	}
 	publish(s.publisher, created)
 	return created, nil

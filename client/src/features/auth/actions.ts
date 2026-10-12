@@ -2,11 +2,9 @@
 
 import { headers } from "next/headers";
 
-import { isCurrentAccountDeleted } from "@/lib/account/deletion";
-import { ACCOUNT_DELETED_MESSAGE } from "@/lib/account/types";
 import { env, isSupabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { sharedRateLimit } from "@/lib/rate-limit-shared";
+import { rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 import {
@@ -52,15 +50,16 @@ async function clientIp(): Promise<string> {
 }
 
 /**
- * Throttles a sensitive auth action per client IP.
+ * Throttles a sensitive auth action per client IP, per instance.
  *
- * Shared across instances, because a per-instance limit is trivially bypassed
- * on serverless by spreading attempts, which is precisely what a credential
- * stuffing or OTP brute-force run does.
+ * This is a first guard only. The real protection is Supabase Auth's own rate
+ * limits, which hold across instances. A cross-instance limiter will live in the
+ * Go API with the rest of the account logic. Account suspension and deletion
+ * are enforced there too, on the first request after sign-in.
  */
 async function throttle(action: string, limit: number): Promise<AuthResult | null> {
   const ip = await clientIp();
-  const result = await sharedRateLimit(`${action}:${ip}`, limit, 60_000);
+  const result = rateLimit(`${action}:${ip}`, limit, 60_000);
   if (!result.ok) {
     const unavailable = result.reason === "unavailable";
     logger[unavailable ? "error" : "warn"](
@@ -87,15 +86,6 @@ export async function signInAction(input: LoginInput): Promise<AuthResult> {
 
   if (error) return { status: "error", message: INVALID_CREDENTIALS };
 
-  // Checked after authentication, not instead of it, so the deleted state is
-  // never disclosed to someone who does not know the password. Named plainly
-  // rather than folded into INVALID_CREDENTIALS: no password reset can fix a
-  // deleted account, and being told otherwise sends people round that loop.
-  if (await isCurrentAccountDeleted()) {
-    await supabase.auth.signOut();
-    return { status: "error", message: ACCOUNT_DELETED_MESSAGE };
-  }
-
   return { status: "success", redirectTo: "/dashboard" };
 }
 
@@ -115,7 +105,12 @@ export async function signUpAction(input: SignupInput): Promise<AuthResult> {
     },
   });
 
-  if (error) return { status: "error", message: GENERIC_ERROR };
+  if (error) {
+    // The reason stays in the log; the person sees only the generic message so
+    // responses never reveal whether an account exists.
+    logger.warn("sign up failed", { code: error.code, status: error.status, message: error.message });
+    return { status: "error", message: GENERIC_ERROR };
+  }
   return { status: "success", redirectTo: "/dashboard" };
 }
 

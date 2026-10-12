@@ -13,8 +13,10 @@ import (
 var ErrNoVideoFile = errors.New("no downloadable video file for this post")
 
 const (
-	resolveDeadline  = 150 * time.Second
-	resolveChargeUSD = 0.10
+	resolveDeadline = 150 * time.Second
+	// Apify refuses a cost cap below $0.50. One post costs a fraction of a cent,
+	// so this is a ceiling, not a price.
+	resolveChargeUSD = 0.50
 )
 
 // Resolver turns a video's public page URL into a fresh, fetchable file URL.

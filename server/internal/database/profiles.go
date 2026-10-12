@@ -22,8 +22,13 @@ func (s *ProfileStore) Ensure(ctx context.Context, id, email, displayName string
 		insert into public.profiles (id, email, display_name)
 		values ($1, $2, $3)
 		on conflict (id) do update set id = excluded.id
-		returning id::text, email, display_name, role, created_at, suspended_at, deleted_at`,
-		id, email, displayName).Scan(&p.ID, &p.Email, &p.DisplayName, &role, &p.CreatedAt, &p.SuspendedAt, &p.DeletedAt)
+		returning id::text, email, display_name, role, created_at, suspended_at, deleted_at, signup_granted_at`,
+		id, email, displayName).Scan(&p.ID, &p.Email, &p.DisplayName, &role, &p.CreatedAt, &p.SuspendedAt, &p.DeletedAt, &p.GrantedAt)
 	p.Role = accounts.Role(role)
 	return p, err
+}
+
+func (s *ProfileStore) MarkGranted(ctx context.Context, id string) error {
+	_, err := s.pool.Exec(ctx, `update public.profiles set signup_granted_at = now() where id = $1 and signup_granted_at is null`, id)
+	return err
 }

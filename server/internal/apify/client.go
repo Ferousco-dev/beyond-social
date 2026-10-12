@@ -66,13 +66,16 @@ type API interface {
 }
 
 type Client struct {
-	token string
-	base  string
-	http  *http.Client
+	key  provider.KeyFunc
+	base string
+	http *http.Client
 }
 
-func NewClient(token string) *Client {
-	return &Client{token: token, base: defaultBase, http: &http.Client{Timeout: 30 * time.Second}}
+func NewClient(token string) *Client { return NewClientWithKey(provider.StaticKey(token)) }
+
+// NewClientWithKey reads its token on every request.
+func NewClientWithKey(key provider.KeyFunc) *Client {
+	return &Client{key: key, base: defaultBase, http: &http.Client{Timeout: 30 * time.Second}}
 }
 
 // WithBaseURL points the client elsewhere; used by tests.
@@ -145,7 +148,11 @@ func (c *Client) do(ctx context.Context, method, path string, q url.Values, body
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	token, err := c.key(ctx)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

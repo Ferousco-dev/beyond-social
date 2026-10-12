@@ -29,6 +29,8 @@ type Profile struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	SuspendedAt *time.Time `json:"-"`
 	DeletedAt   *time.Time `json:"-"`
+	// GrantedAt is when the sign-up credits were applied.
+	GrantedAt *time.Time `json:"-"`
 }
 
 // Store creates the profile on first sight, so no database trigger on the auth
@@ -36,11 +38,26 @@ type Profile struct {
 type Store interface {
 	// Ensure returns the user's profile, creating it if it does not exist.
 	Ensure(ctx context.Context, id, email, displayName string) (Profile, error)
+	MarkGranted(ctx context.Context, id string) error
 }
 
-type Service struct{ store Store }
+// Granter gives a new account its starting credits. It must be idempotent.
+type Granter interface {
+	SignupGrant(ctx context.Context, userID string) error
+}
+
+type Service struct {
+	store   Store
+	granter Granter
+}
 
 func NewService(s Store) *Service { return &Service{store: s} }
+
+// WithGranter turns on sign-up credits.
+func (s *Service) WithGranter(g Granter) *Service {
+	s.granter = g
+	return s
+}
 
 // Active returns the profile of a user allowed to use the product, creating it
 // on first use. Suspended and deleted accounts are refused.
@@ -54,6 +71,15 @@ func (s *Service) Active(ctx context.Context, id, email, displayName string) (Pr
 		return Profile{}, ErrDeleted
 	case p.SuspendedAt != nil:
 		return Profile{}, ErrSuspended
+	}
+	if s.granter != nil && p.GrantedAt == nil {
+		// Idempotent, so a failure here is retried by the next request.
+		if err := s.granter.SignupGrant(ctx, p.ID); err != nil {
+			return Profile{}, err
+		}
+		if err := s.store.MarkGranted(ctx, p.ID); err != nil {
+			return Profile{}, err
+		}
 	}
 	return p, nil
 }

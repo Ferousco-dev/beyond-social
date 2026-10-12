@@ -32,9 +32,23 @@ const (
 	EventCreated = "job.created"
 )
 
+// Biller charges for jobs. Reserve runs before any provider is called; Finish
+// runs once when a job reaches a final state. Both must be safe to repeat.
+type Biller interface {
+	Reserve(ctx context.Context, job Job) error
+	Finish(ctx context.Context, job Job) error
+}
+
 type Service struct {
 	repo      Repository
 	publisher realtime.Publisher
+	biller    Biller
+}
+
+// WithBiller turns on charging. Without one every job is free.
+func (s *Service) WithBiller(b Biller) *Service {
+	s.biller = b
+	return s
 }
 
 func NewService(repo Repository, publisher realtime.Publisher) *Service {
@@ -58,10 +72,20 @@ func (s *Service) Create(ctx context.Context, userID, jobType string, input map[
 	if err != nil {
 		return Job{}, false, err
 	}
-	if isNew {
-		s.Publish(EventCreated, created)
+	if !isNew {
+		return created, false, nil
 	}
-	return created, isNew, nil
+	if s.biller != nil {
+		if err := s.biller.Reserve(ctx, created); err != nil {
+			// Not charged, so close the job rather than leave it for a worker.
+			if _, failErr := s.repo.Advance(ctx, created.ID, Update{Status: StatusFailed, Error: "not charged: " + err.Error()}); failErr != nil {
+				slog.Error("close unfunded job", "job_id", created.ID, "error", failErr)
+			}
+			return Job{}, false, err
+		}
+	}
+	s.Publish(EventCreated, created)
+	return created, true, nil
 }
 
 // Advance applies a worker update and tells the owner about it.
@@ -69,6 +93,13 @@ func (s *Service) Advance(ctx context.Context, jobID string, update Update) (Job
 	updated, err := s.repo.Advance(ctx, jobID, update)
 	if err != nil {
 		return Job{}, err
+	}
+	if s.biller != nil && updated.Status.Terminal() {
+		// Finish is idempotent. A failure here is logged loudly rather than
+		// returned, because the job itself has already reached its final state.
+		if err := s.biller.Finish(ctx, updated); err != nil {
+			slog.Error("close job charge", "job_id", updated.ID, "user_id", updated.UserID, "error", err)
+		}
 	}
 	s.Publish(EventUpdated, updated)
 	return updated, nil

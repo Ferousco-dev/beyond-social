@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
@@ -23,21 +24,29 @@ type Pinger interface {
 }
 
 type Deps struct {
-	Jobs           *jobs.Service
-	Discovery      *discovery.Service
-	Transform      *transform.Service
-	Reconciler     Reconciler
-	WebhookHMACKey string
+	Jobs       *jobs.Service
+	Discovery  *discovery.Service
+	Transform  *transform.Service
+	Reconciler Reconciler
+	// Webhook secrets are read per request so an admin can rotate them live.
+	WebhookHMACKey func(ctx context.Context) string
 	Workflows      WorkflowService
 
 	Accounts            *accounts.Service
+	Alerts              *alerts.Service
 	Avatars             *avatars.Service
 	Handoff             *handoff.Service
 	Voices              *voices.Service
 	AvatarVideo         *avatarvideo.Service
 	Videos              VideoReader
 	VideoReconciler     VideoReconciler
-	HeygenWebhookSecret string
+	HeygenWebhookSecret func(ctx context.Context) string
+	Vault               CredentialVault
+	Credits             CreditReader
+	CreditAdmin         CreditAdmin
+	CreditLedger        CreditLedger
+	Probe               CredentialProbe
+	Audit               Auditor
 	Verifier            *auth.Verifier
 	Database            Pinger
 	Hub                 *realtime.Hub
@@ -83,6 +92,20 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/jobs", protected(http.HandlerFunc(a.listJobs)))
 	mux.Handle("GET /api/v1/jobs/{id}", protected(http.HandlerFunc(a.getJob)))
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
+	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
+	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
+	mux.Handle("GET /api/v1/credits", protected(http.HandlerFunc(a.myCredits)))
+	mux.Handle("GET /api/v1/admin/credits/prices", protected(a.requireAdmin(a.listPrices)))
+	mux.Handle("PUT /api/v1/admin/credits/prices/{action}", protected(a.requireAdmin(a.updatePrice)))
+	mux.Handle("GET /api/v1/admin/credits/settings", protected(a.requireAdmin(a.listCreditSettings)))
+	mux.Handle("PUT /api/v1/admin/credits/settings/{key}", protected(a.requireAdmin(a.updateCreditSetting)))
+	mux.Handle("GET /api/v1/admin/credits/usage", protected(a.requireAdmin(a.creditUsage)))
+	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
+	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
+	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
+	mux.Handle("GET /api/v1/admin/providers", protected(a.requireAdmin(a.listProviders)))
+	mux.Handle("PUT /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.setProvider)))
+	mux.Handle("DELETE /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.clearProvider)))
 	mux.Handle("POST /api/v1/avatars/uploads", protected(http.HandlerFunc(a.uploadTicket)))
 	mux.Handle("POST /api/v1/avatars/handoffs", protected(http.HandlerFunc(a.mintHandoff)))
 	mux.Handle("POST /api/v1/avatars", protected(http.HandlerFunc(a.registerAvatar)))

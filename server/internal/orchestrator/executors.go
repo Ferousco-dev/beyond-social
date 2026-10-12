@@ -3,6 +3,8 @@ package orchestrator
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
@@ -22,7 +24,7 @@ func (s *Service) executeStep(ctx context.Context, workflow Workflow, step *Step
 	}
 	if tool.Billable {
 		if err := s.deps.Credits.Check(ctx, workflow.UserID, tool.Name, true); err != nil {
-			return s.markTerminal(ctx, workflow, step, err.Error())
+			return s.markTerminal(ctx, workflow, step, s.safeText(ctx, workflow, step, err))
 		}
 	}
 	if step.Status == StepRunning && step.StartedAt != nil && time.Since(*step.StartedAt) > stuckStepAge {
@@ -105,7 +107,7 @@ func (s *Service) markRunning(ctx context.Context, workflow Workflow, step *Step
 
 func (s *Service) finishStep(ctx context.Context, workflow Workflow, step *Step, output map[string]any, err error) error {
 	if err != nil {
-		return s.failStep(ctx, workflow, step, err.Error())
+		return s.failStep(ctx, workflow, step, s.safeText(ctx, workflow, step, err))
 	}
 	if err := s.deps.Store.UpdateStep(ctx, workflow.ID, step.StepID, StepCompleted, output, ""); err != nil {
 		return err
@@ -272,4 +274,16 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// safeText is what a user may be shown about a failed step. A provider failure
+// becomes the generic message (and is reported to operators if only they can
+// fix it); provider text, keys and quota details never leave the server.
+func (s *Service) safeText(ctx context.Context, workflow Workflow, step *Step, err error) string {
+	var pe *provider.Error
+	if errors.As(err, &pe) {
+		alerts.Report(ctx, s.deps.Alerts, err, alerts.Context{Source: "workflow step " + step.Tool, UserID: workflow.UserID, Resource: workflow.ID})
+		return provider.UserMessage
+	}
+	return err.Error()
 }

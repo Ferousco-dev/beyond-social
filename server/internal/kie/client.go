@@ -29,14 +29,17 @@ const (
 )
 
 type Client struct {
-	apiKey  string
+	key     provider.KeyFunc
 	apiBase string
 	upBase  string
 	http    *http.Client
 }
 
-func NewClient(apiKey string) *Client {
-	return &Client{apiKey: apiKey, apiBase: defaultAPIBase, upBase: defaultUpBase, http: &http.Client{Timeout: 60 * time.Second}}
+func NewClient(apiKey string) *Client { return NewClientWithKey(provider.StaticKey(apiKey)) }
+
+// NewClientWithKey reads its key on every request.
+func NewClientWithKey(key provider.KeyFunc) *Client {
+	return &Client{key: key, apiBase: defaultAPIBase, upBase: defaultUpBase, http: &http.Client{Timeout: 60 * time.Second}}
 }
 
 // WithBaseURLs points the client elsewhere; used by tests.
@@ -142,7 +145,11 @@ func (c *Client) do(ctx context.Context, method, endpoint, contentType string, b
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+	apiKey, err := c.key(ctx)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}

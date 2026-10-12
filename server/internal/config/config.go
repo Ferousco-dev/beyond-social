@@ -41,6 +41,10 @@ type Config struct {
 	APIFYTikTokActor    string
 	APIFYInstagramActor string
 
+	// AlertWebhookURL receives admin alerts (Slack or Discord compatible). Optional:
+	// alerts are always stored and logged either way.
+	AlertWebhookURL string
+
 	HeygenAPIKey string
 	// HeygenWebhookSecret verifies webhook signatures. Optional: without it
 	// callbacks are treated as hints and the video is always re-read from HeyGen.
@@ -52,6 +56,9 @@ type Config struct {
 	// GeminiAPIKey authenticates workflow planning. Server-side only: the key
 	// must never reach the browser.
 	GeminiAPIKey string
+	// AppEncryptionKey is a base64 32 byte key that encrypts provider keys an
+	// admin pastes in. Optional: without it keys come from the environment only.
+	AppEncryptionKey string
 	// GeminiModel overrides the default planning model.
 	GeminiModel string
 
@@ -100,12 +107,14 @@ func LoadFromEnv() (Config, error) {
 		APIFYTikTokActor:    strings.TrimSpace(os.Getenv("APIFY_TIKTOK_ACTOR")),
 		APIFYInstagramActor: strings.TrimSpace(os.Getenv("APIFY_INSTAGRAM_ACTOR")),
 
+		AlertWebhookURL:        strings.TrimSpace(os.Getenv("ALERT_WEBHOOK_URL")),
 		HeygenAPIKey:           strings.TrimSpace(os.Getenv("HEYGEN_API_KEY")),
 		HeygenWebhookSecret:    strings.TrimSpace(os.Getenv("HEYGEN_WEBHOOK_SECRET")),
 		SupabaseServiceRoleKey: strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY")),
 
-		GeminiAPIKey: strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
-		GeminiModel:  strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		GeminiAPIKey:     strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
+		AppEncryptionKey: strings.TrimSpace(os.Getenv("APP_ENCRYPTION_KEY")),
+		GeminiModel:      strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 	}
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {
@@ -126,23 +135,14 @@ func LoadFromEnv() (Config, error) {
 		return Config{}, errors.New("SUPABASE_URL must use https in production")
 	}
 
-	if cfg.APIFYToken == "" {
-		return Config{}, errors.New("APIFY_API_TOKEN is required")
-	}
-	if cfg.KIEAPIKey == "" {
-		return Config{}, errors.New("KIE_API_KEY is required")
-	}
-	if cfg.HeygenAPIKey == "" {
-		return Config{}, errors.New("HEYGEN_API_KEY is required")
-	}
 	if cfg.SupabaseServiceRoleKey == "" {
 		return Config{}, errors.New("SUPABASE_SERVICE_ROLE_KEY is required")
 	}
-	if cfg.GeminiAPIKey == "" {
-		return Config{}, errors.New("GEMINI_API_KEY is required")
-	}
 	if cfg.GeminiModel == "" {
 		cfg.GeminiModel = gemini.DefaultModel
+	}
+	if u, err := url.Parse(cfg.AlertWebhookURL); cfg.AlertWebhookURL != "" && (err != nil || u.Scheme != "https" || u.Host == "") {
+		return Config{}, errors.New("ALERT_WEBHOOK_URL must be an https URL")
 	}
 	if err := validatePublicURL(cfg); err != nil {
 		return Config{}, err

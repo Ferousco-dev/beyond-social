@@ -11,7 +11,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 )
 
-const readyTimeout = 2 * time.Second
+const readyTimeout = 5 * time.Second
 
 // health only says the process is up; it must stay free of dependencies so a
 // database outage does not get the container restarted.
@@ -48,9 +48,14 @@ func (a *App) me(w http.ResponseWriter, r *http.Request) {
 		a.accountError(w, r, err)
 		return
 	}
+	balance, err := a.balance(r.Context(), profile.ID)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
 	writeData(w, http.StatusOK, map[string]any{
 		"user_id": profile.ID, "email": profile.Email, "name": profile.DisplayName,
-		"role": profile.Role, "plan": "free", "created_at": profile.CreatedAt,
+		"role": profile.Role, "credits": balance, "created_at": profile.CreatedAt,
 	})
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"testing"
 	"time"
 
@@ -339,4 +340,42 @@ func TestHandoffTokensAreSingleUseAndExpire(t *testing.T) {
 func hash(s string) string {
 	sum := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(sum[:])
+}
+
+func TestAdminAlertsDedupeAndReopen(t *testing.T) {
+	s := NewAlertStore(testPool(t))
+	ctx := context.Background()
+	user := uuid.NewString()
+	a := alerts.Alert{Kind: "quota", Provider: "gemini", Message: "out of credit", UserID: user, Resource: "wf-1"}
+
+	first, notify, err := s.Record(ctx, a)
+	if err != nil || !notify || first.Count != 1 {
+		t.Fatalf("first: %+v notify=%v %v", first, notify, err)
+	}
+	second, notify, _ := s.Record(ctx, a)
+	if second.ID != first.ID || second.Count != 2 || notify {
+		t.Fatalf("a repeat updates the same alert and does not renotify: %+v notify=%v", second, notify)
+	}
+	other, _, _ := s.Record(ctx, alerts.Alert{Kind: "quota", Provider: "heygen", Message: "m"})
+	if other.ID == first.ID {
+		t.Fatal("different providers are different alerts")
+	}
+
+	open, _ := s.List(ctx, true, 10)
+	if len(open) != 2 {
+		t.Fatalf("expected two open alerts, got %d", len(open))
+	}
+	if ok, _ := s.Resolve(ctx, first.ID); !ok {
+		t.Fatal("resolve")
+	}
+	if ok, _ := s.Resolve(ctx, first.ID); ok {
+		t.Fatal("resolving twice reports nothing resolved")
+	}
+	if ok, _ := s.Resolve(ctx, "not-a-uuid"); ok {
+		t.Fatal("a malformed id resolves nothing")
+	}
+	reopened, notify, _ := s.Record(ctx, a)
+	if reopened.ID == first.ID || reopened.Count != 1 || !notify {
+		t.Fatalf("after resolving, the same problem opens a fresh alert and notifies: %+v notify=%v", reopened, notify)
+	}
 }

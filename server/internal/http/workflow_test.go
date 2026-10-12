@@ -316,7 +316,7 @@ const callbackBody = `{"code":200,"data":{"taskId":"task_1","state":"success","r
 
 func TestCallbackWithSignatureTriggersReconcileOnly(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
-	h.deps.WebhookHMACKey = "hmac-key"
+	h.deps.WebhookHMACKey = func(context.Context) string { return "hmac-key" }
 	h.rebuild()
 
 	ts := fmt.Sprint(time.Now().Unix())
@@ -331,7 +331,7 @@ func TestCallbackWithSignatureTriggersReconcileOnly(t *testing.T) {
 
 func TestCallbackRejectsBadSignatures(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
-	h.deps.WebhookHMACKey = "hmac-key"
+	h.deps.WebhookHMACKey = func(context.Context) string { return "hmac-key" }
 	h.rebuild()
 	ts := fmt.Sprint(time.Now().Unix())
 	stale := fmt.Sprint(time.Now().Add(-time.Hour).Unix())

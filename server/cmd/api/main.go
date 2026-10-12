@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/apify"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
@@ -25,8 +27,10 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
+	"github.com/Ferousco-dev/beyond-social/server/internal/providers"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
+	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
@@ -62,32 +66,59 @@ func run() error {
 	}
 
 	hub := realtime.NewHub()
-	jobService := jobs.NewService(database.NewJobStore(pool), hub)
-	discoveryStore := database.NewDiscoveryStore(pool)
-	discoveryService := discovery.NewService(discoveryStore, hub)
+	var alertSender alerts.Sender
+	if cfg.AlertWebhookURL != "" {
+		alertSender = alerts.NewWebhook(cfg.AlertWebhookURL)
+	}
+	alertService := alerts.NewService(database.NewAlertStore(pool), alertSender)
 
-	apifyClient := apify.NewClient(cfg.APIFYToken)
+	creditStore := database.NewCreditStore(pool)
+	creditService := credits.NewService(creditStore)
+	searchBiller := credits.NewDiscoveryBiller(creditService)
+	jobBiller := credits.NewJobBiller(creditService)
+	jobService := jobs.NewService(database.NewJobStore(pool), hub).WithBiller(jobBiller)
+	discoveryStore := database.NewDiscoveryStore(pool)
+	discoveryService := discovery.NewService(discoveryStore, hub).WithBiller(searchBiller)
+
+	var sealer *secrets.Sealer
+	if cfg.AppEncryptionKey != "" {
+		if sealer, err = secrets.NewSealer(cfg.AppEncryptionKey); err != nil {
+			return err
+		}
+	}
+	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, map[string]string{
+		secrets.NameApify:         cfg.APIFYToken,
+		secrets.NameKIE:           cfg.KIEAPIKey,
+		secrets.NameKIEWebhook:    cfg.KIEWebhookHMACKey,
+		secrets.NameHeygen:        cfg.HeygenAPIKey,
+		secrets.NameHeygenWebhook: cfg.HeygenWebhookSecret,
+		secrets.NameGemini:        cfg.GeminiAPIKey,
+	})
+
+	apifyClient := apify.NewClientWithKey(vault.Key(secrets.NameApify))
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
-	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub)
+	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
 	transformProcessor := &transform.Processor{
+		Alerts:      alertService,
 		Jobs:        jobService,
-		Provider:    kie.NewClient(cfg.KIEAPIKey),
+		Provider:    kie.NewClientWithKey(vault.Key(secrets.NameKIE)),
 		Fetcher:     safenet.NewFetcher(45 * time.Second),
 		Resolver:    transform.ApifyResolver{API: apifyClient, Actors: actors},
 		CallbackURL: cfg.KIECallbackURL(),
 	}
 
-	heygenClient := heygen.NewClient(cfg.HeygenAPIKey)
+	heygenClient := heygen.NewClientWithKey(vault.Key(secrets.NameHeygen))
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
 	avatarStore := database.NewAvatarStore(pool)
 	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService)
-	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore}
+	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore, Alerts: alertService}
 	videoProcessor := &avatarvideo.Processor{
-		Jobs: jobService, Avatars: avatarService, Provider: heygenClient, CallbackURL: cfg.HeygenCallbackURL(),
+		Alerts: alertService,
+		Jobs:   jobService, Avatars: avatarService, Provider: heygenClient, CallbackURL: cfg.HeygenCallbackURL(),
 	}
 
-	geminiClient, err := gemini.NewClient(gemini.Config{APIKey: cfg.GeminiAPIKey, Model: cfg.GeminiModel})
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel})
 	if err != nil {
 		return err
 	}
@@ -103,25 +134,33 @@ func run() error {
 		Jobs:      jobService,
 		Publisher: hub,
 		Credits:   orchestrator.NewApprovalGate(registry),
+		Alerts:    alertService,
 	})
 	if err != nil {
 		return err
 	}
 
 	app := httpserver.NewApp(httpserver.Deps{
-		Accounts:            accounts.NewService(database.NewProfileStore(pool)),
+		Accounts:            accounts.NewService(database.NewProfileStore(pool)).WithGranter(creditService),
+		Credits:             creditService,
+		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
+		CreditLedger:        creditService,
+		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
 		Voices:              voiceService,
+		Alerts:              alertService,
 		AvatarVideo:         avatarvideo.NewService(jobService, avatarService, voiceService),
 		Videos:              videoProcessor,
 		VideoReconciler:     videoProcessor,
-		HeygenWebhookSecret: cfg.HeygenWebhookSecret,
+		HeygenWebhookSecret: vault.Optional(secrets.NameHeygenWebhook),
+		Vault:               vault,
+		Audit:               database.NewAuditStore(pool),
 		Jobs:                jobService,
 		Discovery:           discoveryService,
 		Transform:           transform.NewService(jobService, discoveryService),
 		Reconciler:          transformProcessor,
-		WebhookHMACKey:      cfg.KIEWebhookHMACKey,
+		WebhookHMACKey:      vault.Optional(secrets.NameKIEWebhook),
 		Workflows:           orchestratorService,
 		Verifier: auth.NewVerifier(auth.Options{
 			Issuer:      cfg.Issuer(),
@@ -140,6 +179,14 @@ func run() error {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+
+	sweeper := &credits.Sweeper{Open: creditStore, Jobs: jobBiller, Searches: searchBiller}
+	monitor := &providers.Monitor{
+		Checker: providers.NewChecker(), Key: vault.Key, Alerts: alertService,
+		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
+	}
+	go sweeper.Run(ctx)
+	go monitor.Run(ctx)
 
 	workers := make(chan struct{})
 	go func() {

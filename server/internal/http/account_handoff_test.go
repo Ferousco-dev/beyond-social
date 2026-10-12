@@ -26,6 +26,8 @@ func (f *fakeProfiles) Ensure(_ context.Context, id, email, name string) (accoun
 	return p, nil
 }
 
+func (f *fakeProfiles) MarkGranted(context.Context, string) error { return nil }
+
 type fakeHandoffStore struct {
 	tokens map[string]string // hash -> user
 	spent  map[string]bool
@@ -57,7 +59,7 @@ func (f *fakeHandoffStore) Claim(_ context.Context, hash, _ string) (string, boo
 func TestMeCreatesTheProfileOnFirstUseAndReturnsIt(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
 	res := h.get("/api/v1/me", h.token(t, alice))
-	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"plan":"free"`) || !strings.Contains(res.Body.String(), `"role":"user"`) {
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"credits":0`) || !strings.Contains(res.Body.String(), `"role":"user"`) {
 		t.Fatalf("%d %s", res.Code, res.Body)
 	}
 	if _, ok := h.profiles.rows[alice]; !ok {

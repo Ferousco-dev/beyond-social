@@ -3,6 +3,7 @@ package avatars
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"strings"
 	"time"
@@ -33,6 +34,7 @@ const (
 type Processor struct {
 	Service *Service
 	Repo    Repository
+	Alerts  alerts.Reporter
 	Now     func() time.Time
 }
 

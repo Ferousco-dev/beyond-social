@@ -15,7 +15,11 @@ type Error struct {
 	Transient bool
 	// Code is the provider's own machine-readable error code, when it sent one.
 	Code string
+	// Err is the underlying error, so context cancellation and the like still unwrap.
+	Err error
 }
+
+func (e *Error) Unwrap() error { return e.Err }
 
 func (e *Error) Error() string {
 	return fmt.Sprintf("%s: %s (status %d, transient=%t)", e.Provider, e.Message, e.Status, e.Transient)

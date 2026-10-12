@@ -3,6 +3,7 @@ package transform
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"time"
 
@@ -55,6 +56,7 @@ type Processor struct {
 	Fetcher     Fetcher
 	Resolver    Resolver
 	CallbackURL string // empty when no public URL is configured; polling still works
+	Alerts      alerts.Reporter
 	Now         func() time.Time
 }
 
@@ -100,6 +102,7 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 			return
 		}
 		slog.Warn("task lookup failed", "job_id", job.ID, "error", err)
+		alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "video transform", UserID: job.UserID, Resource: job.ID})
 		if provider.IsTransient(err) {
 			p.reschedule(ctx, job, slowPoll)
 			return

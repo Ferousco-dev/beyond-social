@@ -31,6 +31,9 @@ services:
       # This service's own public https URL, used for provider callbacks.
       - key: PUBLIC_BASE_URL
         sync: false
+      # Encrypts provider keys an admin pastes into the product (openssl rand -base64 32).
+      - key: APP_ENCRYPTION_KEY
+        sync: false
       - key: APIFY_API_TOKEN
         sync: false
       - key: KIE_API_KEY
@@ -40,4 +43,7 @@ services:
       - key: HEYGEN_API_KEY
         sync: false
       - key: HEYGEN_WEBHOOK_SECRET
+        sync: false
+      # Slack or Discord webhook told when a provider runs out of credit or a key breaks.
+      - key: ALERT_WEBHOOK_URL
         sync: false

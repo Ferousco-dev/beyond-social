@@ -38,6 +38,7 @@ func (a *App) createDiscovery(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, discovery.ErrTooManyBusy):
 		w.Header().Set("Retry-After", "10")
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "too many searches in progress; wait for one to finish")
+	case writeCreditError(w, err):
 	case err != nil:
 		writeInternal(w, r, err)
 	default:

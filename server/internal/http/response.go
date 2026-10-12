@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"encoding/json"
+	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"log/slog"
 	"net/http"
 )
@@ -34,7 +35,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 // writeInternal logs the real cause and gives the client nothing to work with.
 func writeInternal(w http.ResponseWriter, r *http.Request, err error) {
 	slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
-	writeError(w, http.StatusInternalServerError, "internal_error", "something went wrong")
+	writeError(w, http.StatusInternalServerError, "internal_error", provider.UserMessage)
 }
 
 func writeUnauthorized(w http.ResponseWriter) {

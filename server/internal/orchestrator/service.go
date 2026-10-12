@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"log/slog"
 	"time"
 
@@ -74,6 +75,7 @@ type Deps struct {
 	Jobs      JobReader
 	Publisher realtime.Publisher
 	Credits   CreditsChecker
+	Alerts    alerts.Reporter
 }
 
 // DiscoverySubmitter queues and reads Apify discoveries.
@@ -133,6 +135,9 @@ func (s *Service) Submit(ctx context.Context, userID, objective string, view Con
 		return Workflow{}, ErrTooManyWorkflows
 	}
 	result, err := s.deps.Planner.Plan(ctx, objective, view)
+	if err != nil {
+		alerts.Report(ctx, s.deps.Alerts, err, alerts.Context{Source: "workflow planning", UserID: userID})
+	}
 	if err != nil {
 		return Workflow{}, err
 	}

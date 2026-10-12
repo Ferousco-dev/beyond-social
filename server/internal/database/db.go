@@ -18,7 +18,9 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	cfg.MaxConnLifetime = 30 * time.Minute
 	cfg.MaxConnIdleTime = 5 * time.Minute
 	cfg.HealthCheckPeriod = time.Minute
-	cfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	// Generous on purpose: a developer laptop reaching a remote pooler can take
+	// several seconds per connection, and a slow start is better than none.
+	cfg.ConnConfig.ConnectTimeout = 15 * time.Second
 	// Describe-based execution avoids named prepared statements, which break
 	// behind Supabase's transaction-mode pooler.
 	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeCacheDescribe
@@ -27,7 +29,7 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create pgx pool: %w", err)
 	}
-	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 	if err := pool.Ping(pingCtx); err != nil {
 		pool.Close()

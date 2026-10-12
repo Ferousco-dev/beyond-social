@@ -3,6 +3,7 @@ package avatarvideo
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"strings"
 	"sync"
 	"testing"
@@ -354,5 +355,29 @@ func TestGetRefreshesExpiredFileURLs(t *testing.T) {
 	other, _, _ := r.proc.Jobs.Create(ctx, alice, "video_transform", nil, "")
 	if _, err := r.proc.Get(ctx, alice, other.ID); !errors.Is(err, jobs.ErrNotFound) {
 		t.Fatalf("other job types are not videos: %v", err)
+	}
+}
+
+type fakeReporter struct{ errs []error }
+
+func (f *fakeReporter) Report(_ context.Context, err error, _ alerts.Context) provider.Class {
+	f.errs = append(f.errs, err)
+	return provider.Classify(err)
+}
+
+func TestNoCreditAtTheProviderFailsGenericallyAndAlertsTheAdmin(t *testing.T) {
+	r := newRig()
+	rep := &fakeReporter{}
+	r.proc.Alerts = rep
+	r.provider.createErr = &provider.Error{Provider: "heygen", Status: 402, Message: "insufficient credit on account acct_secret_123"}
+	job := r.queued(t)
+
+	r.proc.Handle(ctx, job)
+	got := r.repo.Job(job.ID)
+	if got.Status != jobs.StatusFailed || got.Error != msgUnavailable || strings.Contains(got.Error, "acct_secret") {
+		t.Fatalf("the user must get a generic message: %+v", got)
+	}
+	if len(rep.errs) != 1 || provider.Classify(rep.errs[0]) != provider.ClassQuota {
+		t.Fatalf("the admin must be alerted about the quota problem: %v", rep.errs)
 	}
 }

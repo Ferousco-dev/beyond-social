@@ -76,20 +76,23 @@ func withProviderKeys(values map[string]string) map[string]string {
 	return out
 }
 
-func TestLoadFromEnvRequiresProviderCredentials(t *testing.T) {
-	for name, env := range map[string]map[string]string{
-		"no apify token":      {"SUPABASE_URL": "https://a.co", "KIE_API_KEY": "k", "NO_PROVIDER_KEYS": "1"},
-		"no kie key":          {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "NO_PROVIDER_KEYS": "1"},
-		"no heygen key":       {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "SUPABASE_SERVICE_ROLE_KEY": "s", "NO_PROVIDER_KEYS": "1"},
-		"no service role key": {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "HEYGEN_API_KEY": "h", "NO_PROVIDER_KEYS": "1"},
-		"no gemini key":       {"SUPABASE_URL": "https://a.co", "APIFY_API_TOKEN": "t", "KIE_API_KEY": "k", "HEYGEN_API_KEY": "h", "SUPABASE_SERVICE_ROLE_KEY": "s", "NO_PROVIDER_KEYS": "1"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			setEnv(t, env)
-			if _, err := LoadFromEnv(); err == nil {
-				t.Fatal("expected a missing credential error")
-			}
-		})
+func TestLoadFromEnvProviderKeysAreOptional(t *testing.T) {
+	// Provider keys can be pasted in by an admin, so only the service role key
+	// is needed to start.
+	setEnv(t, map[string]string{"SUPABASE_URL": "https://a.co", "SUPABASE_SERVICE_ROLE_KEY": "s", "NO_PROVIDER_KEYS": "1"})
+	cfg, err := LoadFromEnv()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.APIFYToken != "" || cfg.GeminiAPIKey != "" {
+		t.Fatalf("provider keys should be empty: %+v", cfg)
+	}
+}
+
+func TestLoadFromEnvRequiresServiceRoleKey(t *testing.T) {
+	setEnv(t, map[string]string{"SUPABASE_URL": "https://a.co", "NO_PROVIDER_KEYS": "1"})
+	if _, err := LoadFromEnv(); err == nil {
+		t.Fatal("expected a missing service role key error")
 	}
 }
 
