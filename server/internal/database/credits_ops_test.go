@@ -24,8 +24,8 @@ func TestSignupGrantAppliedOnceAcrossRequests(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if balance, _ := svc.Balance(ctx, id); balance != 25 {
-		t.Fatalf("balance = %d, want 25", balance)
+	if balance, _ := svc.Balance(ctx, id); balance != 300 {
+		t.Fatalf("balance = %d, want 300", balance)
 	}
 }
 
@@ -48,7 +48,7 @@ func TestSweeperClosesChargesTheNormalPathMissed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sweeper := &credits.Sweeper{Open: NewCreditStore(pool), Jobs: biller, Searches: credits.NewDiscoveryBiller(svc), OlderThan: time.Minute}
+	sweeper := &credits.Sweeper{Open: NewCreditStore(pool), Jobs: biller, Searches: credits.NewActionBiller(svc, credits.ActionDiscoverySearch), OlderThan: time.Minute}
 	if n := sweeper.Once(ctx); n != 1 {
 		t.Fatalf("closed %d, want 1", n)
 	}
@@ -63,7 +63,7 @@ func TestSweeperClosesChargesTheNormalPathMissed(t *testing.T) {
 func TestDiscoveryChargeRefundsOnFailureAndSettlesOnSuccess(t *testing.T) {
 	svc, _, userID := creditFixture(t, 12)
 	ctx := context.Background()
-	biller := credits.NewDiscoveryBiller(svc)
+	biller := credits.NewActionBiller(svc, credits.ActionDiscoverySearch)
 
 	a, b := uuid.NewString(), uuid.NewString()
 	if err := biller.Reserve(ctx, userID, a); err != nil {
@@ -116,7 +116,7 @@ func TestAdminPriceEditsSettingsAndDailyLimit(t *testing.T) {
 	if err := admin.SetSetting(ctx, credits.SettingDailyUserLimit, 15, ""); err != nil {
 		t.Fatal(err)
 	}
-	biller := credits.NewDiscoveryBiller(svc)
+	biller := credits.NewActionBiller(svc, credits.ActionDiscoverySearch)
 	if err := biller.Reserve(ctx, userID, uuid.NewString()); err != nil {
 		t.Fatal(err)
 	}
@@ -124,15 +124,63 @@ func TestAdminPriceEditsSettingsAndDailyLimit(t *testing.T) {
 		t.Fatalf("second search err = %v, want daily limit", err)
 	}
 
-	usage, err := admin.Usage(ctx, 1)
+	report, err := admin.Usage(ctx, 1)
+	usage := report.Actions
 	if err != nil || len(usage) != 1 || usage[0].Action != credits.ActionDiscoverySearch || usage[0].Charged != 10 {
 		t.Fatalf("usage = %+v err=%v", usage, err)
 	}
-	users, err := admin.FindUsers(ctx, "a@example", 5)
+	users, err := admin.FindUsers(ctx, "a@example", credits.SegmentActive, 5)
 	if err != nil || len(users) != 1 || users[0].Balance != 90 {
 		t.Fatalf("users = %+v err=%v", users, err)
 	}
 	if _, err := svc.Adjust(ctx, userID, -500, "k1", "oops", ""); !errors.Is(err, credits.ErrInsufficient) {
 		t.Fatalf("overdraw adjust err = %v", err)
+	}
+}
+
+func TestSegmentsAndProviderSpend(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewCreditStore(pool)
+	admin := credits.NewAdmin(NewAdminCreditStore(store))
+	profiles := NewProfileStore(pool)
+	fresh, payer, idle := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	for _, id := range []string{fresh, payer, idle} {
+		if _, err := profiles.Ensure(ctx, id, id[:8]+"@example.com", "U"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := store.Apply(ctx, credits.Entry{UserID: payer, Kind: credits.KindPurchase, Amount: 500, Key: "p:" + payer}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `update public.profiles set created_at = now() - interval '90 days' where id = any($1)`, []string{payer, idle}); err != nil {
+		t.Fatal(err)
+	}
+	if err := credits.NewActionBiller(credits.NewService(store), credits.ActionDiscoverySearch).Reserve(ctx, payer, uuid.NewString()); err != nil {
+		t.Fatal(err)
+	}
+
+	counts, err := admin.SegmentCounts(ctx)
+	if err != nil || counts.Total != 3 || counts.New != 1 || counts.Paid != 1 || counts.Active != 1 {
+		t.Fatalf("counts = %+v err=%v", counts, err)
+	}
+	paid, err := admin.FindUsers(ctx, "", credits.SegmentPaid, 10)
+	if err != nil || len(paid) != 1 || paid[0].ID != payer {
+		t.Fatalf("paid = %+v err=%v", paid, err)
+	}
+	if _, err := admin.FindUsers(ctx, "", credits.Segment("vip"), 10); !errors.Is(err, credits.ErrInvalid) {
+		t.Fatalf("unknown segment err = %v", err)
+	}
+
+	// 100 -> 80 is a spend of 20, 80 -> 150 is a top-up, 150 -> 140 is 10 more.
+	for _, amount := range []float64{100, 80, 150, 140} {
+		if err := store.SaveSnapshot(ctx, "kie", amount, "credits"); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	report, err := admin.Usage(ctx, 1)
+	if err != nil || len(report.Providers) != 1 || report.Providers[0].Spent != 30 {
+		t.Fatalf("provider spend = %+v err=%v", report.Providers, err)
 	}
 }

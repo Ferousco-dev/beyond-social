@@ -20,9 +20,10 @@ type CreditAdmin interface {
 	UpdatePrice(ctx context.Context, action string, patch credits.PricePatch, actor string) (credits.PriceRow, error)
 	Settings(ctx context.Context) ([]credits.Setting, error)
 	SetSetting(ctx context.Context, key string, value int, actor string) error
-	FindUsers(ctx context.Context, query string, limit int) ([]credits.UserCredits, error)
+	FindUsers(ctx context.Context, query string, segment credits.Segment, limit int) ([]credits.UserCredits, error)
+	SegmentCounts(ctx context.Context) (credits.SegmentCounts, error)
 	Ledger(ctx context.Context, userID string, limit int) ([]credits.LedgerRow, error)
-	Usage(ctx context.Context, days int) ([]credits.UsageRow, error)
+	Usage(ctx context.Context, days int) (credits.UsageReport, error)
 }
 
 // CreditLedger adjusts balances; the credits service implements it.

@@ -5,16 +5,8 @@ import { after } from "next/server";
 import { type z } from "zod";
 import { streamReply, writeReply } from "./reply";
 import { attachmentsShowAPerson, hasCurrentConsent } from "@/lib/generation/consent-gate";
-import { preferredModel } from "@/lib/generation/preferred-model";
 import { chooseModel } from "@/lib/generation/choose-model";
-import {
-  modelToRun,
-  shouldAskAboutModel,
-  upgradeFrom,
-  type ModelUpgrade,
-} from "@/lib/generation/confirm-model";
 import { checkVideoRun } from "@/lib/generation/gate";
-import { canRunModel } from "@/lib/credits/queries";
 import { isUpgradeReason } from "@/lib/credits/types";
 import { getLatestDirectedPrompt } from "@/lib/generation/history";
 import { classify, isPleasantry } from "@/lib/generation/intent";
@@ -160,13 +152,6 @@ export type SendResult =
       /** What the assistant says before the questions, so the pause is explained. */
       framing: string;
     }
-  /**
-   * A model costlier than the plan's everyday one suits this request, and it is
-   * offered rather than taken. Nothing was created: no project, no message, no
-   * render, and nothing was charged. The client asks, and sends the same turn
-   * again with `modelAnswer` whichever way it is answered.
-   */
-  | { status: "confirm"; upgrade: ModelUpgrade }
   | { status: "unconfigured" }
   | { status: "error"; message: string };
 
@@ -188,7 +173,7 @@ export async function runTurn(
   name: string,
   events: TurnEvents = {},
 ): Promise<SendResult> {
-  const { aspectRatio, imageUrls, videoPaths, attachments, shots, generationMode } = parsed;
+  const { aspectRatio, imageUrls, videoPaths, attachments, shots } = parsed;
   const user = { id: userId };
   const stage = (next: TurnStage): void => events.onStage?.(next);
 
@@ -354,76 +339,18 @@ export async function runTurn(
   }
 
   /*
-   * A stored preference still wins, then the chooser.
-   *
-   * Almost nobody has a preference: setting one was a page that has since been
-   * removed, and the rows of those who did are honoured rather than deleted.
-   * Everybody else used to fall through to the edge function's default, which
-   * is why every video was Veo at six credits while five other live models sat
-   * in the catalogue unused.
-   *
-   * Decided here rather than after the project is made, because a costlier
-   * model has to be agreed to before anything is created. It reads only the
-   * brief and the attachments, none of which the project insert changes, so
-   * moving it up costs nothing.
+   * The platform picks the model, from the brief and the attachments alone.
+   * Kling is the product's model and the others assist when a request needs
+   * them, so there is nothing for the user to choose or confirm.
    */
-  const preference = generationMode === "auto" ? await preferredModel(supabase, user.id, "video") : null;
-  const choice =
-    preference === null
-      ? await chooseModel(
-          supabase,
-          user.id,
-          prompt,
-          generationMode,
-          videoPaths,
-          showsPerson && voiceAttached,
-          voiceAttached,
-          photoPaths.length,
-        )
-      : null;
-
-  /*
-   * Ask before spending the difference.
-   *
-   * The chooser has flagged something that costs more than this plan's everyday
-   * generator, and until now that flag only ever produced a log line: the
-   * costlier model was selected and then silently replaced, so motion transfer
-   * and the avatar models were never once used by anybody. Running them without
-   * asking is the other failure, a sixty credit charge met after the fact.
-   *
-   * Nothing is created on this path, exactly as the clarifying questions do it:
-   * no project, no message, no render, nothing charged. The client asks and
-   * sends the same turn again with the answer.
-   */
-  if (
-    choice !== null &&
-    shouldAskAboutModel({
-      choice,
-      hasPreference: preference !== null,
-      // A question and a greeting cost nothing to answer, so there is no
-      // difference to be asked about.
-      wantsVideo: intent.intent === "create" || intent.intent === "adjust",
-      answered: parsed.modelAnswer !== undefined,
-    })
-  ) {
-    /*
-     * The same authority the run itself passes through, asked early. An account
-     * that could not pay for the costlier model is not offered it: a question
-     * whose yes would be refused a moment later is worse than no question, and
-     * this is also where the balance the card quotes comes from, so what it
-     * shows is what the gate will read.
-     */
-    const affordable = await canRunModel(choice.modelId);
-    const upgrade = affordable.allowed ? upgradeFrom(choice, affordable.balance) : null;
-    if (upgrade !== null) return { status: "confirm", upgrade };
-
-    logger.info("a costlier model was not offered", {
-      model: choice.modelId,
-      // Either the account cannot run it, or the catalogue held no everyday
-      // model to price it against, which leaves nothing to compare.
-      why: affordable.allowed ? "no alternative to price against" : affordable.reason,
-    });
-  }
+  const choice = await chooseModel(
+    supabase,
+    prompt,
+    videoPaths,
+    showsPerson && voiceAttached,
+    voiceAttached,
+    photoPaths.length,
+  );
 
   // The project is created on the first message, not on page load, so opening
   // the composer and changing your mind leaves nothing behind.
@@ -538,12 +465,8 @@ export async function runTurn(
    * before the length is judged. This check used to run against one hardcoded
    * set, which was veo's, and told a Kling user that clips can be four, six or
    * eight seconds when Kling does fifteen: the app refusing something it can do.
-   *
-   * Declining the costlier model runs the everyday generator whose price the
-   * card quoted, so what was offered is what gets made. The plan and balance
-   * gate below still has the last word on either.
    */
-  const chosenModel = preference ?? modelToRun(choice, parsed.modelAnswer);
+  const chosenModel = choice?.modelId ?? null;
 
   /*
    * A shot list only survives as beats on a model that cuts. On anything else

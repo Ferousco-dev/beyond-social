@@ -27,7 +27,9 @@ type Monitor struct {
 	Key       func(name string) provider.KeyFunc
 	Threshold func(ctx context.Context, setting string) (int, bool, error)
 	Alerts    alerts.Reporter
-	Interval  time.Duration
+	// Snapshot records each reading so real spend can be worked out later.
+	Snapshot func(ctx context.Context, provider string, amount float64, unit string) error
+	Interval time.Duration
 }
 
 func (m *Monitor) Run(ctx context.Context) {
@@ -64,6 +66,11 @@ func (m *Monitor) Once(ctx context.Context) []Balance {
 			continue
 		}
 		seen = append(seen, balance)
+		if m.Snapshot != nil {
+			if err := m.Snapshot(ctx, name, balance.Amount, balance.Unit); err != nil {
+				slog.Error("record provider balance", "provider", name, "error", err)
+			}
+		}
 		limit, ok, err := m.Threshold(ctx, setting)
 		if err != nil || !ok || balance.Amount >= float64(limit) {
 			continue

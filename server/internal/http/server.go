@@ -100,6 +100,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/credits/settings", protected(a.requireAdmin(a.listCreditSettings)))
 	mux.Handle("PUT /api/v1/admin/credits/settings/{key}", protected(a.requireAdmin(a.updateCreditSetting)))
 	mux.Handle("GET /api/v1/admin/credits/usage", protected(a.requireAdmin(a.creditUsage)))
+	mux.Handle("GET /api/v1/admin/users/segments", protected(a.requireAdmin(a.userSegments)))
 	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
 	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))

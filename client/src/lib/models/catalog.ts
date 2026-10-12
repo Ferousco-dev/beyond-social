@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { type CatalogModel, type ModelFamily, modelRowSchema, toCatalogModel } from "./types";
 
 const COLUMNS =
-  "id, provider, name, family, description, capabilities, credit_cost, min_plan, is_active, sort_order";
+  "id, provider, name, family, description, capabilities, credit_cost, is_active, sort_order";
 
 /**
  * Rows are parsed one at a time rather than as an array, so a single row this

@@ -55,7 +55,15 @@ type VoiceChecker interface {
 	Allowed(ctx context.Context, userID, voiceID string) error
 }
 
+// Biller charges for training an avatar. Close settles one that became ready
+// and refunds one that failed; it must be safe to repeat.
+type Biller interface {
+	Reserve(ctx context.Context, userID, avatarID string) error
+	Close(ctx context.Context, userID, avatarID string, delivered bool) error
+}
+
 type Service struct {
+	biller         Biller
 	voices         VoiceChecker
 	repo           Repository
 	footage        Footage
@@ -121,7 +129,27 @@ func (s *Service) advance(ctx context.Context, id string, u Update) (Avatar, err
 	}
 	a.Resolve(s.now())
 	s.publish(a)
+	s.closeCharge(ctx, a)
 	return a, nil
+}
+
+// closeCharge settles or refunds once training is final. A failure is logged,
+// not returned: the avatar is already final and the sweeper closes anything missed.
+func (s *Service) closeCharge(ctx context.Context, a Avatar) {
+	if s.biller == nil || (a.Status != StatusReady && a.Status != StatusFailed) {
+		return
+	}
+	closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if err := s.biller.Close(closeCtx, a.UserID, a.ID, a.Status == StatusReady); err != nil {
+		slog.Error("close avatar charge", "avatar_id", a.ID, "user_id", a.UserID, "error", err)
+	}
+}
+
+// WithBiller turns on charging. Without one training is free.
+func (s *Service) WithBiller(b Biller) *Service {
+	s.biller = b
+	return s
 }
 
 func (s *Service) publish(a Avatar) {

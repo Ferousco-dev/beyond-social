@@ -93,9 +93,6 @@ func (a *App) changeProvider(w http.ResponseWriter, r *http.Request, action stri
 		writeInternal(w, r, err)
 		return
 	}
-	if err := a.deps.Audit.Record(r.Context(), identity.UserID, action, name, map[string]any{}); err != nil {
-		writeInternal(w, r, err)
-		return
-	}
+	a.audit(r, identity.UserID, action, name, map[string]any{})
 	w.WriteHeader(http.StatusNoContent)
 }

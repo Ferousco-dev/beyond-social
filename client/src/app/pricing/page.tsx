@@ -9,19 +9,11 @@ import { LandingPricing } from "@/components/landing/landing-pricing";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "Every plan includes the full engine. You are paying for volume, not for the good features.",
+    "No plans. Start with free credits and buy more when you need them.",
 };
 
 /**
  * Standalone pricing page.
- *
- * It exists for two reasons beyond being linkable: Stripe Checkout sends a
- * cancelled purchase here, and until this route existed that landed on a 404
- * at the exact moment a customer was already hesitating.
- *
- * It reuses the landing sections rather than restating the plans, so there is
- * one set of pricing cards in the codebase and no chance of the page and the
- * landing section disagreeing.
  */
 export default function PricingPage(): ReactNode {
   return (

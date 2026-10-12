@@ -10,7 +10,6 @@ import { type ReactNode, useState, useTransition } from "react";
 import { useConfirm } from "@/components/ui/use-confirm";
 import { signOutAction } from "@/features/auth/actions";
 import { ThemeToggle } from "@/features/settings/components/theme-toggle";
-import { PLAN_CATALOGUE } from "@/lib/billing/plans";
 import { type DashboardUser } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
@@ -95,11 +94,8 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-ink">{user.name}</span>
-                {/* The real plan. This said "Free plan" to everyone, including
-                    people paying for Studio, in the one piece of chrome that is
-                    on screen the whole time. */}
                 <span className="block truncate text-xs text-ink-soft">
-                  {PLAN_CATALOGUE[user.plan].name} plan
+                  {user.credits} credits
                 </span>
               </span>
               <ChevronsUpDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
@@ -145,8 +141,8 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
                 <Link href="/dashboard/settings/billing" className={ROW}>
-                  Plan
-                  <span className="text-xs text-ink-soft">{PLAN_CATALOGUE[user.plan].name}</span>
+                  Credits
+                  <span className="text-xs text-ink-soft">{user.credits}</span>
                 </Link>
               </DropdownMenu.Item>
               {/* Admin's own login and separate app went away with this: the

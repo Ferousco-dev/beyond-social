@@ -1,6 +1,5 @@
 import { CalendarClock, Clapperboard, TrendingUp, type LucideIcon } from "lucide-react";
 
-import { type PlanId } from "@/lib/billing/plans";
 
 export interface Project {
   readonly id: string;
@@ -23,8 +22,8 @@ export interface DashboardUser {
   readonly email: string;
   readonly initials: string;
   readonly avatarUrl: string | null;
-  /** The plan they are actually on. The sidebar said "Free plan" to everyone. */
-  readonly plan: PlanId;
+  /** Credits left. Everything in the product is paid for with credits. */
+  readonly credits: number;
   /** Whether the admin console link belongs in this person's account menu. */
   readonly isAdmin: boolean;
 }
@@ -45,12 +44,8 @@ export interface HistoryItem {
 }
 
 export interface Credits {
-  readonly used: number;
-  readonly total: number;
-  readonly resetsInDays: number;
+  readonly balance: number;
 }
-
-export const CREDITS: Credits = { used: 48, total: 60, resetsInDays: 12 };
 
 export const HISTORY: readonly HistoryItem[] = [
   {

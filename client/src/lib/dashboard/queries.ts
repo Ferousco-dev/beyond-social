@@ -1,27 +1,22 @@
 import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { getAuthUser } from "@/lib/supabase/session";
 import { describeSchedule } from "@/lib/time/zone";
 import { getUserTimeZone } from "@/lib/time/user-zone";
 import {
   type PostStatus,
-  type ProfileRow,
   type ProjectRow,
   type ScheduledPostRow,
   type SocialPlatform,
 } from "@/lib/supabase/types";
 
 import {
-  CREDITS,
   HISTORY,
   PROJECT_GROUPS,
-  type Credits,
   type HistoryItem,
   type ProjectGroup,
   type SidebarProject,
 } from "./data";
 
-const CREDIT_PERIOD_DAYS = 30;
 const DAY_MS = 86_400_000;
 
 const PLATFORM_LABELS: Record<SocialPlatform, string> = {
@@ -37,28 +32,6 @@ const HISTORY_STATUS: Record<PostStatus, HistoryItem["status"]> = {
   publishing: "Scheduled",
   failed: "Draft",
 };
-
-/** Credits for the signed-in user, falling back to placeholder data locally. */
-export async function getCredits(): Promise<Credits> {
-  if (!isSupabaseConfigured) return CREDITS;
-
-  const supabase = await createClient();
-  const user = await getAuthUser();
-  if (!user) return CREDITS;
-
-  const { data } = await supabase
-    .from("profiles")
-    .select("credits_total, credits_used, credits_period_start")
-    .eq("id", user.id)
-    .single<Pick<ProfileRow, "credits_total" | "credits_used" | "credits_period_start">>();
-  if (!data) return CREDITS;
-
-  return {
-    total: data.credits_total,
-    used: data.credits_used,
-    resetsInDays: daysUntilReset(data.credits_period_start),
-  };
-}
 
 /** Projects for the signed-in user, grouped by recency, with a local fallback. */
 export async function getProjectGroups(): Promise<readonly ProjectGroup[]> {
@@ -131,11 +104,6 @@ function bucketLabel(ageDays: number): string {
   if (ageDays < 1) return "Today";
   if (ageDays < 7) return "Previous 7 days";
   return "Older";
-}
-
-function daysUntilReset(periodStart: string): number {
-  const resetAt = new Date(periodStart).getTime() + CREDIT_PERIOD_DAYS * DAY_MS;
-  return Math.max(0, Math.ceil((resetAt - Date.now()) / DAY_MS));
 }
 
 type ProjectSummary = Pick<ProjectRow, "id" | "title" | "created_at">;

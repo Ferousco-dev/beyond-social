@@ -28,27 +28,24 @@ export default function Page(): ReactNode {
       lede="The questions this product actually raises, answered against what the code does rather than what would sound reassuring."
     >
       <div className="flex flex-col gap-10">
-        <Question q="When am I charged for a generation?">
+        <Question q="When am I charged?">
           <p>
-            When it finishes successfully, not when you press the button. Your plan and your balance
-            are checked first, before anything is sent to the provider, and a run that cannot be
-            paid for is refused at that point with the reason named. The credit is deducted only
-            when the video comes back ready.
+            Credits are held when a search, video or avatar is accepted, before anything is sent to
+            a provider. A request your balance cannot cover is refused at that point and nothing is
+            held. When the work finishes the credits are kept, and when it fails they are returned
+            in full.
           </p>
           <p>
-            A failed generation costs nothing. If a run was charged and the provider later reversed
-            it, the charge is refunded once, and the refund appears in your credit history as
-            &ldquo;Refund, generation failed&rdquo;. Credits do not expire.
+            Every charge and refund appears in your credit history. New accounts start with free
+            credits, and credits do not expire.
           </p>
         </Question>
 
-        <Question q="Why was my run refused before it started?">
+        <Question q="Why was my request refused before it started?">
           <p>
-            For one of two separate reasons, and the message says which. Either the model sits on a
-            higher plan than yours, in which case buying credits will not help and the plan has to
-            change, or the plan allows it and your balance does not cover the run, in which case a
-            top-up does. Keeping those apart matters: the worst possible message is telling someone
-            to buy credits for a model their plan does not include.
+            Usually because your balance does not cover it, in which case a top-up fixes it. There is
+            also a daily credit limit that protects accounts from runaway spending; if you reach it,
+            try again later.
           </p>
         </Question>
 

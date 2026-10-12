@@ -1,7 +1,5 @@
 import { type LucideIcon } from "lucide-react";
 
-import { type PlanId } from "@/lib/billing/plans";
-
 export interface NavLink {
   readonly label: string;
   readonly href: string;
@@ -21,21 +19,6 @@ export interface WorkflowStep {
 export interface Benefit {
   readonly title: string;
   readonly description: string;
-}
-
-export interface PricingTier {
-  readonly id: PlanId;
-  readonly name: string;
-  /** Null on the free plan (no charge) and on a plan not priced yet. */
-  readonly monthlyPriceUsd: number | null;
-  readonly yearlyPriceUsd: number | null;
-  readonly isFree: boolean;
-  readonly description: string;
-  readonly videos: string;
-  readonly features: readonly string[];
-  readonly featured: boolean;
-  readonly cta: string;
-  readonly href: "/signup";
 }
 
 export interface FaqItem {

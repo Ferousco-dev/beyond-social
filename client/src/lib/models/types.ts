@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { PLANS, type PlanId } from "@/lib/billing/plans";
 
 /**
  * The model catalogue as the app sees it. The database is the source of truth
@@ -27,7 +26,6 @@ export const modelRowSchema = z.object({
   description: z.string(),
   capabilities: z.array(z.string()),
   credit_cost: z.number().int().nonnegative(),
-  min_plan: z.enum(PLANS),
   is_active: z.boolean(),
   sort_order: z.number().int(),
 });
@@ -41,8 +39,6 @@ export interface CatalogModel {
   readonly capabilities: readonly string[];
   /** What one run costs. Shown before the run, never after it. */
   readonly creditCost: number;
-  /** The lowest plan allowed to run it, independent of credit balance. */
-  readonly minPlan: PlanId;
   readonly sortOrder: number;
 }
 
@@ -55,7 +51,6 @@ export function toCatalogModel(row: z.infer<typeof modelRowSchema>): CatalogMode
     description: row.description,
     capabilities: row.capabilities,
     creditCost: row.credit_cost,
-    minPlan: row.min_plan,
     sortOrder: row.sort_order,
   };
 }

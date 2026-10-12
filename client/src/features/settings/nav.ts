@@ -1,6 +1,5 @@
 import {
   Brain,
-  CreditCard,
   Gauge,
   Palette,
   Share2,
@@ -8,14 +7,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { type PlanId } from "@/lib/billing/plans";
-
 /**
  * The settings sections. One list, used by both the hub cards and the section
  * tabs, so a new section cannot appear in one place and not the other.
  *
  * Ordered by what the reader came for, not alphabetically: who you are, then
- * where the videos go, then preferences, then money, then the administrative
+ * where the videos go, then preferences, then usage, then the administrative
  * tail most people never open. What the videos are made out of is not here: a
  * face, a product shelf and a voice are material rather than preferences, and
  * they live on the assets page.
@@ -30,13 +27,6 @@ export interface SettingsSection {
   readonly label: string;
   readonly description: string;
   readonly icon: LucideIcon;
-  /**
-   * The plan that owns this section, when it is not on every plan. The row
-   * stays visible below it and carries the plan's name, because a section
-   * someone cannot use is still a section they may want to buy; hiding it
-   * makes the upgrade undiscoverable.
-   */
-  readonly plan?: PlanId;
 }
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
@@ -65,14 +55,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Appearance",
     description: "Light, dark, or follow your system.",
     icon: Palette,
-  },
-  {
-    href: "/dashboard/settings/billing",
-    label: "Billing",
-    // No invoice record exists anywhere in the schema, so this does not promise
-    // one. Receipts live in Stripe's portal, which the page links to.
-    description: "Your plan, your credit balance, and top-ups.",
-    icon: CreditCard,
   },
   {
     href: "/dashboard/settings/usage",

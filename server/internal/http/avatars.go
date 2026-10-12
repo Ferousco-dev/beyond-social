@@ -153,6 +153,7 @@ func (a *App) avatarError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusConflict, "avatar_not_ready", "the avatar is not ready yet")
 	case errors.Is(err, avatars.ErrVoiceNotAllowed):
 		writeError(w, http.StatusForbidden, "voice_not_allowed", "that voice is not available to you")
+	case writeCreditError(w, err):
 	default:
 		writeInternal(w, r, err)
 	}

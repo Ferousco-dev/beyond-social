@@ -65,12 +65,51 @@ type UsageRow struct {
 	CostUSD    float64 `json:"estimatedCostUsd"`
 }
 
+// ProviderSpend is what a provider account actually lost over a period, read
+// from balance snapshots: the sum of every drop, ignoring top-ups.
+type ProviderSpend struct {
+	Provider string  `json:"provider"`
+	Unit     string  `json:"unit"`
+	Spent    float64 `json:"spent"`
+}
+
+// UsageReport sets what users were charged against what providers were paid.
+type UsageReport struct {
+	Actions   []UsageRow      `json:"actions"`
+	Providers []ProviderSpend `json:"providers"`
+}
+
+// Segment narrows the user list. Everyone is either new, paid or active, and
+// can be more than one.
+type Segment string
+
+const (
+	SegmentAll    Segment = ""
+	SegmentNew    Segment = "new"    // signed up in the last 7 days
+	SegmentPaid   Segment = "paid"   // has bought credits
+	SegmentActive Segment = "active" // spent credits in the last 30 days
+)
+
+func (s Segment) Valid() bool {
+	return s == SegmentAll || s == SegmentNew || s == SegmentPaid || s == SegmentActive
+}
+
+// SegmentCounts is the head count behind each tab.
+type SegmentCounts struct {
+	Total  int `json:"total"`
+	New    int `json:"new"`
+	Paid   int `json:"paid"`
+	Active int `json:"active"`
+}
+
 type AdminStore interface {
+	SegmentCounts(ctx context.Context) (SegmentCounts, error)
+	ProviderSpend(ctx context.Context, since time.Time) ([]ProviderSpend, error)
 	Prices(ctx context.Context) ([]PriceRow, error)
 	SavePrice(ctx context.Context, row PriceRow, actor string) error
 	Settings(ctx context.Context) ([]Setting, error)
 	SaveSetting(ctx context.Context, key string, value int, actor string) (bool, error)
-	FindUsers(ctx context.Context, query string, limit int) ([]UserCredits, error)
+	FindUsers(ctx context.Context, query string, segment Segment, limit int) ([]UserCredits, error)
 	Ledger(ctx context.Context, userID string, limit int) ([]LedgerRow, error)
 	Usage(ctx context.Context, since time.Time) ([]UsageRow, error)
 }
@@ -85,16 +124,29 @@ func NewAdmin(store AdminStore) *Admin { return &Admin{store: store} }
 func (a *Admin) Prices(ctx context.Context) ([]PriceRow, error)  { return a.store.Prices(ctx) }
 func (a *Admin) Settings(ctx context.Context) ([]Setting, error) { return a.store.Settings(ctx) }
 
-func (a *Admin) FindUsers(ctx context.Context, query string, limit int) ([]UserCredits, error) {
-	return a.store.FindUsers(ctx, query, limit)
+func (a *Admin) FindUsers(ctx context.Context, query string, segment Segment, limit int) ([]UserCredits, error) {
+	if !segment.Valid() {
+		return nil, ErrInvalid
+	}
+	return a.store.FindUsers(ctx, query, segment, limit)
+}
+
+func (a *Admin) SegmentCounts(ctx context.Context) (SegmentCounts, error) {
+	return a.store.SegmentCounts(ctx)
 }
 
 func (a *Admin) Ledger(ctx context.Context, userID string, limit int) ([]LedgerRow, error) {
 	return a.store.Ledger(ctx, userID, limit)
 }
 
-func (a *Admin) Usage(ctx context.Context, days int) ([]UsageRow, error) {
-	return a.store.Usage(ctx, time.Now().AddDate(0, 0, -days))
+func (a *Admin) Usage(ctx context.Context, days int) (UsageReport, error) {
+	since := time.Now().AddDate(0, 0, -days)
+	actions, err := a.store.Usage(ctx, since)
+	if err != nil {
+		return UsageReport{}, err
+	}
+	providers, err := a.store.ProviderSpend(ctx, since)
+	return UsageReport{Actions: actions, Providers: providers}, err
 }
 
 func (a *Admin) UpdatePrice(ctx context.Context, action string, patch PricePatch, actor string) (PriceRow, error) {

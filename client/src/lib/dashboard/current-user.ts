@@ -24,7 +24,7 @@ const PLACEHOLDER: DashboardUser = {
   email: "alex@studio.com",
   initials: "AR",
   avatarUrl: null,
-  plan: "free",
+  credits: 0,
   isAdmin: false,
 };
 
@@ -61,7 +61,7 @@ export const getCurrentUser = cache(async (): Promise<DashboardUser> => {
     email: me.data.data.email,
     initials: toInitials(name),
     avatarUrl: null,
-    plan: "free",
+    credits: me.data.data.credits,
     isAdmin: me.data.data.role === "admin",
   };
 });

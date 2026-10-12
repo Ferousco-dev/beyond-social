@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { takeSeed } from "@/lib/composer/seed";
-import { type GenerationMode } from "@/lib/chat/send-schema";
 
 import { type PendingPhoto } from "../components/compose-menu";
 import { type PendingFootage } from "./use-footage-upload";
@@ -34,8 +33,6 @@ export interface ComposerDraft {
   readonly setFootage: Dispatch<SetStateAction<PendingFootage | null>>;
   readonly shots: readonly PendingShot[] | null;
   readonly setShots: Dispatch<SetStateAction<readonly PendingShot[] | null>>;
-  readonly generationMode: GenerationMode;
-  readonly setGenerationMode: (value: GenerationMode) => void;
   /** Which trained twin speaks this, if one was picked. */
   readonly selectedAvatarId: string | null;
   readonly setSelectedAvatarId: (value: string | null) => void;
@@ -54,7 +51,6 @@ export function useComposerDraft(
   const [voice, setVoice] = useState<PendingVoice | null>(null);
   const [footage, setFootage] = useState<PendingFootage | null>(null);
   const [shots, setShots] = useState<readonly PendingShot[] | null>(null);
-  const [generationMode, setGenerationMode] = useState<GenerationMode>("auto");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [seeded, setSeeded] = useState(false);
 
@@ -79,7 +75,6 @@ export function useComposerDraft(
     if (seed.shots) setShots(seed.shots);
     if (seed.voice) setVoice(seed.voice);
     if (seed.avatarId) setSelectedAvatarId(seed.avatarId);
-    setGenerationMode(seed.generationMode);
 
     setPrompt(seed.prompt);
     setSeeded(true);
@@ -93,7 +88,6 @@ export function useComposerDraft(
     setVoice(null);
     setFootage(null);
     setShots(null);
-    setGenerationMode("auto");
     setSelectedAvatarId(null);
     setSeeded(false);
   }, []);
@@ -114,8 +108,6 @@ export function useComposerDraft(
     setFootage,
     shots,
     setShots,
-    generationMode,
-    setGenerationMode,
     selectedAvatarId,
     setSelectedAvatarId,
     seeded,

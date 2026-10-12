@@ -3,8 +3,8 @@
 import { ExternalLink, Eye, Sparkles } from "lucide-react";
 
 import { FEATURES } from "@/lib/availability";
+import { creditWord } from "@/lib/credits/words";
 import { DENIAL_COPY, type RunCheck } from "@/lib/credits/types";
-import { creditWord } from "@/lib/generation/confirm-model";
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 

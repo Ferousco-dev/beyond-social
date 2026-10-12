@@ -77,7 +77,7 @@ export const meResponse = z.object({
     email: z.string(),
     name: z.string(),
     role: z.enum(["user", "admin"]),
-    plan: z.string(),
+    credits: z.number().int(),
   }),
 });
 

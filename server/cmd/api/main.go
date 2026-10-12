@@ -74,7 +74,8 @@ func run() error {
 
 	creditStore := database.NewCreditStore(pool)
 	creditService := credits.NewService(creditStore)
-	searchBiller := credits.NewDiscoveryBiller(creditService)
+	searchBiller := credits.NewActionBiller(creditService, credits.ActionDiscoverySearch)
+	avatarBiller := credits.NewActionBiller(creditService, credits.ActionAvatarTraining)
 	jobBiller := credits.NewJobBiller(creditService)
 	jobService := jobs.NewService(database.NewJobStore(pool), hub).WithBiller(jobBiller)
 	discoveryStore := database.NewDiscoveryStore(pool)
@@ -111,7 +112,7 @@ func run() error {
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
 	avatarStore := database.NewAvatarStore(pool)
-	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService)
+	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller)
 	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore, Alerts: alertService}
 	videoProcessor := &avatarvideo.Processor{
 		Alerts: alertService,
@@ -180,9 +181,10 @@ func run() error {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	sweeper := &credits.Sweeper{Open: creditStore, Jobs: jobBiller, Searches: searchBiller}
+	sweeper := &credits.Sweeper{Open: creditStore, Jobs: jobBiller, Searches: searchBiller, Avatars: avatarBiller}
 	monitor := &providers.Monitor{
 		Checker: providers.NewChecker(), Key: vault.Key, Alerts: alertService,
+		Snapshot:  creditStore.SaveSnapshot,
 		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
 	}
 	go sweeper.Run(ctx)

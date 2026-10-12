@@ -127,7 +127,7 @@ func (s *CreditStore) OpenJobs(ctx context.Context, olderThan time.Duration, lim
 }
 
 // OpenSearches lists finished searches that hold a reservation nobody closed.
-func (s *CreditStore) OpenSearches(ctx context.Context, olderThan time.Duration, limit int) ([]credits.OpenSearch, error) {
+func (s *CreditStore) OpenSearches(ctx context.Context, olderThan time.Duration, limit int) ([]credits.OpenResource, error) {
 	rows, err := s.pool.Query(ctx, `
 		select d.id::text, d.user_id::text, d.status = 'completed' from public.discoveries d
 		where d.status in ('completed', 'failed')
@@ -139,13 +139,37 @@ func (s *CreditStore) OpenSearches(ctx context.Context, olderThan time.Duration,
 		return nil, err
 	}
 	defer rows.Close()
-	out := []credits.OpenSearch{}
+	out := []credits.OpenResource{}
 	for rows.Next() {
-		var d credits.OpenSearch
+		var d credits.OpenResource
 		if err := rows.Scan(&d.ID, &d.UserID, &d.Delivered); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// OpenAvatars lists finished avatars that hold a reservation nobody closed.
+func (s *CreditStore) OpenAvatars(ctx context.Context, olderThan time.Duration, limit int) ([]credits.OpenResource, error) {
+	rows, err := s.pool.Query(ctx, `
+		select a.id::text, a.user_id::text, a.training_status = 'ready' from public.avatars a
+		where a.training_status in ('ready', 'failed')
+		  and a.updated_at < now() - make_interval(secs => $1)
+		  and exists (select 1 from public.credit_ledger where idempotency_key = 'reserve:' || a.id::text)
+		  and not exists (select 1 from public.credit_ledger where idempotency_key = 'close:' || a.id::text)
+		limit $2`, olderThan.Seconds(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []credits.OpenResource{}
+	for rows.Next() {
+		var r credits.OpenResource
+		if err := rows.Scan(&r.ID, &r.UserID, &r.Delivered); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
 	}
 	return out, rows.Err()
 }

@@ -1,10 +1,9 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Menu, Search, Sparkle } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { UpgradeModal } from "@/features/billing/components/upgrade-modal";
 import { cn } from "@/lib/utils";
 import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
@@ -18,19 +17,15 @@ export function DashboardShell({
   user,
   projects,
   credits,
-  checkoutReady,
   children,
 }: {
   user: DashboardUser;
   projects: readonly SidebarProject[];
   credits: Credits | null;
-  /** False until Stripe keys exist; passed from the server. */
-  checkoutReady: boolean;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   return (
     // The workspace is a dark "operating environment" regardless of the global
@@ -118,21 +113,6 @@ export function DashboardShell({
               </button>
             </CommandPalette>
 
-            {/* Was href="#", so the upgrade call to action did nothing at all.
-                Padded to a real tap target too: it was 20px tall.
-                Studio is the top plan, so someone already on it has nothing to
-                upgrade to; the button offered a modal with every option
-                disabled rather than admitting there wasn't a next step. */}
-            {user.plan !== "studio" && (
-              <button
-                type="button"
-                onClick={() => setUpgradeOpen(true)}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-sm font-medium text-primary transition-opacity pointer-coarse:min-h-11 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                <Sparkle className="size-4 fill-current" aria-hidden />
-                Upgrade
-              </button>
-            )}
           </div>
         </header>
 
@@ -156,12 +136,6 @@ export function DashboardShell({
         </main>
       </div>
 
-      <UpgradeModal
-        open={upgradeOpen}
-        onOpenChange={setUpgradeOpen}
-        currentPlan={user.plan}
-        checkoutReady={checkoutReady}
-      />
     </div>
   );
 }

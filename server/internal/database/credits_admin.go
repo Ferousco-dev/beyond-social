@@ -63,12 +63,18 @@ func (s *AdminCreditStore) SaveSetting(ctx context.Context, key string, value in
 	return tag.RowsAffected() == 1, err
 }
 
-func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, limit int) ([]credits.UserCredits, error) {
+func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment credits.Segment, limit int) ([]credits.UserCredits, error) {
 	rows, err := s.pool.Query(ctx, `
 		select p.id::text, p.email, p.display_name, coalesce(b.balance, 0)
 		from public.profiles p left join public.credit_balances b on b.user_id = p.id
-		where p.email ilike '%' || $1 || '%' or p.display_name ilike '%' || $1 || '%' or p.id::text = $1
-		order by p.created_at desc limit $2`, query, limit)
+		where (p.email ilike '%' || $1 || '%' or p.display_name ilike '%' || $1 || '%' or p.id::text = $1)
+		  and p.deleted_at is null
+		  and case $2
+		        when 'new' then p.created_at >= now() - interval '7 days'
+		        when 'paid' then exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'purchase')
+		        when 'active' then exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'reserve' and l.created_at >= now() - interval '30 days')
+		        else true end
+		order by p.created_at desc limit $3`, query, string(segment), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -141,4 +147,47 @@ func (s *AdminCreditStore) Usage(ctx context.Context, since time.Time) ([]credit
 		}
 	}
 	return out, nil
+}
+
+// SaveSnapshot records what a provider account held right now.
+func (s *CreditStore) SaveSnapshot(ctx context.Context, provider string, amount float64, unit string) error {
+	_, err := s.pool.Exec(ctx, `insert into public.provider_balance_snapshots (provider, amount, unit) values ($1, $2, $3)`, provider, amount, unit)
+	return err
+}
+
+// ProviderSpend adds up every drop between consecutive readings. A rise is a
+// top-up, so it is ignored rather than netted against spending.
+func (s *AdminCreditStore) ProviderSpend(ctx context.Context, since time.Time) ([]credits.ProviderSpend, error) {
+	rows, err := s.pool.Query(ctx, `
+		select provider, unit, coalesce(sum(prev - amount) filter (where prev > amount), 0)::float8
+		from (
+			select provider, unit, amount, taken_at,
+			       lag(amount) over (partition by provider order by taken_at) as prev
+			from public.provider_balance_snapshots
+			where taken_at >= $1
+		) s group by provider, unit order by provider`, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []credits.ProviderSpend{}
+	for rows.Next() {
+		var p credits.ProviderSpend
+		if err := rows.Scan(&p.Provider, &p.Unit, &p.Spent); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (s *AdminCreditStore) SegmentCounts(ctx context.Context) (credits.SegmentCounts, error) {
+	var c credits.SegmentCounts
+	err := s.pool.QueryRow(ctx, `
+		select count(*)::int,
+		       count(*) filter (where p.created_at >= now() - interval '7 days')::int,
+		       count(*) filter (where exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'purchase'))::int,
+		       count(*) filter (where exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'reserve' and l.created_at >= now() - interval '30 days'))::int
+		from public.profiles p where p.deleted_at is null`).Scan(&c.Total, &c.New, &c.Paid, &c.Active)
+	return c, err
 }

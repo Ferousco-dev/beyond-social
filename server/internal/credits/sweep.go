@@ -8,8 +8,8 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 )
 
-// OpenSearch is a finished search whose charge was never closed.
-type OpenSearch struct {
+// OpenResource is a finished search or avatar whose charge was never closed.
+type OpenResource struct {
 	ID        string
 	UserID    string
 	Delivered bool
@@ -19,7 +19,8 @@ type OpenSearch struct {
 // refunded, for example because the process stopped between the two.
 type OpenCharges interface {
 	OpenJobs(ctx context.Context, olderThan time.Duration, limit int) ([]jobs.Job, error)
-	OpenSearches(ctx context.Context, olderThan time.Duration, limit int) ([]OpenSearch, error)
+	OpenSearches(ctx context.Context, olderThan time.Duration, limit int) ([]OpenResource, error)
+	OpenAvatars(ctx context.Context, olderThan time.Duration, limit int) ([]OpenResource, error)
 }
 
 // Sweeper closes charges that were missed. Closing is idempotent, so running it
@@ -27,7 +28,8 @@ type OpenCharges interface {
 type Sweeper struct {
 	Open      OpenCharges
 	Jobs      *JobBiller
-	Searches  *DiscoveryBiller
+	Searches  *ActionBiller
+	Avatars   *ActionBiller
 	Interval  time.Duration
 	OlderThan time.Duration
 }
@@ -69,19 +71,30 @@ func (s *Sweeper) Once(ctx context.Context) int {
 		}
 		closed++
 	}
-	searches, err := s.Open.OpenSearches(ctx, age, sweepBatch)
-	if err != nil {
-		slog.Error("find open search charges", "error", err)
+	closed += s.closeResources(ctx, "search", s.Open.OpenSearches, s.Searches, age)
+	closed += s.closeResources(ctx, "avatar", s.Open.OpenAvatars, s.Avatars, age)
+	if closed > 0 {
+		slog.Warn("closed charges the normal path missed", "count", closed)
 	}
-	for _, d := range searches {
-		if err := s.Searches.Close(ctx, d.UserID, d.ID, d.Delivered); err != nil {
-			slog.Error("close open search charge", "discovery_id", d.ID, "error", err)
+	return closed
+}
+
+func (s *Sweeper) closeResources(ctx context.Context, what string, find func(context.Context, time.Duration, int) ([]OpenResource, error), biller *ActionBiller, age time.Duration) int {
+	if biller == nil {
+		return 0
+	}
+	open, err := find(ctx, age, sweepBatch)
+	if err != nil {
+		slog.Error("find open charges", "kind", what, "error", err)
+		return 0
+	}
+	closed := 0
+	for _, r := range open {
+		if err := biller.Close(ctx, r.UserID, r.ID, r.Delivered); err != nil {
+			slog.Error("close open charge", "kind", what, "id", r.ID, "error", err)
 			continue
 		}
 		closed++
-	}
-	if closed > 0 {
-		slog.Warn("closed charges the normal path missed", "count", closed)
 	}
 	return closed
 }

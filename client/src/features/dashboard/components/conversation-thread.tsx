@@ -8,9 +8,6 @@ import { sendMessage } from "@/features/chat/actions";
 import { QuestionPrompt } from "@/features/brief/components/question-prompt";
 import { Coachmark } from "@/features/tips/components/coachmark";
 import { useClarification } from "../hooks/use-clarification";
-import { useModelConfirmation } from "../hooks/use-model-confirmation";
-import { ModelConfirmPrompt } from "@/features/generation/components/model-confirm-prompt";
-import { type ModelAnswer } from "@/lib/generation/confirm-model";
 import { TIPS } from "@/lib/tips/tips";
 import { followUpsFor } from "@/lib/generation/follow-ups";
 import { recordLikenessConsent, startAvatarGeneration } from "@/features/generation/avatar-actions";
@@ -281,83 +278,6 @@ export function ConversationThread({
     [projectId, router, notify, nextId, setMessages],
   );
 
-  /**
-   * Sends the held turn again, now that the cost is settled.
-   *
-   * The answer rides along whichever way it went. Its presence is what ends the
-   * exchange: a turn carrying one is never asked about the model again, so a
-   * decline cannot loop back into the same card.
-   */
-  const proceedWithModel = useCallback(
-    (payload: Parameters<typeof sendMessage>[0], modelAnswer: ModelAnswer) => {
-      setSending(true);
-      setNotice(null);
-
-      void (async () => {
-        const result = await sendMessage({ ...payload, modelAnswer });
-        setSending(false);
-
-        if (result.status !== "ok") {
-          notify(result.status === "error" ? result.message : "That could not be sent. Try again.");
-          return;
-        }
-
-        const failedGenerationId = result.generationId;
-        const generationError = result.generationError;
-        if (generationError && failedGenerationId) {
-          setMessages((current) => [
-            ...current,
-            {
-              id: `${nextId()}-reply`,
-              role: "assistant",
-              content: result.reply,
-              attachments: [],
-              draft: {
-                generationId: failedGenerationId,
-                status: "failed" as const,
-                resultUrl: null,
-                error: generationError,
-              },
-            },
-          ]);
-          notify(generationError);
-          if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
-          return;
-        }
-
-        if (result.notice) notify(result.notice, result.noticeUpgrade);
-        router.refresh();
-        if (projectId === "new") router.replace(`/dashboard/c/${result.projectId}` as Route);
-      })();
-    },
-    [projectId, router, notify, nextId, setMessages],
-  );
-
-  const modelChoice = useModelConfirmation(projectId, proceedWithModel);
-  // Destructured for the same reason as `hold` below: the object identity
-  // changes every render, the callback on it does not.
-  const { ask } = modelChoice;
-
-  /*
-   * The brief a restored offer is about, drawn back onto the screen.
-   *
-   * Nothing was persisted for a held turn, so a reload lands on a thread that
-   * does not contain the message the card is quoting a price for. Redrawing it
-   * is what makes the offer readable rather than a number about nothing. The
-   * server replaces it the moment the turn is actually saved.
-   */
-  const heldBrief = modelChoice.pending?.payload.prompt ?? null;
-  useEffect(() => {
-    if (heldBrief === null) return;
-    setMessages((current) =>
-      [...current].reverse().find((message) => message.role === "user")?.content === heldBrief
-        ? current
-        : [
-            ...current,
-            { id: nextId(), role: "user" as const, content: heldBrief, attachments: [] },
-          ],
-    );
-  }, [heldBrief, nextId, setMessages]);
 
   const clarify = useClarification(proceed);
   // Destructured because it is what `submit` depends on: the hook's object
@@ -478,7 +398,6 @@ export function ConversationThread({
         const payload = {
           projectId,
           prompt: trimmed,
-          generationMode: draft.generationMode,
           imageUrls: attached.length > 0 ? attached : undefined,
           attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
           videoPaths: clip ? [clip.path] : undefined,
@@ -549,21 +468,6 @@ export function ConversationThread({
             questions: result.questions,
             framing: result.framing,
           });
-          return;
-        }
-
-        /*
-         * A model costlier than the everyday one suits this better, and the
-         * server stopped rather than either spending it or quietly dropping to
-         * the cheap one. Nothing was created and nothing was charged.
-         *
-         * The optimistic message stays, as it does for the clarifying
-         * questions: it is what the offer is about, and withdrawing it would
-         * leave a price quoted over an empty thread. The card says why it is
-         * asking, so nothing is posted alongside it.
-         */
-        if (result.status === "confirm") {
-          ask({ payload, upgrade: result.upgrade });
           return;
         }
 
@@ -647,7 +551,6 @@ export function ConversationThread({
       confirm,
       hold,
       sendTurn,
-      ask,
       nextId,
       setMessages,
       clearDraft,
@@ -670,7 +573,7 @@ export function ConversationThread({
         editorHref={editorHref}
         seeded={draft.seeded}        sending={sending}
         rendering={rendering}
-        awaitingAnswer={clarify.pending !== null || modelChoice.pending !== null}
+        awaitingAnswer={clarify.pending !== null}
         partial={turn.partial}
         stage={turn.stage}
         notice={notice}
@@ -691,17 +594,8 @@ export function ConversationThread({
           The question takes the composer's place rather than sitting above it.
           This turn is already written and waiting on one answer, so a text box
           alongside would invite a second turn that cannot be sent yet. The same
-          applies to the cost of a costlier model, which is one answer too.
         */}
-        {modelChoice.pending ? (
-          <div className="pb-4">
-            <ModelConfirmPrompt
-              upgrade={modelChoice.pending.upgrade}
-              disabled={sending}
-              onAnswer={modelChoice.answer}
-            />
-          </div>
-        ) : clarify.pending ? (
+        {clarify.pending ? (
           <div className="pb-4">
             <QuestionPrompt
               key={clarify.current?.label ?? "done"}

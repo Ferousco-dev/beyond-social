@@ -25,21 +25,17 @@
     "test:tiktok-structure": "tsx --tsconfig scripts/tsconfig.json scripts/tiktok-structure-smoke.ts",
     "test:prompt-registry": "tsx --tsconfig scripts/tsconfig.json scripts/prompt-registry-smoke.ts",
     "test:intent": "tsx --tsconfig scripts/tsconfig.json scripts/intent-smoke.ts",
-    "test:model": "tsx --tsconfig scripts/tsconfig.json scripts/model-smoke.ts",
-    "test:model-confirm": "tsx --tsconfig scripts/tsconfig.json scripts/model-confirm-smoke.ts",
     "test:followup": "tsx --tsconfig scripts/tsconfig.json scripts/followup-smoke.ts",
     "test:history": "tsx --tsconfig scripts/tsconfig.json scripts/history-smoke.ts",
     "test:optimization": "tsx --tsconfig scripts/tsconfig.json scripts/optimization-smoke.ts",
     "test:generation": "tsx --tsconfig scripts/tsconfig.json scripts/generation-smoke.ts",
     "test:product-hardening": "tsx --tsconfig scripts/tsconfig.json scripts/product-hardening-smoke.ts",
     "test:stress:local": "tsx --tsconfig scripts/tsconfig.json scripts/local-stress.ts",
-    "test:credit-pack-webhook": "tsx --tsconfig scripts/tsconfig.json scripts/credit-pack-webhook-smoke.ts",
     "test:catalog": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/catalog-smoke.ts",
     "test:retrieval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/retrieval-hints-smoke.ts",
     "test:eval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/retrieval-eval.ts",
     "test:attachments": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/attachments-smoke.ts",
-    "test:transform": "tsx --tsconfig scripts/tsconfig.json scripts/transform-smoke.ts",
-    "test:stripe": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local --tsconfig scripts/tsconfig.json scripts/stripe-smoke.ts"
+    "test:transform": "tsx --tsconfig scripts/tsconfig.json scripts/transform-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

@@ -1,21 +1,17 @@
 import { Download } from "lucide-react";
 
-import Link from "next/link";
 
-import { getCurrentPlan } from "@/lib/billing/current-plan";
 
 import { getUsageReport } from "../lib/queries";
 import { rangeLabel, type UsageRangeId } from "../lib/range";
 import { CreditChart } from "./credit-chart";
-import { ModelBreakdown } from "./model-breakdown";
-import { ModelCalls } from "./model-calls";
 import { RangeTabs } from "./range-tabs";
 import { UsageEmpty } from "./usage-empty";
 import { UsageTotals } from "./usage-totals";
 
 /** API usage for the signed-in user, priced in credits. */
 export async function UsagePage({ range }: { range: UsageRangeId }) {
-  const [report, plan] = await Promise.all([getUsageReport(range), getCurrentPlan()]);
+  const report = await getUsageReport(range);
 
   return (
     // The frame and the "Settings" title come from the settings layout.
@@ -42,25 +38,12 @@ export async function UsagePage({ range }: { range: UsageRangeId }) {
         <>
           <UsageTotals report={report} range={range} />
           <CreditChart days={report.days} />
-          <ModelBreakdown models={report.models} />
-          <ModelCalls calls={report.calls} />
         </>
       ) : (
         <UsageEmpty range={range} />
       )}
 
-      {/* Plan and top-ups live in Settings > Billing, so there is one place to
-          change a subscription rather than two that can disagree. */}
-      <p className="mt-8 text-xs text-ink-soft">
-        You are on the <span className="capitalize text-ink">{plan}</span> plan. Credits never
-        expire.{" "}
-        <Link
-          href="/dashboard/settings/billing"
-          className="text-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          Manage billing
-        </Link>
-      </p>
+      <p className="mt-8 text-xs text-ink-soft">Credits never expire.</p>
     </section>
   );
 }

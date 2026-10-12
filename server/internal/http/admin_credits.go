@@ -89,9 +89,9 @@ func (a *App) findCreditUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	users, err := a.deps.CreditAdmin.FindUsers(r.Context(), r.URL.Query().Get("q"), limit)
+	users, err := a.deps.CreditAdmin.FindUsers(r.Context(), r.URL.Query().Get("q"), credits.Segment(r.URL.Query().Get("segment")), limit)
 	if err != nil {
-		writeInternal(w, r, err)
+		a.adminError(w, r, err)
 		return
 	}
 	writeData(w, http.StatusOK, users)
@@ -168,4 +168,13 @@ func (a *App) audit(r *http.Request, actor, action, target string, detail map[st
 	if err := a.deps.Audit.Record(r.Context(), actor, action, target, detail); err != nil {
 		logAuditFailure(action, target, err)
 	}
+}
+
+func (a *App) userSegments(w http.ResponseWriter, r *http.Request) {
+	counts, err := a.deps.CreditAdmin.SegmentCounts(r.Context())
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, counts)
 }

@@ -3,6 +3,7 @@ package avatars
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"slices"
@@ -65,10 +66,20 @@ func (s *Service) Register(ctx context.Context, userID string, in RegisterInput)
 		return Avatar{}, false, err
 	}
 	a.Resolve(s.now())
-	if isNew {
-		s.publish(a)
+	if !isNew {
+		return a, false, nil
 	}
-	return a, isNew, nil
+	if s.biller != nil {
+		if err := s.biller.Reserve(ctx, userID, a.ID); err != nil {
+			// Not charged, so close the avatar rather than leave it for a worker.
+			if _, failErr := s.repo.Advance(ctx, a.ID, Update{TrainingStatus: trainingFailed, Error: "not charged"}); failErr != nil {
+				slog.Error("close unfunded avatar", "avatar_id", a.ID, "error", failErr)
+			}
+			return Avatar{}, false, err
+		}
+	}
+	s.publish(a)
+	return a, true, nil
 }
 
 func (s *Service) checkFootage(ctx context.Context, path string) error {
