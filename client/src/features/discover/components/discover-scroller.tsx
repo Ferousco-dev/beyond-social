@@ -1,23 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { type Route } from "next";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
-import { ScriptSheet, type ScriptTake } from "@/features/script/components/script-sheet";
-import { leaveSeed } from "@/lib/composer/seed";
 import { looksLikeUrl, parseSocialUrl } from "@/lib/social-scrape/url";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
 import { classifyPosts } from "../classify-actions";
 import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
-import { usePostAnalysis } from "../hooks/use-post-analysis";
 import { PLATFORM_NAME } from "../lib/platforms";
 import { suggestQueries } from "../query-actions";
 import { searchSocial } from "../search-actions";
 import { type DiscoverPost } from "../types";
 import { scrapePostFromUrl } from "../url-actions";
-import { AnalysisSheet } from "./analysis-sheet";
 import { HumanFilterControl, type HumanFilter } from "./human-filter";
 import { PostDetail } from "./post-detail";
 import { PostTile } from "./post-tile";
@@ -85,7 +79,6 @@ export function DiscoverScroller({
   initialQuery?: string;
   industryTerms?: readonly string[];
 }) {
-  const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [platform, setPlatform] = useState<ScrapePlatform>("tiktok");
   const [results, setResults] = useState<Results | null>(null);
@@ -96,7 +89,6 @@ export function DiscoverScroller({
   const { history, remember, clear } = useSearchHistory();
   const [pending, startTransition] = useTransition();
   /** Open once the user asks for a script rather than the paragraph. */
-  const [scripting, setScripting] = useState(false);
   const [humanFilter, setHumanFilter] = useState<HumanFilter>("all");
   /** Overrides `showsPerson` as classifications arrive, keyed by videoId. */
   const [classified, setClassified] = useState<Record<string, boolean | null>>({});
@@ -279,43 +271,6 @@ export function DiscoverScroller({
     [run],
   );
 
-  /** Seeds a new chat with a brief. The composer waits; nothing is sent. */
-  const seed = useCallback(
-    (brief: string) => {
-      router.push(`/dashboard/c/new?prompt=${encodeURIComponent(brief)}` as Route);
-    },
-    [router],
-  );
-
-  const {
-    reading,
-    analysis,
-    analysisTier,
-    analysing,
-    analysingDeep,
-    costs,
-    openAsInspiration,
-    openAsInspirationDeep,
-    close: closeAnalysis,
-  } = usePostAnalysis({ setNotice, seed });
-
-  /**
-   * Seeds a new chat with a compiled script and its beats.
-   *
-   * Left in session storage rather than on the URL: a script is a couple of
-   * thousand characters of newlines and quoted dialogue, and the shot list is
-   * structure that a query string would have to be taught to carry.
-   */
-  const seedScript = useCallback(
-    (take: ScriptTake) => {
-      leaveSeed({ prompt: take.compiled.prompt, shots: take.compiled.shots, photos: take.photos });
-      setScripting(false);
-      closeAnalysis();
-      router.push("/dashboard/c/new" as Route);
-    },
-    [router, closeAnalysis],
-  );
-
   const rawPosts = results?.posts ?? [];
   // The cache can already answer some of these from a previous search, and the
   // override map holds whatever has come back for this one so far, so a post
@@ -442,15 +397,7 @@ export function DiscoverScroller({
         }
         detail={
           selected ? (
-            <PostDetail
-              post={selected}
-              analysing={analysing}
-              onUse={() => openAsInspiration(selected)}
-              analysingDeep={analysingDeep}
-              onUseDeep={() => openAsInspirationDeep(selected)}
-              inspirationCost={costs?.inspiration ?? null}
-              deepCost={costs?.deep ?? null}
-            />
+            <PostDetail post={selected} />
           ) : null
         }
       >
@@ -463,27 +410,6 @@ export function DiscoverScroller({
           />
         ))}
       </ResultsGrid>
-
-      <AnalysisSheet
-        analysis={analysis}
-        tier={analysisTier}
-        handle={reading?.handle ?? ""}
-        // Stands aside while the script is being written, so the two sheets are
-        // never stacked on top of each other.
-        open={reading !== null && analysis !== null && !scripting}
-        onOpenChange={(next) => {
-          if (!next && !scripting) closeAnalysis();
-        }}
-        onUse={seed}
-        onWriteScript={() => setScripting(true)}
-      />
-
-      <ScriptSheet
-        analysis={analysis}
-        open={scripting}
-        onOpenChange={setScripting}
-        onUse={seedScript}
-      />
     </div>
   );
 }

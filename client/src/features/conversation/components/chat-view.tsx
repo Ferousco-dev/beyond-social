@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { z } from "zod";
 
-import { type ChatMessage } from "@/lib/go-api/schemas";
+import { chatMessageSchema, type ChatMessage } from "@/lib/go-api/schemas";
+import { useEventSocket } from "@/lib/go-api/use-event-socket";
 
-import { sendChatMessage, startConversation } from "../actions";
+import { loadThread, sendChatMessage, startConversation } from "../actions";
 import { ChatComposer } from "./chat-composer";
 import { MessageBubble } from "./message-bubble";
+
+const liveMessage = chatMessageSchema.extend({ conversation_id: z.string() });
+
+/** Adds messages by id, oldest first, so an event and a reply carrying the same message show once. */
+function merge(current: readonly ChatMessage[], incoming: readonly ChatMessage[]): readonly ChatMessage[] {
+  const byId = new Map(current.map((m) => [m.id, m]));
+  for (const m of incoming) byId.set(m.id, m);
+  return [...byId.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+}
 
 /** A conversation with the assistant. A new one is only created on the first send. */
 export function ChatView({
@@ -28,6 +39,29 @@ export function ChatView({
   // Kept across a failed attempt so retrying the same text is not answered twice.
   const attempt = useRef<{ text: string; key: string } | null>(null);
   const endRef = useRef<HTMLLIElement>(null);
+
+  // Jobs started in this thread whose result has not arrived yet.
+  const watching = useMemo(() => {
+    const count = new Map<string, number>();
+    for (const m of messages) if (m.job_id) count.set(m.job_id, (count.get(m.job_id) ?? 0) + 1);
+    return new Set([...count].filter(([, n]) => n === 1).map(([jobId]) => jobId));
+  }, [messages]);
+
+  const catchUp = useCallback(async () => {
+    if (id === null) return;
+    const thread = await loadThread(id);
+    if (thread.status === "ok") setMessages((current) => merge(current, thread.messages));
+  }, [id]);
+
+  useEventSocket({
+    active: id !== null,
+    onReady: () => void catchUp(),
+    onEvent: (event) => {
+      if (event.type !== "chat.message") return;
+      const parsed = liveMessage.safeParse(event.payload);
+      if (parsed.success && parsed.data.conversation_id === id) setMessages((current) => merge(current, [parsed.data]));
+    },
+  });
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -64,7 +98,7 @@ export function ChatView({
     // re-render the page and stall the request.
     window.history.replaceState(null, "", `/dashboard/c/${target}`);
     setPending(null);
-    setMessages((current) => [...current, result.user, result.assistant]);
+    setMessages((current) => merge(current, [result.user, result.assistant]));
   }
 
   function fail(text: string, message: string): void {
@@ -86,7 +120,7 @@ export function ChatView({
         ) : (
           <ul aria-label="Conversation" aria-live="polite" className="space-y-4">
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} watching={message.job_id !== undefined && watching.has(message.job_id)} />
             ))}
             {pending !== null ? (
               <>

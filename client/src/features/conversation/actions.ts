@@ -6,6 +6,7 @@ import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
 import {
   conversationResponse,
   exchangeResponse,
+  threadResponse,
   type ChatMessage,
 } from "@/lib/go-api/schemas";
 
@@ -52,4 +53,15 @@ export async function sendChatMessage(input: z.input<typeof sendSchema>): Promis
   return result.ok
     ? { status: "ok", user: result.data.data.user, assistant: result.data.data.assistant }
     : { status: "error", message: result.message };
+}
+
+export type ThreadResult =
+  | { readonly status: "ok"; readonly messages: readonly ChatMessage[] }
+  | { readonly status: "error" };
+
+/** The saved messages, for catching up after the live connection was down. */
+export async function loadThread(conversationId: string): Promise<ThreadResult> {
+  if (!z.string().uuid().safeParse(conversationId).success || !isGoApiConfigured()) return { status: "error" };
+  const result = await goApi(`/api/v1/conversations/${conversationId}`, threadResponse);
+  return result.ok ? { status: "ok", messages: result.data.data.messages } : { status: "error" };
 }

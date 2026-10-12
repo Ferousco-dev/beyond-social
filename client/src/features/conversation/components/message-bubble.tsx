@@ -1,11 +1,19 @@
 import { type ReactNode } from "react";
 
+import { Spinner } from "@/components/ui/spinner";
 import { type ChatMessage } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
 import { WorkflowCard } from "./workflow-card";
 
-export function MessageBubble({ message }: { readonly message: ChatMessage }): ReactNode {
+export function MessageBubble({
+  message,
+  watching = false,
+}: {
+  readonly message: ChatMessage;
+  /** True while the job this message started is still running. */
+  readonly watching?: boolean;
+}): ReactNode {
   const mine = message.role === "user";
 
   return (
@@ -19,6 +27,12 @@ export function MessageBubble({ message }: { readonly message: ChatMessage }): R
         >
           {message.content}
         </p>
+        {watching ? (
+          <p className="mt-2 flex items-center gap-2 text-xs text-ink-soft" aria-live="polite">
+            <Spinner className="size-3.5" />
+            Watching the video
+          </p>
+        ) : null}
         {message.workflow_id ? <WorkflowCard workflowId={message.workflow_id} /> : null}
       </div>
     </li>

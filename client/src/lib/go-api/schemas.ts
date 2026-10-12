@@ -126,6 +126,7 @@ export const chatMessageSchema = z.object({
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   workflow_id: z.string().optional(),
+  job_id: z.string().optional(),
   created_at: z.string(),
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;

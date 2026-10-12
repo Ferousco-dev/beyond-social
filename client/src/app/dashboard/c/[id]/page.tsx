@@ -16,15 +16,17 @@ export default async function ConversationPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ prompt?: string }>;
+  searchParams: Promise<{ prompt?: string; link?: string }>;
 }) {
   const { id } = await params;
-  const { prompt = "" } = await searchParams;
+  const { prompt = "", link = "" } = await searchParams;
+  // A link from Discover arrives as text in the box, so the person can add what to change before sending.
+  const seed = link.startsWith("https://") ? link.slice(0, 500) : prompt.slice(0, 2000);
   const user = await getCurrentUser();
   const firstName = user.name.split(" ")[0] ?? user.name;
 
   if (id === "new") {
-    return <ChatView conversationId={null} initialMessages={[]} initialPrompt={prompt.slice(0, 2000)} firstName={firstName} />;
+    return <ChatView conversationId={null} initialMessages={[]} initialPrompt={seed} firstName={firstName} />;
   }
   if (!z.string().uuid().safeParse(id).success) notFound();
 
