@@ -76,8 +76,6 @@ export function WorkspaceCanvas({ editor, playback, takes, onOpenAssets }: Works
                   className="h-16 w-24 shrink-0 overflow-hidden rounded-lg border border-hairline bg-cloud"
                 >
                   {take.url ? (
-                    // Plain video: signed, short-lived URLs the optimizer cannot preconfigure.
-                    // eslint-disable-next-line jsx-a11y/media-has-caption
                     <video src={take.url} className="h-full w-full object-cover" muted playsInline />
                   ) : (
                     <span className="flex h-full items-center justify-center px-2 text-center text-[11px] text-ink-soft">
