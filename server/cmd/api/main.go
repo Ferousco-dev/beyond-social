@@ -206,6 +206,7 @@ func run() error {
 		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
 	}
 	go sweeper.Run(ctx)
+	go chatService.RunReconciler(ctx, time.Minute)
 	go monitor.Run(ctx)
 
 	workers := make(chan struct{})

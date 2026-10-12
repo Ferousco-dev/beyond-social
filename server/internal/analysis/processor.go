@@ -161,7 +161,7 @@ func (p *Processor) retry(ctx context.Context, job jobs.Job) {
 
 func (p *Processor) fail(ctx context.Context, job jobs.Job, message string) {
 	// Detached so the failure is recorded even while shutting down.
-	saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
 	defer cancel()
 	p.advance(saveCtx, job, jobs.Update{Status: jobs.StatusFailed, Error: message})
 }

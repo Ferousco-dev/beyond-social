@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 )
 
@@ -73,6 +74,8 @@ type Store interface {
 	// such as the follow-up to a background job. A repeat returns isNew=false.
 	AddAssistantOnce(ctx context.Context, m Message, key string) (saved Message, isNew bool, err error)
 	SetTitle(ctx context.Context, id, title string) error
+	// MissingFollowUps finds finished analyses whose result was never posted.
+	MissingFollowUps(ctx context.Context, olderThan time.Duration, limit int) ([]jobs.Job, error)
 	CountUserMessagesSince(ctx context.Context, userID string, since time.Time) (int, error)
 }
 

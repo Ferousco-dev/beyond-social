@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
+	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -179,4 +180,31 @@ func (s *ConversationStore) CountUserMessagesSince(ctx context.Context, userID s
 	err := s.pool.QueryRow(ctx, `
 		select count(*)::int from public.messages where user_id = $1 and role = 'user' and created_at >= $2`, userID, since).Scan(&n)
 	return n, err
+}
+
+// MissingFollowUps lists finished analyses started from a chat whose result
+// message does not exist yet.
+func (s *ConversationStore) MissingFollowUps(ctx context.Context, olderThan time.Duration, limit int) ([]jobs.Job, error) {
+	rows, err := s.pool.Query(ctx, `
+		select `+jobColumns+` from public.jobs j
+		where job_type = 'video_analysis' and status in ('completed', 'failed')
+		  and input ? 'conversation_id'
+		  and updated_at < now() - make_interval(secs => $1)
+		  and not exists (
+		    select 1 from public.messages m
+		    where m.idempotency_key = 'job:' || j.id::text and m.role = 'assistant')
+		order by updated_at limit $2`, olderThan.Seconds(), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []jobs.Job{}
+	for rows.Next() {
+		job, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, job)
+	}
+	return out, rows.Err()
 }

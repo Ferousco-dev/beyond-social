@@ -6,7 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
+	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/google/uuid"
 )
 
@@ -78,5 +80,79 @@ func TestConversationsAreOwnedOrdersAndDeduplicate(t *testing.T) {
 	}
 	if list, _ := store.List(ctx, alice, 10, 0); len(list) != 0 {
 		t.Fatalf("archived thread still listed: %+v", list)
+	}
+}
+
+func TestAnalysisJobPostsItsResultOnceThroughTheRealStores(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	user := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, user, "a@example.com", "A"); err != nil {
+		t.Fatal(err)
+	}
+	conversations := NewConversationStore(pool)
+	conv, err := conversations.Create(ctx, user)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conversations.SetTitle(ctx, conv.ID, "t"); err != nil {
+		t.Fatal(err)
+	}
+
+	chatSvc := chat.NewService(conversations, nil, nil)
+	jobSvc := jobs.NewService(NewJobStore(pool), nil).WithObserver(chatSvc)
+	job, _, err := jobSvc.Create(ctx, user, analysis.JobType, map[string]any{"url": "https://youtu.be/dQw4w9WgXcQ", "conversation_id": conv.ID}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := jobSvc.Advance(ctx, job.ID, jobs.Update{Status: jobs.StatusRunning}); err != nil {
+		t.Fatal(err)
+	}
+	result := map[string]any{"analysis": map[string]any{"summary": "A runner at dawn.", "scenes": []any{}, "duration_seconds": 9.0}}
+	if _, err := jobSvc.Advance(ctx, job.ID, jobs.Update{Status: jobs.StatusCompleted, Result: result}); err != nil {
+		t.Fatal(err)
+	}
+	// A second report of the same ending adds nothing.
+	chatSvc.JobFinished(ctx, job)
+
+	msgs, err := conversations.Messages(ctx, user, conv.ID, 10)
+	if err != nil || len(msgs) != 1 || msgs[0].JobID != job.ID || msgs[0].Role != chat.RoleAssistant {
+		t.Fatalf("messages = %+v err=%v", msgs, err)
+	}
+}
+
+func TestMissingFollowUpsFindsFinishedAnalysesWithNoMessage(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	user := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, user, "m@example.com", "M"); err != nil {
+		t.Fatal(err)
+	}
+	conversations := NewConversationStore(pool)
+	conv, _ := conversations.Create(ctx, user)
+	if err := conversations.SetTitle(ctx, conv.ID, "t"); err != nil {
+		t.Fatal(err)
+	}
+	store := NewJobStore(pool)
+	j, _ := jobs.NewJob(user, analysis.JobType, map[string]any{"url": "https://youtu.be/dQw4w9WgXcQ", "conversation_id": conv.ID})
+	created, _, err := store.Create(ctx, j)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []jobs.Status{jobs.StatusRunning, jobs.StatusFailed} {
+		if _, err := store.Advance(ctx, created.ID, jobs.Update{Status: status, Error: "x"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `update public.jobs set updated_at = now() - interval '1 hour' where id = $1`, created.ID); err != nil {
+		t.Fatal(err)
+	}
+	missing, err := conversations.MissingFollowUps(ctx, time.Minute, 10)
+	if err != nil || len(missing) != 1 || missing[0].ID != created.ID {
+		t.Fatalf("missing = %+v err=%v", missing, err)
+	}
+	chat.NewService(conversations, nil, nil).Reconcile(ctx)
+	if again, _ := conversations.MissingFollowUps(ctx, time.Minute, 10); len(again) != 0 {
+		t.Fatalf("still missing after reconcile: %+v", again)
 	}
 }

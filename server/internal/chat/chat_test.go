@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
+	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"google.golang.org/genai"
 )
@@ -19,6 +20,8 @@ type memStore struct {
 	byKey     map[string]Message
 	titled    string
 	sentToday int
+	once      map[string]bool
+	missing   []jobs.Job
 }
 
 func newMem() *memStore {
@@ -65,6 +68,21 @@ func (m *memStore) AddAssistant(_ context.Context, msg Message) (Message, error)
 	msg.ID = "m" + strconv.Itoa(len(m.msgs)+1)
 	m.msgs = append(m.msgs, msg)
 	return msg, nil
+}
+func (m *memStore) AddAssistantOnce(_ context.Context, msg Message, key string) (Message, bool, error) {
+	if m.once == nil {
+		m.once = map[string]bool{}
+	}
+	if m.once[key] {
+		return Message{}, false, nil
+	}
+	m.once[key] = true
+	msg.ID = "m" + strconv.Itoa(len(m.msgs)+1)
+	m.msgs = append(m.msgs, msg)
+	return msg, true, nil
+}
+func (m *memStore) MissingFollowUps(context.Context, time.Duration, int) ([]jobs.Job, error) {
+	return m.missing, nil
 }
 func (m *memStore) SetTitle(_ context.Context, _ string, t string) error { m.titled = t; return nil }
 func (m *memStore) CountUserMessagesSince(context.Context, string, time.Time) (int, error) {

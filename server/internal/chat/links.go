@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -80,4 +81,34 @@ const analysisFailed = "I could not read that video. Your credits were returned.
 func asMap(v any) map[string]any {
 	m, _ := v.(map[string]any)
 	return m
+}
+
+const reconcileBatch = 50
+
+// Reconcile posts results that finished while nobody was listening, for example
+// when the process stopped between a job ending and its message being saved.
+func (s *Service) Reconcile(ctx context.Context) int {
+	missing, err := s.store.MissingFollowUps(ctx, 30*time.Second, reconcileBatch)
+	if err != nil {
+		slog.Error("find missing follow-ups", "error", err)
+		return 0
+	}
+	for _, job := range missing {
+		s.JobFinished(ctx, job)
+	}
+	return len(missing)
+}
+
+// RunReconciler checks on an interval until ctx ends.
+func (s *Service) RunReconciler(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		s.Reconcile(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }

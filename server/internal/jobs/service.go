@@ -107,17 +107,8 @@ func (s *Service) Advance(ctx context.Context, jobID string, update Update) (Job
 	if err != nil {
 		return Job{}, err
 	}
-	if s.biller != nil && updated.Status.Terminal() {
-		// Finish is idempotent. A failure here is logged loudly rather than
-		// returned, because the job itself has already reached its final state.
-		if err := s.biller.Finish(ctx, updated); err != nil {
-			slog.Error("close job charge", "job_id", updated.ID, "user_id", updated.UserID, "error", err)
-		}
-	}
 	if updated.Status.Terminal() {
-		for _, o := range s.observers {
-			o.JobFinished(ctx, updated)
-		}
+		s.finish(ctx, updated)
 	}
 	s.Publish(EventUpdated, updated)
 	return updated, nil
@@ -162,4 +153,24 @@ func (s *Service) Publish(eventType string, job Job) {
 		return
 	}
 	s.publisher.Publish(job.UserID, event)
+}
+
+// finishTimeout bounds closing out a finished job. The job is already final, so
+// this must not die with a caller whose own deadline was short or has passed.
+const finishTimeout = 30 * time.Second
+
+// finish settles or refunds the charge and tells observers. Both are
+// idempotent and both have a backstop (the charge sweeper, the chat
+// reconciler), so a failure here is logged and not returned.
+func (s *Service) finish(ctx context.Context, job Job) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishTimeout)
+	defer cancel()
+	if s.biller != nil {
+		if err := s.biller.Finish(ctx, job); err != nil {
+			slog.Error("close job charge", "job_id", job.ID, "user_id", job.UserID, "error", err)
+		}
+	}
+	for _, o := range s.observers {
+		o.JobFinished(ctx, job)
+	}
 }
