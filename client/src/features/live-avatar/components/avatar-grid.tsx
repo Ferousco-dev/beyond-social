@@ -7,12 +7,11 @@ import { createClient } from "@supabase/supabase-js";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { useConfirm } from "@/components/ui/use-confirm";
-import { type VoiceProfile } from "@/features/voice/actions";
 import { env } from "@/lib/env";
 import { deleteTwin, makeDefaultTwin, type TwinSummary } from "../delete-actions";
 import { startTwinTraining, ticketTwinFootage } from "../upload-actions";
 import { useTwinStatus } from "../hooks/use-twin-status";
-import { type TwinFootage } from "./create-twin-screen";
+import { type TwinFootage } from "./avatar-wizard";
 import { AvatarList } from "./avatar-list";
 import { AvatarWizard, type AvatarWizardResult } from "./avatar-wizard";
 import { hasReachedAvatarLimit, MAX_CUSTOM_AVATARS } from "../avatar-limits";
@@ -20,15 +19,10 @@ import { hasReachedAvatarLimit, MAX_CUSTOM_AVATARS } from "../avatar-limits";
 export function AvatarGrid({
   twins: initialTwins,
   name,
-  voiceProfile,
-  voicePhrase,
   children,
 }: {
   twins: readonly TwinSummary[];
   name: string;
-  /** This account's saved voice, so the wizard can skip re-recording it. */
-  voiceProfile: VoiceProfile | null;
-  voicePhrase: string;
   children?: ReactNode;
 }): ReactNode {
   const router = useRouter();
@@ -200,12 +194,8 @@ export function AvatarGrid({
           onComplete={handleWizardComplete}
           onSuccess={() => {
             setShowWizard(false);
-            // So the next avatar this session creates sees a voice recorded
-            // or cloned just now, rather than the snapshot this page loaded with.
             router.refresh();
           }}
-          voiceProfile={voiceProfile}
-          voicePhrase={voicePhrase}
         />
       </div>
     );

@@ -1,9 +1,7 @@
 import { type Metadata } from "next";
 
 import { PhoneRecorder } from "@/features/live-avatar/components/phone-recorder";
-import { hashHandoffToken, looksLikeHandoffToken } from "@/features/live-avatar/handoff";
-import { isSupabaseConfigured } from "@/lib/env";
-import { createServiceClient } from "@/lib/supabase/service";
+import { env } from "@/lib/env";
 
 export const metadata: Metadata = { title: "Record your avatar" };
 export const dynamic = "force-dynamic";
@@ -25,13 +23,7 @@ export default async function HandoffRecordPage({
 }) {
   const { token } = await params;
 
-  let valid = false;
-  if (isSupabaseConfigured && looksLikeHandoffToken(token)) {
-    const { data } = await createServiceClient().rpc("resolve_avatar_handoff", {
-      p_token_hash: hashHandoffToken(token),
-    });
-    valid = ((data as { user_id: string }[] | null) ?? []).length > 0;
-  }
+  const valid = await linkIsLive(token);
 
   if (!valid) {
     return (
@@ -48,4 +40,18 @@ export default async function HandoffRecordPage({
   // The token reaches the client because the upload endpoints are what enforce
   // it; it is a capability the holder of this page already has by definition.
   return <PhoneRecorder token={token} />;
+}
+
+/** Asks the API whether the link is still good. Silent about why it is not. */
+async function linkIsLive(token: string): Promise<boolean> {
+  if (env.NEXT_PUBLIC_API_URL === "" || !/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
+  try {
+    const response = await fetch(`${env.NEXT_PUBLIC_API_URL.replace(/\/$/, "")}/api/v1/handoffs/${token}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    return response.status === 204;
+  } catch {
+    return false;
+  }
 }

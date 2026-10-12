@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { FEATURES } from "@/lib/availability";
+
 import { canRunModel } from "@/lib/credits/queries";
 import { DENIAL_COPY, type RunCheck } from "@/lib/credits/types";
 import { getIndustry } from "@/lib/profile/industry";
@@ -58,7 +60,8 @@ export interface AnalysisCosts {
 
 /** What each tier costs and whether the signed-in user can afford it, so the
  *  price is on the button before anything is spent. */
-export async function analysisCostsAction(): Promise<AnalysisCosts> {
+export async function analysisCostsAction(): Promise<AnalysisCosts | null> {
+  if (!FEATURES.postAnalysis) return null;
   const [inspiration, deep] = await Promise.all([
     canRunModel("discover.inspiration"),
     canRunModel("discover.inspiration-deep"),
@@ -81,6 +84,7 @@ async function requireUser(): Promise<{ id: string } | null> {
 }
 
 export async function analysePostAction(input: z.input<typeof postSchema>): Promise<AnalyseResult> {
+  if (!FEATURES.postAnalysis) return { status: "unconfigured" };
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "That post could not be read." };
   if (!isPromptEngineConfigured) return { status: "unconfigured" };
@@ -114,6 +118,7 @@ export async function analysePostAction(input: z.input<typeof postSchema>): Prom
 export async function analysePostDeepAction(
   input: z.input<typeof deepSchema>,
 ): Promise<AnalyseResult> {
+  if (!FEATURES.postAnalysis) return { status: "unconfigured" };
   const parsed = deepSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "That post could not be read." };
   if (serverEnv.GEMINI_API_KEY === "") return { status: "unconfigured" };

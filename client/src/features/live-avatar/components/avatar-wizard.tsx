@@ -3,13 +3,19 @@
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { EnrollCard } from "@/features/voice/enroll-card";
-import { type VoiceProfile } from "@/features/voice/actions";
-import { type TwinFootage } from "./create-twin-screen";
-import { WebcamRecorder } from "./webcam-recorder";
 import { type TwinRecording } from "../hooks/use-twin-recorder";
+import { usePhoneHandoff } from "../hooks/use-phone-handoff";
+import { PhoneHandoff } from "./phone-handoff";
+import { WebcamRecorder } from "./webcam-recorder";
 
-type WizardStep = "record" | "confirm" | "uploading" | "voice" | "done";
+/** What the recorder hands back: a file ready to upload. */
+export interface TwinFootage {
+  readonly file: File;
+  readonly seconds: number | null;
+  readonly source: "webcam" | "upload";
+}
+
+type WizardStep = "record" | "confirm" | "uploading" | "done";
 
 export type AvatarWizardResult =
   { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
@@ -20,31 +26,27 @@ export type AvatarWizardResult =
  * Matches HeyGen's simple progression: Record → Confirm → Submit → Voice.
  * Shows one thing at a time, clear feedback at each step.
  *
- * The voice step exists because an avatar cannot actually speak without a
- * cloned voice (`generate-heygen-avatar/twin.ts` refuses to render one that
- * has none), and that used to mean finishing here, then finding your way to
- * Settings separately to do the other half. It is skipped once this account
- * already has a ready cloned voice: voice is one thing shared by every
- * avatar, not recorded again per twin.
+ * There is no voice step: HeyGen clones the voice from this same recording as
+ * part of training, so the avatar arrives with a voice. Choosing a different
+ * one happens where videos are made.
  */
 export function AvatarWizard({
   name,
   onComplete,
   onSuccess,
-  voiceProfile,
-  voicePhrase,
 }: {
   name: string;
   onComplete: (footage: TwinFootage) => Promise<AvatarWizardResult>;
   onSuccess: () => void;
-  /** This account's saved voice, if any, so a ready one skips this step. */
-  voiceProfile: VoiceProfile | null;
-  voicePhrase: string;
 }): ReactNode {
   const [step, setStep] = useState<WizardStep>("record");
   const [recording, setRecording] = useState<TwinRecording | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const voiceReady = voiceProfile?.cloneStatus === "ready";
+  const [onPhone, setOnPhone] = useState(false);
+  const phone = usePhoneHandoff(onPhone, () => {
+    setStep("done");
+    onSuccess();
+  });
 
   const handleRecordingDone = useCallback((rec: TwinRecording) => {
     setRecording(rec);
@@ -69,18 +71,15 @@ export function AvatarWizard({
       if (result.status === "error") {
         setUploadError(result.message);
         setStep("confirm");
-      } else if (voiceReady) {
-        // Already has a voice to speak with: nothing else for this wizard to do.
+      } else {
         setStep("done");
         onSuccess();
-      } else {
-        setStep("voice");
       }
     } catch {
       setUploadError("Training could not start. Try again.");
       setStep("confirm");
     }
-  }, [recording, onComplete, onSuccess, voiceReady]);
+  }, [recording, onComplete, onSuccess]);
 
   const handleRetry = useCallback(() => {
     setRecording(null);
@@ -88,17 +87,11 @@ export function AvatarWizard({
     setStep("record");
   }, []);
 
-  // Voice only earns a place in the trail when this run can actually reach
-  // it: an account with a ready voice already never sees the "voice" step,
-  // so counting it here would leave the indicator stuck one short forever.
-  const stepOrder: readonly WizardStep[] = voiceReady
-    ? ["record", "confirm", "uploading"]
-    : ["record", "confirm", "uploading", "voice"];
+  const stepOrder: readonly WizardStep[] = ["record", "confirm", "uploading"];
   const labels: Record<WizardStep, string> = {
     record: "Record",
     confirm: "Review",
     uploading: "Training",
-    voice: "Voice",
     done: "Training",
   };
 
@@ -142,9 +135,21 @@ export function AvatarWizard({
             Record your avatar
           </h1>
           <p className="mb-6 text-sm text-ink-soft">
-            We need 20-120 seconds of video. Speak naturally - show your face and talk clearly.
+            We need 15 seconds to 10 minutes of video; about two minutes works best. Speak naturally,
+            show your face and talk clearly.
           </p>
-          <WebcamRecorder name={name} onDone={handleRecordingDone} />
+          {onPhone ? (
+            <PhoneHandoff url={phone.url} expiresAt={phone.expiresAt} onRefresh={phone.refresh} />
+          ) : (
+            <WebcamRecorder name={name} onDone={handleRecordingDone} />
+          )}
+          <button
+            type="button"
+            onClick={() => setOnPhone((current) => !current)}
+            className="mt-4 cursor-pointer text-sm text-primary underline underline-offset-4 transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            {onPhone ? "Record on this computer instead" : "Record on your phone instead"}
+          </button>
         </div>
       ) : step === "confirm" ? (
         <div>
@@ -192,40 +197,6 @@ export function AvatarWizard({
             background. You can leave this page.
           </p>
         </div>
-      ) : step === "voice" ? (
-        <div>
-          <h1 className="mb-2 text-2xl font-semibold tracking-tight text-ink">
-            Now save your voice
-          </h1>
-          <p className="mb-6 text-sm text-ink-soft">
-            Your avatar is training in the background. It still needs a voice to speak with,
-            trained by HeyGen the same way: one recording here, reused by this avatar and every
-            one after it.
-          </p>
-
-          <EnrollCard initial={voiceProfile} phrase={voicePhrase} />
-
-          {/*
-            One button, not a "done" and a "later" that do the same thing:
-            recording is opt-in and cloning costs credits and asks its own
-            confirmation, so there is nothing this step can force. Leaving
-            without either just means the "1/2" prompt finds this account
-            again next time an avatar tries to speak.
-          */}
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => {
-                setStep("done");
-                onSuccess();
-              }}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <span>Continue</span>
-              <ArrowRight className="size-4" />
-            </button>
-          </div>
-        </div>
       ) : step === "done" ? (
         <div className="text-center">
           <div className="mb-4 flex justify-center">
@@ -235,9 +206,8 @@ export function AvatarWizard({
             Your avatar is training
           </h1>
           <p className="text-sm text-ink-soft">
-            {voiceReady
-              ? "It already has a voice to speak with. Once training finishes, pick it in the composer and write anything."
-              : "Once training finishes and your voice is cloned, pick it in the composer and write anything."}
+            Once training and the consent step finish, it will have its own voice. Then write a
+            script on this page and it will say it.
           </p>
         </div>
       ) : null}

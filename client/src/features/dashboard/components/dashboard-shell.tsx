@@ -23,7 +23,7 @@ export function DashboardShell({
 }: {
   user: DashboardUser;
   projects: readonly SidebarProject[];
-  credits: Credits;
+  credits: Credits | null;
   /** False until Stripe keys exist; passed from the server. */
   checkoutReady: boolean;
   children: ReactNode;

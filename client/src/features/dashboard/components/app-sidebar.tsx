@@ -18,7 +18,7 @@ export function AppSidebar({
 }: {
   user: DashboardUser;
   projects: readonly SidebarProject[];
-  credits: Credits;
+  credits: Credits | null;
   onNavigate?: () => void;
   onCollapse?: () => void;
 }): ReactNode {
@@ -46,7 +46,7 @@ export function AppSidebar({
         <SidebarProjects initialItems={projects} onNavigate={onNavigate} />
       </nav>
 
-      <SidebarUsageCard credits={credits} />
+      {credits ? <SidebarUsageCard credits={credits} /> : null}
       <UserButton user={user} />
     </div>
   );

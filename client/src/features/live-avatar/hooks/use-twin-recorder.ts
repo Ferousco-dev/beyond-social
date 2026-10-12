@@ -212,8 +212,16 @@ export function useTwinRecorder(onError: (message: string) => void) {
       return;
     }
 
+    // Only MP4 and WebM can be trained from. A browser that offers neither would
+    // produce a file that fails later, after the person has already recorded it.
     const mimeType = pickMimeType();
-    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    if (mimeType === "") {
+      onError(
+        "This browser cannot record in a format that avatars can use (MP4 or WebM). Try the latest Safari, Chrome or Firefox, or record on your phone.",
+      );
+      return;
+    }
+    const recorder = new MediaRecorder(stream, { mimeType });
     const request = requestRef.current;
     chunksRef.current = [];
     recorderRef.current = recorder;

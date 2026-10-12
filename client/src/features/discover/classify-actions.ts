@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { FEATURES } from "@/lib/availability";
+
 import { createClient } from "@/lib/supabase/server";
 import { classifyShowsPerson } from "@/lib/social-scrape/classify";
 import {
@@ -43,6 +45,7 @@ export type ClassifyResult =
 const CONCURRENCY = 6;
 
 export async function classifyPosts(input: z.input<typeof schema>): Promise<ClassifyResult> {
+  if (!FEATURES.postClassification) return { status: "error", message: "Not available yet." };
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Invalid input" };
 

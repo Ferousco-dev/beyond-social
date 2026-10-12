@@ -1,30 +1,19 @@
 import { type Metadata } from "next";
-import { listTwins } from "@/features/live-avatar/delete-actions";
+
 import { AvatarGrid } from "@/features/live-avatar/components/avatar-grid";
 import { AvatarVideoPanel } from "@/features/live-avatar/components/avatar-video-panel";
-import { getVoiceProfile } from "@/features/voice/actions";
+import { listTwins } from "@/features/live-avatar/delete-actions";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
-import { enrollmentPhrase } from "@/lib/voice/phrase";
 
 export const metadata: Metadata = { title: "Assets" };
 export const dynamic = "force-dynamic";
 
 /**
- * Recording and managing avatars, not generating from them.
- *
- * A "write what it should say" panel used to live here too, but it was a
- * second way to do exactly what the composer's own avatar picker already
- * does (both call `makeTwinVideo`), and having two made it unclear where a
- * video actually starts from. Generating now happens in one place: the
- * composer, once an avatar is picked there.
+ * Recording and managing avatars, and making a video with one. Everything here
+ * runs on the Go API.
  */
 export default async function AssetsPage() {
-  const [user, voice, twins] = await Promise.all([
-    getCurrentUser(),
-    getVoiceProfile(),
-    listTwins(),
-  ]);
-  const voiceProfile = voice.status === "ok" ? voice.profile : null;
+  const [user, twins] = await Promise.all([getCurrentUser(), listTwins()]);
 
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
@@ -33,17 +22,12 @@ export default async function AssetsPage() {
           Your avatar
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Record yourself once. From then on, pick it in the composer and write anything: your
-          avatar speaks it in your own voice, in a new video.
+          Record yourself once. From then on, write anything and your avatar speaks it in your own
+          voice, in a new video.
         </p>
       </header>
 
-      <AvatarGrid
-        twins={twins}
-        name={user.email ?? "User"}
-        voiceProfile={voiceProfile}
-        voicePhrase={enrollmentPhrase(user.name)}
-      />
+      <AvatarGrid twins={twins} name={user.name} />
 
       <AvatarVideoPanel twins={twins} />
     </div>

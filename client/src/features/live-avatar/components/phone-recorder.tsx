@@ -22,6 +22,8 @@ import { WebcamRecorder } from "./webcam-recorder";
  * on anything worth debugging.
  */
 
+const API = env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+
 type Phase = "recording" | "uploading" | "done" | "failed";
 
 export function PhoneRecorder({ token }: { token: string }): ReactNode {
@@ -32,13 +34,16 @@ export function PhoneRecorder({ token }: { token: string }): ReactNode {
     setPhase("uploading");
     setMessage(null);
     try {
-      const ticketed = await fetch(`/api/avatar/handoff/${token}`, {
+      const ticketed = await fetch(`${API}/api/v1/handoffs/${token}/ticket`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ contentType: recording.mimeType }),
+        body: JSON.stringify({ content_type: recording.mimeType }),
       });
+      if (ticketed.status === 415) {
+        throw new Error("This browser recorded a format that cannot be used. Try Safari or Chrome.");
+      }
       if (!ticketed.ok) throw new Error("This link is no longer good.");
-      const ticket = (await ticketed.json()) as { path: string; token: string };
+      const { data: ticket } = (await ticketed.json()) as { data: { path: string; token: string } };
 
       // The anon client is only a transport here: the ticket is the authority,
       // and it was issued against a token this device proved it holds.
@@ -53,8 +58,8 @@ export function PhoneRecorder({ token }: { token: string }): ReactNode {
         });
       if (error) throw new Error(error.message);
 
-      const claimed = await fetch(`/api/avatar/handoff/${token}`, {
-        method: "PUT",
+      const claimed = await fetch(`${API}/api/v1/handoffs/${token}/claim`, {
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ path: ticket.path }),
       });

@@ -64,15 +64,6 @@ __pycache__/
 next-env.d.ts
 
 logo/
-.vercel
 dump.rdb
 deno.lock
-.env*
-.dev-pid
-
-
-
-
-# Go build output
-server/bin/
 server/api

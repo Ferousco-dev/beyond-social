@@ -2,6 +2,8 @@
 
 import { z } from "zod";
 
+import { FEATURES } from "@/lib/availability";
+
 import { logger } from "@/lib/logger";
 import { getJudge } from "@/lib/prompt-engine/providers";
 import { isPromptEngineConfigured } from "@/lib/server-env";
@@ -44,7 +46,7 @@ export async function suggestQueries(
   input: z.input<typeof inputSchema>,
 ): Promise<QuerySuggestions> {
   const parsed = inputSchema.safeParse(input);
-  if (!parsed.success || !isPromptEngineConfigured) return { status: "skip" };
+  if (!FEATURES.querySuggestions || !parsed.success || !isPromptEngineConfigured) return { status: "skip" };
 
   // Signed-in only: this spends a model call.
   const supabase = await createClient();

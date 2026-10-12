@@ -70,3 +70,16 @@ export const voiceSchema = z.object({
 export type GoVoice = z.infer<typeof voiceSchema>;
 export const voicesListResponse = z.object({ data: z.array(voiceSchema) });
 export const avatarsListResponse = z.object({ data: z.array(avatarSchema) });
+
+export const meResponse = z.object({
+  data: z.object({
+    user_id: z.string(),
+    email: z.string(),
+    name: z.string(),
+    role: z.enum(["user", "admin"]),
+    plan: z.string(),
+  }),
+});
+
+export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
+export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });

@@ -2,6 +2,7 @@
 
 import { ExternalLink, Eye, Sparkles } from "lucide-react";
 
+import { FEATURES } from "@/lib/availability";
 import { DENIAL_COPY, type RunCheck } from "@/lib/credits/types";
 import { creditWord } from "@/lib/generation/confirm-model";
 import { instagramEmbedUrl } from "@/lib/instagram/url";
@@ -107,6 +108,8 @@ export function PostDetail({
       ) : null}
 
       <div className="flex flex-col gap-2">
+        {FEATURES.postAnalysis ? (
+          <>
         <button
           type="button"
           onClick={onUse}
@@ -142,6 +145,8 @@ export function PostDetail({
             </span>
           ) : null}
         </button>
+          </>
+        ) : null}
 
         <a
           href={post.url}

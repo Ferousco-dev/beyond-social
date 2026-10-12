@@ -1,12 +1,11 @@
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
-import { getCurrentPlan } from "@/lib/billing/current-plan";
-import { PLANS, type PlanId } from "@/lib/billing/plans";
+import { goApi } from "@/lib/go-api/client";
+import { meResponse } from "@/lib/go-api/schemas";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getAuthUser } from "@/lib/supabase/session";
-import { createClient } from "@/lib/supabase/server";
 
-import { isAdmin } from "./admin";
 import { type DashboardUser } from "./data";
 
 function toInitials(name: string): string {
@@ -29,40 +28,40 @@ const PLACEHOLDER: DashboardUser = {
   isAdmin: false,
 };
 
-/** Anything unrecognised reads as free, which is the safe thing to display. */
-function asPlanId(value: string): PlanId {
-  return (PLANS as readonly string[]).includes(value) ? (value as PlanId) : "free";
-}
-
-export async function getCurrentUser(): Promise<DashboardUser> {
+/**
+ * The signed-in user, as the Go API sees them.
+ *
+ * The session proves who they are; the API decides whether the account is in
+ * good standing and creates their profile on first use. A suspended or deleted
+ * account is refused there, so the rule holds for the whole product instead of
+ * only for screens that remember to check.
+ */
+export const getCurrentUser = cache(async (): Promise<DashboardUser> => {
   if (!isSupabaseConfigured) return PLACEHOLDER;
 
   const authUser = await getAuthUser();
   if (!authUser) redirect("/login");
 
-  const metadataName = authUser.user_metadata.full_name;
-  const name = typeof metadataName === "string" ? metadataName : (authUser.email ?? "there");
-  // The plan comes from the same request-scoped read the rest of the dashboard
-  // uses, so this costs nothing beyond the first caller. The admin check rides
-  // alongside it for the same reason: this is the one place that already
-  // builds the identity every page reads, so it is where the account menu's
-  // admin row gets its answer rather than a second lookup nearer the menu.
-  const supabase = await createClient();
-  const [plan, admin, profile] = await Promise.all([
-    getCurrentPlan(),
-    isAdmin(),
-    supabase.from("profiles").select("avatar_url").eq("id", authUser.id).maybeSingle(),
-  ]);
-  const avatarPath = profile.data?.avatar_url;
-  const { data: signedAvatar } = avatarPath
-    ? await supabase.storage.from("profile-avatars").createSignedUrl(avatarPath, 2 * 60 * 60)
-    : { data: null };
+  const fallbackName =
+    typeof authUser.user_metadata.full_name === "string" ? authUser.user_metadata.full_name : null;
+
+  const me = await goApi("/api/v1/me", meResponse);
+  if (!me.ok) {
+    if (me.code === "account_deleted") redirect("/account-deleted");
+    if (me.code === "unauthorized") redirect("/login");
+    // The API being unreachable should not log anybody out: show who the
+    // session says they are, and let the actions that need the API say so.
+    const name = fallbackName ?? authUser.email ?? "there";
+    return { ...PLACEHOLDER, name, email: authUser.email ?? "", initials: toInitials(name) };
+  }
+
+  const name = me.data.data.name || fallbackName || me.data.data.email || "there";
   return {
     name,
-    email: authUser.email ?? "",
+    email: me.data.data.email,
     initials: toInitials(name),
-    avatarUrl: signedAvatar?.signedUrl ?? null,
-    plan: asPlanId(plan),
-    isAdmin: admin,
+    avatarUrl: null,
+    plan: "free",
+    isAdmin: me.data.data.role === "admin",
   };
-}
+});
