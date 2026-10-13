@@ -66,7 +66,7 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 // respond answers a saved message.
 func (s *Service) respond(ctx context.Context, userID string, conv Conversation, user Message, text string, items []media.Item, timeZone string) (Exchange, error) {
 	if s.analyzer != nil {
-		if link, _, ok := analysis.FindLink(text); ok {
+		if link, _, ok := analysis.FindLink(s.expandShortLinks(ctx, text)); ok {
 			return s.sendLink(ctx, userID, conv, user, link)
 		}
 	}

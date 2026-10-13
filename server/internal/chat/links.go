@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/shortlink"
 )
 
 // Analyzer starts the background job that watches a linked video.
@@ -15,6 +18,37 @@ type Analyzer interface {
 	Start(ctx context.Context, userID string, link analysis.Link, conversationID, key string) (jobs.Job, bool, error)
 	StartMedia(ctx context.Context, userID, mediaID, conversationID, key string) (jobs.Job, bool, error)
 }
+
+// LinkResolver turns a share-sheet link into the post's own address.
+type LinkResolver interface {
+	Resolve(ctx context.Context, raw string) (string, error)
+}
+
+// WithLinkResolver lets shortened links (vm.tiktok.com and the like) be watched.
+func (s *Service) WithLinkResolver(r LinkResolver) *Service {
+	s.links = r
+	return s
+}
+
+// expandShortLinks swaps each shortened link in text for the post's own address.
+// A link that cannot be resolved is left alone and treated as ordinary text.
+func (s *Service) expandShortLinks(ctx context.Context, text string) string {
+	if s.links == nil {
+		return text
+	}
+	for _, candidate := range urlInText.FindAllString(text, -1) {
+		trimmed := strings.TrimRight(candidate, ".,;:!?")
+		if !shortlink.IsShort(trimmed) {
+			continue
+		}
+		if resolved, err := s.links.Resolve(ctx, trimmed); err == nil {
+			text = strings.Replace(text, trimmed, resolved, 1)
+		}
+	}
+	return text
+}
+
+var urlInText = regexp.MustCompile(`https://[^\s<>"')\]]+`)
 
 // WithAnalyzer turns on link handling: a supported video link in a message
 // starts an analysis instead of going to the model.

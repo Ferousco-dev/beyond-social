@@ -43,6 +43,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
+	"github.com/Ferousco-dev/beyond-social/server/internal/shortlink"
 	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
 	"github.com/Ferousco-dev/beyond-social/server/internal/supabaseauth"
@@ -88,7 +89,8 @@ func run() error {
 	jobBiller := credits.NewJobBiller(creditService)
 	jobService := jobs.NewService(database.NewJobStore(pool), hub).WithBiller(jobBiller)
 	discoveryStore := database.NewDiscoveryStore(pool)
-	discoveryService := discovery.NewService(discoveryStore, hub).WithBiller(searchBiller).WithQuota(entitlements.SearchAllowance)
+	linkResolver := shortlink.NewResolver()
+	discoveryService := discovery.NewService(discoveryStore, hub).WithLinkResolver(linkResolver).WithBiller(searchBiller).WithQuota(entitlements.SearchAllowance)
 
 	var sealer *secrets.Sealer
 	if cfg.AppEncryptionKey != "" {
@@ -204,7 +206,7 @@ func run() error {
 		database.NewConversationStore(pool),
 		chat.NewModelRouter(chatModel),
 		workflowPlanner,
-	).WithBilling(credits.NewActionBiller(creditService, credits.ActionChatMessage)).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(chatModel)).WithScriptPlanner(workflowPlanner).WithMemory(memoryService).WithSummaries(memoryStore, chat.SummarizerFrom(memory.NewSummarizer(chatModel))).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+	).WithBilling(credits.NewActionBiller(creditService, credits.ActionChatMessage)).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(chatModel)).WithScriptPlanner(workflowPlanner).WithLinkResolver(linkResolver).WithMemory(memoryService).WithSummaries(memoryStore, chat.SummarizerFrom(memory.NewSummarizer(chatModel))).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
