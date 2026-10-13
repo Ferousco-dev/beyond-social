@@ -1,0 +1,121 @@
+"use client";
+
+import {
+  CalendarClock,
+  CircleUser,
+  Film,
+  PenSquare,
+  Share2,
+  TrendingUp,
+  type LucideIcon,
+} from "lucide-react";
+import { type Route } from "next";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Fragment } from "react";
+
+import { cn } from "@/lib/utils";
+
+/** Shared shape so the search trigger sits flush with the real links. */
+const ITEM =
+  "group flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
+/**
+ * Each icon moves the way its own metaphor suggests, which keeps the motion
+ * meaningful rather than decorative. Suppressed under reduced motion.
+ */
+const MOTION =
+  "transition-transform duration-200 ease-out motion-reduce:transition-none motion-reduce:transform-none";
+
+interface NavLink {
+  readonly href: Route;
+  readonly label: string;
+  readonly icon: LucideIcon;
+  readonly motion: string;
+  /** Home is only active on an exact match, since every route sits under it. */
+  readonly exact?: boolean;
+}
+
+const LINKS: readonly NavLink[] = [
+  {
+    href: "/dashboard/c/new" as Route,
+    label: "New chat",
+    icon: PenSquare,
+    motion: "group-hover:-translate-y-px group-hover:-rotate-12",
+    exact: true,
+  },
+  {
+    href: "/dashboard/assets" as Route,
+    label: "Avatar",
+    icon: CircleUser,
+    // The avatar coming into focus as you reach for it.
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/library" as Route,
+    label: "Library",
+    icon: Film,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/schedule" as Route,
+    label: "Schedule",
+    icon: CalendarClock,
+    // A clock hand advancing, which is the one thing this page is about.
+    motion: "group-hover:rotate-12",
+  },
+  {
+    href: "/dashboard/connections" as Route,
+    label: "Connections",
+    icon: Share2,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/trends" as Route,
+    label: "Discover",
+    icon: TrendingUp,
+    motion: "group-hover:-translate-y-0.5 group-hover:translate-x-0.5",
+  },
+];
+
+/**
+ * The sidebar lists destinations. Search is an action, not a place, so it lives
+ * in the top bar with the other actions rather than being offered twice with
+ * two different labels.
+ */
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  const pathname = usePathname();
+
+  const isActive = (link: NavLink): boolean =>
+    link.exact ? pathname === link.href : pathname.startsWith(link.href);
+
+  return (
+    <div className="flex flex-col gap-0.5 px-2">
+      {LINKS.map((link) => {
+        const active = isActive(link);
+        return (
+          <Fragment key={link.href}>
+            <Link
+              href={link.href}
+              onClick={onNavigate}
+              data-tip-anchor={`nav-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                ITEM,
+                active ? "bg-cloud font-medium text-ink" : "text-ink hover:bg-cloud",
+                link.exact && "font-medium",
+              )}
+            >
+              <link.icon
+                className={cn("size-4 shrink-0", MOTION, link.motion)}
+                aria-hidden
+                strokeWidth={active ? 2.25 : 2}
+              />
+              {link.label}
+            </Link>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}

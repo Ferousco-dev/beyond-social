@@ -1,0 +1,42 @@
+# Render blueprint for the Go API. Supabase provides Postgres, Auth and Storage;
+# Render only runs the service (a container image). Secrets are entered once in the Render dashboard
+# (sync: false) and never live in this file.
+services:
+  - name: beyond-social-api
+    type: web
+    # The image is built and pushed by .github/workflows/deploy.yml, which then
+    # calls this service's deploy hook with the exact tag to run.
+    runtime: image
+    image:
+      url: ghcr.io/ferousco-dev/beyond-social-api:latest
+    plan: 0.5c-512mb
+    region: frankfurt
+    # Liveness only. /ready also checks the database and is for monitoring.
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Use Supabase's pooled connection string (Settings > Database > Connection
+      # pooling, "Session" mode). The direct host is IPv6 only and Render cannot
+      # reach it.
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # The deployed frontend origin(s), comma separated, e.g. https://app.example.com
+      - key: WEBSOCKET_ALLOWED_ORIGINS
+        sync: false
+      # This service's own public https URL, used for provider callbacks.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # Encrypts provider keys an admin pastes into the product (openssl rand -base64 32).
+      - key: APP_ENCRYPTION_KEY
+        sync: false
+      # Comma separated. These people become admins on sign-in and paste the
+      # provider, Stripe, Resend and alert webhook keys in the admin console,
+      # so none of them live in this file.
+      - key: ADMIN_EMAILS
+        sync: false

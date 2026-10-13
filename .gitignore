@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+**/node_modules/
+**/.pnpm-store/
 
 # Build outputs
 dist/
@@ -8,20 +10,39 @@ dist/
 .next-dev/
 out/
 build/
+**/.next/
+**/.next-dev/
+**/dist/
+**/build/
 
-# Turborepo
+# Tool caches
 .turbo/
+.vercel/
+**/.turbo/
+**/.vercel/
 
-# Environment
+# Environment and secrets: only the *.example templates are committed
 .env
-.env.local
-.env.*.local
 .env.*
+**/.env
+**/.env.*
 !.env.example
 !.env.*.example
+!**/.env.example
+!**/.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+
+# Generated app metadata
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # Logs
 *.log
+yarn-error.log*
 npm-debug.log*
 pnpm-debug.log*
 .dev-logs/
@@ -38,8 +59,13 @@ coverage/
 !.vscode/extensions.json
 !.vscode/settings.json
 
-# TypeScript
-*.tsbuildinfo
+# Go
+server/bin/
+/server/api
+*.exe
+*.test
+*.out
+*.prof
 
 # Python (services/telegram-agent)
 __pycache__/
@@ -48,16 +74,13 @@ __pycache__/
 # Next.js generated types
 next-env.d.ts
 
-# Local brand source drop (copies live in apps/web/public/brand)
-logo/
-.vercel
 
-# Redis dump written by the native redis-server dev.sh starts.
 dump.rdb
-
-# Written by `deno check`, which is only ever run by hand against the edge
-# functions. It pins nothing the deploy uses, so it is noise in the tree.
 deno.lock
-.env*
-.dev-pid
+docs/
 
+# Local-only project files
+/AGENTS.md
+/CLAUDE.md
+/dev.sh
+.claude

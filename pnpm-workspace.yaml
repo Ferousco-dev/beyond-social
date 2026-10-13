@@ -1,11 +1,8 @@
 packages:
-  - "apps/*"
+  - "client"
   - "packages/*"
-  - "services/*"
 
 overrides:
-  # Dedupe ioredis so the worker and BullMQ share one version (their types must match).
-  ioredis: "5.11.1"
   # Advisory floors. Next pins older postcss and sharp than the advisories require,
   # and neither is a direct dependency of ours, so the floor has to be set here.
   postcss: "^8.5.23"
@@ -22,15 +19,10 @@ overrides:
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:
   esbuild: true
-  ffmpeg-static: true
-  msgpackr-extract: true
-  protobufjs: true
   sharp: true
   unrs-resolver: true
 
 onlyBuiltDependencies:
   - esbuild
-  - ffmpeg-static
-  - msgpackr-extract
   - sharp
   - unrs-resolver
