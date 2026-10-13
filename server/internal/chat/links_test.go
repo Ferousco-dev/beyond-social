@@ -132,3 +132,19 @@ func TestReconcilePostsResultsThatWereMissed(t *testing.T) {
 		t.Fatalf("a second pass added messages: %+v", store.msgs)
 	}
 }
+
+type stubLinkResolver struct{ to string }
+
+func (r stubLinkResolver) Resolve(context.Context, string) (string, error) { return r.to, nil }
+
+func TestAShortenedLinkIsWatchedAfterItIsResolved(t *testing.T) {
+	store, router, an := newMem(), &stubRouter{}, &stubAnalyzer{}
+	svc := service(router, &stubPlanner{}, store).WithAnalyzer(an).WithLinkResolver(stubLinkResolver{to: "https://www.tiktok.com/@a/video/123"})
+	ex, err := svc.Send(context.Background(), "u1", "c1", "remake https://vm.tiktok.com/ZMabc123/ please", "k", nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if an.starts != 1 || an.link.URL != "https://www.tiktok.com/@a/video/123" || ex.User.Content != "remake https://vm.tiktok.com/ZMabc123/ please" {
+		t.Fatalf("starts=%d link=%+v saved=%q", an.starts, an.link, ex.User.Content)
+	}
+}

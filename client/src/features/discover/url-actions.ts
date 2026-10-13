@@ -5,7 +5,7 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 import { isGoApiConfigured } from "@/lib/go-api/client";
-import { parseSocialUrl } from "@/lib/social-scrape/url";
+import { parseShortLink, parseSocialUrl } from "@/lib/social-scrape/url";
 
 import { runDiscovery } from "./go-discovery";
 import { type DiscoverPost } from "./types";
@@ -20,7 +20,7 @@ const schema = z.object({ url: z.string().trim().url().max(2000) });
 
 export type ScrapeUrlResult =
   | { status: "ok"; post: DiscoverPost }
-  /** Parsed but not a canonical TikTok or Instagram post link. */
+  /** Not a TikTok or Instagram post link, short or full. */
   | { status: "unrecognised" }
   | { status: "not_found" }
   | { status: "unconfigured" }
@@ -36,7 +36,7 @@ export async function scrapePostFromUrl(input: z.input<typeof schema>): Promise<
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Sign in to use a link." };
 
-  const target = parseSocialUrl(parsed.data.url);
+  const target = parseSocialUrl(parsed.data.url) ?? parseShortLink(parsed.data.url);
   if (!target) return { status: "unrecognised" };
 
   if (!isGoApiConfigured()) return { status: "unconfigured" };

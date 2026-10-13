@@ -3,6 +3,8 @@
 import { ArrowUp } from "lucide-react";
 import { useEffect, useRef, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 
+import { findWatchableLink } from "@/lib/social-scrape/url";
+
 import { MAX_ATTACHMENTS, type useAttachments } from "../hooks/use-attachments";
 import { useVoiceRecorder } from "../hooks/use-voice-recorder";
 import { AttachMenu } from "./attach-menu";
@@ -32,6 +34,7 @@ export function ChatComposer({
   const ref = useRef<HTMLTextAreaElement>(null);
   const voice = useVoiceRecorder((file) => attachments.add([file]));
   const hasContent = value.trim() !== "" || attachments.readyIds.length > 0;
+  const watching = findWatchableLink(value) !== null;
   const canSend = !disabled && !attachments.busy && !voice.recording && hasContent;
 
   useEffect(() => {
@@ -64,6 +67,11 @@ export function ChatComposer({
 
   return (
     <form onSubmit={submit} className="rounded-3xl border border-hairline bg-paper p-2 focus-within:border-primary">
+      {watching ? (
+        <p className="px-3 pb-1 pt-1.5 text-xs text-ink-soft" aria-live="polite">
+          Link found. I will watch that video. Add what you want changed, or just send.
+        </p>
+      ) : null}
       <AttachmentChips items={attachments.items} onRemove={attachments.remove} />
       <div className="flex items-end gap-1">
         <AttachMenu
@@ -93,7 +101,7 @@ export function ChatComposer({
               resize();
             }}
             onKeyDown={onKeyDown}
-            placeholder="Ask, or describe what to make"
+            placeholder="Describe a video, or paste a TikTok, Instagram or YouTube link"
             className="max-h-40 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm text-ink placeholder:text-ink-soft focus:outline-none"
           />
         )}

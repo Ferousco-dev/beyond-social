@@ -318,7 +318,10 @@ func TestProcessorFailureModes(t *testing.T) {
 		"run timed out":   {&fakeAPI{run: apify.Run{Status: apify.StatusTimedOut}}, func(d *Discovery) { d.ApifyRunID = "run1" }, msgFailed},
 		"run aborted":     {&fakeAPI{run: apify.Run{Status: apify.StatusAborted}}, func(d *Discovery) { d.ApifyRunID = "run1" }, msgFailed},
 		"malformed items": {&fakeAPI{run: apify.Run{Status: apify.StatusSucceeded}, rows: []json.RawMessage{json.RawMessage(`{"id":1}`)}}, func(d *Discovery) { d.ApifyRunID = "run1" }, msgFailed},
-		"permanent start": {&fakeAPI{startErr: &provider.Error{Provider: "apify", Status: 401, Message: "bad token"}}, func(*Discovery) {}, msgFailed},
+		"refused key":     {&fakeAPI{startErr: &provider.Error{Provider: "apify", Status: 401, Message: "bad token"}}, func(*Discovery) {}, msgNotConnected},
+		"no key set":      {&fakeAPI{startErr: &provider.Error{Provider: "apify", Code: provider.CodeNotConfigured, Message: "no API key is configured"}}, func(*Discovery) {}, msgNotConnected},
+		"out of credit":   {&fakeAPI{startErr: &provider.Error{Provider: "apify", Status: 402, Message: "monthly usage exceeded"}}, func(*Discovery) {}, msgNotConnected},
+		"request refused": {&fakeAPI{startErr: &provider.Error{Provider: "apify", Status: 400, Message: "bad input"}}, func(*Discovery) {}, msgFailed},
 		"too old":         {&fakeAPI{}, func(d *Discovery) { d.CreatedAt = time.Now().Add(-maxAge - time.Minute) }, msgTimedOut},
 	}
 	for name, tc := range cases {
@@ -383,5 +386,39 @@ func TestAQuotaCapsResultsAndCanRefuseASearch(t *testing.T) {
 	}
 	if _, err := refuse.Create(context.Background(), alice, Params{Platform: video.TikTok, URL: "https://www.tiktok.com/@a/video/1234567890123456789"}); err != nil {
 		t.Fatalf("a link was refused: %v", err)
+	}
+}
+
+type stubLinks struct {
+	to  string
+	err error
+	got []string
+}
+
+func (l *stubLinks) Resolve(_ context.Context, raw string) (string, error) {
+	l.got = append(l.got, raw)
+	return l.to, l.err
+}
+
+func TestAShortLinkIsResolvedBeforeItIsChecked(t *testing.T) {
+	links := &stubLinks{to: "https://www.tiktok.com/@a/video/123?utm=x"}
+	svc := NewService(newMemRepo(), nil).WithLinkResolver(links)
+	d, err := svc.Create(context.Background(), alice, Params{URL: "https://vm.tiktok.com/ZMabc123/"})
+	if err != nil || d.Query != "https://www.tiktok.com/@a/video/123" || len(links.got) != 1 {
+		t.Fatalf("%+v %v resolved=%v", d, err, links.got)
+	}
+
+	// A post's own address is never sent to the resolver.
+	links.got = nil
+	if _, err := svc.Create(context.Background(), alice, Params{URL: "https://www.tiktok.com/@a/video/9"}); err != nil || len(links.got) != 0 {
+		t.Fatalf("err %v resolved=%v", err, links.got)
+	}
+}
+
+func TestAShortLinkThatCannotBeResolvedIsRefusedPlainly(t *testing.T) {
+	svc := NewService(newMemRepo(), nil).WithLinkResolver(&stubLinks{err: errors.New("dead end")})
+	_, err := svc.Create(context.Background(), alice, Params{URL: "https://vm.tiktok.com/ZMabc123/"})
+	if !errors.Is(err, ErrInvalid) || !strings.Contains(err.Error(), "paste the post's own page") {
+		t.Fatalf("err = %v", err)
 	}
 }

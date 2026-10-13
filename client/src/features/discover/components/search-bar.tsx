@@ -84,7 +84,7 @@ export function SearchBar({
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder={`Search ${PLATFORM_NAME[platform]}, or paste a post link`}
+          placeholder={`Search ${PLATFORM_NAME[platform]}, or paste a TikTok, Instagram or YouTube link`}
           className="h-9 w-full rounded-lg border border-hairline bg-paper pl-9 pr-24 text-sm text-ink placeholder:text-ink-soft focus-visible:border-primary focus-visible:outline-none"
         />
         <button

@@ -163,6 +163,7 @@ type Service struct {
 	// memory, summaries and summarizer are optional: without them every
 	// prompt carries only the recent turns.
 	memory      Memory
+	links       LinkResolver
 	summaries   SummaryStore
 	summarizer  Summarizer
 	summarizing sync.Map

@@ -24,6 +24,9 @@ const (
 	msgFailed      = "The search could not be completed. Please try again."
 	msgTimedOut    = "The search took too long. Try a narrower search."
 	msgUnavailable = "Search is temporarily unavailable. Please try again shortly."
+	// msgNotConnected is for a missing key, a revoked one or an account out of credit.
+	// Nothing the person does fixes it, and the admin has already been alerted.
+	msgNotConnected = "Search is not available right now. We have told the team, so please try again later."
 )
 
 type Processor struct {
@@ -133,7 +136,7 @@ func (p *Processor) handleError(ctx context.Context, d Discovery, err error) {
 	alerts.Report(ctx, p.alerts, err, alerts.Context{Source: "discovery", UserID: d.UserID, Resource: d.ID})
 	slog.Warn("discovery step failed", "discovery_id", d.ID, "attempt", d.RetryCount+1, "error", err)
 	if !provider.IsTransient(err) {
-		p.fail(ctx, d, msgFailed)
+		p.fail(ctx, d, failureMessage(err))
 		return
 	}
 	if d.RetryCount+1 >= maxAttempts {
@@ -188,4 +191,14 @@ func (p *Processor) WithAlerts(r alerts.Reporter) *Processor {
 func (p *Processor) WithBiller(b Biller) *Processor {
 	p.biller = b
 	return p
+}
+
+// failureMessage says what a person can act on. A problem only an operator can
+// fix is called that, so nobody retries a search that cannot work; anything else
+// keeps the general message. Provider text is never shown.
+func failureMessage(err error) string {
+	if provider.Classify(err).NeedsAdmin() {
+		return msgNotConnected
+	}
+	return msgFailed
 }

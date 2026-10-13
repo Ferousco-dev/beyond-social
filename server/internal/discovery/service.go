@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
+	"github.com/Ferousco-dev/beyond-social/server/internal/shortlink"
 	"github.com/Ferousco-dev/beyond-social/server/internal/video"
 )
 
@@ -42,6 +43,18 @@ type Service struct {
 	publisher realtime.Publisher
 	biller    Biller
 	quota     func(ctx context.Context, userID string) (int, error)
+	links     LinkResolver
+}
+
+// LinkResolver turns a share-sheet link into the post's own address.
+type LinkResolver interface {
+	Resolve(ctx context.Context, raw string) (string, error)
+}
+
+// WithLinkResolver lets a shortened link (vm.tiktok.com and the like) be used.
+func (s *Service) WithLinkResolver(r LinkResolver) *Service {
+	s.links = r
+	return s
 }
 
 // WithQuota limits a search before it is queued. It returns the most results the
@@ -72,6 +85,13 @@ func (s *Service) Create(ctx context.Context, userID string, p Params) (Discover
 		if resultCap > 0 && (p.Limit == 0 || p.Limit > resultCap) {
 			p.Limit = resultCap
 		}
+	}
+	if s.links != nil && shortlink.IsShort(p.URL) {
+		resolved, err := s.links.Resolve(ctx, p.URL)
+		if err != nil {
+			return Discovery{}, fmt.Errorf("%w: that shortened link could not be opened, so paste the post's own page", ErrInvalid)
+		}
+		p.URL = resolved
 	}
 	d, err := validate(userID, p)
 	if err != nil {
