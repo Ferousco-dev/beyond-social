@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import type { NextConfig } from "next";
 
-const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -108,11 +108,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // The env package ships as TypeScript source, so Next must transpile it.
-  transpilePackages: [
-    "@beyond-social/env",
-    "@beyond-social/prompt-engine",
-    "@beyond-social/ai-gateway",
-  ],
+  transpilePackages: ["@beyond-social/env"],
   typedRoutes: true,
   images: {
     formats: ["image/avif", "image/webp"],
