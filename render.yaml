@@ -1,16 +1,19 @@
 # Render blueprint for the Go API. Supabase provides Postgres, Auth and Storage;
-# Render only runs the service (a container image). Secrets are entered once in the Render dashboard
-# (sync: false) and never live in this file.
+# Render builds and runs the service from this repository. Secrets are entered
+# once in the Render dashboard (sync: false) and never live in this file.
+#
+# Auto-deploy is off: .github/workflows/deploy.yml triggers the deploy hook after
+# the checks pass, naming the exact commit, then waits for /ready to report it.
 services:
-  - name: beyond-social-api
+  - name: beyond-social
     type: web
-    # The image is built and pushed by .github/workflows/deploy.yml, which then
-    # calls this service's deploy hook with the exact tag to run.
-    runtime: image
-    image:
-      url: ghcr.io/ferousco-dev/beyond-social-api:latest
-    plan: 0.5c-512mb
-    region: frankfurt
+    runtime: go
+    plan: free
+    region: singapore
+    rootDir: server
+    # The commit is baked in so /ready can say which release is running.
+    buildCommand: go build -tags netgo -trimpath -ldflags "-s -w -X github.com/Ferousco-dev/beyond-social/server/internal/buildinfo.Commit=$RENDER_GIT_COMMIT" -o app ./cmd/api
+    startCommand: ./app
     # Liveness only. /ready also checks the database and is for monitoring.
     healthCheckPath: /health
     autoDeployTrigger: "off"

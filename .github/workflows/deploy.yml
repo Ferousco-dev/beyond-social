@@ -64,48 +64,9 @@ jobs:
           npx eslint .
           pnpm test
 
-  build-api-image:
-    name: Build API image
-    needs: ci
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image: ${{ steps.ref.outputs.image }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - id: ref
-        run: |
-          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          echo "image=ghcr.io/${OWNER}/beyond-social-api:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-          echo "latest=ghcr.io/${OWNER}/beyond-social-api:latest" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: server
-          push: true
-          build-args: GIT_SHA=${{ github.sha }}
-          tags: |
-            ${{ steps.ref.outputs.image }}
-            ${{ steps.ref.outputs.latest }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy-api:
     name: Deploy API to Render
-    needs: build-api-image
+    needs: ci
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
@@ -113,17 +74,17 @@ jobs:
       - name: Trigger Render deploy hook
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-          IMAGE_REF: ${{ needs.build-api-image.outputs.image }}
         run: |
           if [ -z "${HOOK}" ]; then
             echo "The RENDER_DEPLOY_HOOK_URL secret is not set." >&2
             exit 1
           fi
-          # The hook already carries ?key=..., so the image goes on as an encoded
-          # query parameter that curl joins with & (a raw ghcr.io/owner/name:tag
-          # has : and / in it, which Render answers with HTTP 400).
+          # Render builds the service from this repository. Naming the commit
+          # deploys exactly what passed the checks, even if a newer push lands
+          # while this runs. The hook already carries ?key=..., so curl joins
+          # the parameter with &.
           curl --fail-with-body --silent --show-error --max-time 30 \
-            --get --data-urlencode "imgURL=${IMAGE_REF}" "${HOOK}"
+            --get --data-urlencode "ref=${GITHUB_SHA}" "${HOOK}"
           echo
 
       - name: Wait for the new release to be ready
