@@ -24,17 +24,19 @@ export function ModelPicker({ role, catalog }: { readonly role: { key: string; l
     const needle = filter.trim().toLowerCase();
     return catalog.filter((m) => !needle || m.id.toLowerCase().includes(needle) || m.name.toLowerCase().includes(needle)).slice(0, SHOWN);
   }, [catalog, filter]);
+  // The backup row is not a kind of request: "Gemini" there means no backup is set.
+  const isBackup = role.key === "backup";
   const picked = choice.startsWith(PREFIX) ? catalog.find((m) => m.id === choice.slice(PREFIX.length)) : undefined;
 
   return (
     <li className="space-y-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-medium text-ink">{role.label}</p>
-        <p className="text-xs text-ink-soft">{role.model === GEMINI ? "Using Gemini" : `Using ${role.model.slice(PREFIX.length)}`}</p>
+        <p className="text-xs text-ink-soft">{role.model === GEMINI ? (isBackup ? "No backup" : "Using Gemini") : `Using ${role.model.slice(PREFIX.length)}`}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button variant={choice === GEMINI ? "default" : "outline"} size="sm" onClick={() => setChoice(GEMINI)}>
-          Gemini (default)
+          {isBackup ? "No backup" : "Gemini (default)"}
         </Button>
         {picked ? (
           <Button size="sm" variant="default" disabled>

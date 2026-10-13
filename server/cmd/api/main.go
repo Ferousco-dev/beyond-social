@@ -161,7 +161,8 @@ func run() error {
 	chatModel := llm.NewSwitch(llm.RoleChat, geminiClient, openRouterClient, settingsStore)
 	editorModel := llm.NewSwitch(llm.RoleEditorAssistant, geminiClient, openRouterClient, settingsStore)
 	registry := orchestrator.DefaultRegistry()
-	planner := orchestrator.NewPlanner(geminiClient, registry)
+	plannerModel := llm.NewSwitch(llm.RolePlanner, geminiClient, openRouterClient, settingsStore)
+	planner := orchestrator.NewPlanner(plannerModel, registry)
 	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
 	var socialSealer social.Sealer
 	if sealer != nil {
@@ -246,7 +247,7 @@ func run() error {
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		Purger:              purger,
 		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
-		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel),
+		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel, plannerModel),
 		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
 		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
 		Scenes:              editorScenes{generate: generateService, credits: creditService},

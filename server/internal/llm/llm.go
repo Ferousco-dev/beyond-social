@@ -20,12 +20,19 @@ import (
 const (
 	RoleChat            = "chat"
 	RoleEditorAssistant = "editor_assistant"
+	// RolePlanner turns "make me a video" into the steps that build it.
+	RolePlanner = "planner"
+	// RoleBackup is not a kind of request. It is the OpenRouter model any role
+	// falls back to when Gemini cannot answer. Gemini here means no backup.
+	RoleBackup = "backup"
 )
 
 // Roles lists them with labels, in display order.
 var Roles = []struct{ Key, Label string }{
 	{RoleChat, "Chat and scripts"},
 	{RoleEditorAssistant, "Editor assistant"},
+	{RolePlanner, "Video planning"},
+	{RoleBackup, "Backup when Gemini cannot answer"},
 }
 
 const (
@@ -60,6 +67,7 @@ type Switch struct {
 
 	mu     sync.Mutex
 	choice string
+	backup string
 	at     time.Time
 }
 
@@ -81,15 +89,48 @@ func (s *Switch) selected(ctx context.Context) string {
 	if !found {
 		value = GeminiChoice
 	}
+	// The backup is read with the choice so one lookup serves both.
+	if backup, ok, err := s.settings.Get(ctx, SettingKey(RoleBackup)); err == nil && ok {
+		s.backup = backup
+	} else if err == nil {
+		s.backup = GeminiChoice
+	}
 	s.choice, s.at = value, time.Now()
 	return value
+}
+
+// backupModel is the OpenRouter model to fall back to, if the admin chose one.
+func (s *Switch) backupModel() (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	model, ok := strings.CutPrefix(s.backup, openRouterPrefix)
+	return model, ok && model != ""
+}
+
+// shouldFallBack says whether another model might do better. A request the
+// provider refused as bad would be refused again, so only a key, credit, an
+// outage or an unknown failure is worth a second try.
+func shouldFallBack(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	return provider.Classify(err) != provider.ClassRejected
 }
 
 func (s *Switch) GenerateJSON(ctx context.Context, system, user string, schema *genai.Schema) ([]byte, gemini.Usage, error) {
 	choice := s.selected(ctx)
 	model, ok := strings.CutPrefix(choice, openRouterPrefix)
 	if !ok || s.openrouter == nil {
-		return s.gemini.GenerateJSON(ctx, system, user, schema)
+		out, usage, err := s.gemini.GenerateJSON(ctx, system, user, schema)
+		if err == nil || s.openrouter == nil || !shouldFallBack(err) {
+			return out, usage, err
+		}
+		backup, has := s.backupModel()
+		if !has {
+			return out, usage, err
+		}
+		slog.Warn("gemini could not answer, using the backup model", "role", s.role, "model", backup, "error", err)
+		return s.openrouter.GenerateJSON(ctx, backup, system, user, schema)
 	}
 	out, usage, err := s.openrouter.GenerateJSON(ctx, model, system, user, schema)
 	if err != nil && provider.Code(err) == provider.CodeNotConfigured {
