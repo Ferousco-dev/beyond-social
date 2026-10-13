@@ -69,7 +69,10 @@ type Builder func(ctx context.Context, job jobs.Job) (Prepared, error)
 
 type Processor struct {
 	// Builders handle job types other than a video transformation.
-	Builders    map[string]Builder
+	Builders map[string]Builder
+	// ResultKeys names where a job type's finished file is stored in its
+	// result. Types not listed make videos, stored as video_url.
+	ResultKeys  map[string]string
 	Jobs        *jobs.Service
 	Provider    Provider
 	Fetcher     Fetcher
@@ -114,6 +117,13 @@ func (p *Processor) Reconcile(ctx context.Context, taskID string) {
 	p.poll(ctx, job)
 }
 
+func (p *Processor) result(jobType string, urls []string) map[string]any {
+	if key, ok := p.ResultKeys[jobType]; ok {
+		return map[string]any{key: urls[0]}
+	}
+	return map[string]any{"video_url": urls[0], "video_urls": urls}
+}
+
 func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 	task, err := p.Provider.GetTask(ctx, job.ProviderTaskID)
 	if err != nil {
@@ -133,7 +143,7 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 	case kie.StateSuccess:
 		p.advance(ctx, job, jobs.Update{
 			Status: jobs.StatusCompleted, Stage: ptr(stageDone), Progress: ptr(100),
-			Result: map[string]any{"video_url": task.ResultURLs[0], "video_urls": task.ResultURLs},
+			Result: p.result(job.Type, task.ResultURLs),
 		})
 	case kie.StateFailed:
 		slog.Warn("generation failed at provider", "job_id", job.ID, "code", task.FailCode, "reason", task.FailMsg)

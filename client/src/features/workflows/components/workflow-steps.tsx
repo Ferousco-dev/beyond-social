@@ -7,11 +7,15 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
   transform_video: "Transform",
   create_avatar_video: "Avatar video",
   generate_video: "Video clip",
+  edit_image: "Edit picture",
+  talking_photo: "Talking photo",
+  speak_text: "Voice",
+  check_script: "Check script",
   get_job_status: "Check job",
   get_workflow_status: "Check workflow",
 };
 
-const BILLABLE_TOOLS = new Set(["discover_videos", "transform_video", "create_avatar_video", "generate_video"]);
+const BILLABLE_TOOLS = new Set(["discover_videos", "transform_video", "create_avatar_video", "generate_video", "edit_image", "talking_photo", "speak_text"]);
 
 function toolLabel(tool: string): string {
   return TOOL_LABELS[tool] ?? tool;
@@ -65,6 +69,11 @@ export function StepResultLinks({ steps }: { steps: readonly GoWorkflowStep[] })
           {isVideoUrl(link.url) ? (
             <video src={link.url} controls playsInline preload="metadata" className="w-full max-w-sm rounded-xl bg-ink" />
           ) : null}
+          {isImageUrl(link.url) ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a provider-hosted result, not a site asset
+            <img src={link.url} alt={link.label} className="w-full max-w-sm rounded-xl bg-cloud" />
+          ) : null}
+          {isAudioUrl(link.url) ? <audio src={link.url} controls preload="metadata" className="w-full max-w-sm" /> : null}
           <a
             href={link.url}
             target="_blank"
@@ -94,10 +103,15 @@ function resultLinks(output: Readonly<Record<string, unknown>>, label: string): 
   return found.slice(0, 4);
 }
 
-function isVideoUrl(url: string): boolean {
+function hasExtension(url: string, extensions: readonly string[]): boolean {
   try {
-    return new URL(url).pathname.toLowerCase().endsWith(".mp4");
+    const path = new URL(url).pathname.toLowerCase();
+    return extensions.some((ext) => path.endsWith(ext));
   } catch {
     return false;
   }
 }
+
+const isVideoUrl = (url: string): boolean => hasExtension(url, [".mp4"]);
+const isImageUrl = (url: string): boolean => hasExtension(url, [".png", ".jpg", ".jpeg", ".webp"]);
+const isAudioUrl = (url: string): boolean => hasExtension(url, [".mp3", ".wav", ".m4a"]);

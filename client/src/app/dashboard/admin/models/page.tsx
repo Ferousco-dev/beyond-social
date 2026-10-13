@@ -24,7 +24,7 @@ export default async function AdminModelsPage(): Promise<ReactNode> {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Models</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Pick which model answers each kind of request. Gemini is the default. Watching videos and listening to speech always use Gemini.
+        Pick which model answers each kind of request. Gemini is the default. If Gemini cannot answer (no key, no credit, or an outage), the backup model answers instead. Watching videos and listening to speech always use Gemini.
       </p>
       {!openrouter_configured ? (
         <p className="mt-4 rounded-lg border border-hairline bg-paper p-3 text-sm text-ink-soft">

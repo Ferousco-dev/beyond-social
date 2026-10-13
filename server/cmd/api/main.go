@@ -31,6 +31,7 @@ import (
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 	"github.com/Ferousco-dev/beyond-social/server/internal/llm"
 	"github.com/Ferousco-dev/beyond-social/server/internal/mailer"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
@@ -130,9 +131,10 @@ func run() error {
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	generateService := generate.NewService(jobService)
-	transformProcessor.Builders = map[string]transform.Builder{
-		generate.JobType: generate.Builder{Pictures: mediaService, Uploader: kieClient}.Build,
-	}
+	mediaBuilders := kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}.Builders()
+	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient}.Build
+	transformProcessor.Builders = mediaBuilders
+	transformProcessor.ResultKeys = kietools.ResultKeys
 	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
 	avatarStore := database.NewAvatarStore(pool)
 	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller).WithQuota(entitlements.CheckAvatar)
@@ -161,7 +163,8 @@ func run() error {
 	chatModel := llm.NewSwitch(llm.RoleChat, geminiClient, openRouterClient, settingsStore)
 	editorModel := llm.NewSwitch(llm.RoleEditorAssistant, geminiClient, openRouterClient, settingsStore)
 	registry := orchestrator.DefaultRegistry()
-	planner := orchestrator.NewPlanner(geminiClient, registry)
+	plannerModel := llm.NewSwitch(llm.RolePlanner, geminiClient, openRouterClient, settingsStore)
+	planner := orchestrator.NewPlanner(plannerModel, registry)
 	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
 	var socialSealer social.Sealer
 	if sealer != nil {
@@ -179,6 +182,8 @@ func run() error {
 		Transform: transform.NewService(jobService, discoveryService),
 		AvatarVid: avatarvideo.NewService(jobService, avatarService, voiceService),
 		Generate:  generateService,
+		Media:     kietools.NewService(jobService),
+		Scripts:   kietools.NewChecker(chatModel),
 		Posts:     postService,
 		Jobs:      jobService,
 		Publisher: hub,
@@ -188,6 +193,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Any tool without something to run it leaves the planner's list.
+	orchestratorService.Seal()
 
 	analysisService := analysis.NewService(jobService)
 	analysisProcessor := &analysis.Processor{
@@ -246,7 +253,7 @@ func run() error {
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		Purger:              purger,
 		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
-		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel),
+		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel, plannerModel),
 		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
 		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
 		Scenes:              editorScenes{generate: generateService, credits: creditService},
@@ -315,6 +322,27 @@ func run() error {
 				Name: "video_generate", Capacity: 3, Timeout: transform.HandleTimeout,
 				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
 					return jobService.Claim(ctx, generate.JobType, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "image_edit", Capacity: 3, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, kietools.JobEdit, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "talking_photo", Capacity: 3, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, kietools.JobTalk, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "speech", Capacity: 3, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, kietools.JobSpeech, n, transform.Lease)
 				},
 				Handle: transformProcessor.Handle,
 			},

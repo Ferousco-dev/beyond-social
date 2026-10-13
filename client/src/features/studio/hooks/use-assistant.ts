@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { saveMemory } from "@/features/memory/actions";
+import { waitForJob } from "@/lib/go-api/wait-for-job";
 
 import { adoptVideo, askAssistant, quoteScene, sceneStatus, startScene, watchClip } from "../assist-actions";
 import { applyOperations, type Request } from "../core/assist.ts";
@@ -39,7 +40,6 @@ interface AssistantMessage {
 }
 
 const HISTORY_TURNS = 10;
-const POLL_MS = 4000;
 const SCENE_TIMEOUT_MS = 8 * 60 * 1000;
 
 interface Assistant {
@@ -163,21 +163,25 @@ export function useAssistant(): Assistant {
       const started = await startScene({ prompt: scene.prompt, seconds: scene.seconds, key: `scene-${id}` });
       if (!started.ok) return patchScene(id, { state: "failed", message: started.message, code: started.code });
 
-      const deadline = Date.now() + SCENE_TIMEOUT_MS;
-      while (alive.current && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, POLL_MS));
-        const status = await sceneStatus(started.jobId);
-        if (status.state === "failed") return patchScene(id, { state: "failed", message: status.message });
-        if (status.state === "done") {
-          // The provider's link expires and cannot be exported from, so the clip is copied first.
-          const copied = await adoptVideo(started.jobId);
-          if (!copied.ok) return patchScene(id, { state: "failed", message: copied.message, code: copied.code });
-          const placed = placeGeneratedVideo(copied.mediaId, scene.seconds, "AI scene");
-          if (placed.error) return patchScene(id, { state: "failed", message: placed.error });
-          return patchScene(id, { state: "done" });
-        }
+      const status = await waitForJob({
+        jobId: started.jobId,
+        check: () => sceneStatus(started.jobId),
+        isDone: (s) => s.state !== "working",
+        timeoutMs: SCENE_TIMEOUT_MS,
+        alive: () => alive.current,
+      });
+      if (status === null) {
+        if (alive.current) patchScene(id, { state: "failed", message: "This is taking longer than expected. It will appear in your Library when it finishes." });
+        return;
       }
-      if (alive.current) patchScene(id, { state: "failed", message: "This is taking longer than expected. It will appear in your Library when it finishes." });
+      if (status.state === "failed") return patchScene(id, { state: "failed", message: status.message });
+      if (status.state !== "done") return;
+      // The provider's link expires and cannot be exported from, so the clip is copied first.
+      const copied = await adoptVideo(started.jobId);
+      if (!copied.ok) return patchScene(id, { state: "failed", message: copied.message, code: copied.code });
+      const placed = placeGeneratedVideo(copied.mediaId, scene.seconds, "AI scene");
+      if (placed.error) return patchScene(id, { state: "failed", message: placed.error });
+      patchScene(id, { state: "done" });
     },
     [messages, patchScene],
   );

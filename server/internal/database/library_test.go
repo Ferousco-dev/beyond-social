@@ -93,3 +93,59 @@ func TestAdoptedVideoIsFoundByItsJobAndStoredOncePerUser(t *testing.T) {
 		t.Fatal("a second copy of the same job was stored")
 	}
 }
+
+func TestLibraryCanBeNarrowedToTheVideosOfOneChat(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	alice, bob := uuid.NewString(), uuid.NewString()
+	for _, id := range []string{alice, bob} {
+		if _, err := NewProfileStore(pool).Ensure(ctx, id, id[:8]+"@example.com", "U"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	chats := NewConversationStore(pool)
+	chatA, _ := chats.Create(ctx, alice)
+	chatB, _ := chats.Create(ctx, alice)
+
+	// madeBy records a finished video and the plan step that started it, shown in a chat.
+	madeBy := func(owner, chat string) string {
+		var job, workflow string
+		if err := pool.QueryRow(ctx, `insert into public.jobs (user_id, job_type, status, input, result, completed_at)
+			values ($1, 'video_generate', 'completed', '{"prompt":"p"}', '{"video_url":"https://cdn.example/v.mp4"}', now()) returning id::text`, owner).Scan(&job); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `insert into public.workflows (user_id, objective) values ($1, 'make') returning id::text`, owner).Scan(&workflow); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `insert into public.workflow_steps (workflow_id, user_id, step_id, tool, output) values ($1, $2, 's1', 'generate_video', jsonb_build_object('ref', $3::text))`, workflow, owner, job); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `insert into public.messages (conversation_id, user_id, role, content, workflow_id) values ($1, $2, 'assistant', 'plan', $3)`, chat, owner, workflow); err != nil {
+			t.Fatal(err)
+		}
+		return job
+	}
+	inA := madeBy(alice, chatA.ID)
+	madeBy(alice, chatB.ID)
+	// A video made outside any chat is in the library but in no chat's list.
+	var loose string
+	if err := pool.QueryRow(ctx, `insert into public.jobs (user_id, job_type, status, input, result, completed_at)
+		values ($1, 'video_generate', 'completed', '{}', '{"video_url":"https://cdn.example/l.mp4"}', now()) returning id::text`, alice).Scan(&loose); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewLibraryStore(pool)
+	items, err := store.ListForConversation(ctx, alice, chatA.ID, 10)
+	if err != nil || len(items) != 1 || items[0].ID != inA {
+		t.Fatalf("chat A = %+v err=%v", items, err)
+	}
+	if all, _ := store.List(ctx, alice, 10, 0); len(all) != 3 {
+		t.Fatalf("the whole library lost videos: %d", len(all))
+	}
+	if other, _ := store.ListForConversation(ctx, bob, chatA.ID, 10); len(other) != 0 {
+		t.Fatalf("someone else's chat listed %d videos", len(other))
+	}
+	if items, err := store.ListForConversation(ctx, alice, "not-a-uuid", 10); err != nil || len(items) != 0 {
+		t.Fatalf("a bad id: %+v %v", items, err)
+	}
+}

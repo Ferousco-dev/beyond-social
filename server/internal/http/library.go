@@ -25,7 +25,16 @@ func (a *App) listLibrary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	items, err := a.deps.Library.List(r.Context(), identity.UserID, limit, offset)
+	var items []library.Item
+	if chat := r.URL.Query().Get("conversation"); chat != "" {
+		if _, err := uuid.Parse(chat); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "conversation must be a UUID")
+			return
+		}
+		items, err = a.deps.Library.ListForConversation(r.Context(), identity.UserID, chat, limit)
+	} else {
+		items, err = a.deps.Library.List(r.Context(), identity.UserID, limit, offset)
+	}
 	if err != nil {
 		writeInternal(w, r, err)
 		return

@@ -7,6 +7,7 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 )
 
 // Job types priced here. They mirror the constants in the transform and
@@ -66,6 +67,23 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		}
 		rate, err := b.svc.Quote(ctx, "video_generate_second")
 		return rate * req.TotalSeconds(), "video_generate_second", err
+	case kietools.JobEdit:
+		credits, err := b.svc.Quote(ctx, kietools.JobEdit)
+		return credits, kietools.JobEdit, err
+	case kietools.JobTalk:
+		req, err := kietools.ParseTalk(job.Input)
+		if err != nil {
+			return 0, "", err
+		}
+		rate, err := b.svc.Quote(ctx, "talking_photo_second")
+		return rate * req.Seconds, "talking_photo_second", err
+	case kietools.JobSpeech:
+		req, err := kietools.ParseSpeech(job.Input)
+		if err != nil {
+			return 0, "", err
+		}
+		rate, err := b.svc.Quote(ctx, "speech_thousand_chars")
+		return rate * ((len([]rune(req.Text)) + 999) / 1000), "speech_thousand_chars", err
 	case jobAnalysis:
 		credits, err := b.svc.Quote(ctx, jobAnalysis)
 		return credits, jobAnalysis, err

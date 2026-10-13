@@ -25,11 +25,13 @@ interface StudioScreenProps {
   version: number;
   document: unknown;
   library: readonly LibraryItem[];
+  /** Videos made by the chat this project came from. */
+  chatLibrary: readonly LibraryItem[];
   backHref: string;
   plan: "free" | "pro";
 }
 
-export function StudioScreen({ id, title, version, document, library, backHref, plan }: StudioScreenProps) {
+export function StudioScreen({ id, title, version, document, library, chatLibrary, backHref, plan }: StudioScreenProps) {
   const parsed = parseProject(document);
   const loadedId = useStudio((s) => s.projectId);
   const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
@@ -62,7 +64,7 @@ export function StudioScreen({ id, title, version, document, library, backHref, 
       <StudioHeader backHref={backHref} />
       <div className="min-h-0 flex-1">
         <StudioLayout
-          tools={<ToolPanel library={library} />}
+          tools={<ToolPanel library={library} chatLibrary={chatLibrary} />}
           preview={<PreviewPanel />}
           inspector={<RightPanel />}
           timeline={<Timeline />}
