@@ -1,12 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { goApi } from "@/lib/go-api/client";
 import { editorProjectResponse } from "@/lib/go-api/schemas";
-
-import { emptyProject } from "./core/validate.ts";
 
 export type StudioResult<T = undefined> =
   | { readonly ok: true; readonly value: T; readonly version: number }
@@ -33,20 +30,10 @@ export async function saveProject(input: z.input<typeof saveSchema>): Promise<St
   return { ok: true, value: undefined, version: result.data.data.version };
 }
 
-export async function createProject(): Promise<StudioResult<string>> {
-  const result = await goApi("/api/v1/editor/projects", editorProjectResponse, {
-    method: "POST",
-    body: { title: "Untitled project", document: emptyProject() },
-  });
+/** Finds the editor project for a chat, creating it the first time. */
+export async function openEditor(conversationId: string): Promise<StudioResult<string>> {
+  if (!idSchema.safeParse(conversationId).success) return { ok: false, message: "Unknown chat.", conflict: false };
+  const result = await goApi(`/api/v1/conversations/${conversationId}/editor`, editorProjectResponse, { method: "PUT" });
   if (!result.ok) return { ok: false, message: result.message, conflict: false };
-  revalidatePath("/editor");
   return { ok: true, value: result.data.data.id, version: result.data.data.version };
-}
-
-export async function deleteProject(id: string): Promise<StudioResult> {
-  if (!idSchema.safeParse(id).success) return { ok: false, message: "Unknown project.", conflict: false };
-  const result = await goApi(`/api/v1/editor/projects/${id}`, z.unknown(), { method: "DELETE" });
-  if (!result.ok) return { ok: false, message: result.message, conflict: false };
-  revalidatePath("/editor");
-  return { ok: true, value: undefined, version: 0 };
 }

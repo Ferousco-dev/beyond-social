@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
+import { emptyProject } from "@/features/studio/core/validate.ts";
 import { StudioScreen } from "@/features/studio/components/studio-screen";
 import { goApi } from "@/lib/go-api/client";
 import { editorProjectResponse, libraryResponse } from "@/lib/go-api/schemas";
@@ -25,14 +26,17 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       </p>
     );
   }
-  const { title, version, document } = project.data.data;
+  const { title, version, document, conversation_id } = project.data.data;
+  // A project just opened from a chat has no timeline yet.
+  const isBlank = typeof document === "object" && document !== null && Object.keys(document).length === 0;
 
   return (
     <StudioScreen
       id={id}
       title={title}
       version={version}
-      document={document}
+      document={isBlank ? emptyProject() : document}
+      backHref={conversation_id ? `/dashboard/c/${conversation_id}` : "/dashboard/c/new"}
       library={library.ok ? library.data.data : []}
     />
   );

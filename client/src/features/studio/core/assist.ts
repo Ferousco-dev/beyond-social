@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { addItem, deleteItem, moveItem, splitItem, trimItem, updateItem } from "./ops.ts";
+import { addItem, deleteItem, moveItem, setSpeed, splitItem, trimItem, updateItem } from "./ops.ts";
 import { locate } from "./find.ts";
 import { type Project, type Result } from "./types.ts";
 
@@ -8,7 +8,7 @@ const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
 /** What the server sends back. Fields an operation does not use arrive as 0 or empty. */
 export const operationSchema = z.object({
-  op: z.enum(["add_text", "update_text", "delete_item", "split_item", "trim_item", "move_item", "set_volume", "seek", "set_caption_style"]),
+  op: z.enum(["add_text", "update_text", "delete_item", "split_item", "trim_item", "move_item", "set_volume", "seek", "set_caption_style", "watch_clip", "next_scene", "set_speed"]),
   item_id: z.string(),
   text: z.string(),
   at: z.number(),
@@ -19,25 +19,32 @@ export const operationSchema = z.object({
   color: z.string(),
   size: z.number(),
   y: z.number(),
+  speed: z.number(),
 });
 export type Operation = z.infer<typeof operationSchema>;
+
+/** Things the assistant asked for that are not edits: they need the server and, for a new scene, the user's say-so. */
+export type Request =
+  | { readonly kind: "watch"; readonly itemId: string }
+  | { readonly kind: "scene"; readonly prompt: string; readonly seconds: number };
 
 export interface Applied {
   readonly project: Project;
   /** Where the playhead should go, when the assistant asked to show something. */
   readonly seek: number | null;
   readonly applied: number;
+  readonly requests: readonly Request[];
   readonly failures: readonly string[];
 }
 
 const NEW_TEXT_SECONDS = 3;
 
-function applyOne(project: Project, op: Operation, newId: () => string): Result<Project> | { seek: number } {
+function applyOne(project: Project, op: Operation, newId: () => string): Result<Project> | { seek: number } | { request: Request } {
   switch (op.op) {
     case "add_text": {
-      const track = project.tracks.find((t) => t.kind === "caption");
-      return addItem(project, track?.id ?? "captions", {
-        kind: "caption", id: newId(), start: Math.max(0, op.start), duration: op.duration > 0 ? op.duration : NEW_TEXT_SECONDS,
+      const track = project.tracks.find((t) => t.kind === "text");
+      return addItem(project, track?.id ?? "text", {
+        kind: "text", id: newId(), start: Math.max(0, op.start), duration: op.duration > 0 ? op.duration : NEW_TEXT_SECONDS,
         text: op.text || "Text", style: { color: "#ffffff", size: 64, y: 0.8 },
       });
     }
@@ -55,9 +62,20 @@ function applyOne(project: Project, op: Operation, newId: () => string): Result<
       return updateItem(project, op.item_id, { volume: op.volume });
     case "seek":
       return { seek: Math.max(0, op.at) };
+    case "watch_clip": {
+      const found = locate(project, op.item_id);
+      return found && (found.item.kind === "video" || found.item.kind === "audio") ? { request: { kind: "watch", itemId: op.item_id } } : { ok: false, error: "That is not a clip I can watch." };
+    }
+    case "set_speed":
+      return setSpeed(project, op.item_id, op.speed);
+    case "next_scene": {
+      const seconds = Math.round(op.duration);
+      if (!op.text.trim() || seconds < 3 || seconds > 15) return { ok: false, error: "A new scene needs a description and 3 to 15 seconds." };
+      return { request: { kind: "scene", prompt: op.text.trim(), seconds } };
+    }
     case "set_caption_style": {
       const found = locate(project, op.item_id);
-      if (!found || found.item.kind !== "caption") return { ok: false, error: "That is not a caption." };
+      if (!found || (found.item.kind !== "caption" && found.item.kind !== "text")) return { ok: false, error: "That is not text or a caption." };
       const style = { ...found.item.style };
       if (hex.safeParse(op.color).success) style.color = op.color;
       if (op.size > 0) style.size = op.size;
@@ -76,10 +94,14 @@ export function applyOperations(start: Project, operations: readonly Operation[]
   let project = start;
   let seek: number | null = null;
   let applied = 0;
+  const requests: Request[] = [];
   const failures: string[] = [];
   for (const op of operations) {
     const result = applyOne(project, op, newId);
-    if ("seek" in result) {
+    if ("request" in result) {
+      requests.push(result.request);
+      applied += 1;
+    } else if ("seek" in result) {
       seek = result.seek;
       applied += 1;
     } else if (result.ok) {
@@ -87,5 +109,5 @@ export function applyOperations(start: Project, operations: readonly Operation[]
       applied += 1;
     } else failures.push(result.error);
   }
-  return { project, seek, applied, failures };
+  return { project, seek, applied, requests, failures };
 }

@@ -6,7 +6,7 @@ import { type Project } from "./types.ts";
  * timeline, with the ids it needs to refer to things. Long text is shortened
  * so the description stays small however big the project is.
  */
-export function describeProject(project: Project, playhead: number): string {
+export function describeProject(project: Project, playhead: number, notes: Readonly<Record<string, string>> = {}): string {
   const round = (n: number): number => Math.round(n * 100) / 100;
   const items = project.tracks.flatMap((track) =>
     track.items.map((item) => ({
@@ -15,7 +15,9 @@ export function describeProject(project: Project, playhead: number): string {
       track: track.id,
       start: round(item.start),
       end: round(endOf(item)),
-      ...(item.kind === "caption" ? { text: item.text.slice(0, 80) } : {}),
+      ...(item.kind === "caption" || item.kind === "text" ? { text: item.text.slice(0, 80) } : {}),
+      ...((item.kind === "video" || item.kind === "audio") && project.assets?.find((a) => a.src === item.src)?.name ? { name: project.assets.find((a) => a.src === item.src)?.name } : {}),
+      ...(notes[item.id] ? { notes: notes[item.id] } : {}),
       ...(item.kind === "video" || item.kind === "audio" ? { volume: item.volume, sourceSeconds: round(item.sourceDuration), trimIn: round(item.trimIn) } : {}),
     })),
   );

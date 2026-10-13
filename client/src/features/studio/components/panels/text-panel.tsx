@@ -10,12 +10,12 @@ import { useStudio } from "../../store/editor-store";
 export function TextPanel() {
   const add = (): void => {
     const { currentTime, edit, select, history } = useStudio.getState();
-    const track = history.present.tracks.find((t) => t.kind === "caption");
+    const track = history.present.tracks.find((t) => t.kind === "text");
     const id = makeId();
     const error = edit((p) =>
-      addItem(p, track?.id ?? "captions", {
-        kind: "caption", id, start: currentTime, duration: NEW_ITEM_SECONDS, text: "Your text",
-        style: { color: "#ffffff", size: 64, y: 0.8 },
+      addItem(p, track?.id ?? "text", {
+        kind: "text", id, start: currentTime, duration: NEW_ITEM_SECONDS, text: "Your text",
+        style: { preset: "classic", color: "#ffffff", size: 72, y: 0.5 },
       }),
     );
     if (!error) select(id);
@@ -23,7 +23,7 @@ export function TextPanel() {
 
   return (
     <div className="space-y-3 p-3">
-      <p className="text-xs text-ink-soft">Adds a line of text at the playhead. Select it to change the words, colour and position.</p>
+      <p className="text-xs text-ink-soft">Adds text at the playhead. Select it to change the words, colour and size, then drag it in the preview to place it.</p>
       <button
         type="button"
         onClick={add}

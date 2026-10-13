@@ -25,6 +25,10 @@ interface StudioState {
   /** The last edit that may still absorb the next one, so a slider drag is one undo step. */
   lastEdit: { key: string; at: number } | null;
   selection: string | null;
+  /** Playable links for uploaded files, by media id. They expire, so they are refreshed. */
+  mediaUrls: Record<string, string>;
+  /** What the assistant learned from watching a clip, by item id. Only set when the user asked it to watch. */
+  clipNotes: Record<string, string>;
   /** A short message about the last action that could not be done. */
   notice: string | null;
   currentTime: number;
@@ -45,6 +49,8 @@ interface StudioState {
   setSaveStatus: (status: SaveStatus) => void;
   setTitle: (title: string) => void;
   select: (id: string | null) => void;
+  setMediaUrls: (urls: Record<string, string>) => void;
+  setClipNote: (itemId: string, note: string) => void;
   setNotice: (notice: string | null) => void;
   seek: (time: number) => void;
   setPlaying: (playing: boolean) => void;
@@ -65,6 +71,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   gestureBase: null,
   lastEdit: null,
   selection: null,
+  mediaUrls: {},
+  clipNotes: {},
   notice: null,
   currentTime: 0,
   playing: false,
@@ -74,7 +82,7 @@ export const useStudio = create<StudioState>((set, get) => ({
 
   load: (id, title, version, project) =>
     set({
-      projectId: id, title, version, history: createHistory(project), saved: project, saveStatus: "saved",
+      projectId: id, title, version, history: createHistory(project), saved: project, saveStatus: "saved", clipNotes: {},
       gestureBase: null, selection: null, currentTime: 0, playing: false,
     }),
 
@@ -119,6 +127,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   setTitle: (title) => set({ title, saveStatus: "pending" }),
 
   select: (selection) => set({ selection }),
+  setClipNote: (itemId, note) => set((s) => ({ clipNotes: { ...s.clipNotes, [itemId]: note } })),
+  setMediaUrls: (urls) => set((s) => ({ mediaUrls: { ...s.mediaUrls, ...urls } })),
   setNotice: (notice) => set({ notice }),
   seek: (time) => set({ currentTime: clamp(time, 0, projectDuration(get().history.present) + 30) }),
   setPlaying: (playing) => set({ playing }),

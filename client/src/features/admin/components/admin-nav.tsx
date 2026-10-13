@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Coins, KeyRound, ListChecks, Users } from "lucide-react";
+import { AlertTriangle, Coins, Cpu, KeyRound, ListChecks, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { type Route } from "next";
@@ -10,6 +10,7 @@ const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/pricing" as Route, label: "Pricing", icon: Coins },
   { href: "/dashboard/admin/providers" as Route, label: "Provider keys", icon: KeyRound },
+  { href: "/dashboard/admin/models" as Route, label: "Models", icon: Cpu },
   { href: "/dashboard/admin/alerts" as Route, label: "Alerts", icon: AlertTriangle },
 ];
 

@@ -11,6 +11,7 @@ import { loadThread, sendChatMessage, startConversation } from "../actions";
 import { useAttachments } from "../hooks/use-attachments";
 import { ChatComposer } from "./chat-composer";
 import { MessageBubble } from "./message-bubble";
+import { OpenEditorButton } from "./open-editor-button";
 
 const liveMessage = chatMessageSchema.extend({ conversation_id: z.string() });
 
@@ -126,6 +127,11 @@ export function ChatView({
 
   return (
     <div className="mx-auto flex h-full w-full max-w-3xl flex-col px-4">
+      {id !== null && !empty ? (
+        <div className="flex shrink-0 justify-end pt-3">
+          <OpenEditorButton conversationId={id} />
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto py-6">
         {empty ? (
           <div className="pt-[12vh] text-center">

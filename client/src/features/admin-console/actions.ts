@@ -55,3 +55,11 @@ export async function resolveAlert(id: string): Promise<AdminResult> {
   if (!z.string().uuid().safeParse(id).success) return invalid;
   return send(`/api/v1/admin/alerts/${id}/resolve`, "POST", undefined, "/dashboard/admin/alerts");
 }
+
+const MODEL = z.string().regex(/^(gemini|openrouter:[A-Za-z0-9._\-/:]{1,150})$/);
+
+/** Chooses which model answers one kind of request. Gemini is the default. */
+export async function chooseModel(role: string, model: string): Promise<AdminResult> {
+  if (!NAME.safeParse(role).success || !MODEL.safeParse(model).success) return invalid;
+  return send(`/api/v1/admin/models/${role}`, "PUT", { model }, "/dashboard/admin/models");
+}

@@ -4,7 +4,7 @@ export const STUDIO_TIMELINE = {
   RULER_HEIGHT: 24,
   LABELS_WIDTH: 104,
   TRACK_GAP: 6,
-  TRACK_HEIGHTS: { caption: 26, overlay: 30, video: 44, audio: 34 },
+  TRACK_HEIGHTS: { text: 30, caption: 26, overlay: 30, video: 44, audio: 34 },
   MIN_LABEL_SPACING: 72,
   LABEL_STEPS: [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300],
   MINOR_TICKS_PER_LABEL: 5,

@@ -1,6 +1,6 @@
 import { type Item, type Project } from "../core/types.ts";
 
-type Caption = Extract<Item, { kind: "caption" }>;
+type Caption = Extract<Item, { kind: "caption" | "text" }>;
 
 const MAX_WIDTH = 0.9;
 const LINE_HEIGHT = 1.25;
@@ -36,16 +36,24 @@ function readableOn(hex: string): string {
   return luminance > 0.6 ? "#111111" : "#ffffff";
 }
 
-export function drawCaption(ctx: CanvasRenderingContext2D, item: Caption, project: Project, time: number): void {
+/** Position and size set by keyframes, which take the place of the item's own while they apply. */
+export interface CaptionMotion {
+  readonly x?: number;
+  readonly y?: number;
+  readonly scale: number;
+}
+
+export function drawCaption(ctx: CanvasRenderingContext2D, item: Caption, project: Project, time: number, motion: CaptionMotion = { scale: 1 }): void {
   const { width, height } = ctx.canvas;
   const style = item.style;
   const preset = style.preset ?? "classic";
-  const px = style.size * (height / project.height);
+  const px = style.size * motion.scale * (height / project.height);
   const highlight = style.highlight ?? "#ffd400";
   const local = time - item.start;
-  const spoken = item.words?.map((w) => w.text) ?? [item.text];
+  const words = item.kind === "caption" ? item.words : undefined;
+  const spoken = words?.map((w) => w.text) ?? [item.text];
   let active = -1;
-  item.words?.forEach((w, i) => {
+  words?.forEach((w, i) => {
     if (local >= w.start) active = i;
   });
 
@@ -56,12 +64,12 @@ export function drawCaption(ctx: CanvasRenderingContext2D, item: Caption, projec
   const space = ctx.measureText(" ").width;
   const lines = wrap(ctx, spoken, width * MAX_WIDTH, space);
   const lineHeight = px * LINE_HEIGHT;
-  const top = style.y * height - (lines.length * lineHeight) / 2;
+  const top = (motion.y ?? style.y) * height - (lines.length * lineHeight) / 2;
 
   lines.forEach((line, row) => {
     const total = line.reduce((sum, w) => sum + w.width, 0) + space * (line.length - 1);
     const y = top + lineHeight * (row + 0.5);
-    let x = (width - total) / 2;
+    let x = (motion.x ?? style.x ?? 0.5) * width - total / 2;
     if (preset === "box") {
       ctx.fillStyle = "rgba(0,0,0,0.72)";
       ctx.beginPath();

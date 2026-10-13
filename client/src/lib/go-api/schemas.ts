@@ -203,16 +203,18 @@ export type ScheduledPost = z.infer<typeof postSchema>;
 export const postsResponse = z.object({ data: z.array(postSchema) });
 export const postResponse = z.object({ data: postSchema });
 
-export const editorSummarySchema = z.object({ id: z.string(), title: z.string(), updated_at: z.string() });
-export type EditorSummary = z.infer<typeof editorSummarySchema>;
-export const editorSummariesResponse = z.object({ data: z.array(editorSummarySchema) });
 export const editorProjectSchema = z.object({
   id: z.string(),
   title: z.string(),
+  conversation_id: z.string().optional(),
   document: z.unknown(),
   version: z.number().int(),
   updated_at: z.string(),
 });
+export const wordsResponse = z.object({
+  data: z.object({ words: z.array(z.object({ text: z.string(), start: z.number(), end: z.number() })) }),
+});
+
 export const editorProjectResponse = z.object({ data: editorProjectSchema });
 
 export const libraryItemSchema = z.object({

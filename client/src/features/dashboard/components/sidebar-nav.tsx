@@ -3,7 +3,6 @@
 import {
   CalendarClock,
   CircleUser,
-  Clapperboard,
   Film,
   PenSquare,
   Share2,
@@ -51,12 +50,6 @@ const LINKS: readonly NavLink[] = [
     icon: CircleUser,
     // The avatar coming into focus as you reach for it.
     motion: "group-hover:scale-110",
-  },
-  {
-    href: "/editor" as Route,
-    label: "Editor",
-    icon: Clapperboard,
-    motion: "group-hover:-rotate-6",
   },
   {
     href: "/dashboard/library" as Route,

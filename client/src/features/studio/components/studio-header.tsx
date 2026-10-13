@@ -8,6 +8,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 import { useStudio, type SaveStatus } from "../store/editor-store";
+import { ExportButton } from "./export-button";
 
 const SAVE: Record<SaveStatus, { label: string; tone: string }> = {
   saved: { label: "Saved", tone: "text-ink-soft" },
@@ -19,7 +20,7 @@ const SAVE: Record<SaveStatus, { label: string; tone: string }> = {
 
 const NOTICE_MS = 4000;
 
-export function StudioHeader() {
+export function StudioHeader({ backHref }: { backHref: string }) {
   const title = useStudio((s) => s.title);
   const status = useStudio((s) => s.saveStatus);
   const notice = useStudio((s) => s.notice);
@@ -34,9 +35,9 @@ export function StudioHeader() {
   return (
     <header className="flex min-h-13 shrink-0 items-center gap-2 px-3">
       <Link
-        href={"/editor" as Route}
-        aria-label="All projects"
-        title="All projects"
+        href={backHref as Route}
+        aria-label="Back to chat"
+        title="Back to chat"
         className="inline-flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
       >
         <ArrowLeft className="size-4" aria-hidden />
@@ -59,6 +60,9 @@ export function StudioHeader() {
           {notice}
         </p>
       ) : null}
+      <div className={notice ? "" : "ml-auto"}>
+        <ExportButton />
+      </div>
     </header>
   );
 }

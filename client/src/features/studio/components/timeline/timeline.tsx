@@ -1,7 +1,7 @@
 "use client";
 
-import { AudioLines, Captions, Film, Image as ImageIcon, type LucideIcon } from "lucide-react";
-import { useCallback, useRef } from "react";
+import { AudioLines, Captions, Film, Image as ImageIcon, Type, type LucideIcon } from "lucide-react";
+import { useCallback, useRef, useState, type DragEvent } from "react";
 
 import { endOf, locate } from "../../core/find.ts";
 import { moveItem, trimItem } from "../../core/ops.ts";
@@ -9,6 +9,9 @@ import { type Item, type Project, type Track, type TrackKind } from "../../core/
 import { STUDIO_TIMELINE } from "../../config";
 import { clamp, snapTo } from "../../lib/format";
 import { projectDuration } from "../../core/find.ts";
+import { soundFor, soundId } from "../../lib/sounds";
+import { useUpload } from "../../hooks/use-upload";
+import { ASSET_DRAG_TYPE, placeAsset, placeJobVideo, readDraggedAsset } from "../../lib/place-asset";
 import { selectProject, useStudio } from "../../store/editor-store";
 import { TimelineItem, type DragMode } from "./timeline-item";
 import { TimelineRuler } from "./timeline-ruler";
@@ -16,20 +19,20 @@ import { TimelineToolbar } from "./timeline-toolbar";
 import { cn } from "@/lib/utils";
 
 const TRACK_LOOK: Record<TrackKind, { label: string; Icon: LucideIcon; colour: string }> = {
+  text: { label: "Text", Icon: Type, colour: "bg-clip-text" },
   caption: { label: "Captions", Icon: Captions, colour: "bg-clip-caption" },
   overlay: { label: "Images", Icon: ImageIcon, colour: "bg-clip-image" },
   video: { label: "Video", Icon: Film, colour: "bg-clip-video" },
   audio: { label: "Audio", Icon: AudioLines, colour: "bg-clip-audio" },
 };
 
-function itemLabel(item: Item): string {
+function itemLabel(item: Item, project: Project): string {
   switch (item.kind) {
     case "caption":
-      return item.text || "Caption";
-    case "image":
-      return "Image";
+    case "text":
+      return item.text || "Text";
     default:
-      return item.src.split("/").pop() ?? item.kind;
+      return project.assets?.find((a) => a.src === item.src)?.name ?? soundFor(soundId(item.src) ?? "")?.name ?? (item.kind === "image" ? "Image" : item.kind === "audio" ? "Audio" : "Video");
   }
 }
 
@@ -45,6 +48,8 @@ export function Timeline() {
   const selection = useStudio((s) => s.selection);
   const currentTime = useStudio((s) => s.currentTime);
   const content = useRef<HTMLDivElement>(null);
+  const [over, setOver] = useState(false);
+  const { upload } = useUpload();
   const span = projectDuration(project) + STUDIO_TIMELINE.TAIL_SECONDS;
 
   const scrub = useCallback((clientX: number): void => {
@@ -78,8 +83,33 @@ export function Timeline() {
     else state.drag((p) => trimItem(p, item.id, "end", snap(endOf(item) + seconds)));
   };
 
+  const accepts = (event: DragEvent): boolean => event.dataTransfer.types.includes(ASSET_DRAG_TYPE) || event.dataTransfer.types.includes("Files");
+
+  /** A file from the library lands where it is dropped; a file from the desktop is uploaded first. */
+  const drop = async (event: DragEvent): Promise<void> => {
+    event.preventDefault();
+    setOver(false);
+    const box = content.current?.getBoundingClientRect();
+    if (!box) return;
+    const at = Math.max(0, (event.clientX - box.left) / useStudio.getState().zoom);
+    const dragged = readDraggedAsset(event.dataTransfer);
+    if (dragged) return dragged.job ? placeJobVideo(dragged.job, dragged.asset.name, dragged.asset.duration, at) : placeAsset(dragged.asset, at);
+    let cursor = at;
+    for (const file of Array.from(event.dataTransfer.files)) {
+      const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : file.type.startsWith("image/") ? "image" : null;
+      if (!kind) {
+        useStudio.getState().setNotice(`${file.name} is not a video, sound or picture.`);
+        continue;
+      }
+      const uploaded = await upload(file, kind);
+      if (!uploaded) continue;
+      placeAsset(uploaded, cursor);
+      cursor += uploaded.duration ?? 3;
+    }
+  };
+
   const rows = [...project.tracks];
-  const order: TrackKind[] = ["caption", "overlay", "video", "audio"];
+  const order: TrackKind[] = ["text", "overlay", "caption", "video", "audio"];
   rows.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 
   return (
@@ -104,15 +134,22 @@ export function Timeline() {
           <div ref={content} className="relative flex flex-col" style={{ width: Math.max(span * zoom, 1) }}>
             <TimelineRuler zoom={zoom} span={span} onScrub={scrub} />
             <div
-              className="relative flex flex-1 flex-col py-1.5"
+              className={cn("relative flex flex-1 flex-col py-1.5 transition-colors", over && "bg-primary/10")}
               style={{ gap: STUDIO_TIMELINE.TRACK_GAP }}
+              onDragOver={(event) => {
+                if (!accepts(event)) return;
+                event.preventDefault();
+                setOver(true);
+              }}
+              onDragLeave={() => setOver(false)}
+              onDrop={(event) => void drop(event)}
               onPointerDown={(event) => {
                 useStudio.getState().select(null);
                 scrub(event.clientX);
               }}
             >
               {rows.map((track) => (
-                <TrackRow key={track.id} track={track} zoom={zoom} selection={selection} onDrag={drag} />
+                <TrackRow key={track.id} track={track} project={project} zoom={zoom} selection={selection} onDrag={drag} />
               ))}
             </div>
             <div className="pointer-events-none absolute inset-y-0 z-20 w-px bg-primary" style={{ left: currentTime * zoom }}>
@@ -125,7 +162,7 @@ export function Timeline() {
   );
 }
 
-function TrackRow({ track, zoom, selection, onDrag }: { track: Track; zoom: number; selection: string | null; onDrag: (item: Item, mode: DragMode, seconds: number) => void }) {
+function TrackRow({ track, project, zoom, selection, onDrag }: { track: Track; project: Project; zoom: number; selection: string | null; onDrag: (item: Item, mode: DragMode, seconds: number) => void }) {
   const { colour } = TRACK_LOOK[track.kind];
   return (
     <div className="relative" style={{ height: STUDIO_TIMELINE.TRACK_HEIGHTS[track.kind] }}>
@@ -135,7 +172,7 @@ function TrackRow({ track, zoom, selection, onDrag }: { track: Track; zoom: numb
           start={item.start}
           end={endOf(item)}
           zoom={zoom}
-          label={itemLabel(item)}
+          label={itemLabel(item, project)}
           selected={item.id === selection}
           className={colour}
           onSelect={() => useStudio.getState().select(item.id)}
@@ -143,7 +180,7 @@ function TrackRow({ track, zoom, selection, onDrag }: { track: Track; zoom: numb
           onDragEnd={() => useStudio.getState().endDrag()}
         >
           <span className={cn("pointer-events-none block truncate px-2 leading-[inherit]", track.kind === "video" ? "text-ink" : "text-white")} style={{ lineHeight: `${STUDIO_TIMELINE.TRACK_HEIGHTS[track.kind]}px` }}>
-            {itemLabel(item)}
+            {itemLabel(item, project)}
           </span>
         </TimelineItem>
       ))}

@@ -56,6 +56,7 @@
   --clip-audio: #3f6aa6;
   --clip-image: #a64468;
   --clip-caption: #a8741f;
+  --clip-text: #5468b5;
 }
 
 .dark {
@@ -105,6 +106,7 @@
   --clip-audio: #3a5f8f;
   --clip-image: #8f3d5c;
   --clip-caption: #8a6122;
+  --clip-text: #4558a0;
 }
 
 @theme inline {
@@ -144,6 +146,7 @@
   --color-clip-audio: var(--clip-audio);
   --color-clip-image: var(--clip-image);
   --color-clip-caption: var(--clip-caption);
+  --color-clip-text: var(--clip-text);
 
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04),

@@ -5,29 +5,19 @@ import { useState } from "react";
 
 import { type LibraryItem } from "@/lib/go-api/schemas";
 
-import { endOf } from "../../core/find.ts";
-import { addItem } from "../../core/ops.ts";
-import { makeId } from "../../lib/format";
+import { ASSET_DRAG_TYPE, placeJobVideo } from "../../lib/place-asset";
 import { probeDuration } from "../../lib/media";
-import { selectProject, useStudio } from "../../store/editor-store";
+import { useStudio } from "../../store/editor-store";
+import { AssetsPanel } from "./assets-panel";
 
 export function MediaPanel({ library }: { library: readonly LibraryItem[] }) {
-  const project = useStudio(selectProject);
   const [busy, setBusy] = useState<string | null>(null);
 
   const add = async (item: LibraryItem): Promise<void> => {
     setBusy(item.id);
     try {
       const seconds = item.duration_seconds ?? (await probeDuration(item.video_url));
-      const track = project.tracks.find((t) => t.kind === "video");
-      const start = track?.items.reduce((latest, i) => Math.max(latest, endOf(i)), 0) ?? 0;
-      const id = makeId();
-      const error = useStudio.getState().edit((p) =>
-        addItem(p, track?.id ?? "video", {
-          kind: "video", id, start, duration: seconds, src: item.video_url, trimIn: 0, sourceDuration: seconds, volume: 1,
-        }),
-      );
-      if (!error) useStudio.getState().select(id);
+      await placeJobVideo(item.id, item.prompt || "Made in this app", seconds);
     } catch (e) {
       useStudio.getState().setNotice(e instanceof Error ? e.message : "That video could not be added.");
     } finally {
@@ -35,13 +25,22 @@ export function MediaPanel({ library }: { library: readonly LibraryItem[] }) {
     }
   };
 
-  if (library.length === 0) {
-    return <p className="p-4 text-sm text-ink-soft">Videos you make appear here. Make one in chat first.</p>;
-  }
   return (
-    <ul className="grid grid-cols-2 gap-2 p-3">
+    <div>
+      <AssetsPanel kind="video" />
+      <h3 className="px-3 pt-1 text-xs text-ink-soft">Made in this app</h3>
+      {library.length === 0 ? <p className="p-3 text-sm text-ink-soft">Videos you make in chat appear here.</p> : null}
+      <ul className="grid grid-cols-2 gap-2 p-3">
       {library.map((item) => (
-        <li key={item.id} className="group relative overflow-hidden rounded-lg border border-hairline bg-canvas">
+        <li
+          key={item.id}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData(ASSET_DRAG_TYPE, JSON.stringify({ job: item.id, src: item.video_url, name: (item.prompt || "Made in this app").slice(0, 120), kind: "video", ...(item.duration_seconds ? { duration: item.duration_seconds } : {}) }));
+            event.dataTransfer.effectAllowed = "copy";
+          }}
+          className="group relative cursor-grab overflow-hidden rounded-lg border border-hairline bg-canvas active:cursor-grabbing"
+        >
           <video src={item.video_url} poster={item.thumbnail_url} preload="metadata" muted playsInline className="aspect-[9/16] w-full object-cover" />
           <button
             type="button"
@@ -55,6 +54,7 @@ export function MediaPanel({ library }: { library: readonly LibraryItem[] }) {
           </button>
         </li>
       ))}
-    </ul>
+      </ul>
+    </div>
   );
 }

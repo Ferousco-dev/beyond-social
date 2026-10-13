@@ -7,7 +7,9 @@ import { updateItem } from "../../core/ops.ts";
 import { type Item } from "../../core/types.ts";
 import { formatTimecode } from "../../lib/format";
 import { selectProject, useStudio } from "../../store/editor-store";
+import { AnimationFields } from "./animation-fields";
 import { Field, INPUT } from "./field";
+import { SpeedField } from "./speed-field";
 
 function change(id: string, patch: Record<string, unknown>): void {
   useStudio.getState().edit((p) => updateItem(p, id, patch), `${id}:${Object.keys(patch).join(",")}`);
@@ -16,6 +18,7 @@ function change(id: string, patch: Record<string, unknown>): void {
 function Fields({ item }: { item: Item }) {
   switch (item.kind) {
     case "caption":
+    case "text":
       return (
         <>
           <Field label="Text">
@@ -33,7 +36,10 @@ function Fields({ item }: { item: Item }) {
           <Field label="Size" value={String(item.style.size)}>
             <input type="range" min={24} max={160} value={item.style.size} onChange={(e) => change(item.id, { style: { ...item.style, size: Number(e.target.value) } })} className="w-full accent-primary" />
           </Field>
-          <Field label="Position" value={`${Math.round(item.style.y * 100)}%`}>
+          <Field label="Across" value={`${Math.round((item.style.x ?? 0.5) * 100)}%`}>
+            <input type="range" min={5} max={95} value={Math.round((item.style.x ?? 0.5) * 100)} onChange={(e) => change(item.id, { style: { ...item.style, x: Number(e.target.value) / 100 } })} className="w-full accent-primary" />
+          </Field>
+          <Field label="Down" value={`${Math.round(item.style.y * 100)}%`}>
             <input type="range" min={5} max={95} value={Math.round(item.style.y * 100)} onChange={(e) => change(item.id, { style: { ...item.style, y: Number(e.target.value) / 100 } })} className="w-full accent-primary" />
           </Field>
         </>
@@ -45,10 +51,14 @@ function Fields({ item }: { item: Item }) {
         </Field>
       );
     default:
+      if (item.kind !== "video" && item.kind !== "audio") return null;
       return (
-        <Field label="Volume" value={`${Math.round(item.volume * 100)}%`}>
-          <input type="range" min={0} max={200} value={Math.round(item.volume * 100)} onChange={(e) => change(item.id, { volume: Number(e.target.value) / 100 })} className="w-full accent-primary" />
-        </Field>
+        <>
+          <Field label="Volume" value={`${Math.round(item.volume * 100)}%`}>
+            <input type="range" min={0} max={200} value={Math.round(item.volume * 100)} onChange={(e) => change(item.id, { volume: Number(e.target.value) / 100 })} className="w-full accent-primary" />
+          </Field>
+          <SpeedField item={item} />
+        </>
       );
   }
 }
@@ -73,6 +83,7 @@ export function InspectorPanel() {
         {formatTimecode(item.start)} · {item.duration.toFixed(1)}s
       </p>
       <Fields item={item} />
+      {item.kind === "video" || item.kind === "image" || item.kind === "text" ? <AnimationFields item={item} /> : null}
     </div>
   );
 }

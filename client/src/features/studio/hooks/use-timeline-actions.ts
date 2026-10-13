@@ -2,27 +2,18 @@
 
 import { useCallback } from "react";
 
-import { endOf, locate } from "../core/find.ts";
-import { deleteItem, splitItem } from "../core/ops.ts";
+import { deleteItem, splitAll, splitItem } from "../core/ops.ts";
 import { makeId } from "../lib/format";
 import { useStudio } from "../store/editor-store";
 
 /** Edits that act on the selection and the playhead. Shared by the toolbar and the shortcuts. */
 export function useTimelineActions(): { split: () => void; remove: (ripple: boolean) => void } {
   const split = useCallback((): void => {
-    const { history, selection, currentTime, edit, select } = useStudio.getState();
-    const project = history.present;
-    // With nothing selected, cut whatever sits under the playhead.
-    const target =
-      selection ??
-      project.tracks.flatMap((t) => t.items).find((i) => i.kind !== "caption" && currentTime > i.start && currentTime < endOf(i))?.id;
-    if (!target || !locate(project, target)) {
-      useStudio.getState().setNotice("Move the playhead over a clip to cut it.");
-      return;
-    }
+    const { selection, currentTime, edit, select } = useStudio.getState();
+    // A selected item is cut on its own; with nothing selected, everything under the playhead is.
     const newId = makeId();
-    const error = edit((p) => splitItem(p, target, currentTime, newId));
-    if (!error) select(newId);
+    const error = selection ? edit((p) => splitItem(p, selection, currentTime, newId)) : edit((p) => splitAll(p, currentTime, makeId));
+    if (!error && selection) select(newId);
   }, []);
 
   const remove = useCallback((ripple: boolean): void => {

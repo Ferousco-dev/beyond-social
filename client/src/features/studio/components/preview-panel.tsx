@@ -1,9 +1,10 @@
 "use client";
 
 import { Maximize, Pause, Play } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { projectDuration } from "../core/find.ts";
+import { useCanvasDrag } from "../hooks/use-canvas-drag";
 import { usePlayback } from "../hooks/use-playback";
 import { formatTimecode } from "../lib/format";
 import { selectProject, useStudio } from "../store/editor-store";
@@ -17,8 +18,8 @@ export function PreviewPanel() {
   const playing = useStudio((s) => s.playing);
   const frame = useRef<HTMLDivElement>(null);
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
-  const resolve = useCallback((src: string): string => src, []);
-  usePlayback(canvas, resolve);
+  usePlayback(canvas);
+  useCanvasDrag(canvas);
 
   const duration = projectDuration(project);
   const scale = PREVIEW_SHORT_SIDE / Math.min(project.width, project.height);

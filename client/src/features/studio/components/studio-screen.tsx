@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import { type LibraryItem } from "@/lib/go-api/schemas";
 
 import { parseProject } from "../core/validate.ts";
 import { useAutosave } from "../hooks/use-autosave";
+import { useMediaUrls } from "../hooks/use-media-urls";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import { STUDIO_PANELS } from "../config";
 import { useMediaQuery } from "../hooks/use-media-query";
 import { useStudio } from "../store/editor-store";
 import { DesktopOnly } from "./desktop-only";
-import { InspectorFrame } from "./inspector-frame";
-import { InspectorPanel } from "./panels/inspector-panel";
 import { PreviewPanel } from "./preview-panel";
+import { RightPanel } from "./right-panel";
 import { StudioHeader } from "./studio-header";
 import { StudioLayout } from "./studio-layout";
 import { Timeline } from "./timeline/timeline";
@@ -25,21 +25,22 @@ interface StudioScreenProps {
   version: number;
   document: unknown;
   library: readonly LibraryItem[];
+  backHref: string;
 }
 
-export function StudioScreen({ id, title, version, document, library }: StudioScreenProps) {
+export function StudioScreen({ id, title, version, document, library, backHref }: StudioScreenProps) {
   const parsed = parseProject(document);
   const loadedId = useStudio((s) => s.projectId);
-  const loaded = useRef<string | null>(null);
   const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
 
-  // Load before anything below renders, once per project, so the first paint has the document.
-  if (parsed.ok && loaded.current !== id) {
-    loaded.current = id;
-    useStudio.getState().load(id, title, version, parsed.value);
-  }
+  // The screen shows nothing until the store holds this project, so no panel ever reads a stale one.
+  const project = parsed.ok ? parsed.value : null;
+  useEffect(() => {
+    if (project && useStudio.getState().projectId !== id) useStudio.getState().load(id, title, version, project);
+  }, [id, title, version, project]);
   useEffect(() => () => useStudio.getState().setPlaying(false), []);
   useAutosave();
+  useMediaUrls();
   useShortcuts();
 
   if (!desktop) return <DesktopOnly />;
@@ -56,16 +57,12 @@ export function StudioScreen({ id, title, version, document, library }: StudioSc
 
   return (
     <div className="flex h-svh flex-col overflow-hidden bg-canvas">
-      <StudioHeader />
+      <StudioHeader backHref={backHref} />
       <div className="min-h-0 flex-1">
         <StudioLayout
           tools={<ToolPanel library={library} />}
           preview={<PreviewPanel />}
-          inspector={
-            <InspectorFrame>
-              <InspectorPanel />
-            </InspectorFrame>
-          }
+          inspector={<RightPanel />}
           timeline={<Timeline />}
         />
       </div>

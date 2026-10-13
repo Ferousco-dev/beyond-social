@@ -71,6 +71,22 @@ export const providersResponse = z.object({
   data: z.object({ writable: z.boolean(), credentials: z.array(credential) }),
 });
 
+const modelOption = z.object({
+  id: z.string(),
+  name: z.string(),
+  context_length: z.number(),
+  input_per_million: z.number(),
+  output_per_million: z.number(),
+});
+export type ModelOption = z.infer<typeof modelOption>;
+export const modelsResponse = z.object({
+  data: z.object({
+    roles: z.array(z.object({ key: z.string(), label: z.string(), model: z.string() })),
+    openrouter_configured: z.boolean(),
+    catalog: z.array(modelOption),
+  }),
+});
+
 const setupCheck = z.object({
   id: z.string(),
   label: z.string(),

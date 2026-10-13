@@ -5,6 +5,9 @@ export const fail = (error: string): Result<never> => ({ ok: false, error });
 
 export const endOf = (item: Item): number => item.start + item.duration;
 
+/** How fast an item plays. Items that never set it play at normal speed. */
+export const speedOf = (item: Item): number => ("speed" in item ? (item.speed ?? 1) : 1);
+
 /** Two items collide when they share any stretch of time, not merely an edge. */
 export const overlaps = (a: Item, b: Item): boolean => a.start < endOf(b) - 1e-9 && b.start < endOf(a) - 1e-9;
 

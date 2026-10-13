@@ -1,4 +1,3 @@
-import { endOf } from "./find.ts";
 import { type CaptionStyle, type Item } from "./types.ts";
 
 export interface SpokenWord {
@@ -64,5 +63,3 @@ export function captionsFromWords(words: readonly SpokenWord[], clip: Media, new
     ];
   });
 }
-
-export const clipEnd = (clip: Media): number => endOf(clip);
