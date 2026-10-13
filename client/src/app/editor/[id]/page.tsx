@@ -1,35 +1,39 @@
 import { type Metadata } from "next";
+import { notFound } from "next/navigation";
+import { z } from "zod";
 
-import { EditorShell } from "@/features/editor/components/editor-shell";
-import { getThread } from "@/lib/chat/thread";
-import { getEditorDocument } from "@/lib/editor/document";
-import { getLatestReadyGeneration } from "@/lib/generation/history";
-import { configuredPlatforms } from "@/lib/social/platforms";
+import { StudioScreen } from "@/features/studio/components/studio-screen";
+import { goApi } from "@/lib/go-api/client";
+import { editorProjectResponse, libraryResponse } from "@/lib/go-api/schemas";
 
 export const metadata: Metadata = { title: "Editor" };
 export const dynamic = "force-dynamic";
 
 export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [thread, document, generationId] = await Promise.all([
-    getThread(id),
-    getEditorDocument(id),
-    getLatestReadyGeneration(id),
+  if (!z.string().uuid().safeParse(id).success) notFound();
+
+  const [project, library] = await Promise.all([
+    goApi(`/api/v1/editor/projects/${id}`, editorProjectResponse),
+    goApi("/api/v1/library?limit=100", libraryResponse),
   ]);
+  if (!project.ok) {
+    if (project.status === 404) notFound();
+    return (
+      <p role="alert" className="p-6 text-sm text-destructive">
+        {project.message}
+      </p>
+    );
+  }
+  const { title, version, document } = project.data.data;
 
   return (
-    <EditorShell
-      conversationId={id}
-      title={thread.title}
-      initialProject={document.project}
-      initialRevision={document.revision}
-      // A project that does not exist has nothing to attach a document to, so
-      // autosave stays off rather than failing on every keystroke.
-      canSave={thread.projectId !== null}
-      generationId={generationId}
-      // Read on the server: the credentials are server-only, so the client is
-      // told which platforms are usable rather than being able to work it out.
-      availablePlatforms={configuredPlatforms()}
+    <StudioScreen
+      id={id}
+      title={title}
+      version={version}
+      document={document}
+      library={library.ok ? library.data.data : []}
     />
   );
 }

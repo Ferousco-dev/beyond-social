@@ -6,11 +6,12 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
   discover_videos: "Discover",
   transform_video: "Transform",
   create_avatar_video: "Avatar video",
+  generate_video: "Video clip",
   get_job_status: "Check job",
   get_workflow_status: "Check workflow",
 };
 
-const BILLABLE_TOOLS = new Set(["discover_videos", "transform_video", "create_avatar_video"]);
+const BILLABLE_TOOLS = new Set(["discover_videos", "transform_video", "create_avatar_video", "generate_video"]);
 
 export function toolLabel(tool: string): string {
   return TOOL_LABELS[tool] ?? tool;
@@ -60,7 +61,10 @@ export function StepResultLinks({ steps }: { steps: readonly GoWorkflowStep[] })
   return (
     <ul className="space-y-1.5">
       {links.map((link) => (
-        <li key={link.url}>
+        <li key={link.url} className="space-y-1.5">
+          {isVideoUrl(link.url) ? (
+            <video src={link.url} controls playsInline preload="metadata" className="w-full max-w-sm rounded-xl bg-ink" />
+          ) : null}
           <a
             href={link.url}
             target="_blank"
@@ -88,4 +92,12 @@ function resultLinks(output: Readonly<Record<string, unknown>>, label: string): 
   };
   visit(output);
   return found.slice(0, 4);
+}
+
+function isVideoUrl(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith(".mp4");
+  } catch {
+    return false;
+  }
 }

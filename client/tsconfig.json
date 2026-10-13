@@ -2,6 +2,7 @@
   "extends": "@beyond-social/typescript-config/nextjs.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./src/*"]
     }

@@ -60,6 +60,9 @@ type Store interface {
 	// SpentSince is the net credits a user has paid since a time, after refunds.
 	SpentSince(ctx context.Context, userID string, since time.Time) (int, error)
 	Setting(ctx context.Context, key string) (int, bool, error)
+	// DailyUsage reads a user's spend since a time and the limit setting in one
+	// round trip, since both are needed before every charge.
+	DailyUsage(ctx context.Context, userID, limitKey string, since time.Time) (spent, limit int, hasLimit bool, err error)
 }
 
 // Setting keys an admin can change.
@@ -147,12 +150,8 @@ func (s *Service) Refund(ctx context.Context, userID, jobID, reason string) erro
 }
 
 func (s *Service) checkDailyLimit(ctx context.Context, userID string, amount int) error {
-	limit, ok, err := s.store.Setting(ctx, SettingDailyUserLimit)
+	spent, limit, ok, err := s.store.DailyUsage(ctx, userID, SettingDailyUserLimit, time.Now().Add(-24*time.Hour))
 	if err != nil || !ok || limit == 0 {
-		return err
-	}
-	spent, err := s.store.SpentSince(ctx, userID, time.Now().Add(-24*time.Hour))
-	if err != nil {
 		return err
 	}
 	if spent+amount > limit {

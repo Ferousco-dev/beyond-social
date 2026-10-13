@@ -13,7 +13,12 @@ const maxJSONBody = 8 << 10
 // decodeJSON reads a small, strict JSON body: unknown fields and trailing data
 // are errors, so typos in a request fail loudly instead of being ignored.
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxJSONBody))
+	return decodeJSONLimit(w, r, dst, maxJSONBody)
+}
+
+// decodeJSONLimit is decodeJSON for bodies that are legitimately larger.
+func decodeJSONLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		var tooBig *http.MaxBytesError

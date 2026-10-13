@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronsUpDown, LogOut, Settings, Share2, ShieldCheck } from "lucide-react";
+import { ChevronsUpDown, LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { type Route } from "next";
@@ -96,7 +96,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-ink">{user.name}</span>
                 <span className="block truncate text-xs text-ink-soft">
-                  {user.credits} credits
+                  {user.credits === null ? "Credits unavailable" : `${user.credits} credits`}
                 </span>
               </span>
               <ChevronsUpDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
@@ -135,15 +135,9 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
-                <Link href="/dashboard/settings/connections" className={ROW}>
-                  Connectors
-                  <Share2 className={ICON} aria-hidden />
-                </Link>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item asChild>
                 <Link href={"/dashboard/credits" as Route} className={ROW}>
                   Credits
-                  <span className="text-xs text-ink-soft">{user.credits}</span>
+                  <span className="text-xs text-ink-soft">{user.credits ?? "—"}</span>
                 </Link>
               </DropdownMenu.Item>
               {/* Admin's own login and separate app went away with this: the

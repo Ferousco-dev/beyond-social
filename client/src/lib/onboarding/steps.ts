@@ -86,7 +86,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
     title: "Connect an account",
     blurb: "Link TikTok or Instagram so a finished video can go out without leaving the app.",
     action: "Connect",
-    href: "/dashboard/settings/connections" as Route,
+    href: "/dashboard/connections" as Route,
     icon: Share2,
   },
   {

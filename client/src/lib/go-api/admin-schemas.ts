@@ -71,6 +71,19 @@ export const providersResponse = z.object({
   data: z.object({ writable: z.boolean(), credentials: z.array(credential) }),
 });
 
+const setupCheck = z.object({
+  id: z.string(),
+  label: z.string(),
+  group: z.string(),
+  done: z.boolean(),
+  required: z.boolean(),
+  hint: z.string().optional(),
+});
+export type SetupCheck = z.infer<typeof setupCheck>;
+export const setupResponse = z.object({
+  data: z.object({ checks: z.array(setupCheck), ready: z.boolean(), remaining: z.number() }),
+});
+
 const alertRow = z.object({
   id: z.string(),
   kind: z.string(),

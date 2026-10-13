@@ -34,7 +34,6 @@ export function ResultsGrid({
   shown,
   onShowMore,
   history,
-  filter,
 }: {
   /** The tiles. */
   children: ReactNode;
@@ -57,8 +56,6 @@ export function ResultsGrid({
   onShowMore: () => void;
   /** Rendered under the suggestions when there is nothing to show yet. */
   history?: ReactNode;
-  /** The human-led filter, shown beside the result count once there is one. */
-  filter?: ReactNode;
 }) {
   if (busy) {
     return (
@@ -128,7 +125,6 @@ export function ResultsGrid({
                 another time. */}
             {countryName(countryCode) ? `, biased to ${countryName(countryCode)}` : ""}
           </p>
-          {filter}
         </div>
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">{children}</ul>
 

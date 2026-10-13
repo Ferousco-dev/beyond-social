@@ -12,7 +12,7 @@
  */
 
 /** Dashboard pages that run on the Go API today. Anything else is unavailable. */
-const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable", "/dashboard/credits"]);
+const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable", "/dashboard/credits", "/dashboard/connections", "/dashboard/schedule", "/dashboard/library"]);
 
 /** The admin console runs entirely on the Go API, so all of it is available. */
 const ADMIN_PREFIX = "/dashboard/admin";
@@ -28,7 +28,7 @@ export function routeAvailability(pathname: string): RouteAvailability {
   const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
 
   if (path.startsWith("/api/")) return ENABLED_API.has(path) ? "available" : "api-unavailable";
-  if (path.startsWith("/editor") || path.startsWith("/settings")) return "page-unavailable";
+  if (path.startsWith("/settings")) return "page-unavailable";
   if (path.startsWith("/dashboard")) {
     if (ENABLED_DASHBOARD.has(path)) return "available";
     if (path === ADMIN_PREFIX || path.startsWith(`${ADMIN_PREFIX}/`)) return "available";
@@ -43,8 +43,4 @@ export function routeAvailability(pathname: string): RouteAvailability {
 export const FEATURES = {
   /** "Use as inspiration" and the deep analysis, which need AI and credits. */
   postAnalysis: false,
-  /** Reading search results to filter by whether a person is shown. */
-  postClassification: false,
-  /** Rewriting a sentence into search terms. */
-  querySuggestions: false,
 } as const;

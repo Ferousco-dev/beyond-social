@@ -112,6 +112,33 @@ func (c *Client) Stat(ctx context.Context, bucket, path string) (Info, error) {
 	return info, nil
 }
 
+// Upload stores an object from the server, replacing one at the same path. Files
+// that arrive from a provider (a finished video) are kept this way so a link
+// that expires does not matter later.
+func (c *Client) Upload(ctx context.Context, bucket, path, contentType string, data []byte) error {
+	p, err := objectPath(bucket, path)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+"/object/"+p, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	c.auth(req)
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("x-upsert", "true")
+	// A video takes longer than the short timeout used for small requests.
+	resp, err := (&http.Client{Timeout: 3 * time.Minute}).Do(req)
+	if err != nil {
+		return &provider.Error{Provider: providerName, Message: "upload failed", Transient: true}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return provider.FromHTTPStatus(providerName, resp.StatusCode, "upload failed")
+	}
+	return nil
+}
+
 // Delete removes an object. One that is already gone is not an error.
 func (c *Client) Delete(ctx context.Context, bucket, path string) error {
 	p, err := objectPath(bucket, path)

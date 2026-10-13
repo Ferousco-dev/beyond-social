@@ -24,7 +24,7 @@ const PLACEHOLDER: DashboardUser = {
   email: "alex@studio.com",
   initials: "AR",
   avatarUrl: null,
-  credits: 0,
+  credits: null,
   isAdmin: false,
 };
 

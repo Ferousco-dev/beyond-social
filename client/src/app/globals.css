@@ -50,6 +50,12 @@
   --hairline: #ececec;
   --ink: #0d0d0d;
   --ink-soft: #6b6b6b;
+
+  /* Timeline clip colours, one per kind of item. */
+  --clip-video: #cfd4dc;
+  --clip-audio: #3f6aa6;
+  --clip-image: #a64468;
+  --clip-caption: #a8741f;
 }
 
 .dark {
@@ -94,6 +100,11 @@
   --hairline: rgba(255, 255, 255, 0.08);
   --ink: #f4f4f5;
   --ink-soft: #8a8a94;
+
+  --clip-video: #383b42;
+  --clip-audio: #3a5f8f;
+  --clip-image: #8f3d5c;
+  --clip-caption: #8a6122;
 }
 
 @theme inline {
@@ -129,6 +140,10 @@
   --color-hairline: var(--hairline);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
+  --color-clip-video: var(--clip-video);
+  --color-clip-audio: var(--clip-audio);
+  --color-clip-image: var(--clip-image);
+  --color-clip-caption: var(--clip-caption);
 
   --shadow-card:
     0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04),

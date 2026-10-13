@@ -178,12 +178,19 @@ type fakeProvider struct {
 	task                         kie.Task
 	creates                      int
 	lastRequest                  kie.TaskRequest
+	lastModel                    string
+	lastInput                    map[string]any
 	uploads                      int
 }
 
 func (f *fakeProvider) Upload(context.Context, string, string, []byte) (string, error) {
 	f.uploads++
 	return "https://kie.example/uploaded.mp4", f.uploadErr
+}
+
+func (f *fakeProvider) CreateModelTask(_ context.Context, model string, input map[string]any, _ string) (string, error) {
+	f.lastModel, f.lastInput = model, input
+	return f.CreateTask(context.Background(), kie.TaskRequest{})
 }
 
 func (f *fakeProvider) CreateTask(_ context.Context, r kie.TaskRequest) (string, error) {

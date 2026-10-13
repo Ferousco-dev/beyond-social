@@ -18,6 +18,10 @@ func (p *Processor) submit(ctx context.Context, job jobs.Job) {
 	if !p.advance(ctx, job, jobs.Update{Status: jobs.StatusRunning, Stage: ptr(stagePreparing), Progress: ptr(5)}) {
 		return
 	}
+	if build, ok := p.Builders[job.Type]; ok {
+		p.submitBuilt(ctx, job, build)
+		return
+	}
 	platform := video.Platform(str(job.Input, "platform"))
 	fileURL, err := p.Resolver.Resolve(ctx, platform, str(job.Input, "source_url"))
 	if err != nil {
@@ -71,7 +75,10 @@ func (p *Processor) prepFailed(ctx context.Context, job jobs.Job, err error) {
 	}
 	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "video transform", UserID: job.UserID, Resource: job.ID})
 	slog.Warn("preparing video failed", "job_id", job.ID, "attempt", job.RetryCount+1, "error", err)
+	var userErr *UserError
 	switch {
+	case errors.As(err, &userErr):
+		p.fail(ctx, job, userErr.Message)
 	case errors.Is(err, safenet.ErrTooLarge):
 		p.fail(ctx, job, msgTooLarge)
 	case errors.Is(err, safenet.ErrBadMediaType), errors.Is(err, safenet.ErrBlockedURL), errors.Is(err, ErrNoVideoFile):
@@ -119,4 +126,27 @@ func extension(mimeType string) string {
 		return ".mkv"
 	}
 	return ".mp4"
+}
+
+// submitBuilt submits a job another package prepared. Everything before the
+// create call is safe to repeat; the call itself follows the same
+// recorded-before-spending rule as a transformation.
+func (p *Processor) submitBuilt(ctx context.Context, job jobs.Job, build Builder) {
+	prepared, err := build(ctx, job)
+	if err != nil {
+		p.prepFailed(ctx, job, err)
+		return
+	}
+	if !p.advance(ctx, job, jobs.Update{Stage: ptr(stageSubmitting), Progress: ptr(30)}) {
+		return
+	}
+	taskID, err := p.Provider.CreateModelTask(ctx, prepared.Model, prepared.Input, p.CallbackURL)
+	if err != nil {
+		p.submitFailed(ctx, job, err)
+		return
+	}
+	next := p.now().Add(fastPoll)
+	if _, err := p.Jobs.Advance(ctx, job.ID, jobs.Update{ProviderTaskID: &taskID, Stage: ptr(stageGenerating), Progress: ptr(40), NextRun: &next}); err != nil {
+		slog.Error("could not record provider task", "job_id", job.ID, "task_id", taskID, "error", err)
+	}
 }

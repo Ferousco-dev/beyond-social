@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 )
 
@@ -14,6 +15,7 @@ const (
 	jobTransform   = "video_transform"
 	jobAvatarVideo = "avatar_video"
 	jobAnalysis    = "video_analysis"
+	jobGenerate    = "video_generate"
 
 	ActionAvatarVideoSecond = "avatar_video_second"
 
@@ -57,6 +59,13 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		action := fmt.Sprintf("%s:%v:%v", jobTransform, job.Input["duration"], job.Input["resolution"])
 		credits, err := b.svc.Quote(ctx, action)
 		return credits, action, err
+	case jobGenerate:
+		req, err := generate.ParseArgs(job.Input)
+		if err != nil {
+			return 0, "", err
+		}
+		rate, err := b.svc.Quote(ctx, "video_generate_second")
+		return rate * req.TotalSeconds(), "video_generate_second", err
 	case jobAnalysis:
 		credits, err := b.svc.Quote(ctx, jobAnalysis)
 		return credits, jobAnalysis, err

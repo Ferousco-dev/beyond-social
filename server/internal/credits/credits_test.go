@@ -43,6 +43,9 @@ func (m *memStore) Balance(_ context.Context, u string) (int, error) { return m.
 func (m *memStore) Reserved(_ context.Context, jobID string) (int, error) {
 	return -m.keys["reserve:"+jobID].Amount, nil
 }
+func (m *memStore) DailyUsage(context.Context, string, string, time.Time) (int, int, bool, error) {
+	return 0, 0, false, nil
+}
 func (m *memStore) SpentSince(context.Context, string, time.Time) (int, error) { return 0, nil }
 func (m *memStore) Setting(context.Context, string) (int, bool, error)         { return 0, false, nil }
 func (m *memStore) Price(_ context.Context, a string) (Price, bool, error) {
@@ -182,6 +185,27 @@ func TestAnalysisIsAFlatPriceAndRefundedOnFailure(t *testing.T) {
 	}
 	job.Status = jobs.StatusFailed
 	if err := b.Finish(ctx, job); err != nil || m.balance["u1"] != 5 {
+		t.Fatalf("refund: %v balance=%d", err, m.balance["u1"])
+	}
+}
+
+func TestGeneratedVideoIsChargedPerSecondAndRefundedOnFailure(t *testing.T) {
+	m := newMem()
+	m.prices["video_generate_second"] = Price{Credits: 4, Enabled: true}
+	m.balance["u1"] = 100
+	b := NewJobBiller(NewService(m))
+	ctx := context.Background()
+	job := jobs.Job{ID: "g1", UserID: "u1", Type: "video_generate", Input: map[string]any{
+		"scenes": []any{
+			map[string]any{"prompt": "a", "seconds": float64(5)},
+			map[string]any{"prompt": "b", "seconds": float64(6)},
+		},
+	}}
+	if err := b.Reserve(ctx, job); err != nil || m.balance["u1"] != 100-44 {
+		t.Fatalf("reserve: %v balance=%d, want 56", err, m.balance["u1"])
+	}
+	job.Status = jobs.StatusFailed
+	if err := b.Finish(ctx, job); err != nil || m.balance["u1"] != 100 {
 		t.Fatalf("refund: %v balance=%d", err, m.balance["u1"])
 	}
 }

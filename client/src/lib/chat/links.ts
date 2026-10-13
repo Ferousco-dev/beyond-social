@@ -19,7 +19,7 @@ import { type Route } from "next";
  */
 const DESTINATIONS = {
   "/dashboard/schedule": "Schedule",
-  "/dashboard/settings/connections": "Connections",
+  "/dashboard/connections": "Connections",
   "/dashboard/credits": "Usage",
   "/dashboard/settings/memory": "Memory",
   // Kept for replies already stored in conversation history. The route itself

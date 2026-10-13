@@ -77,4 +77,4 @@ at once.
 
 - [Web client guide](client/README.md): frontend setup, commands, and source layout.
 - [Go API guide](server/README.md): API routes, authentication, asynchronous
-  workflows, configuration, deployment, and Go tests.
+  workflows, configuration, deployment, and Go tests..

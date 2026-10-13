@@ -25,33 +25,41 @@ func (s *CreditStore) Apply(ctx context.Context, e credits.Entry) (int, bool, er
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck // rollback after commit is a no-op
 
-	// The balance row is the lock: concurrent entries for one user queue here,
-	// so two requests cannot both spend the same credits.
-	if _, err := tx.Exec(ctx, `insert into public.credit_balances (user_id) values ($1) on conflict do nothing`, e.UserID); err != nil {
-		return 0, false, err
-	}
+	// One statement both makes sure the balance row exists and takes its lock,
+	// so concurrent entries for one user queue here and two requests cannot
+	// spend the same credits. The no-op update is what makes RETURNING work.
 	var balance int
-	if err := tx.QueryRow(ctx, `select balance from public.credit_balances where user_id = $1 for update`, e.UserID).Scan(&balance); err != nil {
+	if err := tx.QueryRow(ctx, `
+		insert into public.credit_balances (user_id) values ($1)
+		on conflict (user_id) do update set user_id = excluded.user_id
+		returning balance`, e.UserID).Scan(&balance); err != nil {
 		return 0, false, err
-	}
-
-	var exists bool
-	if err := tx.QueryRow(ctx, `select exists (select 1 from public.credit_ledger where idempotency_key = $1)`, e.Key).Scan(&exists); err != nil {
-		return 0, false, err
-	}
-	if exists {
-		return balance, false, nil
 	}
 	if balance+e.Amount < 0 {
+		// A repeat of an entry that already took effect is not a shortfall.
+		var done bool
+		if err := tx.QueryRow(ctx, `select exists (select 1 from public.credit_ledger where idempotency_key = $1)`, e.Key).Scan(&done); err != nil {
+			return 0, false, err
+		}
+		if done {
+			return balance, false, nil
+		}
 		return balance, false, credits.ErrInsufficient
 	}
-	balance += e.Amount
-	if _, err := tx.Exec(ctx, `
+	// The unique key is the duplicate check: it needs no query of its own, and
+	// two requests racing on one key cannot both insert.
+	tag, err := tx.Exec(ctx, `
 		insert into public.credit_ledger (user_id, kind, amount, balance_after, job_id, idempotency_key, reason, actor_id)
-		values ($1, $2, $3, $4, nullif($5, '')::uuid, $6, $7, nullif($8, '')::uuid)`,
-		e.UserID, string(e.Kind), e.Amount, balance, e.JobID, e.Key, e.Reason, e.Actor); err != nil {
+		values ($1, $2, $3, $4, nullif($5, '')::uuid, $6, $7, nullif($8, '')::uuid)
+		on conflict (idempotency_key) do nothing`,
+		e.UserID, string(e.Kind), e.Amount, balance+e.Amount, e.JobID, e.Key, e.Reason, e.Actor)
+	if err != nil {
 		return 0, false, err
 	}
+	if tag.RowsAffected() == 0 {
+		return balance, false, nil
+	}
+	balance += e.Amount
 	if _, err := tx.Exec(ctx, `update public.credit_balances set balance = $2, updated_at = now() where user_id = $1`, e.UserID, balance); err != nil {
 		return 0, false, err
 	}
@@ -172,4 +180,17 @@ func (s *CreditStore) OpenAvatars(ctx context.Context, olderThan time.Duration, 
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+func (s *CreditStore) DailyUsage(ctx context.Context, userID, limitKey string, since time.Time) (int, int, bool, error) {
+	var spent int
+	var limit *int
+	err := s.pool.QueryRow(ctx, `
+		select coalesce((select -sum(amount) from public.credit_ledger
+		                 where user_id = $1 and created_at >= $3 and kind in ('reserve', 'settle', 'refund')), 0)::int,
+		       (select value from public.credit_settings where key = $2)`, userID, limitKey, since).Scan(&spent, &limit)
+	if err != nil || limit == nil {
+		return spent, 0, false, err
+	}
+	return spent, *limit, true, nil
 }

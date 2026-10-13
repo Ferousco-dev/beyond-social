@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
+	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
+	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
 	"log/slog"
 	"time"
 
@@ -72,6 +74,10 @@ type Deps struct {
 	Discovery DiscoverySubmitter
 	Transform TransformSubmitter
 	AvatarVid AvatarVideoSubmitter
+	// Generate is optional: without it a generate_video step cannot run.
+	Generate GenerateSubmitter
+	// Posts is optional: without it a schedule_post step cannot run.
+	Posts     PostScheduler
 	Jobs      JobReader
 	Publisher realtime.Publisher
 	Credits   CreditsChecker
@@ -93,6 +99,16 @@ type TransformSubmitter interface {
 // AvatarVideoSubmitter queues HeyGen avatar videos, idempotent like transforms.
 type AvatarVideoSubmitter interface {
 	Submit(ctx context.Context, userID string, in avatarvideo.SubmitInput) (jobs.Job, bool, error)
+}
+
+// GenerateSubmitter queues generated video clips, idempotent like the others.
+type GenerateSubmitter interface {
+	Submit(ctx context.Context, userID string, r generate.Request, key string) (jobs.Job, bool, error)
+}
+
+// PostScheduler queues posts to social accounts, idempotent on the key.
+type PostScheduler interface {
+	Schedule(ctx context.Context, userID string, r publish.Request, key string) (publish.Post, bool, error)
 }
 
 // JobReader follows provider jobs for reconciliation.
@@ -141,27 +157,49 @@ func (s *Service) Submit(ctx context.Context, userID, objective string, view Con
 	if err != nil {
 		return Workflow{}, err
 	}
-	planMap, err := planToMap(result.Plan)
+	return s.persist(ctx, userID, result.Plan, result.Ready, idempotencyKey)
+}
+
+// SubmitPlan stores a plan that was built without the planner, for example from
+// a script the user approved. It is validated exactly like a planned one and
+// waits for approval the same way.
+func (s *Service) SubmitPlan(ctx context.Context, userID string, plan Plan, idempotencyKey string) (Workflow, error) {
+	active, err := s.deps.Store.CountActive(ctx, userID)
 	if err != nil {
 		return Workflow{}, err
 	}
-	if !result.Ready {
-		workflow, _, err := s.deps.Store.Create(ctx, userID, result.Plan.Objective, planMap, nil, idempotencyKey, string(WorkflowAwaitingClarification))
+	if active >= MaxActiveWorkflowsPerUser {
+		return Workflow{}, ErrTooManyWorkflows
+	}
+	if err := ValidatePlan(plan, s.deps.Registry); err != nil {
+		return Workflow{}, err
+	}
+	return s.persist(ctx, userID, plan, !plan.RequiresClarification(), idempotencyKey)
+}
+
+// persist saves a validated plan and moves it to the state it should wait in.
+func (s *Service) persist(ctx context.Context, userID string, plan Plan, ready bool, idempotencyKey string) (Workflow, error) {
+	planMap, err := planToMap(plan)
+	if err != nil {
+		return Workflow{}, err
+	}
+	if !ready {
+		workflow, _, err := s.deps.Store.Create(ctx, userID, plan.Objective, planMap, nil, idempotencyKey, string(WorkflowAwaitingClarification))
 		if err != nil {
 			return Workflow{}, err
 		}
-		s.publish(userID, EventAwaitingClarify, workflow.ID, map[string]any{"questions": result.Plan.MissingInfo})
+		s.publish(userID, EventAwaitingClarify, workflow.ID, map[string]any{"questions": plan.MissingInfo})
 		return workflow, nil
 	}
 	var records []StepRecord
-	for _, step := range result.Plan.Steps {
+	for _, step := range plan.Steps {
 		records = append(records, StepRecord{StepID: step.ID, Tool: step.Tool, Args: step.Args, Needs: step.Needs})
 	}
-	workflow, _, err := s.deps.Store.Create(ctx, userID, result.Plan.Objective, planMap, records, idempotencyKey, string(WorkflowDraft))
+	workflow, _, err := s.deps.Store.Create(ctx, userID, plan.Objective, planMap, records, idempotencyKey, string(WorkflowDraft))
 	if err != nil {
 		return Workflow{}, err
 	}
-	if result.Plan.RequiresApproval(s.deps.Registry) {
+	if plan.RequiresApproval(s.deps.Registry) {
 		workflow, err = s.deps.Store.Transition(ctx, userID, workflow.ID,
 			[]WorkflowStatus{WorkflowDraft}, WorkflowAwaitingApproval, false, "", "")
 		if err != nil {

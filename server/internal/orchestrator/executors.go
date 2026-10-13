@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
+	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
+	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/video"
 )
@@ -41,6 +45,17 @@ func (s *Service) executeStep(ctx context.Context, workflow Workflow, step *Step
 		return s.submitOrReconcile(ctx, workflow, step, s.submitDiscovery, s.reconcileDiscovery)
 	case "transform_video":
 		return s.submitOrReconcile(ctx, workflow, step, s.submitTransform, s.reconcileJob)
+	case "schedule_post":
+		if s.deps.Posts == nil {
+			return s.markTerminal(ctx, workflow, step, "posting is not available")
+		}
+		output, err := s.schedulePost(ctx, workflow, step)
+		return true, s.finishStep(ctx, workflow, step, output, err)
+	case "generate_video":
+		if s.deps.Generate == nil {
+			return s.markTerminal(ctx, workflow, step, "video generation is not available")
+		}
+		return s.submitOrReconcile(ctx, workflow, step, s.submitGenerate, s.reconcileJob)
 	case "create_avatar_video":
 		return s.submitOrReconcile(ctx, workflow, step, s.submitAvatarVideo, s.reconcileJob)
 	default:
@@ -152,7 +167,15 @@ func terminalSubmitError(err error) bool {
 		errors.Is(err, avatarvideo.ErrAvatarNotReady) ||
 		errors.Is(err, avatarvideo.ErrVoiceNotAllowed) ||
 		errors.Is(err, avatarvideo.ErrNoVoice) ||
-		errors.Is(err, avatarvideo.ErrTooManyBusy)
+		errors.Is(err, avatarvideo.ErrTooManyBusy) ||
+		errors.Is(err, generate.ErrInvalid) ||
+		errors.Is(err, generate.ErrTooManyBusy) ||
+		errors.Is(err, credits.ErrInsufficient) ||
+		errors.Is(err, credits.ErrDailyLimit) ||
+		errors.Is(err, credits.ErrUnavailable) ||
+		errors.Is(err, publish.ErrInvalid) ||
+		errors.Is(err, social.ErrNotConnected) ||
+		errors.Is(err, social.ErrReconnect)
 }
 
 func (s *Service) readJob(ctx context.Context, userID string, step *Step) (map[string]any, error) {
@@ -216,6 +239,50 @@ func (s *Service) reconcileDiscovery(ctx context.Context, workflow Workflow, ste
 func (s *Service) submitTransform(ctx context.Context, workflow Workflow, step *Step, key string) (string, map[string]any, error) {
 	job, _, err := s.deps.Transform.Submit(ctx, workflow.UserID,
 		strArg(step.Args, "video_id"), strArg(step.Args, "prompt"), key)
+	if err != nil {
+		return "", nil, err
+	}
+	return job.ID, map[string]any{"ref": job.ID}, nil
+}
+
+// schedulePost queues the post and finishes the step at once: the step is done
+// when the post is accepted, not when it goes out, so a post set for tomorrow
+// does not hold the workflow open.
+func (s *Service) schedulePost(ctx context.Context, workflow Workflow, step *Step) (map[string]any, error) {
+	args, err := ParsePostArgs(step.Args)
+	if err != nil {
+		return nil, err
+	}
+	if args.VideoFrom != "" {
+		jobID, ok := outputRef(workflow, args.VideoFrom)
+		if !ok {
+			return nil, errors.New("the video to post was not made")
+		}
+		args.Request.JobID = jobID
+	}
+	post, _, err := s.deps.Posts.Schedule(ctx, workflow.UserID, args.Request, "wf:"+workflow.ID+":"+step.StepID)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"post_id": post.ID, "platform": string(post.Platform), "scheduled_at": post.ScheduledAt.Format(time.RFC3339)}, nil
+}
+
+// outputRef finds the job a finished step made.
+func outputRef(workflow Workflow, stepID string) (string, bool) {
+	for _, st := range workflow.Steps {
+		if st.StepID == stepID && st.Status == StepCompleted {
+			return subRef(st.Output)
+		}
+	}
+	return "", false
+}
+
+func (s *Service) submitGenerate(ctx context.Context, workflow Workflow, step *Step, key string) (string, map[string]any, error) {
+	req, err := generate.ParseArgs(step.Args)
+	if err != nil {
+		return "", nil, err
+	}
+	job, _, err := s.deps.Generate.Submit(ctx, workflow.UserID, req, key)
 	if err != nil {
 		return "", nil, err
 	}

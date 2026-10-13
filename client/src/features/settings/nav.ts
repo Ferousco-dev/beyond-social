@@ -2,7 +2,6 @@ import {
   Brain,
   Gauge,
   Palette,
-  Share2,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -41,14 +40,6 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Memory",
     description: "What the app has remembered about you.",
     icon: Brain,
-  },
-  {
-    href: "/dashboard/settings/connections",
-    // Matches its own route and the word the OAuth screens use. It read
-    // "Connectors" while every other surface called them connections.
-    label: "Connections",
-    description: "The social accounts you publish to.",
-    icon: Share2,
   },
   {
     href: "/dashboard/settings/appearance",

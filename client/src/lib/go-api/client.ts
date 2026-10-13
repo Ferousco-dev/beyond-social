@@ -14,7 +14,9 @@ import { createClient } from "@/lib/supabase/server";
  * decides who someone is, and the token never reaches the browser.
  */
 
-const TIMEOUT_MS = 20_000;
+// Generous because the API may be reached over a slow link while developing; a real
+// outage still fails quickly through the connection error path.
+const TIMEOUT_MS = 45_000;
 
 export const isGoApiConfigured = (): boolean => env.NEXT_PUBLIC_API_URL !== "";
 

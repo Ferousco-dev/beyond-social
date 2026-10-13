@@ -14,7 +14,7 @@ import (
 )
 
 const messageColumns = `id::text, user_id::text, conversation_id::text, role, content,
-	coalesce(workflow_id::text, ''), coalesce(reply_to::text, ''), created_at, coalesce(job_id::text, ''), attachments`
+	coalesce(workflow_id::text, ''), coalesce(reply_to::text, ''), created_at, coalesce(job_id::text, ''), attachments, script`
 
 // ConversationStore implements chat.Store. Every read filters on user_id in SQL,
 // so ownership does not depend on the HTTP layer.
@@ -46,11 +46,15 @@ func isInvalidText(err error) bool {
 func scanMessage(row pgx.Row) (chat.Message, error) {
 	var m chat.Message
 	var role string
-	var attachments []byte
-	err := row.Scan(&m.ID, &m.UserID, &m.ConversationID, &role, &m.Content, &m.WorkflowID, &m.ReplyTo, &m.CreatedAt, &m.JobID, &attachments)
+	var attachments, script []byte
+	err := row.Scan(&m.ID, &m.UserID, &m.ConversationID, &role, &m.Content, &m.WorkflowID, &m.ReplyTo, &m.CreatedAt, &m.JobID, &attachments, &script)
 	m.Role = chat.Role(role)
 	if err == nil && len(attachments) > 2 {
 		err = json.Unmarshal(attachments, &m.Attachments)
+	}
+	if err == nil && len(script) > 0 {
+		m.Script = new(chat.Script)
+		err = json.Unmarshal(script, m.Script)
 	}
 	return m, err
 }
@@ -155,13 +159,20 @@ func (s *ConversationStore) ReplyTo(ctx context.Context, userMessageID string) (
 }
 
 func (s *ConversationStore) AddAssistant(ctx context.Context, m chat.Message) (chat.Message, error) {
+	var script []byte
+	if m.Script != nil {
+		var err error
+		if script, err = json.Marshal(m.Script); err != nil {
+			return chat.Message{}, err
+		}
+	}
 	if _, err := s.pool.Exec(ctx, `update public.conversations set updated_at = now() where id = $1`, m.ConversationID); err != nil {
 		return chat.Message{}, err
 	}
 	return scanMessage(s.pool.QueryRow(ctx, `
-		insert into public.messages (conversation_id, user_id, role, content, workflow_id, reply_to, job_id)
-		values ($1, $2, 'assistant', $3, nullif($4, '')::uuid, nullif($5, '')::uuid, nullif($6, '')::uuid)
-		returning `+messageColumns, m.ConversationID, m.UserID, m.Content, m.WorkflowID, m.ReplyTo, m.JobID))
+		insert into public.messages (conversation_id, user_id, role, content, workflow_id, reply_to, job_id, script)
+		values ($1, $2, 'assistant', $3, nullif($4, '')::uuid, nullif($5, '')::uuid, nullif($6, '')::uuid, $7)
+		returning `+messageColumns, m.ConversationID, m.UserID, m.Content, m.WorkflowID, m.ReplyTo, m.JobID, script))
 }
 
 func (s *ConversationStore) AddAssistantOnce(ctx context.Context, m chat.Message, key string) (chat.Message, bool, error) {

@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -89,5 +90,41 @@ func TestSubmitCapsConcurrentJobsPerUser(t *testing.T) {
 	}
 	if _, _, err := svc.Submit(ctx, alice, "vid-1", "", ""); !errors.Is(err, ErrTooManyBusy) {
 		t.Fatalf("expected ErrTooManyBusy, got %v", err)
+	}
+}
+
+func TestAJobOfAnotherTypeIsPreparedByItsBuilderAndSubmittedToKIE(t *testing.T) {
+	r := newRig(t)
+	r.proc.Builders = map[string]Builder{
+		"video_generate": func(_ context.Context, _ jobs.Job) (Prepared, error) {
+			return Prepared{Model: "kling-3.0/video", Input: map[string]any{"prompt": "hi"}}, nil
+		},
+	}
+	job, _, err := r.service.Create(context.Background(), alice, "video_generate", map[string]any{"x": 1}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.proc.Handle(context.Background(), job)
+	got := r.jobs.rows[job.ID]
+	if got.ProviderTaskID == "" || got.Stage != "generating" || r.provider.lastModel != "kling-3.0/video" || r.provider.lastInput["prompt"] != "hi" {
+		t.Fatalf("job=%+v model=%q input=%v", got, r.provider.lastModel, r.provider.lastInput)
+	}
+	if r.fetcher.got != "" {
+		t.Fatal("a built job must not go through the transform fetch path")
+	}
+}
+
+func TestABuilderUserErrorFailsTheJobWithItsMessageAndDoesNotRetry(t *testing.T) {
+	r := newRig(t)
+	r.proc.Builders = map[string]Builder{
+		"video_generate": func(context.Context, jobs.Job) (Prepared, error) {
+			return Prepared{}, &UserError{Message: "That picture could not be used. Attach it again."}
+		},
+	}
+	job, _, _ := r.service.Create(context.Background(), alice, "video_generate", map[string]any{}, "")
+	r.proc.Handle(context.Background(), job)
+	got := r.jobs.rows[job.ID]
+	if got.Status != jobs.StatusFailed || got.Error != "That picture could not be used. Attach it again." {
+		t.Fatalf("job = %+v", got)
 	}
 }

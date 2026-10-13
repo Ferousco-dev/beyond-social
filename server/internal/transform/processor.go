@@ -16,6 +16,7 @@ import (
 type Provider interface {
 	Upload(ctx context.Context, fileName, mimeType string, data []byte) (string, error)
 	CreateTask(ctx context.Context, r kie.TaskRequest) (string, error)
+	CreateModelTask(ctx context.Context, model string, input map[string]any, callbackURL string) (string, error)
 	GetTask(ctx context.Context, taskID string) (kie.Task, error)
 }
 
@@ -50,7 +51,25 @@ const (
 	msgTimedOut    = "The video took too long to generate. Please try again."
 )
 
+// Prepared is a KIE task ready to submit: the model and its own input.
+type Prepared struct {
+	Model string
+	Input map[string]any
+}
+
+// UserError is a problem a builder found that retrying cannot fix. Its message
+// is shown to the user as the reason the job failed.
+type UserError struct{ Message string }
+
+func (e *UserError) Error() string { return e.Message }
+
+// Builder prepares a job of some other type (uploading its inputs, composing
+// its prompt) so this processor can submit it and follow it to completion.
+type Builder func(ctx context.Context, job jobs.Job) (Prepared, error)
+
 type Processor struct {
+	// Builders handle job types other than a video transformation.
+	Builders    map[string]Builder
 	Jobs        *jobs.Service
 	Provider    Provider
 	Fetcher     Fetcher

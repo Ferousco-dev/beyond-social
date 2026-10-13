@@ -14,7 +14,7 @@ export default function TrendsPage() {
   // search bar has to stay put while it does.
   return (
     <div className="h-[calc(100dvh-4rem)]">
-      <DiscoverScroller industryTerms={[]} />
+      <DiscoverScroller />
     </div>
   );
 }

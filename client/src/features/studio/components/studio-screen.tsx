@@ -1,0 +1,74 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+import { type LibraryItem } from "@/lib/go-api/schemas";
+
+import { parseProject } from "../core/validate.ts";
+import { useAutosave } from "../hooks/use-autosave";
+import { useShortcuts } from "../hooks/use-shortcuts";
+import { STUDIO_PANELS } from "../config";
+import { useMediaQuery } from "../hooks/use-media-query";
+import { useStudio } from "../store/editor-store";
+import { DesktopOnly } from "./desktop-only";
+import { InspectorFrame } from "./inspector-frame";
+import { InspectorPanel } from "./panels/inspector-panel";
+import { PreviewPanel } from "./preview-panel";
+import { StudioHeader } from "./studio-header";
+import { StudioLayout } from "./studio-layout";
+import { Timeline } from "./timeline/timeline";
+import { ToolPanel } from "./tool-panel";
+
+interface StudioScreenProps {
+  id: string;
+  title: string;
+  version: number;
+  document: unknown;
+  library: readonly LibraryItem[];
+}
+
+export function StudioScreen({ id, title, version, document, library }: StudioScreenProps) {
+  const parsed = parseProject(document);
+  const loadedId = useStudio((s) => s.projectId);
+  const loaded = useRef<string | null>(null);
+  const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
+
+  // Load before anything below renders, once per project, so the first paint has the document.
+  if (parsed.ok && loaded.current !== id) {
+    loaded.current = id;
+    useStudio.getState().load(id, title, version, parsed.value);
+  }
+  useEffect(() => () => useStudio.getState().setPlaying(false), []);
+  useAutosave();
+  useShortcuts();
+
+  if (!desktop) return <DesktopOnly />;
+  if (!parsed.ok) {
+    return (
+      <div className="flex h-svh items-center justify-center p-6 text-center">
+        <p role="alert" className="max-w-sm text-sm text-ink-soft">
+          This project could not be opened: {parsed.error}
+        </p>
+      </div>
+    );
+  }
+  if (loadedId !== id) return null;
+
+  return (
+    <div className="flex h-svh flex-col overflow-hidden bg-canvas">
+      <StudioHeader />
+      <div className="min-h-0 flex-1">
+        <StudioLayout
+          tools={<ToolPanel library={library} />}
+          preview={<PreviewPanel />}
+          inspector={
+            <InspectorFrame>
+              <InspectorPanel />
+            </InspectorFrame>
+          }
+          timeline={<Timeline />}
+        />
+      </div>
+    </div>
+  );
+}

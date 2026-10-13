@@ -11,8 +11,10 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
+	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/library"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
@@ -45,14 +47,26 @@ type Deps struct {
 	Credits             CreditReader
 	Chat                ChatService
 	Media               MediaService
-	CreditAdmin         CreditAdmin
-	CreditLedger        CreditLedger
-	Probe               CredentialProbe
-	Audit               Auditor
-	Verifier            *auth.Verifier
-	Database            Pinger
-	Hub                 *realtime.Hub
-	AllowedOrigins      []string
+	Social              SocialService
+	Posts               PostService
+	Library             library.Store
+	Editor              editor.Store
+	Assistant           editor.Assistant
+	AssistBiller        ResourceBiller
+	Transcriber         editor.Transcriber
+	CaptionBiller       ResourceBiller
+	// AppURL is the web app the sign-in redirects back into.
+	AppURL string
+	// PublicBaseURL is this service's own address, reported by the admin setup check.
+	PublicBaseURL  string
+	CreditAdmin    CreditAdmin
+	CreditLedger   CreditLedger
+	Probe          CredentialProbe
+	Audit          Auditor
+	Verifier       *auth.Verifier
+	Database       Pinger
+	Hub            *realtime.Hub
+	AllowedOrigins []string
 }
 
 type App struct {
@@ -96,6 +110,23 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
+	mux.Handle("PUT /api/v1/conversations/{id}/editor", protected(http.HandlerFunc(a.conversationEditor)))
+	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
+	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
+	mux.Handle("GET /api/v1/editor/projects", protected(http.HandlerFunc(a.listEditorProjects)))
+	mux.Handle("POST /api/v1/editor/projects", protected(http.HandlerFunc(a.createEditorProject)))
+	mux.Handle("GET /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.getEditorProject)))
+	mux.Handle("PUT /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.saveEditorProject)))
+	mux.Handle("DELETE /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.deleteEditorProject)))
+	mux.Handle("GET /api/v1/library", protected(http.HandlerFunc(a.listLibrary)))
+	mux.Handle("DELETE /api/v1/library/{id}", protected(http.HandlerFunc(a.deleteLibraryVideo)))
+	mux.Handle("GET /api/v1/posts", protected(http.HandlerFunc(a.listPosts)))
+	mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(a.createPost)))
+	mux.Handle("POST /api/v1/posts/{id}/cancel", protected(http.HandlerFunc(a.cancelPost)))
+	mux.Handle("GET /api/v1/social", protected(http.HandlerFunc(a.listSocial)))
+	mux.Handle("POST /api/v1/social/{platform}/connect", protected(http.HandlerFunc(a.connectSocial)))
+	mux.Handle("DELETE /api/v1/social/{platform}", protected(http.HandlerFunc(a.disconnectSocial)))
+	mux.Handle("GET /api/v1/social/callback/{platform}", http.HandlerFunc(a.socialCallback))
 	mux.Handle("POST /api/v1/media", protected(http.HandlerFunc(a.requestMediaUpload)))
 	mux.Handle("POST /api/v1/media/{id}/confirm", protected(http.HandlerFunc(a.confirmMedia)))
 	mux.Handle("GET /api/v1/media/{id}/url", protected(http.HandlerFunc(a.mediaViewURL)))
@@ -114,6 +145,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
 	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
+	mux.Handle("GET /api/v1/admin/setup", protected(a.requireAdmin(a.setup)))
 	mux.Handle("GET /api/v1/admin/providers", protected(a.requireAdmin(a.listProviders)))
 	mux.Handle("PUT /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.setProvider)))
 	mux.Handle("DELETE /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.clearProvider)))

@@ -16,6 +16,13 @@ const LABELS: Readonly<Record<string, string>> = {
   heygen: "HeyGen (avatars)",
   heygen_webhook_secret: "HeyGen webhook secret",
   gemini: "Gemini (planning)",
+  openrouter: "OpenRouter (other models)",
+  youtube_client_id: "YouTube sign-in: client ID",
+  youtube_client_secret: "YouTube sign-in: client secret",
+  tiktok_client_key: "TikTok sign-in: client key",
+  tiktok_client_secret: "TikTok sign-in: client secret",
+  meta_app_id: "Instagram sign-in (Meta): app ID",
+  meta_app_secret: "Instagram sign-in (Meta): app secret",
 };
 
 const SOURCE_TEXT = {

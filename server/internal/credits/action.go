@@ -6,6 +6,8 @@ import "context"
 const (
 	ActionDiscoverySearch = "discovery_search"
 	ActionAvatarTraining  = "avatar_training"
+	ActionEditorAssist    = "editor_assist"
+	ActionEditorCaptions  = "editor_captions"
 )
 
 // ActionBiller charges a flat price for a resource that has its own table

@@ -112,13 +112,18 @@ func (c *Client) Upload(ctx context.Context, fileName, mimeType string, data []b
 }
 
 func (c *Client) CreateTask(ctx context.Context, r TaskRequest) (string, error) {
-	input := map[string]any{
+	return c.CreateModelTask(ctx, Model, map[string]any{
 		"prompt": r.Prompt, "video_urls": []string{r.VideoURL},
 		"duration": r.Duration, "resolution": r.Resolution,
-	}
-	payload := map[string]any{"model": Model, "input": input}
-	if r.CallbackURL != "" {
-		payload["callBackUrl"] = r.CallbackURL
+	}, r.CallbackURL)
+}
+
+// CreateModelTask starts a task on any KIE model. input is that model's own
+// parameters, built by the caller from the model's documentation.
+func (c *Client) CreateModelTask(ctx context.Context, model string, input map[string]any, callbackURL string) (string, error) {
+	payload := map[string]any{"model": model, "input": input}
+	if callbackURL != "" {
+		payload["callBackUrl"] = callbackURL
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

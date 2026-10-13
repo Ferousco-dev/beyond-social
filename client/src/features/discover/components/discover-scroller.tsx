@@ -1,23 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
+
+import { useRouter } from "next/navigation";
 
 import { looksLikeUrl, parseSocialUrl } from "@/lib/social-scrape/url";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
-import { classifyPosts } from "../classify-actions";
 import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
 import { PLATFORM_NAME } from "../lib/platforms";
-import { suggestQueries } from "../query-actions";
 import { searchSocial } from "../search-actions";
 import { type DiscoverPost } from "../types";
 import { scrapePostFromUrl } from "../url-actions";
-import { HumanFilterControl, type HumanFilter } from "./human-filter";
 import { PostDetail } from "./post-detail";
 import { PostTile } from "./post-tile";
 import { ResultsGrid } from "./results-grid";
 import { SearchBar } from "./search-bar";
-import { SearchHistory, SuggestedQueries } from "./search-history";
+import { SearchHistory } from "./search-history";
 
 /**
  * Search a platform, then study what comes back.
@@ -41,29 +40,6 @@ const SUGGESTIONS = ["morning routine", "small business", "before and after", "p
 /** One screen of results. The rest are behind "show more", already fetched. */
 const PAGE = 24;
 
-/**
- * Whether a query is a description rather than a search term.
- *
- * Neither platform can search a sentence: TikTok returns nothing and Instagram
- * turns it into a hashtag, which drops every word after the first. Rather than
- * spend a scrape finding that out, a query that reads like a brief is turned
- * into real terms first.
- *
- * Length alone is not the test, and using it was wrong. Real search terms run
- * long: "get ready with me makeup" and "day in the life of a nurse" are five
- * and seven words and both are exactly what somebody would type. What actually
- * separates the two is who the query is about. A brief is written in the first
- * person, about their shop and their product, where a search term is written
- * about the world.
- */
-const FIRST_PERSON = /\b(i|my|our|we|us|mine)\b/i;
-
-function readsLikeABrief(query: string): boolean {
-  const words = query.trim().split(/\s+/).length;
-  // Long enough is a brief whoever it is about; in between, the pronoun decides.
-  return words > 8 || (words > 4 && FIRST_PERSON.test(query));
-}
-
 interface Results {
   readonly posts: readonly DiscoverPost[];
   readonly term: string;
@@ -71,28 +47,16 @@ interface Results {
   readonly countryCode: string | null;
 }
 
-export function DiscoverScroller({
-  initialQuery = "",
-  /** The user's industry, prepended so the first suggestions are about them. */
-  industryTerms = [],
-}: {
-  initialQuery?: string;
-  industryTerms?: readonly string[];
-}) {
+export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string }) {
+  const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [platform, setPlatform] = useState<ScrapePlatform>("tiktok");
   const [results, setResults] = useState<Results | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [shown, setShown] = useState(PAGE);
-  const [suggested, setSuggested] = useState<readonly string[] | null>(null);
   const { history, remember, clear } = useSearchHistory();
   const [pending, startTransition] = useTransition();
-  /** Open once the user asks for a script rather than the paragraph. */
-  const [humanFilter, setHumanFilter] = useState<HumanFilter>("all");
-  /** Overrides `showsPerson` as classifications arrive, keyed by videoId. */
-  const [classified, setClassified] = useState<Record<string, boolean | null>>({});
-
   /*
    * Searches already answered, kept for the session.
    *
@@ -130,7 +94,6 @@ export function DiscoverScroller({
 
       setQuery(text);
       setNotice(null);
-      setSuggested(null);
       // Back to the first page: leaving it where it was showed forty results
       // for a search that had just returned thirty.
       setShown(PAGE);
@@ -148,6 +111,8 @@ export function DiscoverScroller({
 
       startTransition(async () => {
         const result = await searchSocial({ query: text, platform: on });
+        // A search is charged, so the sidebar balance has moved.
+        router.refresh();
 
         // A newer search started while this one was in flight, so this
         // answer is for a term or platform no longer on screen.
@@ -177,7 +142,7 @@ export function DiscoverScroller({
         }
       });
     },
-    [remember],
+    [remember, router],
   );
 
   /**
@@ -191,7 +156,6 @@ export function DiscoverScroller({
     const ticket = ++latestSearch.current;
     setQuery(url);
     setNotice(null);
-    setSuggested(null);
     setShown(PAGE);
 
     startTransition(async () => {
@@ -225,14 +189,8 @@ export function DiscoverScroller({
   }, []);
 
   /**
-   * What pressing Search does.
-   *
-   * A pasted link is scraped directly rather than searched for. A short
-   * query is a search term and goes straight through. A long one is a
-   * description, which neither platform can search, so it is read into terms
-   * and offered before anything is scraped: finding that out by spending a run
-   * and showing nothing would cost money to teach the user their query was
-   * wrong.
+   * What pressing Search does: a pasted link is scraped directly, anything else
+   * is a search term.
    */
   const submit = useCallback(
     (term: string, on: ScrapePlatform) => {
@@ -251,83 +209,12 @@ export function DiscoverScroller({
         );
         return;
       }
-      if (!readsLikeABrief(text)) {
-        run(text, on);
-        return;
-      }
-
-      setNotice(null);
-      startTransition(async () => {
-        const result = await suggestQueries({ prompt: text });
-        // `skip` covers no model, a signed-out caller and a failed read. In
-        // every one of them searching what they typed beats doing nothing.
-        if (result.status !== "ok") {
-          run(text, on);
-          return;
-        }
-        setSuggested(result.queries);
-      });
+      run(text, on);
     },
-    [run],
+    [run, runUrl],
   );
 
-  const rawPosts = results?.posts ?? [];
-  // The cache can already answer some of these from a previous search, and the
-  // override map holds whatever has come back for this one so far, so a post
-  // never regresses from "known" back to "unknown" just because it is being
-  // re-rendered.
-  const posts = rawPosts.map((post) =>
-    post.videoId in classified ? { ...post, showsPerson: classified[post.videoId]! } : post,
-  );
-
-  /*
-   * Classifies whatever the current result set has not already answered.
-   *
-   * Runs after the grid has already rendered, not before: this is what keeps
-   * a search itself as fast as it always was, which is the client's own
-   * standing complaint about this page. The filter becomes usable a moment
-   * later instead of holding up every result for it.
-   */
-  useEffect(() => {
-    const unresolved = rawPosts.filter(
-      (post) => post.showsPerson === null && !(post.videoId in classified),
-    );
-    if (unresolved.length === 0) return;
-
-    let cancelled = false;
-    void classifyPosts({
-      posts: unresolved.map((post) => ({
-        platform: post.platform,
-        videoId: post.videoId,
-        thumbnailUrl: post.thumbnailUrl,
-      })),
-    }).then((result) => {
-      if (cancelled || result.status !== "ok") return;
-      setClassified((current) => {
-        const next = { ...current };
-        for (const post of unresolved) {
-          const key = `${post.platform}:${post.videoId}`;
-          if (key in result.classifications) next[post.videoId] = result.classifications[key]!;
-        }
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the result set, not `classified` itself, or every answer arriving would immediately requeue everything else in the same batch.
-  }, [rawPosts]);
-
-  const pendingCount = rawPosts.filter(
-    (post) => post.showsPerson === null && !(post.videoId in classified),
-  ).length;
-
-  const visiblePosts =
-    humanFilter === "all"
-      ? posts
-      : posts.filter((post) =>
-          humanFilter === "human" ? post.showsPerson === true : post.showsPerson === false,
-        );
+  const posts = results?.posts ?? [];
 
   const selected = posts.find((post) => post.videoId === selectedId) ?? posts[0] ?? null;
 
@@ -355,19 +242,6 @@ export function DiscoverScroller({
         />
       </div>
 
-      {/* Offered instead of results when the query was a sentence. Choosing one
-          searches it; declining searches what they actually typed. */}
-      {suggested && !pending ? (
-        <SuggestedQueries
-          queries={suggested}
-          onPick={(term) => run(term, platform)}
-          onSearchAnyway={() => {
-            setSuggested(null);
-            run(query, platform);
-          }}
-        />
-      ) : null}
-
       <ResultsGrid
         busy={pending}
         notice={notice}
@@ -375,16 +249,11 @@ export function DiscoverScroller({
         term={results?.term ?? ""}
         platform={results?.platform ?? platform}
         countryCode={results?.countryCode ?? null}
-        count={visiblePosts.length}
-        suggestions={[...industryTerms, ...SUGGESTIONS]}
+        count={posts.length}
+        suggestions={SUGGESTIONS}
         onSuggestion={(term) => run(term, platform)}
         shown={shown}
         onShowMore={() => setShown((current) => current + PAGE)}
-        filter={
-          posts.length > 0 ? (
-            <HumanFilterControl value={humanFilter} onChange={setHumanFilter} pending={pendingCount} />
-          ) : null
-        }
         history={
           <SearchHistory
             history={history}
@@ -401,7 +270,7 @@ export function DiscoverScroller({
           ) : null
         }
       >
-        {visiblePosts.slice(0, shown).map((post) => (
+        {posts.slice(0, shown).map((post) => (
           <PostTile
             key={post.videoId}
             post={post}

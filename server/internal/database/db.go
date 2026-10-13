@@ -15,6 +15,10 @@ func Connect(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("parse database url: %w", err)
 	}
 	cfg.MaxConns = 10
+	// Connections are kept warm: opening one through a remote pooler costs
+	// several seconds on a slow link, and every request that has to wait for one
+	// feels it. The periodic health check keeps idle ones from being dropped.
+	cfg.MinConns = 4
 	cfg.MaxConnLifetime = 30 * time.Minute
 	cfg.MaxConnIdleTime = 5 * time.Minute
 	cfg.HealthCheckPeriod = time.Minute

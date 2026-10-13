@@ -22,7 +22,9 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
+	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
+	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
@@ -31,9 +33,11 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"github.com/Ferousco-dev/beyond-social/server/internal/providers"
+	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
+	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
@@ -90,22 +94,27 @@ func run() error {
 			return err
 		}
 	}
-	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, map[string]string{
+	vaultEnv := map[string]string{
 		secrets.NameApify:         cfg.APIFYToken,
 		secrets.NameKIE:           cfg.KIEAPIKey,
 		secrets.NameKIEWebhook:    cfg.KIEWebhookHMACKey,
 		secrets.NameHeygen:        cfg.HeygenAPIKey,
 		secrets.NameHeygenWebhook: cfg.HeygenWebhookSecret,
 		secrets.NameGemini:        cfg.GeminiAPIKey,
-	})
+	}
+	for name, value := range cfg.SocialApps {
+		vaultEnv[name] = value
+	}
+	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, vaultEnv)
 
 	apifyClient := apify.NewClientWithKey(vault.Key(secrets.NameApify))
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
 	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
+	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
 	transformProcessor := &transform.Processor{
 		Alerts:      alertService,
 		Jobs:        jobService,
-		Provider:    kie.NewClientWithKey(vault.Key(secrets.NameKIE)),
+		Provider:    kieClient,
 		Fetcher:     safenet.NewFetcher(45 * time.Second),
 		Resolver:    transform.ApifyResolver{API: apifyClient, Actors: actors},
 		CallbackURL: cfg.KIECallbackURL(),
@@ -113,6 +122,11 @@ func run() error {
 
 	heygenClient := heygen.NewClientWithKey(vault.Key(secrets.NameHeygen))
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
+	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
+	generateService := generate.NewService(jobService)
+	transformProcessor.Builders = map[string]transform.Builder{
+		generate.JobType: generate.Builder{Pictures: mediaService, Uploader: kieClient}.Build,
+	}
 	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
 	avatarStore := database.NewAvatarStore(pool)
 	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller)
@@ -128,6 +142,15 @@ func run() error {
 	}
 	registry := orchestrator.DefaultRegistry()
 	planner := orchestrator.NewPlanner(geminiClient, registry)
+	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
+	var socialSealer social.Sealer
+	if sealer != nil {
+		socialSealer = sealer
+	}
+	socialService := social.NewService(database.NewSocialStore(pool), socialSealer, vaultKeys(vault),
+		func(p social.Platform) string { return cfg.SocialRedirectURL(string(p)) }, youtube, tiktok, instagram)
+	postStore := database.NewPostStore(pool)
+	postService := publish.NewService(postStore, jobService, socialService)
 	orchestratorService, err := orchestrator.NewService(orchestrator.Deps{
 		Store:     database.NewWorkflowStore(pool),
 		Planner:   planner,
@@ -135,6 +158,8 @@ func run() error {
 		Discovery: discoveryService,
 		Transform: transform.NewService(jobService, discoveryService),
 		AvatarVid: avatarvideo.NewService(jobService, avatarService, voiceService),
+		Generate:  generateService,
+		Posts:     postService,
 		Jobs:      jobService,
 		Publisher: hub,
 		Credits:   orchestrator.NewApprovalGate(registry),
@@ -144,18 +169,22 @@ func run() error {
 		return err
 	}
 
-	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	analysisService := analysis.NewService(jobService)
 	analysisProcessor := &analysis.Processor{
 		Jobs: jobService, Watcher: geminiClient, Resolver: transformProcessor.Resolver,
 		Fetcher: transformProcessor.Fetcher, Uploads: mediaService, Alerts: alertService,
 	}
 
+	workflowPlanner := chat.NewWorkflowPlanner(orchestratorService, registry)
+	postProcessor := &publish.Processor{
+		Store: postStore, Fetcher: transformProcessor.Fetcher, Vault: footage, Tokens: socialService,
+		Publishers: map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}, Alerts: alertService,
+	}
 	chatService := chat.NewService(
 		database.NewConversationStore(pool),
 		chat.NewModelRouter(geminiClient),
-		chat.NewWorkflowPlanner(orchestratorService, registry),
-	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+		workflowPlanner,
+	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(geminiClient)).WithScriptPlanner(workflowPlanner).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
@@ -163,7 +192,10 @@ func run() error {
 	app := httpserver.NewApp(httpserver.Deps{
 		Chat:                chatService,
 		Media:               mediaService,
-		Accounts:            accounts.NewService(database.NewProfileStore(pool)).WithGranter(creditService),
+		Social:              socialService,
+		Posts:               postService,
+		AppURL:              cfg.AppURL(),
+		Accounts:            accounts.NewService(database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)).WithGranter(creditService),
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
@@ -177,6 +209,13 @@ func run() error {
 		VideoReconciler:     videoProcessor,
 		HeygenWebhookSecret: vault.Optional(secrets.NameHeygenWebhook),
 		Vault:               vault,
+		PublicBaseURL:       cfg.PublicBaseURL,
+		Library:             database.NewLibraryStore(pool),
+		Editor:              database.NewEditorStore(pool),
+		Assistant:           editor.NewModelAssistant(geminiClient),
+		AssistBiller:        credits.NewActionBiller(creditService, credits.ActionEditorAssist),
+		Transcriber:         editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
+		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
 		Audit:               database.NewAuditStore(pool),
 		Jobs:                jobService,
 		Discovery:           discoveryService,
@@ -198,7 +237,7 @@ func run() error {
 		Addr:              ":" + cfg.HTTPPort,
 		Handler:           app.Handler(),
 		ReadHeaderTimeout: 3 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 
@@ -236,6 +275,20 @@ func run() error {
 					return jobService.Claim(ctx, analysis.JobType, n, analysis.Lease)
 				},
 				Handle: analysisProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "video_generate", Capacity: 3, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, generate.JobType, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[publish.Post]{
+				Name: "posts", Capacity: 2, Timeout: publish.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]publish.Post, error) {
+					return postStore.Claim(ctx, n, publish.Lease)
+				},
+				Handle: postProcessor.Handle,
 			},
 			&worker.Pool[avatars.Avatar]{
 				Name: "avatars", Capacity: 3, Timeout: time.Minute,
@@ -298,4 +351,9 @@ func newLogger(cfg config.Config) *slog.Logger {
 		level = slog.LevelInfo
 	}
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level}))
+}
+
+// vaultKeys adapts the key vault to what the social service reads by name.
+func vaultKeys(v *secrets.Vault) social.Keys {
+	return func(ctx context.Context, name string) (string, error) { return v.Key(name)(ctx) }
 }

@@ -22,8 +22,8 @@ export interface DashboardUser {
   readonly email: string;
   readonly initials: string;
   readonly avatarUrl: string | null;
-  /** Credits left. Everything in the product is paid for with credits. */
-  readonly credits: number;
+  /** Credits left, or null when the balance could not be read just now. */
+  readonly credits: number | null;
   /** Whether the admin console link belongs in this person's account menu. */
   readonly isAdmin: boolean;
 }

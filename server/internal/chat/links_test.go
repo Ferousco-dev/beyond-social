@@ -35,7 +35,7 @@ func (a *stubAnalyzer) Start(_ context.Context, _ string, link analysis.Link, co
 func TestALinkStartsAnAnalysisInsteadOfAskingTheModel(t *testing.T) {
 	store, router, an := newMem(), &stubRouter{decision: Decision{Reply: "should not be used"}}, &stubAnalyzer{}
 	svc := service(router, &stubPlanner{}, store).WithAnalyzer(an)
-	ex, err := svc.Send(context.Background(), "u1", "c1", "make one like https://youtu.be/dQw4w9WgXcQ for my shop", "k", nil)
+	ex, err := svc.Send(context.Background(), "u1", "c1", "make one like https://youtu.be/dQw4w9WgXcQ for my shop", "k", nil, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestLinkErrorsReachTheCaller(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			svc := service(&stubRouter{}, &stubPlanner{}, newMem()).WithAnalyzer(&stubAnalyzer{err: tc.err})
-			if _, err := svc.Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil); !errors.Is(err, tc.want) {
+			if _, err := svc.Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil, ""); !errors.Is(err, tc.want) {
 				t.Fatalf("err = %v, want %v", err, tc.want)
 			}
 		})
@@ -67,7 +67,7 @@ func TestLinkErrorsReachTheCaller(t *testing.T) {
 
 func TestWithoutAnAnalyzerALinkIsJustText(t *testing.T) {
 	router := &stubRouter{decision: Decision{Reply: "ok"}}
-	if _, err := service(router, &stubPlanner{}, newMem()).Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil); err != nil || router.calls != 1 {
+	if _, err := service(router, &stubPlanner{}, newMem()).Send(context.Background(), "u1", "c1", "https://youtu.be/dQw4w9WgXcQ", "", nil, ""); err != nil || router.calls != 1 {
 		t.Fatalf("calls=%d err=%v", router.calls, err)
 	}
 }

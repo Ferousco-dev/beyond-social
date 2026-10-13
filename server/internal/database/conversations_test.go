@@ -156,3 +156,23 @@ func TestMissingFollowUpsFindsFinishedAnalysesWithNoMessage(t *testing.T) {
 		t.Fatalf("still missing after reconcile: %+v", again)
 	}
 }
+
+func TestAScriptSurvivesAsStructuredData(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	user := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, user, "s@example.com", "S"); err != nil {
+		t.Fatal(err)
+	}
+	store := NewConversationStore(pool)
+	conv, _ := store.Create(ctx, user)
+	script := &chat.Script{Title: "Dawn run", Scenes: []chat.Scene{{Seconds: 5, Visual: "A runner", Voiceover: "Go"}}}
+	saved, err := store.AddAssistant(ctx, chat.Message{ConversationID: conv.ID, UserID: user, Role: chat.RoleAssistant, Content: "script", Script: script})
+	if err != nil || saved.Script == nil || saved.Script.Scenes[0].Voiceover != "Go" {
+		t.Fatalf("saved = %+v err=%v", saved, err)
+	}
+	plain, _ := store.AddAssistant(ctx, chat.Message{ConversationID: conv.ID, UserID: user, Role: chat.RoleAssistant, Content: "hello"})
+	if plain.Script != nil {
+		t.Fatalf("a plain message carries %+v", plain.Script)
+	}
+}

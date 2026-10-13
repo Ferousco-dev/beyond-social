@@ -23,7 +23,7 @@ type ChatService interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]chat.Conversation, error)
 	Thread(ctx context.Context, userID, id string) (chat.Conversation, []chat.Message, error)
 	Archive(ctx context.Context, userID, id string) error
-	Send(ctx context.Context, userID, conversationID, content, key string, attachments []string) (chat.Exchange, error)
+	Send(ctx context.Context, userID, conversationID, content, key string, attachments []string, timeZone string) (chat.Exchange, error)
 }
 
 func (a *App) createConversation(w http.ResponseWriter, r *http.Request) {
@@ -117,6 +117,7 @@ func (a *App) sendMessage(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Content     string   `json:"content"`
 		Attachments []string `json:"attachments"`
+		TimeZone    string   `json:"time_zone"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -128,7 +129,7 @@ func (a *App) sendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), turnTimeout)
 	defer cancel()
-	exchange, err := a.deps.Chat.Send(ctx, identity.UserID, id, req.Content, r.Header.Get("Idempotency-Key"), req.Attachments)
+	exchange, err := a.deps.Chat.Send(ctx, identity.UserID, id, req.Content, r.Header.Get("Idempotency-Key"), req.Attachments, req.TimeZone)
 	if err != nil {
 		a.chatError(w, r, err)
 		return

@@ -94,6 +94,7 @@ export function SearchBar({
           Search
         </button>
       </div>
+      <p className="shrink-0 text-xs text-ink-soft sm:w-28">5 credits per search</p>
     </form>
   );
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"google.golang.org/genai"
 )
 
@@ -17,6 +18,9 @@ type Tool struct {
 	ReadOnly bool
 	// Billable tools may consume paid provider credits.
 	Billable bool
+	// Public tools do something in the outside world that cannot be undone,
+	// such as posting to a social account. They always wait for approval.
+	Public bool
 	// ValidateArgs rejects malformed or out-of-range arguments.
 	ValidateArgs func(args map[string]any) error
 }
@@ -59,6 +63,24 @@ func DefaultRegistry() *Registry {
 				"avatar_id": {required: true, maxRunes: 64},
 				"script":    {required: true, minRunes: 1, maxRunes: 2000},
 			}, "avatar_id", "script"),
+		},
+		{
+			Name:        "generate_video",
+			Description: "Make a new video clip of up to 15 seconds from scene descriptions, optionally starting from a picture the user attached, with Kling. Args: scenes (a list of {prompt, seconds}), optional image_media_id, aspect_ratio, sound.",
+			Billable:    true,
+			ValidateArgs: func(args map[string]any) error {
+				_, err := generate.ParseArgs(args)
+				return err
+			},
+		},
+		{
+			Name:        "schedule_post",
+			Description: "Post a finished video to one of the user's connected accounts (youtube, tiktok or instagram), now or at a chosen time. Args: platform, caption, optional title, visibility and at (an RFC 3339 time), and video_from (the id of the step that made the video) or job_id.",
+			Public:      true,
+			ValidateArgs: func(args map[string]any) error {
+				_, err := ParsePostArgs(args)
+				return err
+			},
 		},
 		{
 			Name:        "get_job_status",

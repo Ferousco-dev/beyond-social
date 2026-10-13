@@ -16,6 +16,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
+	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 )
 
 const (
@@ -57,7 +58,9 @@ type Message struct {
 	ReplyTo        string             `json:"reply_to,omitempty"`
 	JobID          string             `json:"job_id,omitempty"`
 	Attachments    []media.Descriptor `json:"attachments,omitempty"`
-	CreatedAt      time.Time          `json:"created_at"`
+	// Script is the structured script this message proposed, if it did.
+	Script    *Script   `json:"script,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Store interface {
@@ -90,15 +93,37 @@ type Turn struct {
 
 // Decision is what the router made of a message.
 type Decision struct {
+	// Post is set when the user also asked for the result to be posted.
+	Post *PostIntent
+	// Script is true when the idea should become a script first: a new idea, a
+	// change to the script on screen, or a script the user wrote themselves.
+	Script bool
 	// Create is true when the user wants something made; the plan is then built
 	// by the workflow planner rather than answered here.
 	Create bool
 	Reply  string
 }
 
+// RouteInput is one message and what the router needs to understand it.
+type RouteInput struct {
+	History []Turn
+	Message string
+	// Files are pictures and audio the model should look at or listen to.
+	Files []gemini.Media
+	// Now is the time where the user is, so "tomorrow at 6pm" means something.
+	Now time.Time
+}
+
 type Router interface {
-	// files are pictures and audio the model should look at or listen to.
-	Route(ctx context.Context, history []Turn, message string, files []gemini.Media) (Decision, error)
+	Route(ctx context.Context, in RouteInput) (Decision, error)
+}
+
+// PostIntent is a request to post the finished video, found in the message.
+type PostIntent struct {
+	Platform social.Platform
+	// At is nil when no time was given: post as soon as the video is ready.
+	At      *time.Time
+	Caption string
 }
 
 // Attachments resolves and reads what a message carries.
@@ -125,6 +150,8 @@ type Service struct {
 	alerts  alerts.Reporter
 	// analyzer is optional: without it links are treated as ordinary text.
 	analyzer Analyzer
+	writer   ScriptWriter
+	scripts  ScriptPlanner
 	files    Attachments
 	// DailyLimit returns the most messages a user may send per day; 0 or false means no limit.
 	dailyLimit func(ctx context.Context) (int, bool, error)
@@ -143,6 +170,25 @@ func (s *Service) WithEvents(p realtime.Publisher) *Service {
 // WithAlerts reports failures only an operator can fix (no credit, bad key).
 func (s *Service) WithAlerts(r alerts.Reporter) *Service {
 	s.alerts = r
+	return s
+}
+
+// ScriptPlanner turns an approved script into a workflow without a model.
+type ScriptPlanner interface {
+	PlanScript(ctx context.Context, userID string, script Script, post *PostIntent, key string) (Outcome, error)
+}
+
+// WithScriptPlanner makes "use this script" build the workflow from the script
+// itself. Without it the planner works from the conversation text.
+func (s *Service) WithScriptPlanner(p ScriptPlanner) *Service {
+	s.scripts = p
+	return s
+}
+
+// WithScriptWriter turns on the script step. Without it every idea goes
+// straight to planning.
+func (s *Service) WithScriptWriter(w ScriptWriter) *Service {
+	s.writer = w
 	return s
 }
 

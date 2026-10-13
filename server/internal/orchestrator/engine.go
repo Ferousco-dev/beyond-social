@@ -91,7 +91,7 @@ func (s *Service) reconcileRunning(ctx context.Context, workflow Workflow, steps
 		switch step.Tool {
 		case "discover_videos":
 			done, output, fail, err = s.reconcileDiscovery(ctx, workflow, step, ref)
-		case "transform_video", "create_avatar_video":
+		case "transform_video", "create_avatar_video", "generate_video":
 			done, output, fail, err = s.reconcileJob(ctx, workflow, step, ref)
 		default:
 			continue

@@ -18,10 +18,24 @@ const (
 	NameHeygen        = "heygen"
 	NameHeygenWebhook = "heygen_webhook_secret"
 	NameGemini        = "gemini"
+	// NameOpenRouter gives access to other language models besides Gemini.
+	NameOpenRouter = "openrouter"
+
+	// OAuth app credentials for publishing. The user-facing sign-in uses these;
+	// each platform is switched on by pasting its pair.
+	NameYouTubeClientID     = "youtube_client_id"
+	NameYouTubeClientSecret = "youtube_client_secret"
+	NameTikTokClientKey     = "tiktok_client_key"
+	NameTikTokClientSecret  = "tiktok_client_secret"
+	NameMetaAppID           = "meta_app_id"
+	NameMetaAppSecret       = "meta_app_secret"
 )
 
 // Names lists every credential the product can use, in display order.
-var Names = []string{NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini}
+var Names = []string{
+	NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini, NameOpenRouter,
+	NameYouTubeClientID, NameYouTubeClientSecret, NameTikTokClientKey, NameTikTokClientSecret, NameMetaAppID, NameMetaAppSecret,
+}
 
 const cacheTTL = 60 * time.Second
 

@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const [user, conversations] = await Promise.all([getCurrentUser(), getSidebarConversations()]);
 
   return (
-    <DashboardShell user={user} projects={conversations} credits={{ balance: user.credits }}>
+    <DashboardShell user={user} projects={conversations} credits={user.credits === null ? null : { balance: user.credits }}>
       {children}
     </DashboardShell>
   );

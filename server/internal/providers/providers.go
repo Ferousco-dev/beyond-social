@@ -28,17 +28,18 @@ type Balance struct {
 var ErrNoBalance = errors.New("providers: no balance endpoint")
 
 type Checker struct {
-	HTTP                                   *http.Client
-	ApifyBase, KIEBase, HeygenBase, Gemini string
+	HTTP                                                   *http.Client
+	ApifyBase, KIEBase, HeygenBase, Gemini, OpenRouterBase string
 }
 
 func NewChecker() *Checker {
 	return &Checker{
-		HTTP:       &http.Client{Timeout: 15 * time.Second},
-		ApifyBase:  "https://api.apify.com/v2",
-		KIEBase:    "https://api.kie.ai",
-		HeygenBase: "https://api.heygen.com/v3",
-		Gemini:     "https://generativelanguage.googleapis.com/v1beta",
+		HTTP:           &http.Client{Timeout: 15 * time.Second},
+		ApifyBase:      "https://api.apify.com/v2",
+		KIEBase:        "https://api.kie.ai",
+		HeygenBase:     "https://api.heygen.com/v3",
+		Gemini:         "https://generativelanguage.googleapis.com/v1beta",
+		OpenRouterBase: "https://openrouter.ai/api/v1",
 	}
 }
 
@@ -54,6 +55,10 @@ func (c *Checker) Verify(ctx context.Context, name, value string) error {
 		return err
 	case secrets.NameHeygen:
 		_, err := c.get(ctx, c.HeygenBase+"/users/me", header("X-Api-Key", value))
+		return err
+	case secrets.NameOpenRouter:
+		// Reads the key's own record, which rejects a bad key without spending anything.
+		_, err := c.get(ctx, c.OpenRouterBase+"/auth/key", bearer(value))
 		return err
 	case secrets.NameGemini:
 		// Listing models succeeds for a key whose project is denied generation, so

@@ -55,7 +55,7 @@ func (p Plan) RequiresApproval(registry *Registry) bool {
 		if !ok {
 			return true
 		}
-		if tool.Billable || step.Confirm {
+		if tool.Billable || tool.Public || step.Confirm {
 			return true
 		}
 	}

@@ -146,12 +146,12 @@ func TestPlanRequiresApproval(t *testing.T) {
 
 func TestRegistryExposesOnlyImplementedTools(t *testing.T) {
 	registry := DefaultRegistry()
-	for _, name := range []string{"discover_videos", "transform_video", "create_avatar_video", "get_job_status", "get_workflow_status"} {
+	for _, name := range []string{"discover_videos", "transform_video", "create_avatar_video", "generate_video", "get_job_status", "get_workflow_status"} {
 		if _, ok := registry.Get(name); !ok {
 			t.Errorf("expected tool %q", name)
 		}
 	}
-	for _, name := range []string{"run_shell", "raw_sql", "http_fetch", "generate_video", "send_email"} {
+	for _, name := range []string{"run_shell", "raw_sql", "http_fetch", "generate_image", "send_email"} {
 		if _, ok := registry.Get(name); ok {
 			t.Errorf("unexpected tool %q", name)
 		}

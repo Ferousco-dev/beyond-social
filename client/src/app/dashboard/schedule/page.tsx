@@ -1,36 +1,45 @@
 import { type Metadata } from "next";
+import Link from "next/link";
+import { type Route } from "next";
 import { type ReactNode } from "react";
 
-import { ScheduleViews } from "@/features/schedule/components/schedule-views";
-import { getScheduleBoard } from "@/features/schedule/lib/queries";
-import { getUserTimeZone } from "@/lib/time/user-zone";
+import { PostRow } from "@/features/schedule/post-row";
+import { goApi } from "@/lib/go-api/client";
+import { postsResponse } from "@/lib/go-api/schemas";
 
 export const metadata: Metadata = { title: "Schedule" };
-// Times are relative to the moment the page is read, and a cached render would
-// keep telling someone a post goes out "in 2h" long after it went.
 export const dynamic = "force-dynamic";
 
-/**
- * Everything queued for publishing.
- *
- * The queue was only ever visible as a four-row panel on the overview, which
- * could say what was next but never what was waiting behind it or what had
- * failed and why. This is the destination that answers those.
- */
 export default async function SchedulePage(): Promise<ReactNode> {
-  const [board, timeZone] = await Promise.all([getScheduleBoard(), getUserTimeZone()]);
+  const result = await goApi("/api/v1/posts?limit=100", postsResponse);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">Schedule</h1>
-        <p className="mt-1 text-sm text-ink-soft">Every post you have queued, in {timeZone}.</p>
-      </header>
+    <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-10">
+      <h1 className="text-2xl font-semibold tracking-tight text-ink">Schedule</h1>
+      <p className="mt-1 text-sm text-ink-soft">
+        Videos going out to your accounts. Ask the assistant to post one, for example &ldquo;make this and post it to
+        YouTube tomorrow at 6pm&rdquo;.
+      </p>
 
-      {/* The clock is read once, here, and passed down: a calendar that reads it
-          during render highlights a different day on the server than it does
-          after hydration. */}
-      <ScheduleViews board={board} timeZone={timeZone} now={new Date().toISOString()} />
+      {!result.ok ? (
+        <p role="alert" className="mt-6 text-sm text-destructive">
+          {result.message}
+        </p>
+      ) : result.data.data.length === 0 ? (
+        <p className="mt-6 text-sm text-ink-soft">
+          Nothing is scheduled yet.{" "}
+          <Link href={"/dashboard/connections" as Route} className="text-ink underline underline-offset-2">
+            Connect an account
+          </Link>{" "}
+          to start.
+        </p>
+      ) : (
+        <ul className="mt-6 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
+          {result.data.data.map((post) => (
+            <PostRow key={post.id} post={post} />
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

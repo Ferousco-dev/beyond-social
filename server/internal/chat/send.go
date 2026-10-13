@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -20,7 +21,7 @@ type Exchange struct {
 
 // Send saves the user's message and answers it. Sending again with the same key
 // returns the earlier answer instead of asking the model a second time.
-func (s *Service) Send(ctx context.Context, userID, conversationID, content, key string, attachmentIDs []string) (Exchange, error) {
+func (s *Service) Send(ctx context.Context, userID, conversationID, content, key string, attachmentIDs []string, timeZone string) (Exchange, error) {
 	items, err := s.resolveAttachments(ctx, userID, attachmentIDs)
 	if err != nil {
 		return Exchange{}, err
@@ -62,7 +63,7 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 		}
 	}
 
-	history, err := s.history(ctx, userID, conv.ID, user.ID)
+	history, pending, err := s.history(ctx, userID, conv.ID, user.ID)
 	if err != nil {
 		return Exchange{}, err
 	}
@@ -70,13 +71,17 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 	if err != nil {
 		return Exchange{}, err
 	}
-	reply, workflowID, err := s.answer(ctx, userID, text, history, user.ID, files)
+	turn := turnInput{userID: userID, text: text, history: history, messageID: user.ID, files: files, pending: pending, now: s.localNow(timeZone)}
+	if picture, ok := firstOfKind(items, media.KindImage); ok {
+		turn.picture = picture.ID
+	}
+	reply, workflowID, script, err := s.answer(ctx, turn)
 	if err != nil {
 		return Exchange{}, err
 	}
 
 	assistant, err := s.store.AddAssistant(ctx, Message{
-		ConversationID: conv.ID, UserID: userID, Role: RoleAssistant, Content: reply, WorkflowID: workflowID, ReplyTo: user.ID,
+		ConversationID: conv.ID, UserID: userID, Role: RoleAssistant, Content: reply, WorkflowID: workflowID, ReplyTo: user.ID, Script: script,
 	})
 	if err != nil {
 		return Exchange{}, err
@@ -94,27 +99,72 @@ func (s *Service) finishTurn(ctx context.Context, userID string, conv Conversati
 	return Exchange{User: user, Assistant: assistant}
 }
 
-func (s *Service) answer(ctx context.Context, userID, text string, history []Turn, userMessageID string, files []gemini.Media) (reply, workflowID string, err error) {
-	decision, err := s.router.Route(ctx, history, text, files)
+// turnInput is what answering one message needs.
+type turnInput struct {
+	userID, text, messageID string
+	history                 []Turn
+	files                   []gemini.Media
+	// pending is the script the assistant showed last, still waiting for an answer.
+	pending *Script
+	// picture is a picture attached to this message, if any.
+	picture string
+	// now is the time where the user is.
+	now time.Time
+}
+
+func (s *Service) answer(ctx context.Context, t turnInput) (reply, workflowID string, script *Script, err error) {
+	decision, err := s.router.Route(ctx, RouteInput{History: t.history, Message: t.text, Files: t.files, Now: t.now})
 	if err != nil {
-		alerts.Report(ctx, s.alerts, err, alerts.Context{Source: "chat", UserID: userID})
-		return "", "", err
+		alerts.Report(ctx, s.alerts, err, alerts.Context{Source: "chat", UserID: t.userID})
+		return "", "", nil, err
 	}
-	if !decision.Create {
-		return decision.Reply, "", nil
+	if decision.Script && s.writer != nil {
+		written, err := s.writer.Write(ctx, t.history, t.text, t.files)
+		if err != nil {
+			alerts.Report(ctx, s.alerts, err, alerts.Context{Source: "chat script", UserID: t.userID})
+			return "", "", nil, err
+		}
+		if t.picture != "" {
+			written.ImageMediaID = t.picture
+		} else if t.pending != nil {
+			written.ImageMediaID = t.pending.ImageMediaID // a revision keeps the picture
+		}
+		return written.Describe(), "", &written, nil
 	}
-	outcome, err := s.planner.Plan(ctx, userID, text, history, "chat:"+userMessageID)
+	if !decision.Create && !decision.Script {
+		return decision.Reply, "", nil, nil
+	}
+	// Accepting the script on screen builds the plan from that script, so what
+	// was approved is exactly what gets made.
+	if decision.Create && t.pending != nil && s.scripts != nil {
+		outcome, err := s.scripts.PlanScript(ctx, t.userID, *t.pending, decision.Post, "chat:"+t.messageID)
+		if errors.Is(err, ErrScriptTooLong) {
+			return "That script is longer than I can make in one go (about two minutes at most). Shall I shorten it?", "", nil, nil
+		}
+		if err != nil {
+			return "", "", nil, err
+		}
+		return outcome.Reply, outcome.WorkflowID, nil, nil
+	}
+	outcome, err := s.planner.Plan(ctx, t.userID, t.text, t.history, "chat:"+t.messageID)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
-	return outcome.Reply, outcome.WorkflowID, nil
+	return outcome.Reply, outcome.WorkflowID, nil, nil
 }
 
 // history is the recent thread before the message being answered.
-func (s *Service) history(ctx context.Context, userID, conversationID, exceptID string) ([]Turn, error) {
+func (s *Service) history(ctx context.Context, userID, conversationID, exceptID string) ([]Turn, *Script, error) {
 	msgs, err := s.store.Messages(ctx, userID, conversationID, historyTurns+1)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	var pending *Script
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].ID != exceptID && msgs[i].Role == RoleAssistant {
+			pending = msgs[i].Script // only the latest assistant message counts
+			break
+		}
 	}
 	turns := make([]Turn, 0, len(msgs))
 	for _, m := range msgs {
@@ -125,7 +175,7 @@ func (s *Service) history(ctx context.Context, userID, conversationID, exceptID 
 	if len(turns) > historyTurns {
 		turns = turns[len(turns)-historyTurns:]
 	}
-	return turns, nil
+	return turns, pending, nil
 }
 
 func (s *Service) checkLimit(ctx context.Context, userID string) error {
@@ -156,4 +206,13 @@ func (s *Service) publish(userID string, m Message) {
 		return
 	}
 	s.events.Publish(userID, event)
+}
+
+// localNow is the current time where the user is, or UTC when the zone is
+// missing or unknown.
+func (s *Service) localNow(zone string) time.Time {
+	if loc, err := time.LoadLocation(zone); err == nil && zone != "" {
+		return s.now().In(loc)
+	}
+	return s.now().UTC()
 }

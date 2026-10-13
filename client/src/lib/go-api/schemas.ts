@@ -121,12 +121,28 @@ export const workflowResponse = z.object({ data: workflowSchema });
 export const workflowListResponse = z.object({ data: z.array(workflowSchema) });
 export const workflowStepsResponse = z.object({ data: z.array(workflowStepSchema) });
 
+export const attachmentSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["image", "video", "audio"]),
+  name: z.string(),
+  mime_type: z.string(),
+  size_bytes: z.number(),
+});
+export type Attachment = z.infer<typeof attachmentSchema>;
+
+export const uploadSlotResponse = z.object({ data: z.object({ id: z.string(), path: z.string(), token: z.string() }) });
+export const attachmentResponse = z.object({ data: attachmentSchema });
+export const viewUrlResponse = z.object({ data: z.object({ url: z.string() }) });
+
 export const chatMessageSchema = z.object({
   id: z.string(),
   role: z.enum(["user", "assistant"]),
   content: z.string(),
   workflow_id: z.string().optional(),
   job_id: z.string().optional(),
+  attachments: z.array(attachmentSchema).optional(),
+  /** Present when the message proposed a script for the user to approve. */
+  script: z.object({ title: z.string(), scenes: z.array(z.object({ seconds: z.number(), visual: z.string() })) }).optional(),
   created_at: z.string(),
 });
 export type ChatMessage = z.infer<typeof chatMessageSchema>;
@@ -156,3 +172,57 @@ export const creditsResponse = z.object({
     ),
   }),
 });
+
+export const socialListResponse = z.object({
+  data: z.array(
+    z.object({
+      platform: z.enum(["youtube", "tiktok", "instagram"]),
+      label: z.string(),
+      available: z.boolean(),
+      connected: z.boolean(),
+      needs_reconnect: z.boolean(),
+      account_name: z.string().optional(),
+    }),
+  ),
+});
+export type SocialStatus = z.infer<typeof socialListResponse>["data"][number];
+export const connectUrlResponse = z.object({ data: z.object({ url: z.string().url() }) });
+
+export const postSchema = z.object({
+  id: z.string(),
+  platform: z.enum(["youtube", "tiktok", "instagram"]),
+  title: z.string().optional(),
+  caption: z.string(),
+  visibility: z.string(),
+  scheduled_at: z.string(),
+  status: z.enum(["preparing", "scheduled", "publishing", "published", "failed", "cancelled"]),
+  external_url: z.string().optional(),
+  error: z.string().optional(),
+});
+export type ScheduledPost = z.infer<typeof postSchema>;
+export const postsResponse = z.object({ data: z.array(postSchema) });
+export const postResponse = z.object({ data: postSchema });
+
+export const editorSummarySchema = z.object({ id: z.string(), title: z.string(), updated_at: z.string() });
+export type EditorSummary = z.infer<typeof editorSummarySchema>;
+export const editorSummariesResponse = z.object({ data: z.array(editorSummarySchema) });
+export const editorProjectSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  document: z.unknown(),
+  version: z.number().int(),
+  updated_at: z.string(),
+});
+export const editorProjectResponse = z.object({ data: editorProjectSchema });
+
+export const libraryItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  prompt: z.string().optional(),
+  video_url: z.string().url(),
+  thumbnail_url: z.string().optional(),
+  duration_seconds: z.number().optional(),
+  created_at: z.string(),
+});
+export type LibraryItem = z.infer<typeof libraryItemSchema>;
+export const libraryResponse = z.object({ data: z.array(libraryItemSchema) });

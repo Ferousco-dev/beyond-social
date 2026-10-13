@@ -59,8 +59,15 @@ type Config struct {
 	// AppEncryptionKey is a base64 32 byte key that encrypts provider keys an
 	// admin pastes in. Optional: without it keys come from the environment only.
 	AppEncryptionKey string
+	// SocialApps are the OAuth credentials for publishing, by vault name. All
+	// optional: an admin can paste them in instead.
+	SocialApps map[string]string
 	// GeminiModel overrides the default planning model.
 	GeminiModel string
+
+	// AdminEmails are promoted to admin when they sign in, so the first admin
+	// never needs database access. Everything else is set in the admin console.
+	AdminEmails []string
 
 	AllowedOrigins  []string
 	ShutdownTimeout time.Duration
@@ -82,6 +89,24 @@ func (c Config) KIECallbackURL() string {
 	return c.PublicBaseURL + "/api/v1/callbacks/kie"
 }
 
+// SocialRedirectURL is where a platform sends the browser after sign-in. It
+// must be registered, exactly, in that platform's developer console.
+func (c Config) SocialRedirectURL(platform string) string {
+	base := c.PublicBaseURL
+	if base == "" {
+		base = "http://localhost:" + c.HTTPPort
+	}
+	return base + "/api/v1/social/callback/" + platform
+}
+
+// AppURL is the web app, where people land after connecting an account.
+func (c Config) AppURL() string {
+	if len(c.AllowedOrigins) > 0 {
+		return c.AllowedOrigins[0]
+	}
+	return "http://localhost:3000"
+}
+
 func (c Config) IsProduction() bool { return c.Environment == EnvProduction }
 
 // Issuer is the `iss` claim Supabase Auth stamps on every access token.
@@ -99,6 +124,7 @@ func LoadFromEnv() (Config, error) {
 		SupabaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("SUPABASE_URL")), "/"),
 		SupabaseJWTSecret: strings.TrimSpace(os.Getenv("SUPABASE_JWT_SECRET")),
 		AllowedOrigins:    splitList(os.Getenv("WEBSOCKET_ALLOWED_ORIGINS")),
+		AdminEmails:       splitList(strings.ToLower(os.Getenv("ADMIN_EMAILS"))),
 
 		APIFYToken:          strings.TrimSpace(os.Getenv("APIFY_API_TOKEN")),
 		KIEAPIKey:           strings.TrimSpace(os.Getenv("KIE_API_KEY")),
@@ -114,7 +140,15 @@ func LoadFromEnv() (Config, error) {
 
 		GeminiAPIKey:     strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		AppEncryptionKey: strings.TrimSpace(os.Getenv("APP_ENCRYPTION_KEY")),
-		GeminiModel:      strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		SocialApps: map[string]string{
+			"youtube_client_id":     strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_ID")),
+			"youtube_client_secret": strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_SECRET")),
+			"tiktok_client_key":     strings.TrimSpace(os.Getenv("TIKTOK_CLIENT_KEY")),
+			"tiktok_client_secret":  strings.TrimSpace(os.Getenv("TIKTOK_CLIENT_SECRET")),
+			"meta_app_id":           strings.TrimSpace(os.Getenv("META_APP_ID")),
+			"meta_app_secret":       strings.TrimSpace(os.Getenv("META_APP_SECRET")),
+		},
+		GeminiModel: strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
 	}
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {

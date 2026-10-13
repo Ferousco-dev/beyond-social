@@ -45,7 +45,7 @@ export const PRODUCT_FACTS = [
   "",
   "Where things are, so you can send them somewhere real rather than describing it:",
   "Scheduling a post: /dashboard/schedule",
-  "Connecting TikTok, Instagram, YouTube or Facebook: /dashboard/settings/connections",
+  "Connecting TikTok, Instagram, YouTube or Facebook: /dashboard/connections",
   "Their face, products and voice: /dashboard/assets",
   "Recording a trained avatar: /dashboard/assets",
   "Everything they have made: /dashboard/library",

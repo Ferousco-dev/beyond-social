@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { chatMessageSchema, type ChatMessage } from "@/lib/go-api/schemas";
 import { useEventSocket } from "@/lib/go-api/use-event-socket";
 
 import { loadThread, sendChatMessage, startConversation } from "../actions";
+import { useAttachments } from "../hooks/use-attachments";
 import { ChatComposer } from "./chat-composer";
 import { MessageBubble } from "./message-bubble";
 
@@ -31,11 +33,15 @@ export function ChatView({
   readonly initialPrompt: string;
   readonly firstName: string;
 }): ReactNode {
+  const router = useRouter();
   const [id, setId] = useState(conversationId);
   const [messages, setMessages] = useState<readonly ChatMessage[]>(initialMessages);
   const [draft, setDraft] = useState(initialPrompt);
-  const [pending, setPending] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ text: string; files: readonly string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [focusTick, setComposerFocus] = useState(0);
+  const [composerNotice, setComposerNotice] = useState<string | null>(null);
+  const attachments = useAttachments();
   // Kept across a failed attempt so retrying the same text is not answered twice.
   const attempt = useRef<{ text: string; key: string } | null>(null);
   const endRef = useRef<HTMLLIElement>(null);
@@ -46,6 +52,9 @@ export function ChatView({
     for (const m of messages) if (m.job_id) count.set(m.job_id, (count.get(m.job_id) ?? 0) + 1);
     return new Set([...count].filter(([, n]) => n === 1).map(([jobId]) => jobId));
   }, [messages]);
+
+  // Only the newest script offers actions: an older one has been replaced.
+  const latestScriptId = useMemo(() => [...messages].reverse().find((m) => m.script)?.id ?? null, [messages]);
 
   const catchUp = useCallback(async () => {
     if (id === null) return;
@@ -67,43 +76,49 @@ export function ChatView({
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
   }, [messages, pending]);
 
-  async function send(): Promise<void> {
-    const text = draft.trim();
-    if (text === "" || pending !== null) return;
-    if (attempt.current?.text !== text) attempt.current = { text, key: crypto.randomUUID() };
+  async function send(override?: string): Promise<void> {
+    const text = (override ?? draft).trim();
+    const attachmentIds = attachments.readyIds;
+    if ((text === "" && attachmentIds.length === 0) || pending !== null || attachments.busy) return;
+    const signature = `${text}|${attachmentIds.join(",")}`;
+    if (attempt.current?.text !== signature) attempt.current = { text: signature, key: crypto.randomUUID() };
     const { key } = attempt.current;
 
     setError(null);
-    setPending(text);
-    setDraft("");
+    setPending({ text, files: attachments.items.map((item) => item.file.name || "Voice note") });
+    // A canned reply (a script choice) leaves whatever is being typed alone.
+    if (override === undefined) setDraft("");
 
     let target = id;
     if (target === null) {
       const started = await startConversation();
       if (started.status !== "ok") {
-        fail(text, started.message);
+        fail(override === undefined ? text : null, started.message);
         return;
       }
       target = started.conversationId;
       setId(target);
     }
 
-    const result = await sendChatMessage({ conversationId: target, content: text, idempotencyKey: key });
+    const result = await sendChatMessage({ conversationId: target, content: text, idempotencyKey: key, attachments: [...attachmentIds], timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (result.status !== "ok") {
-      fail(text, result.message);
+      fail(override === undefined ? text : null, result.message);
       return;
     }
     attempt.current = null;
+    attachments.clear();
     // Only now: changing the address while the turn is in flight makes Next
     // re-render the page and stall the request.
     window.history.replaceState(null, "", `/dashboard/c/${target}`);
     setPending(null);
     setMessages((current) => merge(current, [result.user, result.assistant]));
+    // The sidebar balance is rendered by the layout.
+    router.refresh();
   }
 
-  function fail(text: string, message: string): void {
+  function fail(text: string | null, message: string): void {
     setPending(null);
-    setDraft(text);
+    if (text !== null) setDraft(text);
     setError(message);
   }
 
@@ -120,13 +135,13 @@ export function ChatView({
         ) : (
           <ul aria-label="Conversation" aria-live="polite" className="space-y-4">
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} watching={message.job_id !== undefined && watching.has(message.job_id)} />
+              <MessageBubble key={message.id} message={message} onReply={(text) => void send(text)} onChange={() => setComposerFocus((n) => n + 1)} latestScript={message.id === latestScriptId} watching={message.job_id !== undefined && watching.has(message.job_id)} />
             ))}
             {pending !== null ? (
               <>
                 <li className="flex justify-end">
                   <p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl bg-ink px-4 py-2.5 text-sm text-paper sm:max-w-[75%]">
-                    {pending}
+                    {pending.text || pending.files.join(", ")}
                   </p>
                 </li>
                 <li className="text-sm text-ink-soft">Thinking…</li>
@@ -141,12 +156,20 @@ export function ChatView({
           composer ends up flush with the bottom edge. */}
       <div className="pb-safe shrink-0 bg-canvas">
         <div className="pb-4 pt-2">
-          {error ? (
+          {error ?? composerNotice ? (
             <p role="alert" className="mb-2 px-2 text-sm text-destructive">
-              {error}
+              {error ?? composerNotice}
             </p>
           ) : null}
-          <ChatComposer value={draft} onChange={setDraft} onSend={() => void send()} disabled={pending !== null} />
+          <ChatComposer
+            value={draft}
+            onChange={setDraft}
+            onSend={() => void send()}
+            disabled={pending !== null}
+            attachments={attachments}
+            onNotice={setComposerNotice}
+            focusTick={focusTick}
+          />
         </div>
       </div>
     </div>

@@ -1,8 +1,12 @@
 "use client";
 
 import {
+  CalendarClock,
   CircleUser,
+  Clapperboard,
+  Film,
   PenSquare,
+  Share2,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -46,6 +50,31 @@ const LINKS: readonly NavLink[] = [
     label: "Avatar",
     icon: CircleUser,
     // The avatar coming into focus as you reach for it.
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/editor" as Route,
+    label: "Editor",
+    icon: Clapperboard,
+    motion: "group-hover:-rotate-6",
+  },
+  {
+    href: "/dashboard/library" as Route,
+    label: "Library",
+    icon: Film,
+    motion: "group-hover:scale-110",
+  },
+  {
+    href: "/dashboard/schedule" as Route,
+    label: "Schedule",
+    icon: CalendarClock,
+    // A clock hand advancing, which is the one thing this page is about.
+    motion: "group-hover:rotate-12",
+  },
+  {
+    href: "/dashboard/connections" as Route,
+    label: "Connections",
+    icon: Share2,
     motion: "group-hover:scale-110",
   },
   {
