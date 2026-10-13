@@ -20,6 +20,9 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
     goApi(`/api/v1/editor/projects/${id}`, editorProjectResponse),
     goApi("/api/v1/library?limit=100", libraryResponse),
   ]);
+  // The videos the chat this project came from made, so they are the first thing offered.
+  const chatId = project.ok ? project.data.data.conversation_id : undefined;
+  const fromChat = chatId ? await goApi(`/api/v1/library?conversation=${chatId}&limit=50`, libraryResponse) : null;
   if (!project.ok) {
     if (project.status === 404) notFound();
     return (
@@ -41,6 +44,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       plan={user.plan}
       backHref={conversation_id ? `/dashboard/c/${conversation_id}` : "/dashboard/c/new"}
       library={library.ok ? library.data.data : []}
+      chatLibrary={fromChat?.ok ? fromChat.data.data : []}
     />
   );
 }

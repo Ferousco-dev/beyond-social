@@ -23,7 +23,7 @@ const TOOLS: ReadonlyArray<{ id: ToolTab; label: string; Icon: LucideIcon }> = [
 ];
 
 /** The icon rail and the panel it opens, side by side. */
-export function ToolPanel({ library }: { library: readonly LibraryItem[] }): ReactNode {
+export function ToolPanel({ library, chatLibrary }: { library: readonly LibraryItem[]; chatLibrary: readonly LibraryItem[] }): ReactNode {
   const tool = useStudio((s) => s.tool);
   const setTool = useStudio((s) => s.setTool);
   const active = TOOLS.find((t) => t.id === tool) ?? TOOLS[0]!;
@@ -48,17 +48,17 @@ export function ToolPanel({ library }: { library: readonly LibraryItem[] }): Rea
       <div className="flex min-w-0 flex-1 flex-col">
         <h2 className="flex h-11 shrink-0 items-center border-b border-hairline px-3 text-sm text-ink-soft">{active.label}</h2>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {panel(active.id, library)}
+          {panel(active.id, library, chatLibrary)}
         </div>
       </div>
     </section>
   );
 }
 
-function panel(tool: ToolTab, library: readonly LibraryItem[]): ReactNode {
+function panel(tool: ToolTab, library: readonly LibraryItem[], chatLibrary: readonly LibraryItem[]): ReactNode {
   switch (tool) {
     case "media":
-      return <MediaPanel library={library} />;
+      return <MediaPanel library={library} chatLibrary={chatLibrary} />;
     case "avatar":
       return <AvatarPanel />;
     case "captions":

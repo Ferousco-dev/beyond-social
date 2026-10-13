@@ -23,6 +23,8 @@ type Item struct {
 
 type Store interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]Item, error)
+	// ListForConversation is the finished videos a chat's own plans made.
+	ListForConversation(ctx context.Context, userID, conversationID string, limit int) ([]Item, error)
 	Hide(ctx context.Context, userID, id string) error
 	// Video returns a finished video the user owns.
 	Video(ctx context.Context, userID, id string) (Item, error)
