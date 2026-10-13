@@ -84,3 +84,5 @@ docs/
 /CLAUDE.md
 /dev.sh
 .claude
+.vercel
+.env*
