@@ -12,6 +12,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
 	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
@@ -182,6 +183,8 @@ func terminalSubmitError(err error) bool {
 		errors.Is(err, avatarvideo.ErrTooManyBusy) ||
 		errors.Is(err, generate.ErrInvalid) ||
 		errors.Is(err, generate.ErrTooManyBusy) ||
+		errors.Is(err, kietools.ErrInvalid) ||
+		errors.Is(err, kietools.ErrTooManyBusy) ||
 		errors.Is(err, credits.ErrInsufficient) ||
 		errors.Is(err, credits.ErrDailyLimit) ||
 		errors.Is(err, credits.ErrUnavailable) ||
@@ -365,4 +368,29 @@ func (s *Service) safeText(ctx context.Context, workflow Workflow, step *Step, e
 		return provider.UserMessage
 	}
 	return err.Error()
+}
+
+// submitMedia queues one of the KIE picture, voice or talking photo jobs. The
+// arguments were checked when the plan was made and are checked again by the
+// builder before anything is sent to KIE.
+func (s *Service) submitMedia(jobType string) SubmitFunc {
+	return func(ctx context.Context, workflow Workflow, step *Step, key string) (string, map[string]any, error) {
+		job, _, err := s.deps.Media.Submit(ctx, workflow.UserID, jobType, step.Args, key)
+		if err != nil {
+			return "", nil, err
+		}
+		return job.ID, map[string]any{"ref": job.ID}, nil
+	}
+}
+
+func (s *Service) checkScript(ctx context.Context, _ Workflow, step *Step) (map[string]any, error) {
+	script, err := kietools.ParseCheckArgs(step.Args)
+	if err != nil {
+		return nil, err
+	}
+	review, err := s.deps.Scripts.Check(ctx, script)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"verdict": review.Verdict, "issues": review.Issues, "script": review.Script}, nil
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 )
 
 // What a step output holds, so a later step can be checked before anything runs.
@@ -109,6 +110,10 @@ func jobOutputs() []Output {
 	}
 }
 
+func fileOutputs(path, kind, what string) []Output {
+	return []Output{{"ref", KindID, "the id of the job"}, {"result." + path, kind, what}}
+}
+
 // DefaultRegistry exposes the capabilities that are built: Apify discovery, KIE
 // video, HeyGen avatar videos, posting, and read-only status lookups.
 func DefaultRegistry() *Registry {
@@ -167,6 +172,68 @@ func DefaultRegistry() *Registry {
 			Outputs: jobOutputs(),
 			ValidateArgs: func(args map[string]any) error {
 				_, err := generate.ParseArgs(args)
+				return err
+			},
+		},
+		Tool{
+			Name:        "edit_image",
+			Description: "Change a picture from a description, for example put the person in it into a new scene, keeping their face the same. Make this its own plan when the user wants to see the picture before a video is made from it.",
+			Billable:    true,
+			Args: []string{
+				"prompt (required): what to change; say to keep the person's face, hair and skin identical when there is a person",
+				"image_media_ids: ids of pictures the user attached",
+				"image_urls: links to pictures made by earlier steps, normally ${step.result.image_url}",
+				"1 to 4 pictures in total; the first is the main one",
+				"aspect_ratio: auto, 16:9, 9:16, 1:1, 4:3 or 3:4",
+			},
+			Outputs: fileOutputs("image_url", KindURL, "the edited picture"),
+			ValidateArgs: func(args map[string]any) error {
+				_, err := kietools.ParseEdit(args)
+				return err
+			},
+		},
+		Tool{
+			Name:        "talking_photo",
+			Description: "Make a still picture speak a voice recording as a video. The voice is played exactly as given, never changed.",
+			Billable:    true,
+			Args: []string{
+				"image_media_id or image_url (required): the picture, an attached file or ${step.result.image_url}",
+				"audio_media_id or audio_url (required): the voice, an attached file or ${step.result.audio_url}",
+				"prompt (required): the expression, movement and camera, not the words spoken",
+				"seconds (required): how long the voice runs, 1 to 60; about 2.5 spoken words per second",
+			},
+			Outputs: jobOutputs(),
+			ValidateArgs: func(args map[string]any) error {
+				_, err := kietools.ParseTalk(args)
+				return err
+			},
+		},
+		Tool{
+			Name:        "speak_text",
+			Description: "Turn text into a voice recording with a ready-made voice. It cannot copy a real person's voice.",
+			Billable:    true,
+			Args: []string{
+				"text (required): what to say, up to 5000 characters",
+				"voice: the id of a ready-made voice; leave out for the default",
+			},
+			Outputs: fileOutputs("audio_url", KindURL, "the voice recording"),
+			ValidateArgs: func(args map[string]any) error {
+				_, err := kietools.ParseSpeech(args)
+				return err
+			},
+		},
+		Tool{
+			Name:        "check_script",
+			Description: "Read a voice-over script and say whether it is ready to be spoken, with a corrected version when it is not.",
+			ReadOnly:    true,
+			Args:        []string{"script (required): the text to review, up to 5000 characters"},
+			Outputs: []Output{
+				{"verdict", KindText, "good or fix"},
+				{"issues", KindText, "what to change, empty when good"},
+				{"script", KindText, "the script ready to be spoken, normally passed to speak_text"},
+			},
+			ValidateArgs: func(args map[string]any) error {
+				_, err := kietools.ParseCheckArgs(args)
 				return err
 			},
 		},

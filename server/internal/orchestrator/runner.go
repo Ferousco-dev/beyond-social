@@ -3,6 +3,8 @@ package orchestrator
 import (
 	"context"
 	"errors"
+
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 )
 
 // How a step is carried out. A tool is described once in the registry, and a
@@ -76,6 +78,14 @@ func (s *Service) wireBuiltIn() {
 	set("create_avatar_video", Runner{Submit: s.submitAvatarVideo, Reconcile: s.reconcileJob})
 	if d.Generate != nil {
 		set("generate_video", Runner{Submit: s.submitGenerate, Reconcile: s.reconcileJob})
+	}
+	if d.Media != nil {
+		set("edit_image", Runner{Submit: s.submitMedia(kietools.JobEdit), Reconcile: s.reconcileJob})
+		set("talking_photo", Runner{Submit: s.submitMedia(kietools.JobTalk), Reconcile: s.reconcileJob})
+		set("speak_text", Runner{Submit: s.submitMedia(kietools.JobSpeech), Reconcile: s.reconcileJob})
+	}
+	if d.Scripts != nil {
+		set("check_script", Runner{Inline: s.checkScript})
 	}
 	if d.Posts != nil {
 		set("schedule_post", Runner{Inline: s.schedulePost})

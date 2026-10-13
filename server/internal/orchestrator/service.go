@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
 	"log/slog"
 	"time"
@@ -76,6 +77,10 @@ type Deps struct {
 	AvatarVid AvatarVideoSubmitter
 	// Generate is optional: without it a generate_video step cannot run.
 	Generate GenerateSubmitter
+	// Media is optional: without it the picture, voice and talking photo tools cannot run.
+	Media MediaSubmitter
+	// Scripts is optional: without it check_script cannot run.
+	Scripts ScriptChecker
 	// Posts is optional: without it a schedule_post step cannot run.
 	Posts     PostScheduler
 	Jobs      JobReader
@@ -104,6 +109,16 @@ type AvatarVideoSubmitter interface {
 // GenerateSubmitter queues generated video clips, idempotent like the others.
 type GenerateSubmitter interface {
 	Submit(ctx context.Context, userID string, r generate.Request, key string) (jobs.Job, bool, error)
+}
+
+// MediaSubmitter queues the KIE picture, voice and talking photo jobs.
+type MediaSubmitter interface {
+	Submit(ctx context.Context, userID, jobType string, args map[string]any, key string) (jobs.Job, bool, error)
+}
+
+// ScriptChecker reviews a voice-over script with the chat model.
+type ScriptChecker interface {
+	Check(ctx context.Context, script string) (kietools.Review, error)
 }
 
 // PostScheduler queues posts to social accounts, idempotent on the key.

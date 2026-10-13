@@ -20,7 +20,7 @@ const libraryColumns = `j.id::text, j.job_type, coalesce(j.input->>'prompt', '')
 	coalesce(j.completed_at, j.created_at)`
 
 const libraryFinished = `j.user_id = $1 and j.status = 'completed' and j.library_hidden_at is null
-	and j.job_type in ('video_generate', 'video_transform', 'avatar_video') and j.result ? 'video_url'`
+	and j.job_type in ('video_generate', 'video_transform', 'avatar_video', 'talking_photo') and j.result ? 'video_url'`
 
 func (s *LibraryStore) List(ctx context.Context, userID string, limit, offset int) ([]library.Item, error) {
 	return s.items(ctx, `select `+libraryColumns+` from public.jobs j where `+libraryFinished+`
@@ -75,7 +75,7 @@ func (s *LibraryStore) Video(ctx context.Context, userID, id string) (library.It
 		select id::text, job_type, coalesce(input->>'prompt', ''), result->>'video_url', coalesce(completed_at, created_at)
 		from public.jobs
 		where id = $1 and user_id = $2 and status = 'completed'
-		  and job_type in ('video_generate', 'video_transform', 'avatar_video') and result ? 'video_url'`, id, userID).
+		  and job_type in ('video_generate', 'video_transform', 'avatar_video', 'talking_photo') and result ? 'video_url'`, id, userID).
 		Scan(&it.ID, &it.Type, &it.Prompt, &it.VideoURL, &it.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) || isInvalidText(err) {
 		return library.Item{}, library.ErrNotFound
