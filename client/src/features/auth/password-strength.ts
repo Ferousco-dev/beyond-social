@@ -1,4 +1,4 @@
-export type StrengthLevel = 0 | 1 | 2 | 3 | 4;
+type StrengthLevel = 0 | 1 | 2 | 3 | 4;
 
 export interface PasswordStrength {
   readonly score: StrengthLevel;

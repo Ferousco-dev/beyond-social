@@ -13,13 +13,6 @@ const AUTH_PREFIXES = [
 ] as const;
 
 /**
- * Where a deleted session is sent. Deliberately outside the matcher in
- * `middleware.ts`, so this middleware never runs on it and the redirect cannot
- * chase its own tail.
- */
-export const ACCOUNT_DELETED_PATH = "/account-deleted";
-
-/**
  * Refreshes the Supabase session on every request and enforces route access:
  * unauthenticated users are redirected away from protected routes
  * and signed-in users are redirected away from the auth screens. Whether an

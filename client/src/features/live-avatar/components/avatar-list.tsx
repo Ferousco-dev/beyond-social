@@ -11,7 +11,7 @@ import { type TwinSummary } from "../delete-actions";
  * training. Pulled out of the JSX so it stays one definition, used both here
  * and by the smoke test that checks it against a raw `listTwins()` row shape.
  */
-export function isAwaitingConsent(
+function isAwaitingConsent(
   avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">,
 ): boolean {
   return (
@@ -20,7 +20,7 @@ export function isAwaitingConsent(
 }
 
 /** A pending avatar with no live consent link needs a fresh one before it can move. */
-export function needsFreshConsentLink(
+function needsFreshConsentLink(
   avatar: Pick<TwinSummary, "trainingStatus" | "consentUrl" | "consentUrlExpired">,
 ): boolean {
   return (
@@ -100,6 +100,8 @@ export function AvatarList({
                   aria-label={`Original recording for ${avatar.name || "this avatar"}`}
                 />
               ) : avatar.trainingStatus === "ready" && avatar.previewImageUrl ? (
+                // The preview is a small provider thumbnail that is already hosted.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={avatar.previewImageUrl}
                   alt={`Preview of ${avatar.name || "this avatar"}`}

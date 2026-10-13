@@ -38,9 +38,3 @@ export function routeAvailability(pathname: string): RouteAvailability {
   }
   return "available";
 }
-
-/** Features inside enabled screens that still depend on the old in-app server logic. */
-export const FEATURES = {
-  /** "Use as inspiration" and the deep analysis, which need AI and credits. */
-  postAnalysis: false,
-} as const;

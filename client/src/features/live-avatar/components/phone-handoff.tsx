@@ -19,9 +19,6 @@ import { useEffect, useState, type ReactNode } from "react";
  * light and short enough that a screenshot of the QR is worthless tomorrow.
  */
 
-/** Matches the expiry the handoff token itself is minted with. */
-export const HANDOFF_MINUTES = 20;
-
 /**
  * The QR as inline SVG, encoded in the browser.
  *

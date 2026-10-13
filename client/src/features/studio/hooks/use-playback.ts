@@ -105,6 +105,9 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
       image: (src) => images.current.get(src),
     };
 
+    // The maps are created once and never replaced, so holding them here is safe.
+    const playing = elements.current;
+    const pictures = images.current;
     let project = useStudio.getState().history.present;
     let urls = useStudio.getState().mediaUrls;
     sync(project);
@@ -140,9 +143,9 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
     return () => {
       cancelAnimationFrame(frame);
       unsubscribe();
-      for (const element of elements.current.values()) element.pause();
-      elements.current.clear();
-      images.current.clear();
+      for (const element of playing.values()) element.pause();
+      playing.clear();
+      pictures.clear();
     };
   }, [canvas]);
 }

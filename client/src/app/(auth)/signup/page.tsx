@@ -4,10 +4,6 @@ import { type Metadata } from "next";
 import { AuthHeader } from "@/features/auth/components/auth-header";
 import { SignupForm } from "@/features/auth/components/signup-form";
 
-// OAuth controls are paused while password authentication is being verified.
-// import { OrDivider } from "@/features/auth/components/or-divider";
-// import { SocialAuthButtons } from "@/features/auth/components/social-auth-buttons";
-// import { enabledProviders } from "@/features/auth/providers";
 
 export const metadata: Metadata = { title: "Create account" };
 
@@ -18,13 +14,6 @@ export default function SignupPage() {
         title="Create your account"
         subtitle="Start creating and publishing AI video in minutes."
       />
-      {/* OAuth controls are intentionally paused. Keep this block for re-enabling after auth is verified.
-      {enabledProviders().length > 0 ? (
-        <>
-          <SocialAuthButtons />
-          <OrDivider label="or sign up with email" />
-        </>
-      ) : null} */}
       <SignupForm />
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}

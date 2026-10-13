@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /** The Go API's response shapes, validated at the boundary. Optional means "not reported". */
 
-export const videoSchema = z.object({
+const videoSchema = z.object({
   id: z.string(),
   platform: z.enum(["tiktok", "instagram"]),
   source_video_id: z.string(),
@@ -23,7 +23,7 @@ export const videoSchema = z.object({
 });
 export type GoVideo = z.infer<typeof videoSchema>;
 
-export const discoverySchema = z.object({
+const discoverySchema = z.object({
   id: z.string(),
   platform: z.enum(["tiktok", "instagram"]),
   status: z.enum(["queued", "running", "completed", "failed"]),
@@ -45,7 +45,7 @@ export const discoveryResponse = z.object({ data: discoverySchema });
 export const videosResponse = z.object({ data: z.array(videoSchema) });
 export const jobResponse = z.object({ data: jobSchema });
 
-export const avatarSchema = z.object({
+const avatarSchema = z.object({
   id: z.string(),
   name: z.string(),
   is_default: z.boolean(),
@@ -60,7 +60,7 @@ export const avatarSchema = z.object({
 export type GoAvatar = z.infer<typeof avatarSchema>;
 export const avatarResponse = z.object({ data: avatarSchema });
 
-export const voiceSchema = z.object({
+const voiceSchema = z.object({
   voice_id: z.string(),
   name: z.string(),
   scope: z.enum(["own", "library"]),
@@ -87,7 +87,7 @@ export const nameResponse = z.object({ data: z.object({ name: z.string() }) });
 export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
 export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });
 
-export const workflowStepSchema = z.object({
+const workflowStepSchema = z.object({
   id: z.string(),
   step_id: z.string(),
   tool: z.string(),
@@ -100,7 +100,7 @@ export const workflowStepSchema = z.object({
 });
 export type GoWorkflowStep = z.infer<typeof workflowStepSchema>;
 
-export const workflowSchema = z.object({
+const workflowSchema = z.object({
   id: z.string(),
   objective: z.string(),
   status: z.enum([
@@ -121,10 +121,8 @@ export const workflowSchema = z.object({
 export type GoWorkflow = z.infer<typeof workflowSchema>;
 
 export const workflowResponse = z.object({ data: workflowSchema });
-export const workflowListResponse = z.object({ data: z.array(workflowSchema) });
-export const workflowStepsResponse = z.object({ data: z.array(workflowStepSchema) });
 
-export const attachmentSchema = z.object({
+const attachmentSchema = z.object({
   id: z.string(),
   kind: z.enum(["image", "video", "audio"]),
   name: z.string(),
@@ -191,7 +189,7 @@ export const socialListResponse = z.object({
 export type SocialStatus = z.infer<typeof socialListResponse>["data"][number];
 export const connectUrlResponse = z.object({ data: z.object({ url: z.string().url() }) });
 
-export const postSchema = z.object({
+const postSchema = z.object({
   id: z.string(),
   platform: z.enum(["youtube", "tiktok", "instagram"]),
   title: z.string().optional(),
@@ -206,7 +204,7 @@ export type ScheduledPost = z.infer<typeof postSchema>;
 export const postsResponse = z.object({ data: z.array(postSchema) });
 export const postResponse = z.object({ data: postSchema });
 
-export const editorProjectSchema = z.object({
+const editorProjectSchema = z.object({
   id: z.string(),
   title: z.string(),
   conversation_id: z.string().optional(),
@@ -220,7 +218,7 @@ export const wordsResponse = z.object({
 
 export const editorProjectResponse = z.object({ data: editorProjectSchema });
 
-export const usageSnapshotSchema = z.object({
+const usageSnapshotSchema = z.object({
   plan: z.enum(["free", "pro"]),
   five_hour_used: z.number(),
   five_hour_limit: z.number(),
@@ -249,7 +247,7 @@ export const plansResponse = z.object({
 });
 export type PlanInfo = z.infer<typeof plansResponse>["data"];
 
-export const packSchema = z.object({
+const packSchema = z.object({
   id: z.string(),
   name: z.string(),
   credits: z.number().int(),
@@ -261,7 +259,7 @@ export const packSchema = z.object({
 export type CreditPack = z.infer<typeof packSchema>;
 export const packsResponse = z.object({ data: z.array(packSchema) });
 
-export const paymentSchema = z.object({
+const paymentSchema = z.object({
   id: z.string(),
   pack_name: z.string(),
   credits: z.number().int(),
@@ -275,7 +273,7 @@ export type Payment = z.infer<typeof paymentSchema>;
 export const paymentsResponse = z.object({ data: z.array(paymentSchema) });
 export const checkoutResponse = z.object({ data: z.object({ url: z.string().url() }) });
 
-export const libraryItemSchema = z.object({
+const libraryItemSchema = z.object({
   id: z.string(),
   type: z.string(),
   prompt: z.string().optional(),

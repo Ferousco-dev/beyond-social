@@ -9,14 +9,14 @@ export const TRANSITIONS = ["fade", "slide", "zoom", "wipe"] as const;
 export type TransitionType = (typeof TRANSITIONS)[number];
 
 /** How an item comes in. It plays over the first moments of the item. */
-export const transitionSchema = z.object({ type: z.enum(TRANSITIONS), duration: z.number().min(0.1).max(3) });
+const transitionSchema = z.object({ type: z.enum(TRANSITIONS), duration: z.number().min(0.1).max(3) });
 export type Transition = z.infer<typeof transitionSchema>;
 
 /**
  * A moment where an item's position, size or opacity is pinned. Between
  * moments the value glides. `t` counts from the start of the item.
  */
-export const keyframeSchema = z.object({
+const keyframeSchema = z.object({
   t: z.number().min(0),
   x: z.number().min(0).max(1).optional(),
   y: z.number().min(0).max(1).optional(),
@@ -48,7 +48,7 @@ export type CaptionPreset = (typeof CAPTION_PRESETS)[number];
 
 const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 
-export const captionStyleSchema = z.object({
+const captionStyleSchema = z.object({
   /** How words are drawn. Projects saved before presets existed read as classic. */
   preset: z.enum(CAPTION_PRESETS).optional(),
   color: hex,
@@ -62,7 +62,7 @@ export const captionStyleSchema = z.object({
 });
 export type CaptionStyle = z.infer<typeof captionStyleSchema>;
 
-export const wordSchema = z.object({ text: z.string().max(80), start: z.number().min(0), end: z.number().min(0) });
+const wordSchema = z.object({ text: z.string().max(80), start: z.number().min(0), end: z.number().min(0) });
 
 export const itemSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("video"), ...mediaFields, ...animation }),
@@ -93,13 +93,12 @@ export const itemSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 export type Item = z.infer<typeof itemSchema>;
-export type ItemKind = Item["kind"];
 
 /** Which kind of item each kind of track holds. */
 export const TRACK_ACCEPTS = { text: "text", video: "video", audio: "audio", overlay: "image", caption: "caption" } as const;
 export type TrackKind = keyof typeof TRACK_ACCEPTS;
 
-export const trackSchema = z.object({
+const trackSchema = z.object({
   id: z.string().min(1).max(64),
   kind: z.enum(["text", "video", "audio", "overlay", "caption"]),
   items: z.array(itemSchema).max(500),

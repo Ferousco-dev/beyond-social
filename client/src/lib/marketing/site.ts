@@ -47,11 +47,6 @@ export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   },
 ];
 
-export interface SocialLink {
-  readonly label: string;
-  readonly href: string;
-}
-
 /**
  * Social profiles. These point at the handles reserved for the product; update
  * each URL as the account goes live.

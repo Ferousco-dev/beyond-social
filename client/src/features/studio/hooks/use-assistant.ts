@@ -30,7 +30,7 @@ export interface RememberProposal {
   readonly message?: string;
 }
 
-export interface AssistantMessage {
+interface AssistantMessage {
   readonly id: string;
   readonly role: "user" | "assistant";
   readonly content: string;

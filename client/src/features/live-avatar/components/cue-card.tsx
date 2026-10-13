@@ -47,7 +47,7 @@ export function twinCues(name: string): readonly Cue[] {
   ];
 }
 
-export function cueAt(cues: readonly Cue[], seconds: number): Cue | undefined {
+function cueAt(cues: readonly Cue[], seconds: number): Cue | undefined {
   return [...cues].reverse().find((cue) => seconds >= cue.at);
 }
 

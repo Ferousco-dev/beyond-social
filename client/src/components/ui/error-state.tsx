@@ -4,7 +4,7 @@ import { Check, Copy, TriangleAlert } from "lucide-react";
 import { useState, type ComponentType, type ReactNode } from "react";
 
 import { StatePanel, type StateAction } from "@/components/ui/empty-state";
-import { errorCopy, type ErrorCode, type ErrorReference } from "@/lib/errors";
+import { type ErrorReference } from "@/lib/errors";
 
 /**
  * The error half of the shared state shape. Same three questions as
@@ -47,33 +47,6 @@ export function ErrorState({
   );
 }
 
-/** Builds the panel straight from a code, so a known failure needs no prose. */
-export function CodedErrorState({
-  code,
-  action,
-  secondary,
-  reference,
-  className,
-}: {
-  readonly code: ErrorCode;
-  readonly action?: StateAction;
-  readonly secondary?: StateAction;
-  readonly reference?: ErrorReference | null;
-  readonly className?: string;
-}) {
-  const copy = errorCopy(code);
-  return (
-    <ErrorState
-      title={copy.title}
-      impact={`${copy.impact} ${copy.action}`}
-      action={action}
-      secondary={secondary}
-      reference={reference}
-      className={className}
-    />
-  );
-}
-
 /**
  * The id, and a way to take it without transcribing it. People do get this
  * wrong by hand, and a mistyped reference finds nothing while looking exactly
@@ -98,7 +71,7 @@ function ReferenceChip({ reference }: { reference: ErrorReference }) {
       <p className="text-xs text-ink-soft">
         Quote this if you contact support
         <span className="sr-only">
-          . {reference.kind === "trace" ? "Trace" : "Error"} reference {reference.value}
+          . Error reference {reference.value}
         </span>
       </p>
       <button

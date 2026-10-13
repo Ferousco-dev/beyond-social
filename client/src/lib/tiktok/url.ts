@@ -61,15 +61,3 @@ export function parseTikTokPost(input: string): TikTokPost | null {
 export function tikTokEmbedUrl(videoId: string): string | null {
   return VIDEO_ID.test(videoId) ? `https://www.tiktok.com/embed/v2/${videoId}` : null;
 }
-
-/** Every canonical post URL found in a page of text, deduplicated, in order. */
-export function extractTikTokPosts(text: string): readonly TikTokPost[] {
-  const found = new Map<string, TikTokPost>();
-
-  for (const match of text.matchAll(/https:\/\/[\w.]*tiktok\.com\/@[\w.]+\/video\/\d+/g)) {
-    const post = parseTikTokPost(match[0]);
-    if (post && !found.has(post.videoId)) found.set(post.videoId, post);
-  }
-
-  return [...found.values()];
-}

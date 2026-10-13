@@ -16,7 +16,7 @@ import { type DiscoverPost } from "./types";
 const POLL_INTERVAL_MS = 2_000;
 const MAX_WAIT_MS = 150_000;
 /** The API's own cap on videos per discovery. */
-export const DISCOVERY_LIMIT = 60;
+const DISCOVERY_LIMIT = 60;
 
 export type DiscoveryOutcome =
   | { readonly status: "ok"; readonly posts: readonly DiscoverPost[] }

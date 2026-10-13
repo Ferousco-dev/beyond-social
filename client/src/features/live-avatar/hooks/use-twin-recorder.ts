@@ -18,13 +18,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 
 /** HeyGen trains from 15 seconds upward; below that there is not enough to learn. */
-export const MIN_SECONDS = 20;
+const MIN_SECONDS = 20;
 
 /**
  * Two minutes is HeyGen's upper bound for twin footage, and long past the point
  * where a person reading three prompted lines has given the model what it needs.
  */
-export const MAX_SECONDS = 120;
+const MAX_SECONDS = 120;
 
 export type TwinRecorderState = "idle" | "ready" | "recording" | "done";
 

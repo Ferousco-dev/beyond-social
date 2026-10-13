@@ -13,11 +13,11 @@ const TOOL_LABELS: Readonly<Record<string, string>> = {
 
 const BILLABLE_TOOLS = new Set(["discover_videos", "transform_video", "create_avatar_video", "generate_video"]);
 
-export function toolLabel(tool: string): string {
+function toolLabel(tool: string): string {
   return TOOL_LABELS[tool] ?? tool;
 }
 
-export function isBillableTool(tool: string): boolean {
+function isBillableTool(tool: string): boolean {
   return BILLABLE_TOOLS.has(tool);
 }
 

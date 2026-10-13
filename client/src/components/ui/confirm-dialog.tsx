@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
  * clickable for a moment after the dialog opens.
  */
 
-export type ConfirmTone = "destructive" | "neutral";
+type ConfirmTone = "destructive" | "neutral";
 
 export interface ConfirmOptions {
   /** What is about to happen, phrased as a question. */

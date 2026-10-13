@@ -10,7 +10,7 @@
  * `theme-server.ts` and the browser half in `theme-client.ts` can share it.
  */
 
-export const THEMES = ["light", "dark", "auto"] as const;
+const THEMES = ["light", "dark", "auto"] as const;
 export type Theme = (typeof THEMES)[number];
 
 export const THEME_COOKIE = "bs-theme";

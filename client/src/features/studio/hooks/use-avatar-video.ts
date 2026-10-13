@@ -12,7 +12,7 @@ const POLL_MS = 4000;
 const TIMEOUT_MS = 10 * 60 * 1000;
 const WORDS_PER_SECOND = 2.5;
 
-export type AvatarVideoState =
+type AvatarVideoState =
   | { readonly phase: "idle" }
   | { readonly phase: "working" }
   | { readonly phase: "done" }

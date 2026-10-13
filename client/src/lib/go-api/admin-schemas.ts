@@ -14,7 +14,6 @@ const userSchema = z.object({
   name: z.string(),
   balance: z.number(),
 });
-export type AdminUser = z.infer<typeof userSchema>;
 export const adminUsersResponse = z.object({ data: z.array(userSchema) });
 
 const ledgerRow = z.object({
@@ -24,7 +23,6 @@ const ledgerRow = z.object({
   reason: z.string(),
   createdAt: z.string(),
 });
-export type LedgerRow = z.infer<typeof ledgerRow>;
 export const userLedgerResponse = z.object({
   data: z.object({ balance: z.number(), history: z.array(ledgerRow) }),
 });
@@ -124,5 +122,4 @@ const alertRow = z.object({
   count: z.number(),
   last_seen: z.string(),
 });
-export type AlertRow = z.infer<typeof alertRow>;
 export const alertsResponse = z.object({ data: z.array(alertRow) });

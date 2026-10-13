@@ -18,7 +18,7 @@ import { HEYGEN_CONSENT_VERSION } from "./consent";
  * session it does not have to use the second one.
  */
 
-export interface TwinUploadTicket {
+interface TwinUploadTicket {
   readonly path: string;
   /** Handed to `uploadToSignedUrl` in the browser. */
   readonly token: string;
@@ -46,7 +46,7 @@ export async function ticketTwinFootage(contentType: string): Promise<TicketResu
     : { status: "error", message: result.message };
 }
 
-export type TrainingState = "pending" | "ready" | "failed";
+type TrainingState = "pending" | "ready" | "failed";
 
 export type TrainingResult =
   | {
