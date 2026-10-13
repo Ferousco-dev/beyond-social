@@ -1,0 +1,122 @@
+name: Deploy
+
+# Runs when something is merged to main. It checks the code, builds the API image,
+# sends it to Render, then sends the website to Vercel. The API goes first because
+# it applies database migrations the new website may rely on.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/beyond-social-api
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: beyond_social_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Go vet and tests
+        working-directory: server
+        env:
+          GOTOOLCHAIN: go1.27.2
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/beyond_social_test?sslmode=disable
+        run: |
+          go vet ./...
+          go test -race -count=1 ./...
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Types, lint and tests
+        working-directory: client
+        run: |
+          npx tsc --noEmit
+          npx eslint .
+          pnpm test
+
+  api-image:
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.ref.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: ref
+        run: echo "image=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: true
+          tags: |
+            ${{ steps.ref.outputs.image }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-api:
+    needs: api-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tell Render to run this exact image
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          IMAGE_REF: ${{ needs.api-image.outputs.image }}
+        run: curl --fail --silent --show-error --max-time 30 "${HOOK}&imgURL=${IMAGE_REF}"
+      - name: Wait for the API to answer
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          for i in $(seq 1 40); do
+            if curl --fail --silent --max-time 10 "${API_URL}/ready" > /dev/null; then echo "API is ready"; exit 0; fi
+            sleep 15
+          done
+          echo "The API did not become ready in 10 minutes" >&2
+          exit 1
+
+  deploy-web:
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --global vercel@latest
+      - run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

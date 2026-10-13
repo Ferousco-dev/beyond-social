@@ -1,15 +1,16 @@
 # Render blueprint for the Go API. Supabase provides Postgres, Auth and Storage;
-# Render only runs the service. Secrets are entered once in the Render dashboard
+# Render only runs the service (a container image). Secrets are entered once in the Render dashboard
 # (sync: false) and never live in this file.
 services:
   - name: beyond-social-api
     type: web
-    runtime: go
+    # The image is built and pushed by .github/workflows/deploy.yml, which then
+    # calls this service's deploy hook with the exact tag to run.
+    runtime: image
+    image:
+      url: ghcr.io/ferousco-dev/beyond-social-api:latest
     plan: 0.5c-512mb
     region: frankfurt
-    rootDir: server
-    buildCommand: go build -o bin/api ./cmd/api
-    startCommand: ./bin/api
     # Liveness only. /ready also checks the database and is for monitoring.
     healthCheckPath: /health
     autoDeployTrigger: "off"
