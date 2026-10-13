@@ -90,7 +90,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - id: ref
-        run: echo "image=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+        run: |
+          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "image=ghcr.io/${OWNER}/beyond-social-api:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "latest=ghcr.io/${OWNER}/beyond-social-api:latest" >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@v6
         with:
@@ -98,7 +101,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.ref.outputs.image }}
-            ${{ env.IMAGE }}:latest
+            ${{ steps.ref.outputs.latest }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
