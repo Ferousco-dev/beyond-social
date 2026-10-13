@@ -116,7 +116,7 @@ jobs:
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
           IMAGE_REF: ${{ needs.build-api-image.outputs.image }}
-        run: curl --fail --silent --show-error --max-time 30 "${HOOK}&imgURL=${IMAGE_REF}"
+        run: curl --fail --silent --show-error --max-time 30 --get --data-urlencode "imgURL=${IMAGE_REF}" "${HOOK}"
 
       - name: Wait for API health
         env:
