@@ -63,6 +63,7 @@ type Biller interface {
 }
 
 type Service struct {
+	quota          func(ctx context.Context, userID string) error
 	biller         Biller
 	voices         VoiceChecker
 	repo           Repository
@@ -147,6 +148,12 @@ func (s *Service) closeCharge(ctx context.Context, a Avatar) {
 }
 
 // WithBiller turns on charging. Without one training is free.
+// WithQuota checks whether a user may make another avatar; it runs before one is created.
+func (s *Service) WithQuota(check func(ctx context.Context, userID string) error) *Service {
+	s.quota = check
+	return s
+}
+
 func (s *Service) WithBiller(b Biller) *Service {
 	s.biller = b
 	return s

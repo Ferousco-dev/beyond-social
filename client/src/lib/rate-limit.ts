@@ -1,9 +1,6 @@
-import { type RateLimitOutcome } from "@beyond-social/rate-limit";
-
-// Fixed-window rate limiter. In-memory and per-instance: a cheap first line of
-// defence that costs no round trip. The limit that holds across a fleet lives in
-// `@beyond-social/rate-limit`, and this stands in only where there is no shared
-// store to reach, such as local development.
+// Fixed-window rate limiter for sign-in forms. In-memory and per-instance: a cheap
+// first line of defence that costs no round trip. The limits that protect the
+// product itself are enforced by the Go API.
 
 interface Bucket {
   count: number;
@@ -12,12 +9,12 @@ interface Bucket {
 
 const store = new Map<string, Bucket>();
 
-/**
- * Re-exported so the in-memory limiter and the shared one speak in one shape.
- * The two are interchangeable at the call site by design: this is the fallback
- * when there is no shared store to talk to.
- */
-export type RateLimitResult = RateLimitOutcome;
+export interface RateLimitResult {
+  readonly ok: boolean;
+  readonly remaining: number;
+  /** How long until the window opens again, when the request was refused. */
+  readonly retryAfterMs: number;
+}
 
 export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();

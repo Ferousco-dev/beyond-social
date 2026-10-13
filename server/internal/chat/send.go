@@ -11,6 +11,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
+	"github.com/google/uuid"
 )
 
 // Exchange is a user message and the assistant's answer to it.
@@ -51,6 +52,19 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 		}
 	}
 
+	// Everything from here asks a model, so this is what is charged for. A retry
+	// that finds its earlier answer above is never charged again.
+	charge, err := s.charge(ctx, userID, user.ID)
+	if err != nil {
+		return Exchange{}, err
+	}
+	exchange, err := s.respond(ctx, userID, conv, user, text, items, timeZone)
+	s.closeCharge(ctx, userID, charge, err == nil)
+	return exchange, err
+}
+
+// respond answers a saved message.
+func (s *Service) respond(ctx context.Context, userID string, conv Conversation, user Message, text string, items []media.Item, timeZone string) (Exchange, error) {
 	if s.analyzer != nil {
 		if link, _, ok := analysis.FindLink(text); ok {
 			return s.sendLink(ctx, userID, conv, user, link)
@@ -66,6 +80,13 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 	history, pending, err := s.history(ctx, userID, conv.ID, user.ID)
 	if err != nil {
 		return Exchange{}, err
+	}
+	if pinned, ok := s.contextTurn(ctx, userID, conv.ID); ok {
+		// One slot goes to the pinned turn so the prompt stays the same length.
+		if len(history) >= historyTurns {
+			history = history[len(history)-historyTurns+1:]
+		}
+		history = append([]Turn{pinned}, history...)
 	}
 	files, err := s.readableFiles(ctx, userID, items)
 	if err != nil {
@@ -86,7 +107,29 @@ func (s *Service) Send(ctx context.Context, userID, conversationID, content, key
 	if err != nil {
 		return Exchange{}, err
 	}
-	return s.finishTurn(ctx, userID, conv, user, assistant), nil
+	exchange := s.finishTurn(ctx, userID, conv, user, assistant)
+	go s.summarizeOlder(userID, conv.ID)
+	return exchange, nil
+}
+
+// charge takes the credits for one answer. Each attempt is charged on its own,
+// so one that fails is returned in full and a later retry pays once.
+func (s *Service) charge(ctx context.Context, userID, messageID string) (string, error) {
+	if s.billing == nil {
+		return "", nil
+	}
+	id := "chat:" + messageID + ":" + uuid.NewString()
+	return id, s.billing.Reserve(ctx, userID, id)
+}
+
+func (s *Service) closeCharge(ctx context.Context, userID, charge string, delivered bool) {
+	if charge == "" {
+		return
+	}
+	// A client that hung up must still get its credit back.
+	if err := s.billing.Close(context.WithoutCancel(ctx), userID, charge, delivered); err != nil {
+		slog.Error("close chat charge", "charge", charge, "error", err)
+	}
 }
 
 // finishTurn titles a new thread and tells the user's open screens.
@@ -131,6 +174,9 @@ func (s *Service) answer(ctx context.Context, t turnInput) (reply, workflowID st
 		}
 		return written.Describe(), "", &written, nil
 	}
+	if decision.Remember != "" && s.memory != nil && s.memory.Remember(ctx, t.userID, decision.Remember) {
+		decision.Reply = savedNote(decision.Reply)
+	}
 	if !decision.Create && !decision.Script {
 		return decision.Reply, "", nil, nil
 	}
@@ -151,6 +197,15 @@ func (s *Service) answer(ctx context.Context, t turnInput) (reply, workflowID st
 		return "", "", nil, err
 	}
 	return outcome.Reply, outcome.WorkflowID, nil, nil
+}
+
+// savedNote tells the user something was kept, on a reply that may be empty.
+func savedNote(reply string) string {
+	const note = "Saved to your memory. You can review it in Settings."
+	if reply == "" {
+		return note
+	}
+	return reply + "\n\n" + note
 }
 
 // history is the recent thread before the message being answered.

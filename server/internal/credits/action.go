@@ -9,6 +9,7 @@ const (
 	ActionEditorAssist    = "editor_assist"
 	ActionEditorCaptions  = "editor_captions"
 	ActionEditorWatch     = "editor_watch"
+	ActionChatMessage     = "chat_message"
 )
 
 // ActionBiller charges a flat price for a resource that has its own table
@@ -33,11 +34,7 @@ func (b *ActionBiller) Reserve(ctx context.Context, userID, discoveryID string) 
 
 func (b *ActionBiller) Close(ctx context.Context, userID, discoveryID string, delivered bool) error {
 	if delivered {
-		reserved, err := b.svc.store.Reserved(ctx, discoveryID)
-		if err != nil {
-			return err
-		}
-		return b.svc.Settle(ctx, userID, discoveryID, reserved)
+		return b.svc.Keep(ctx, userID, discoveryID)
 	}
 	return b.svc.Refund(ctx, userID, discoveryID, "did not complete")
 }

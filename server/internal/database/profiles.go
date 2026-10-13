@@ -52,3 +52,26 @@ func (s *ProfileStore) MarkGranted(ctx context.Context, id string) error {
 	_, err := s.pool.Exec(ctx, `update public.profiles set signup_granted_at = now() where id = $1 and signup_granted_at is null`, id)
 	return err
 }
+
+func (s *ProfileStore) SetDisplayName(ctx context.Context, id, name string) (accounts.Profile, error) {
+	var p accounts.Profile
+	var role string
+	err := s.pool.QueryRow(ctx, `
+		update public.profiles set display_name = $2 where id = $1
+		returning id::text, email, display_name, role, created_at, suspended_at, deleted_at, signup_granted_at`, id, name).
+		Scan(&p.ID, &p.Email, &p.DisplayName, &role, &p.CreatedAt, &p.SuspendedAt, &p.DeletedAt, &p.GrantedAt)
+	p.Role = accounts.Role(role)
+	return p, err
+}
+
+func (s *ProfileStore) MarkDeleted(ctx context.Context, id string) error {
+	_, err := s.pool.Exec(ctx, `update public.profiles set deleted_at = coalesce(deleted_at, now()) where id = $1`, id)
+	return err
+}
+
+// Email returns where to write to a person, for the product's own emails.
+func (s *ProfileStore) Email(ctx context.Context, id string) (string, error) {
+	var email string
+	err := s.pool.QueryRow(ctx, `select email from public.profiles where id = $1 and deleted_at is null`, id).Scan(&email)
+	return email, err
+}

@@ -29,6 +29,8 @@ export interface ExportOptions {
   readonly urls: Readonly<Record<string, string>>;
   readonly onProgress: (fraction: number) => void;
   readonly signal: AbortSignal;
+  /** The Free plan marks every export. */
+  readonly watermark: boolean;
 }
 
 const mediaOf = (project: Project, kind: Media["kind"]): Media[] =>
@@ -76,7 +78,7 @@ async function mixAudio(project: Project, urls: ExportOptions["urls"], seconds: 
 }
 
 /** Renders the project to an MP4 in the browser: each frame is drawn on a canvas and encoded as it goes. */
-export async function exportProject(project: Project, { urls, onProgress, signal }: ExportOptions): Promise<Blob> {
+export async function exportProject(project: Project, { urls, onProgress, signal, watermark }: ExportOptions): Promise<Blob> {
   const seconds = projectDuration(project);
   if (seconds <= 0) throw new Error("There is nothing on the timeline to export.");
   if (!(await canEncodeVideo("avc", { width: project.width, height: project.height }))) {
@@ -136,7 +138,7 @@ export async function exportProject(project: Project, { urls, onProgress, signal
         const wrapped = await sinks.get(clip.id)?.sink.getCanvas(clip.trimIn + (time - clip.start) * speedOf(clip));
         if (wrapped) ready.set(clip.id, { source: wrapped.canvas, width: project.width, height: project.height });
       }
-      drawFrame(ctx, project, time, { video: (id) => ready.get(id), image: (src) => images.get(src) });
+      drawFrame(ctx, project, time, { video: (id) => ready.get(id), image: (src) => images.get(src) }, watermark);
       await video.add(time, 1 / project.fps);
       onProgress((i + 1) / frames);
     }

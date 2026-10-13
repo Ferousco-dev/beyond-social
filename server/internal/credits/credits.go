@@ -73,6 +73,10 @@ const (
 
 type Service struct {
 	store Store
+	// usage is set when plans are on.
+	usage UsageStore
+	// notify is told when a Pro member fills a window.
+	notify LimitNotifier
 }
 
 func NewService(store Store) *Service { return &Service{store: store} }
@@ -99,6 +103,34 @@ func (s *Service) Grant(ctx context.Context, userID string, amount int, key, rea
 	return applied, err
 }
 
+// Purchase adds credits a user paid for. key keeps one payment from granting twice.
+func (s *Service) Purchase(ctx context.Context, userID string, amount int, key, reason string) (bool, error) {
+	if amount <= 0 {
+		return false, errors.New("credits: a purchase must add credits")
+	}
+	_, applied, err := s.store.Apply(ctx, Entry{UserID: userID, Kind: KindPurchase, Amount: amount, Key: key, Reason: reason})
+	return applied, err
+}
+
+// Clawback takes back credits from a refunded payment. It never takes more than
+// the user has left, so a refund cannot push a balance below zero, and it says
+// how much it actually took.
+func (s *Service) Clawback(ctx context.Context, userID string, amount int, key, reason string) (int, error) {
+	balance, err := s.store.Balance(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	take := min(amount, balance)
+	if take <= 0 {
+		return 0, nil
+	}
+	_, applied, err := s.store.Apply(ctx, Entry{UserID: userID, Kind: KindAdjust, Amount: -take, Key: key, Reason: reason})
+	if err != nil || !applied {
+		return 0, err
+	}
+	return take, nil
+}
+
 // Adjust is an admin correction, positive or negative, and needs a reason.
 func (s *Service) Adjust(ctx context.Context, userID string, amount int, key, reason, actor string) (int, error) {
 	if reason == "" || amount == 0 {
@@ -113,19 +145,41 @@ func (s *Service) Reserve(ctx context.Context, userID, jobID string, amount int,
 	if amount <= 0 {
 		return nil
 	}
-	if err := s.checkDailyLimit(ctx, userID, amount); err != nil {
+	if s.usage == nil {
+		return s.reserveCredits(ctx, userID, jobID, amount, reason, 100, false)
+	}
+	plan, err := s.usage.Plan(ctx, userID)
+	if err != nil {
 		return err
 	}
-	_, _, err := s.store.Apply(ctx, Entry{
-		UserID: userID, Kind: KindReserve, Amount: -amount, JobID: jobID, Key: "reserve:" + jobID, Reason: reason,
-	})
-	return err
+	if plan == PlanPro {
+		return s.reservePro(ctx, userID, jobID, amount, reason)
+	}
+	// Free users pay more for the same work, which is what makes upgrading worth it.
+	pct := s.multiplierPct(ctx)
+	return s.reserveCredits(ctx, userID, jobID, ceilPct(amount, pct), reason, pct, false)
 }
 
 // Settle keeps the charge for a finished job, handing back any part of the
 // reservation that was not used. Settling and refunding share one key, so only
 // the first of them ever takes effect.
 func (s *Service) Settle(ctx context.Context, userID, jobID string, actual int) error {
+	if s.usage != nil {
+		ev, found, err := s.usage.Event(ctx, jobID)
+		if err != nil {
+			return err
+		}
+		if found && ev.Points > 0 {
+			// Counted against a usage window: hand back what the work did not need.
+			if back := ev.Points - max(actual, 0); back > 0 {
+				return s.usage.Release(ctx, jobID, back)
+			}
+			return nil
+		}
+		if found && ev.MultPct > 0 {
+			actual = ceilPct(actual, ev.MultPct)
+		}
+	}
 	reserved, err := s.store.Reserved(ctx, jobID)
 	if err != nil || reserved == 0 {
 		return err
@@ -137,8 +191,32 @@ func (s *Service) Settle(ctx context.Context, userID, jobID string, actual int) 
 	return err
 }
 
+// Keep closes a charge at its full price: work that delivered exactly what it reserved for.
+func (s *Service) Keep(ctx context.Context, userID, jobID string) error {
+	if s.usage != nil {
+		if ev, found, err := s.usage.Event(ctx, jobID); err != nil || (found && ev.Points > 0) {
+			return err // points stay counted in the windows; nothing is open in the ledger
+		}
+	}
+	reserved, err := s.store.Reserved(ctx, jobID)
+	if err != nil || reserved == 0 {
+		return err
+	}
+	_, _, err = s.store.Apply(ctx, Entry{UserID: userID, Kind: KindSettle, Amount: 0, JobID: jobID, Key: "close:" + jobID, Reason: "completed"})
+	return err
+}
+
 // Refund returns the whole reservation for a job that did not deliver.
 func (s *Service) Refund(ctx context.Context, userID, jobID, reason string) error {
+	if s.usage != nil {
+		ev, found, err := s.usage.Event(ctx, jobID)
+		if err != nil {
+			return err
+		}
+		if found && ev.Points > 0 {
+			return s.usage.Release(ctx, jobID, ev.Points)
+		}
+	}
 	reserved, err := s.store.Reserved(ctx, jobID)
 	if err != nil || reserved == 0 {
 		return err

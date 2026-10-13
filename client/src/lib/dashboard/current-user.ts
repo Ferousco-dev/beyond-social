@@ -25,6 +25,7 @@ const PLACEHOLDER: DashboardUser = {
   initials: "AR",
   avatarUrl: null,
   credits: null,
+  plan: "free",
   isAdmin: false,
 };
 
@@ -62,6 +63,7 @@ export const getCurrentUser = cache(async (): Promise<DashboardUser> => {
     initials: toInitials(name),
     avatarUrl: null,
     credits: me.data.data.credits,
+    plan: me.data.data.plan,
     isAdmin: me.data.data.role === "admin",
   };
 });

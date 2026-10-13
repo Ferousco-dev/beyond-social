@@ -129,7 +129,7 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
       steer(project, useStudio.getState().currentTime, state.playing);
       if (dirty.current) {
         dirty.current = false;
-        drawFrame(ctx, project, useStudio.getState().currentTime, sources);
+        drawFrame(ctx, project, useStudio.getState().currentTime, sources, useStudio.getState().plan !== "pro");
       }
       frame = requestAnimationFrame(tick);
     };

@@ -25,6 +25,7 @@ export function SearchBar({
   onPlatformChange,
   onSubmit,
   busy,
+  note,
 }: {
   query: string;
   onQueryChange: (value: string) => void;
@@ -32,6 +33,8 @@ export function SearchBar({
   onPlatformChange: (platform: ScrapePlatform) => void;
   onSubmit: () => void;
   busy: boolean;
+  /** What a search costs or allows on this person's plan. */
+  note: string;
 }) {
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -94,7 +97,7 @@ export function SearchBar({
           Search
         </button>
       </div>
-      <p className="shrink-0 text-xs text-ink-soft sm:w-28">5 credits per search</p>
+      <p className="shrink-0 text-xs text-ink-soft sm:w-36">{note}</p>
     </form>
   );
 }

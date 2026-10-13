@@ -65,6 +65,11 @@ func (a *App) editorAssist(w http.ResponseWriter, r *http.Request) {
 			about = text
 		}
 	}
+	if a.deps.Memory != nil {
+		if saved := a.deps.Memory.Block(r.Context(), userID); saved != "" {
+			about = strings.TrimSpace(about + "\n\n" + saved)
+		}
+	}
 	var reply editor.Reply
 	if !a.charged(w, r, userID, a.deps.AssistBiller, func() error {
 		var err error

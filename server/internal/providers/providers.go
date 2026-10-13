@@ -10,10 +10,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
+	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
 )
 
@@ -28,8 +31,10 @@ type Balance struct {
 var ErrNoBalance = errors.New("providers: no balance endpoint")
 
 type Checker struct {
-	HTTP                                                   *http.Client
-	ApifyBase, KIEBase, HeygenBase, Gemini, OpenRouterBase string
+	HTTP                                                               *http.Client
+	ApifyBase, KIEBase, HeygenBase, Gemini, OpenRouterBase, StripeBase string
+	// Hook posts to the admin's alert webhook, and refuses private addresses.
+	Hook *http.Client
 }
 
 func NewChecker() *Checker {
@@ -40,6 +45,8 @@ func NewChecker() *Checker {
 		HeygenBase:     "https://api.heygen.com/v3",
 		Gemini:         "https://generativelanguage.googleapis.com/v1beta",
 		OpenRouterBase: "https://openrouter.ai/api/v1",
+		StripeBase:     "https://api.stripe.com/v1",
+		Hook:           safenet.NewClient(10 * time.Second),
 	}
 }
 
@@ -55,6 +62,16 @@ func (c *Checker) Verify(ctx context.Context, name, value string) error {
 		return err
 	case secrets.NameHeygen:
 		_, err := c.get(ctx, c.HeygenBase+"/users/me", header("X-Api-Key", value))
+		return err
+	case secrets.NameAlertWebhook:
+		// Posting a test line is the only way to know the address reaches someone.
+		if u, err := url.Parse(value); err != nil || u.Scheme != "https" || u.Host == "" {
+			return errors.New("the webhook must be an https address")
+		}
+		return alerts.PostText(ctx, c.Hook, value, "Beyond Social: alerts are connected. You will be told here when a provider runs low or a key breaks.")
+	case secrets.NameStripeKey:
+		// A restricted or secret key can read the balance; a publishable one cannot, which is the mistake to catch.
+		_, err := c.get(ctx, c.StripeBase+"/balance", bearer(value))
 		return err
 	case secrets.NameOpenRouter:
 		// Reads the key's own record, which rejects a bad key without spending anything.

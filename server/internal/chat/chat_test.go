@@ -283,3 +283,53 @@ func TestPlannerDescribesWhatWasActuallyPlanned(t *testing.T) {
 		t.Fatalf("busy err = %v", err)
 	}
 }
+
+type memBiller struct {
+	reserveErr error
+	open       int
+	kept       int
+	returned   int
+}
+
+func (b *memBiller) Reserve(context.Context, string, string) error {
+	if b.reserveErr != nil {
+		return b.reserveErr
+	}
+	b.open++
+	return nil
+}
+func (b *memBiller) Close(_ context.Context, _, _ string, delivered bool) error {
+	b.open--
+	if delivered {
+		b.kept++
+	} else {
+		b.returned++
+	}
+	return nil
+}
+
+func TestEachAnswerIsChargedOnceAndAFailureIsReturned(t *testing.T) {
+	store, router, billing := newMem(), &stubRouter{decision: Decision{Reply: "hi"}}, &memBiller{}
+	svc := service(router, &stubPlanner{}, store).WithBilling(billing)
+	ctx := context.Background()
+
+	if _, err := svc.Send(ctx, "u1", "c1", "hello", "k1", nil, ""); err != nil || billing.kept != 1 || billing.open != 0 {
+		t.Fatalf("a delivered answer: kept=%d open=%d err=%v", billing.kept, billing.open, err)
+	}
+	// Sending the same message again returns the earlier answer and costs nothing more.
+	if _, err := svc.Send(ctx, "u1", "c1", "hello", "k1", nil, ""); err != nil || billing.kept != 1 {
+		t.Fatalf("a repeat was charged again: kept=%d err=%v", billing.kept, err)
+	}
+	router.err = errors.New("provider down")
+	if _, err := svc.Send(ctx, "u1", "c1", "again", "k2", nil, ""); err == nil || billing.returned != 1 || billing.open != 0 {
+		t.Fatalf("a failed answer: returned=%d open=%d err=%v", billing.returned, billing.open, err)
+	}
+}
+
+func TestAMessageIsNotAnsweredWhenItCannotBePaidFor(t *testing.T) {
+	store, router := newMem(), &stubRouter{decision: Decision{Reply: "hi"}}
+	svc := service(router, &stubPlanner{}, store).WithBilling(&memBiller{reserveErr: errors.New("not enough credits")})
+	if _, err := svc.Send(context.Background(), "u1", "c1", "hello", "k", nil, ""); err == nil || router.calls != 0 {
+		t.Fatalf("err=%v model calls=%d", err, router.calls)
+	}
+}

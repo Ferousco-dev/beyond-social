@@ -5,6 +5,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
 	"log/slog"
 	"net/http"
+	"time"
 )
 
 type errorBody struct {
@@ -14,6 +15,8 @@ type errorBody struct {
 type apiError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	// ResetsAt says when a usage limit refills, for the errors that are one.
+	ResetsAt *time.Time `json:"resets_at,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

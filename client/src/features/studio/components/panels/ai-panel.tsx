@@ -3,9 +3,11 @@
 import { ArrowUp, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { ErrorHelp } from "@/components/billing/error-help";
 import { cn } from "@/lib/utils";
 
 import { useAssistant } from "../../hooks/use-assistant";
+import { RememberCard } from "./remember-card";
 import { SceneCard } from "./scene-card";
 
 const SUGGESTIONS = [
@@ -17,7 +19,7 @@ const SUGGESTIONS = [
 ];
 
 export function AiPanel() {
-  const { messages, busy, error, send, confirmScene, dismissScene, clear } = useAssistant();
+  const { messages, busy, error, errorCode, send, confirmScene, dismissScene, confirmRemember, dismissRemember, clear } = useAssistant();
   const [draft, setDraft] = useState("");
   const end = useRef<HTMLLIElement>(null);
 
@@ -59,6 +61,8 @@ export function AiPanel() {
               <li key={m.id} className={cn("flex", m.role === "user" && "justify-end")}>
                 {m.scene ? (
                   <SceneCard scene={m.scene} onConfirm={() => void confirmScene(m.id)} onDismiss={() => dismissScene(m.id)} />
+                ) : m.remember ? (
+                  <RememberCard proposal={m.remember} onSave={() => void confirmRemember(m.id)} onDismiss={() => dismissRemember(m.id)} />
                 ) : (
                   <p className={cn("max-w-[90%] whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm", m.role === "user" ? "bg-ink text-paper" : "bg-cloud text-ink")}>
                     {m.content}
@@ -73,7 +77,7 @@ export function AiPanel() {
       </div>
       {error ? (
         <p role="alert" className="shrink-0 px-3 pb-2 text-xs text-destructive">
-          {error}
+          {error} <ErrorHelp code={errorCode} className="font-medium text-ink underline underline-offset-2" />
         </p>
       ) : null}
       <div className="shrink-0 p-2">

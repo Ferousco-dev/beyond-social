@@ -51,12 +51,14 @@ func (a *App) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Platform   string     `json:"platform"`
-		Title      string     `json:"title"`
-		Caption    string     `json:"caption"`
-		Visibility string     `json:"visibility"`
-		JobID      string     `json:"job_id"`
-		At         *time.Time `json:"at"`
+		Platform   string `json:"platform"`
+		Title      string `json:"title"`
+		Caption    string `json:"caption"`
+		Visibility string `json:"visibility"`
+		JobID      string `json:"job_id"`
+		// MediaID posts a file the user uploaded, such as a video exported from the editor.
+		MediaID string     `json:"media_id"`
+		At      *time.Time `json:"at"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -67,9 +69,23 @@ func (a *App) createPost(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	sourceURL := ""
+	if req.MediaID != "" {
+		if _, err := uuid.Parse(req.MediaID); err != nil || req.JobID != "" {
+			writeError(w, http.StatusBadRequest, "invalid_request", "send either job_id or a media_id that is a UUID")
+			return
+		}
+		// The link only has to live until the post is prepared, which copies the file.
+		link, err := a.deps.Media.ViewURL(r.Context(), identity.UserID, req.MediaID)
+		if err != nil {
+			a.mediaError(w, r, err)
+			return
+		}
+		sourceURL = link
+	}
 	post, isNew, err := a.deps.Posts.Schedule(r.Context(), identity.UserID, publish.Request{
 		Platform: social.Platform(req.Platform), Title: req.Title, Caption: req.Caption,
-		Visibility: req.Visibility, JobID: req.JobID, At: req.At,
+		Visibility: req.Visibility, JobID: req.JobID, SourceURL: sourceURL, At: req.At,
 	}, r.Header.Get("Idempotency-Key"))
 	if err != nil {
 		a.postError(w, r, err)

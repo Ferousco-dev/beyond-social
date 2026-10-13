@@ -9,6 +9,7 @@ import { useEventSocket } from "@/lib/go-api/use-event-socket";
 
 import { loadThread, sendChatMessage, startConversation } from "../actions";
 import { useAttachments } from "../hooks/use-attachments";
+import { ErrorHelp } from "@/components/billing/error-help";
 import { ChatComposer } from "./chat-composer";
 import { MessageBubble } from "./message-bubble";
 import { OpenEditorButton } from "./open-editor-button";
@@ -40,6 +41,7 @@ export function ChatView({
   const [draft, setDraft] = useState(initialPrompt);
   const [pending, setPending] = useState<{ text: string; files: readonly string[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const [focusTick, setComposerFocus] = useState(0);
   const [composerNotice, setComposerNotice] = useState<string | null>(null);
   const attachments = useAttachments();
@@ -103,7 +105,7 @@ export function ChatView({
 
     const result = await sendChatMessage({ conversationId: target, content: text, idempotencyKey: key, attachments: [...attachmentIds], timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone });
     if (result.status !== "ok") {
-      fail(override === undefined ? text : null, result.message);
+      fail(override === undefined ? text : null, result.message, result.code);
       return;
     }
     attempt.current = null;
@@ -117,10 +119,11 @@ export function ChatView({
     router.refresh();
   }
 
-  function fail(text: string | null, message: string): void {
+  function fail(text: string | null, message: string, code?: string): void {
     setPending(null);
     if (text !== null) setDraft(text);
     setError(message);
+    setErrorCode(code);
   }
 
   const empty = messages.length === 0 && pending === null;
@@ -164,7 +167,7 @@ export function ChatView({
         <div className="pb-4 pt-2">
           {error ?? composerNotice ? (
             <p role="alert" className="mb-2 px-2 text-sm text-destructive">
-              {error ?? composerNotice}
+              {error ?? composerNotice} {error ? <ErrorHelp code={errorCode} /> : null}
             </p>
           ) : null}
           <ChatComposer

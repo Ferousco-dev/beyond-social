@@ -16,7 +16,7 @@ export type StartResult =
 
 export type SendResult =
   | { readonly status: "ok"; readonly user: ChatMessage; readonly assistant: ChatMessage }
-  | { readonly status: "error"; readonly message: string };
+  | { readonly status: "error"; readonly message: string; readonly code?: string };
 
 /** A turn waits on a model; the API gives up at 75 seconds. */
 const CHAT_TIMEOUT_MS = 80_000;
@@ -56,7 +56,7 @@ export async function sendChatMessage(input: z.input<typeof sendSchema>): Promis
   });
   return result.ok
     ? { status: "ok", user: result.data.data.user, assistant: result.data.data.assistant }
-    : { status: "error", message: result.message };
+    : { status: "error", message: result.message, code: result.code };
 }
 
 export type ThreadResult =

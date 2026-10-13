@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 
 import { updateProfile } from "../actions";
 import { Spinner } from "@/components/ui/spinner";
-import { ProfileImageForm } from "./profile-image-form";
 
 const FIELD =
   "mt-1.5 w-full rounded-lg border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
@@ -14,15 +13,7 @@ const FIELD =
 /** Referenced by the name field, so a rejection is announced with it. */
 const MESSAGE_ID = "account-form-message";
 
-export function AccountForm({
-  email,
-  fullName,
-  avatarUrl,
-}: {
-  email: string;
-  fullName: string;
-  avatarUrl: string | null;
-}) {
+export function AccountForm({ email, fullName }: { email: string; fullName: string }) {
   const [name, setName] = useState(fullName);
   const [message, setMessage] = useState<string | null>(null);
   // A rejected name and a saved one were rendered and announced identically.
@@ -45,11 +36,7 @@ export function AccountForm({
     >
       <h2 className="text-sm font-semibold text-ink">Profile</h2>
 
-      <div className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-5">
-        <ProfileImageForm
-          avatarUrl={avatarUrl}
-          initials={(fullName || email).slice(0, 2).toUpperCase()}
-        />
+      <div className="mt-4">
         <div className="min-w-0">
           <div>
             <label htmlFor="account-email" className="block text-xs font-medium text-ink-soft">

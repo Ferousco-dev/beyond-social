@@ -1,11 +1,10 @@
-import { z } from "zod";
+export interface LegalDocument {
+  /** A draft is shown with a notice that it is awaiting review before launch. */
+  readonly status: "draft" | "published";
+  readonly title: string;
+  readonly summary: string;
+  /** Paragraphs are separated by a blank line. A line starting with "## " is a heading. */
+  readonly body: string;
+}
 
-export const legalDocumentSchema = z.object({
-  status: z.enum(["coming_soon", "published"]),
-  title: z.string().trim().min(1).max(100),
-  summary: z.string().trim().min(1).max(240),
-  body: z.string().trim().min(1).max(12_000),
-});
-
-export type LegalDocument = z.infer<typeof legalDocumentSchema>;
 export type LegalDocumentKind = "privacy" | "terms";

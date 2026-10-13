@@ -41,7 +41,9 @@ Known gaps in what exists: the prices are estimates from `pricing-research.md` a
 never been checked against a real month of provider bills; there is no way to buy
 credits; the Kling and HeyGen live runs that would confirm real cost have not been done.
 
-## 2. Stripe credit packs (to build)
+## 2. Stripe credit packs (built 13 Oct, not yet run against Stripe)
+
+Built: packs and payments tables, admin pack editor, Checkout, signed webhook, refund clawback, pricing page, credits page. Differences from the plan below: the price is sent inline with each Checkout Session, so nothing is created in the Stripe dashboard and no `stripe_price_id` is stored. Still to do: one test-mode purchase with the owner's keys, then the receipts email and Stripe customer portal link.
 
 ### Decisions to confirm with the owner first
 
@@ -74,9 +76,8 @@ credits; the Kling and HeyGen live runs that would confirm real cost have not be
 
 ### Data
 
-- `credit_packs(id, name, credits, price_cents, currency, stripe_price_id, enabled,
-  sort, updated_by, updated_at)`. Admin edits packs at `/dashboard/admin/packs`; a pack
-  is created in Stripe as a Price when saved so the two cannot drift.
+- `credit_packs(id, name, credits, price_cents, currency, enabled,
+  sort, updated_by, updated_at)`. Admin edits packs at `/dashboard/admin/packs`.
 - `payments(id, user_id, pack_id, stripe_session_id unique, stripe_payment_intent,
   amount_cents, currency, credits, status, created_at)` for receipts and for matching
   refunds to the credits they paid for.
@@ -170,3 +171,32 @@ the webhook secret in the admin console.
 3. Credit management items in section 3 that protect margin (real cost tracking, costs
    shown before spending).
 4. Old code deletion, docs, audit, deploy.
+
+## 6. Billing status (13 Oct 2026, after plans and settings)
+
+Built and tested: credit packs, Pro subscriptions, usage windows, Free limits, the usage
+page, settings, limit and upgrade messages with links on chat, Discover and the editor, a
+low-credits and near-limit banner, product emails (credits added, Pro started, payment
+failed, Pro ended, limit reached) through Resend, an admin Revenue page (members, revenue,
+credits spent), the email sender setting, optional Stripe Tax (admin setting
+`stripe_tax_enabled`), draft Terms and Privacy pages that describe plans, credits,
+payments and refunds, and account deletion that erases what the account made.
+
+Left, all needing the owner:
+
+1. **Stripe test mode run.** Paste the keys, forward events with the Stripe CLI, and make
+   one pack purchase (as a Pro test user), one subscription, one refund and one
+   cancellation. Nothing has run against the real Stripe. Turn on "email customers for
+   successful payments" in Stripe so Stripe sends the card receipts.
+2. **Resend.** Create the account, verify a domain, paste the key in Provider keys and set
+   the sender address. Until then no emails go out and the app logs that.
+3. **Legal review.** The Terms and Privacy text is a draft and says so on the page. Have it
+   reviewed, and decide the refund policy (the draft allows a full refund of an unused pack
+   within 14 days and none for the used part of a subscription period).
+4. **Stripe Tax.** Register where needed, set it up in Stripe, then switch the setting on.
+5. **Tune the numbers** (limits, weights, Free multiplier, Pro price) after a month of real
+   provider bills, using the Revenue page and each provider's dashboard.
+
+Known limits: the watermark is drawn in the browser and a technical user could remove it
+(enforcing it needs server side rendering); a job already started when a cap is reached
+still finishes; the Revenue page counts only payments and invoices recorded here.

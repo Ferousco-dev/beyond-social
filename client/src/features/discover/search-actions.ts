@@ -44,7 +44,7 @@ export async function searchSocial(input: z.input<typeof schema>): Promise<Disco
   const outcome = await runDiscovery(parsed.data);
   if (outcome.status === "failed") {
     logger.warn("discovery failed", { platform: parsed.data.platform, message: outcome.message });
-    return { status: "error", message: outcome.message };
+    return { status: "error", message: outcome.message, code: outcome.code };
   }
   return { status: "ok", posts: outcome.posts, countryCode: null };
 }

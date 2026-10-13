@@ -17,6 +17,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
@@ -31,16 +32,20 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
 	"github.com/Ferousco-dev/beyond-social/server/internal/llm"
+	"github.com/Ferousco-dev/beyond-social/server/internal/mailer"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
+	"github.com/Ferousco-dev/beyond-social/server/internal/memory"
 	"github.com/Ferousco-dev/beyond-social/server/internal/openrouter"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"github.com/Ferousco-dev/beyond-social/server/internal/providers"
 	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
+	"github.com/Ferousco-dev/beyond-social/server/internal/purge"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
 	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
+	"github.com/Ferousco-dev/beyond-social/server/internal/supabaseauth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
 	"github.com/Ferousco-dev/beyond-social/server/internal/worker"
@@ -75,26 +80,25 @@ func run() error {
 	}
 
 	hub := realtime.NewHub()
-	var alertSender alerts.Sender
-	if cfg.AlertWebhookURL != "" {
-		alertSender = alerts.NewWebhook(cfg.AlertWebhookURL)
-	}
-	alertService := alerts.NewService(database.NewAlertStore(pool), alertSender)
-
 	creditStore := database.NewCreditStore(pool)
-	creditService := credits.NewService(creditStore)
+	creditService := credits.NewService(creditStore).WithUsage(database.NewUsageStore(pool))
+	entitlements := credits.NewEntitlements(creditService, database.NewEntitlementCounter(pool))
 	searchBiller := credits.NewActionBiller(creditService, credits.ActionDiscoverySearch)
 	avatarBiller := credits.NewActionBiller(creditService, credits.ActionAvatarTraining)
 	jobBiller := credits.NewJobBiller(creditService)
 	jobService := jobs.NewService(database.NewJobStore(pool), hub).WithBiller(jobBiller)
 	discoveryStore := database.NewDiscoveryStore(pool)
-	discoveryService := discovery.NewService(discoveryStore, hub).WithBiller(searchBiller)
+	discoveryService := discovery.NewService(discoveryStore, hub).WithBiller(searchBiller).WithQuota(entitlements.SearchAllowance)
 
 	var sealer *secrets.Sealer
 	if cfg.AppEncryptionKey != "" {
 		if sealer, err = secrets.NewSealer(cfg.AppEncryptionKey); err != nil {
 			return err
 		}
+	}
+	sbx, err := newSandboxHooks(cfg)
+	if err != nil {
+		return err
 	}
 	vaultEnv := map[string]string{
 		secrets.NameApify:         cfg.APIFYToken,
@@ -103,16 +107,19 @@ func run() error {
 		secrets.NameHeygen:        cfg.HeygenAPIKey,
 		secrets.NameHeygenWebhook: cfg.HeygenWebhookSecret,
 		secrets.NameGemini:        cfg.GeminiAPIKey,
+		secrets.NameAlertWebhook:  cfg.AlertWebhookURL,
 	}
 	for name, value := range cfg.SocialApps {
 		vaultEnv[name] = value
 	}
+	sbx.keys(vaultEnv)
 	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, vaultEnv)
+	alertService := alerts.NewService(database.NewAlertStore(pool), alerts.NewWebhook(vault.Key(secrets.NameAlertWebhook)))
 
-	apifyClient := apify.NewClientWithKey(vault.Key(secrets.NameApify))
+	apifyClient := sbx.apify(apify.NewClientWithKey(vault.Key(secrets.NameApify)))
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
 	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
-	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
+	kieClient := sbx.kie(kie.NewClientWithKey(vault.Key(secrets.NameKIE)))
 	transformProcessor := &transform.Processor{
 		Alerts:      alertService,
 		Jobs:        jobService,
@@ -122,7 +129,7 @@ func run() error {
 		CallbackURL: cfg.KIECallbackURL(),
 	}
 
-	heygenClient := heygen.NewClientWithKey(vault.Key(secrets.NameHeygen))
+	heygenClient := sbx.heygen(heygen.NewClientWithKey(vault.Key(secrets.NameHeygen)))
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	generateService := generate.NewService(jobService)
@@ -131,7 +138,7 @@ func run() error {
 	}
 	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
 	avatarStore := database.NewAvatarStore(pool)
-	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller)
+	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller).WithQuota(entitlements.CheckAvatar)
 	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore, Alerts: alertService}
 	videoProcessor := &avatarvideo.Processor{
 		Alerts: alertService,
@@ -139,16 +146,26 @@ func run() error {
 	}
 
 	openRouterClient := openrouter.NewClient(openrouter.Config{KeyFunc: vault.Key(secrets.NameOpenRouter), Referer: cfg.AppURL()})
-	settingsStore := database.NewSettingsStore(pool)
-	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel})
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, HTTPClient: sbx.geminiHTTP()})
 	if err != nil {
 		return err
 	}
+	profileStore := database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)
+	settingsStore := database.NewSettingsStore(pool)
+	emails := mailer.NewNotifier(mailer.NewResend(vault.Key(secrets.NameResend), func(ctx context.Context) string {
+		from, _, _ := settingsStore.Get(ctx, httpserver.EmailFromKey)
+		return from
+	}), profileStore, cfg.AppURL())
+	creditService.WithLimitNotifier(emails)
+	billingStore := database.NewBillingStore(pool)
+	billingService := billing.NewService(billingStore, creditService, sbx.stripe(billing.NewStripe(vault.Key(secrets.NameStripeKey))), cfg.AppURL()).
+		WithPrices(creditService).WithNotifier(emails).WithTax(creditService.TaxEnabled)
+	purger := purge.New(database.NewPurgeStore(pool), footage, avatarService, media.Bucket, avatars.FootageBucket)
 	chatModel := llm.NewSwitch(llm.RoleChat, geminiClient, openRouterClient, settingsStore)
 	editorModel := llm.NewSwitch(llm.RoleEditorAssistant, geminiClient, openRouterClient, settingsStore)
 	registry := orchestrator.DefaultRegistry()
 	planner := orchestrator.NewPlanner(geminiClient, registry)
-	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
+	youtube, tiktok, instagram := sbx.social(social.NewYouTube(), social.NewTikTok(), social.NewInstagram())
 	var socialSealer social.Sealer
 	if sealer != nil {
 		socialSealer = sealer
@@ -186,11 +203,13 @@ func run() error {
 		Store: postStore, Fetcher: transformProcessor.Fetcher, Vault: footage, Tokens: socialService,
 		Publishers: map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}, Alerts: alertService,
 	}
+	memoryStore := database.NewMemoryStore(pool)
+	memoryService := memory.NewService(memoryStore)
 	chatService := chat.NewService(
 		database.NewConversationStore(pool),
 		chat.NewModelRouter(chatModel),
 		workflowPlanner,
-	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(chatModel)).WithScriptPlanner(workflowPlanner).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+	).WithBilling(credits.NewActionBiller(creditService, credits.ActionChatMessage)).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(chatModel)).WithScriptPlanner(workflowPlanner).WithMemory(memoryService).WithSummaries(memoryStore, chat.SummarizerFrom(memory.NewSummarizer(chatModel))).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
@@ -201,11 +220,11 @@ func run() error {
 		Social:              socialService,
 		Posts:               postService,
 		AppURL:              cfg.AppURL(),
-		Accounts:            accounts.NewService(database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)).WithGranter(creditService),
+		Accounts:            accounts.NewService(profileStore).WithGranter(creditService),
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
-		Probe:               providers.NewChecker(),
+		Probe:               sbx.checker(providers.NewChecker()),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
 		Voices:              voiceService,
@@ -219,9 +238,17 @@ func run() error {
 		Library:             database.NewLibraryStore(pool),
 		Editor:              database.NewEditorStore(pool),
 		Assistant:           editor.NewModelAssistant(editorModel),
+		Memory:              memoryService,
 		AssistBiller:        credits.NewActionBiller(creditService, credits.ActionEditorAssist),
 		Transcriber:         editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
 		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
+		Billing:             billingService,
+		Usage:               creditService,
+		BillingAdmin:        billingStore,
+		EmailSettings:       settingsStore,
+		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
+		Purger:              purger,
+		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
 		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel),
 		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
 		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
@@ -253,12 +280,13 @@ func run() error {
 
 	sweeper := &credits.Sweeper{Open: creditStore, Jobs: jobBiller, Searches: searchBiller, Avatars: avatarBiller}
 	monitor := &providers.Monitor{
-		Checker: providers.NewChecker(), Key: vault.Key, Alerts: alertService,
+		Checker: sbx.checker(providers.NewChecker()), Key: vault.Key, Alerts: alertService,
 		Snapshot:  creditStore.SaveSnapshot,
 		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
 	}
 	go sweeper.Run(ctx)
 	go chatService.RunReconciler(ctx, time.Minute)
+	go purger.Run(ctx, 10*time.Minute)
 	go monitor.Run(ctx)
 
 	workers := make(chan struct{})

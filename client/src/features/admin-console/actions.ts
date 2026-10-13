@@ -56,6 +56,35 @@ export async function resolveAlert(id: string): Promise<AdminResult> {
   return send(`/api/v1/admin/alerts/${id}/resolve`, "POST", undefined, "/dashboard/admin/alerts");
 }
 
+const packSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  credits: z.number().int().min(1).max(1_000_000),
+  priceCents: z.number().int().min(50).max(10_000_000),
+  enabled: z.boolean(),
+  sort: z.number().int().min(0).max(1000),
+});
+
+/** Creates a credit pack, or changes one when `id` is given. */
+export async function saveCreditPack(id: string | null, input: z.input<typeof packSchema>): Promise<AdminResult> {
+  const parsed = packSchema.safeParse(input);
+  if (!parsed.success || (id !== null && !z.string().uuid().safeParse(id).success)) return invalid;
+  const { priceCents, ...rest } = parsed.data;
+  return send(id ? `/api/v1/admin/packs/${id}` : "/api/v1/admin/packs", id ? "PUT" : "POST", { ...rest, price_cents: priceCents, currency: "usd" }, "/dashboard/admin/packs");
+}
+
+export async function deleteCreditPack(id: string): Promise<AdminResult> {
+  if (!z.string().uuid().safeParse(id).success) return invalid;
+  return send(`/api/v1/admin/packs/${id}`, "DELETE", undefined, "/dashboard/admin/packs");
+}
+
+const FROM = z.string().trim().min(3).max(120);
+
+/** The name and address the product's emails come from. */
+export async function saveEmailFrom(from: string): Promise<AdminResult> {
+  if (!FROM.safeParse(from).success) return invalid;
+  return send("/api/v1/admin/email", "PUT", { from: from.trim() }, "/dashboard/admin/providers");
+}
+
 const MODEL = z.string().regex(/^(gemini|openrouter:[A-Za-z0-9._\-/:]{1,150})$/);
 
 /** Chooses which model answers one kind of request. Gemini is the default. */

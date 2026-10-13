@@ -18,6 +18,13 @@ const (
 	NameHeygen        = "heygen"
 	NameHeygenWebhook = "heygen_webhook_secret"
 	NameGemini        = "gemini"
+	// Stripe takes payments for credit packs.
+	// Resend sends receipts and billing emails.
+	NameResend = "resend_api_key"
+	// NameAlertWebhook is where admin alerts are posted (Slack or Discord).
+	NameAlertWebhook  = "alert_webhook"
+	NameStripeKey     = "stripe_secret_key"
+	NameStripeWebhook = "stripe_webhook_secret"
 	// NameOpenRouter gives access to other language models besides Gemini.
 	NameOpenRouter = "openrouter"
 
@@ -33,7 +40,7 @@ const (
 
 // Names lists every credential the product can use, in display order.
 var Names = []string{
-	NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini, NameOpenRouter,
+	NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini, NameOpenRouter, NameStripeKey, NameStripeWebhook, NameResend, NameAlertWebhook,
 	NameYouTubeClientID, NameYouTubeClientSecret, NameTikTokClientKey, NameTikTokClientSecret, NameMetaAppID, NameMetaAppSecret,
 }
 

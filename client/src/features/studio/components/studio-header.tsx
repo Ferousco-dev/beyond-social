@@ -5,10 +5,11 @@ import Link from "next/link";
 import { type Route } from "next";
 import { useEffect } from "react";
 
+import { ErrorHelp } from "@/components/billing/error-help";
 import { cn } from "@/lib/utils";
 
 import { useStudio, type SaveStatus } from "../store/editor-store";
-import { ExportButton } from "./export-button";
+import { ExportDialog } from "./export-dialog";
 
 const SAVE: Record<SaveStatus, { label: string; tone: string }> = {
   saved: { label: "Saved", tone: "text-ink-soft" },
@@ -24,6 +25,7 @@ export function StudioHeader({ backHref }: { backHref: string }) {
   const title = useStudio((s) => s.title);
   const status = useStudio((s) => s.saveStatus);
   const notice = useStudio((s) => s.notice);
+  const noticeCode = useStudio((s) => s.noticeCode);
   const look = SAVE[status];
 
   useEffect(() => {
@@ -56,12 +58,13 @@ export function StudioHeader({ backHref }: { backHref: string }) {
         <span className="hidden sm:inline">{look.label}</span>
       </span>
       {notice ? (
-        <p role="alert" className="ml-auto truncate rounded-md bg-cloud px-3 py-1 text-xs text-ink">
-          {notice}
+        <p role="alert" className="ml-auto flex items-center gap-2 truncate rounded-md bg-cloud px-3 py-1 text-xs text-ink">
+          <span className="truncate">{notice}</span>
+          <ErrorHelp code={noticeCode} className="shrink-0 underline underline-offset-2" />
         </p>
       ) : null}
       <div className={notice ? "" : "ml-auto"}>
-        <ExportButton />
+        <ExportDialog />
       </div>
     </header>
   );

@@ -6,7 +6,7 @@ import { type Project, type Result } from "../core/types.ts";
 import { STUDIO_ZOOM } from "../config";
 import { clamp } from "../lib/format";
 
-export type ToolTab = "media" | "captions" | "text" | "images" | "audio";
+export type ToolTab = "media" | "avatar" | "captions" | "text" | "images" | "audio";
 export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 type Edit = (project: Project) => Result<Project>;
 
@@ -16,6 +16,8 @@ interface StudioState {
   projectId: string | null;
   title: string;
   version: number;
+  /** Free exports carry a watermark. */
+  plan: "free" | "pro";
   history: History<Project>;
   /** The project as last stored, so autosave can tell whether anything changed. */
   saved: Project | null;
@@ -31,6 +33,8 @@ interface StudioState {
   clipNotes: Record<string, string>;
   /** A short message about the last action that could not be done. */
   notice: string | null;
+  /** The server's reason for the notice, when a plan limit caused it. */
+  noticeCode: string | undefined;
   currentTime: number;
   playing: boolean;
   zoom: number;
@@ -51,7 +55,8 @@ interface StudioState {
   select: (id: string | null) => void;
   setMediaUrls: (urls: Record<string, string>) => void;
   setClipNote: (itemId: string, note: string) => void;
-  setNotice: (notice: string | null) => void;
+  setNotice: (notice: string | null, code?: string) => void;
+  setPlan: (plan: "free" | "pro") => void;
   seek: (time: number) => void;
   setPlaying: (playing: boolean) => void;
   setClock: (time: number) => void;
@@ -65,6 +70,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   projectId: null,
   title: "",
   version: 1,
+  plan: "free",
   history: createHistory<Project>({ version: 1, width: 1080, height: 1920, fps: 30, tracks: [] }),
   saved: null,
   saveStatus: "saved",
@@ -74,6 +80,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   mediaUrls: {},
   clipNotes: {},
   notice: null,
+  noticeCode: undefined,
   currentTime: 0,
   playing: false,
   zoom: STUDIO_ZOOM.DEFAULT,
@@ -129,7 +136,8 @@ export const useStudio = create<StudioState>((set, get) => ({
   select: (selection) => set({ selection }),
   setClipNote: (itemId, note) => set((s) => ({ clipNotes: { ...s.clipNotes, [itemId]: note } })),
   setMediaUrls: (urls) => set((s) => ({ mediaUrls: { ...s.mediaUrls, ...urls } })),
-  setNotice: (notice) => set({ notice }),
+  setNotice: (notice, noticeCode) => set({ notice, noticeCode }),
+  setPlan: (plan) => set({ plan }),
   seek: (time) => set({ currentTime: clamp(time, 0, projectDuration(get().history.present) + 30) }),
   setPlaying: (playing) => set({ playing }),
   setClock: (currentTime) => set({ currentTime }),

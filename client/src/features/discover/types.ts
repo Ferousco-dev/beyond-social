@@ -47,4 +47,4 @@ export type DiscoverResult =
     }
   /** No search credentials, which is a different problem from finding nothing. */
   | { status: "unconfigured" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; code?: string };

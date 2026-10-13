@@ -1,6 +1,6 @@
 "use client";
 
-import { Captions, Film, Image as ImageIcon, Music, Type, type LucideIcon } from "lucide-react";
+import { Captions, Film, Image as ImageIcon, Music, Type, UserRound, type LucideIcon } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { type LibraryItem } from "@/lib/go-api/schemas";
@@ -8,12 +8,14 @@ import { cn } from "@/lib/utils";
 
 import { useStudio, type ToolTab } from "../store/editor-store";
 import { AssetsPanel } from "./panels/assets-panel";
+import { AvatarPanel } from "./panels/avatar-panel";
 import { CaptionsPanel } from "./panels/captions-panel";
 import { MediaPanel } from "./panels/media-panel";
 import { TextPanel } from "./panels/text-panel";
 
 const TOOLS: ReadonlyArray<{ id: ToolTab; label: string; Icon: LucideIcon }> = [
   { id: "media", label: "Media", Icon: Film },
+  { id: "avatar", label: "Avatar", Icon: UserRound },
   { id: "captions", label: "Captions", Icon: Captions },
   { id: "text", label: "Text", Icon: Type },
   { id: "images", label: "Images", Icon: ImageIcon },
@@ -57,6 +59,8 @@ function panel(tool: ToolTab, library: readonly LibraryItem[]): ReactNode {
   switch (tool) {
     case "media":
       return <MediaPanel library={library} />;
+    case "avatar":
+      return <AvatarPanel />;
     case "captions":
       return <CaptionsPanel />;
     case "text":

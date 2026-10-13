@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -102,6 +103,8 @@ type Decision struct {
 	// by the workflow planner rather than answered here.
 	Create bool
 	Reply  string
+	// Remember is a fact the user explicitly asked to be kept, or empty.
+	Remember string
 }
 
 // RouteInput is one message and what the router needs to understand it.
@@ -155,7 +158,27 @@ type Service struct {
 	files    Attachments
 	// DailyLimit returns the most messages a user may send per day; 0 or false means no limit.
 	dailyLimit func(ctx context.Context) (int, bool, error)
-	now        func() time.Time
+	// billing charges for each message, if set.
+	billing Biller
+	// memory, summaries and summarizer are optional: without them every
+	// prompt carries only the recent turns.
+	memory      Memory
+	summaries   SummaryStore
+	summarizer  Summarizer
+	summarizing sync.Map
+	now         func() time.Time
+}
+
+// Biller charges for one message: reserve first, then keep or return it.
+type Biller interface {
+	Reserve(ctx context.Context, userID, resourceID string) error
+	Close(ctx context.Context, userID, resourceID string, delivered bool) error
+}
+
+// WithBilling charges every message sent.
+func (s *Service) WithBilling(b Biller) *Service {
+	s.billing = b
+	return s
 }
 
 func NewService(store Store, router Router, planner Planner) *Service {

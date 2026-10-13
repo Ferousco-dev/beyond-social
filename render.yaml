@@ -35,19 +35,7 @@ services:
       - key: APP_ENCRYPTION_KEY
         sync: false
       # Comma separated. These people become admins on sign-in and paste the
-      # provider keys in the admin console, so no keys live in this file.
+      # provider, Stripe, Resend and alert webhook keys in the admin console,
+      # so none of them live in this file.
       - key: ADMIN_EMAILS
-        sync: false
-      - key: APIFY_API_TOKEN
-        sync: false
-      - key: KIE_API_KEY
-        sync: false
-      - key: KIE_WEBHOOK_HMAC_KEY
-        sync: false
-      - key: HEYGEN_API_KEY
-        sync: false
-      - key: HEYGEN_WEBHOOK_SECRET
-        sync: false
-      # Slack or Discord webhook told when a provider runs out of credit or a key breaks.
-      - key: ALERT_WEBHOOK_URL
         sync: false

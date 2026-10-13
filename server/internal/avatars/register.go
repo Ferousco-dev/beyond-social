@@ -58,6 +58,12 @@ func (s *Service) Register(ctx context.Context, userID string, in RegisterInput)
 		return Avatar{}, false, ErrTooManyBusy
 	}
 
+	if s.quota != nil {
+		if err := s.quota(ctx, userID); err != nil {
+			return Avatar{}, false, err
+		}
+	}
+
 	a, isNew, err := s.repo.Create(ctx, NewAvatar{
 		UserID: userID, Name: name, StoragePath: in.StoragePath, ConsentVersion: ConsentVersion,
 		RerouteURL: reroute, IdempotencyKey: in.IdempotencyKey,

@@ -125,3 +125,15 @@ func TestHeygenCallbackURL(t *testing.T) {
 		t.Fatalf("got %q", cfg.HeygenCallbackURL())
 	}
 }
+
+func TestTheSandboxIsRefusedInProduction(t *testing.T) {
+	setEnv(t, map[string]string{"SUPABASE_URL": "https://a.co", "APP_ENV": "production", "DATABASE_URL": "postgres://x", "WEBSOCKET_ALLOWED_ORIGINS": "https://a.co"})
+	t.Setenv("SANDBOX_URL", "https://127.0.0.1:8443")
+	if _, err := LoadFromEnv(); err == nil {
+		t.Fatal("production started with the sandbox switched on")
+	}
+	t.Setenv("APP_ENV", "development")
+	if cfg, err := LoadFromEnv(); err != nil || cfg.SandboxURL != "https://127.0.0.1:8443" {
+		t.Fatalf("development with the sandbox: %+v %v", cfg, err)
+	}
+}

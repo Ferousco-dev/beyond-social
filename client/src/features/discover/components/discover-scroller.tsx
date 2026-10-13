@@ -47,13 +47,14 @@ interface Results {
   readonly countryCode: string | null;
 }
 
-export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string }) {
+export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: string; note: string }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [platform, setPlatform] = useState<ScrapePlatform>("tiktok");
   const [results, setResults] = useState<Results | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeCode, setNoticeCode] = useState<string | undefined>(undefined);
   const [shown, setShown] = useState(PAGE);
   const { history, remember, clear } = useSearchHistory();
   const [pending, startTransition] = useTransition();
@@ -124,6 +125,7 @@ export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string 
           setNotice(
             result.status === "unconfigured" ? "Search is not connected yet." : result.message,
           );
+          setNoticeCode(result.status === "error" ? result.code : undefined);
           return;
         }
 
@@ -239,12 +241,14 @@ export function DiscoverScroller({ initialQuery = "" }: { initialQuery?: string 
           }}
           onSubmit={() => submit(query, platform)}
           busy={pending}
+          note={note}
         />
       </div>
 
       <ResultsGrid
         busy={pending}
         notice={notice}
+        noticeCode={noticeCode}
         query={query}
         term={results?.term ?? ""}
         platform={results?.platform ?? platform}

@@ -366,3 +366,22 @@ func TestProcessorIgnoresFinishedDiscoveries(t *testing.T) {
 		t.Fatal("handling a finished discovery again must change nothing")
 	}
 }
+
+func TestAQuotaCapsResultsAndCanRefuseASearch(t *testing.T) {
+	cap10 := func(context.Context, string) (int, error) { return 10, nil }
+	svc := NewService(newMemRepo(), &events{}).WithQuota(cap10)
+	for name, tc := range map[string]struct{ asked, want int }{"asks for the most": {60, 10}, "asks for nothing": {0, 10}, "asks for less": {5, 5}} {
+		d, err := svc.Create(context.Background(), alice, Params{Platform: video.TikTok, Query: "cats", Limit: tc.asked})
+		if err != nil || d.RequestedLimit != tc.want {
+			t.Errorf("%s: limit %d err %v, want %d", name, d.RequestedLimit, err, tc.want)
+		}
+	}
+	// A pasted link is one video, not a search, so the quota does not apply.
+	refuse := NewService(newMemRepo(), &events{}).WithQuota(func(context.Context, string) (int, error) { return 0, errors.New("no more searches") })
+	if _, err := refuse.Create(context.Background(), alice, Params{Platform: video.TikTok, Query: "cats"}); err == nil {
+		t.Fatal("a refused search was queued")
+	}
+	if _, err := refuse.Create(context.Background(), alice, Params{Platform: video.TikTok, URL: "https://www.tiktok.com/@a/video/1234567890123456789"}); err != nil {
+		t.Fatalf("a link was refused: %v", err)
+	}
+}

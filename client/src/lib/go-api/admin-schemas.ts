@@ -87,6 +87,22 @@ export const modelsResponse = z.object({
   }),
 });
 
+export const billingOverviewResponse = z.object({
+  data: z.object({
+    active_subscribers: z.number(),
+    past_due_subscribers: z.number(),
+    monthly_recurring_cents: z.number(),
+    subscription_revenue_cents: z.number(),
+    pack_revenue_cents: z.number(),
+    packs_sold: z.number(),
+    credits_spent: z.number(),
+    usage_points: z.number(),
+    subscribers: z.array(z.object({ email: z.string(), status: z.string(), period_end: z.string().nullish() })),
+  }),
+});
+
+export const emailFromResponse = z.object({ data: z.object({ from: z.string(), default: z.string() }) });
+
 const setupCheck = z.object({
   id: z.string(),
   label: z.string(),

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"io"
 	"log/slog"
 	"net/http"
@@ -142,6 +143,7 @@ func newHarness(t *testing.T, repo *fakeRepo, pinger Pinger) *harness {
 	h.profiles = &fakeProfiles{rows: map[string]accounts.Profile{}}
 	h.handoffs = newFakeHandoffStore()
 	h.deps = Deps{
+		Usage:           &fakeUsage{plan: credits.PlanFree},
 		Accounts:        accounts.NewService(h.profiles),
 		Handoff:         handoff.NewService(h.handoffs, h.heygen.avatars),
 		AllowedOrigins:  []string{"https://app.example.com"},

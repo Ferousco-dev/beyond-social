@@ -61,7 +61,25 @@ function drawContained(ctx: CanvasRenderingContext2D, frame: VideoFrame): void {
   ctx.drawImage(frame.source, (width - w) / 2, (height - h) / 2, w, h);
 }
 
-export function drawFrame(ctx: CanvasRenderingContext2D, project: Project, time: number, sources: FrameSources): void {
+const WATERMARK = "Made with Beyond Social";
+
+/** The mark the Free plan puts on every video, small and in the corner so it never hides the picture. */
+function drawWatermark(ctx: CanvasRenderingContext2D): void {
+  const { width, height } = ctx.canvas;
+  const size = Math.max(14, Math.round(Math.min(width, height) * 0.035));
+  ctx.save();
+  ctx.font = `600 ${size}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+  ctx.globalAlpha = 0.75;
+  ctx.shadowColor = "rgba(0,0,0,0.6)";
+  ctx.shadowBlur = size * 0.3;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(WATERMARK, width - size, height - size);
+  ctx.restore();
+}
+
+export function drawFrame(ctx: CanvasRenderingContext2D, project: Project, time: number, sources: FrameSources, watermark = false): void {
   const { width, height } = ctx.canvas;
   ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, width, height);
@@ -97,4 +115,5 @@ export function drawFrame(ctx: CanvasRenderingContext2D, project: Project, time:
       drawCaption(ctx, item, project, time, { x: a.x, y: a.y, scale: a.scale });
     });
   }
+  if (watermark) drawWatermark(ctx);
 }

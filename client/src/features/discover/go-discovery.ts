@@ -20,7 +20,7 @@ export const DISCOVERY_LIMIT = 60;
 
 export type DiscoveryOutcome =
   | { readonly status: "ok"; readonly posts: readonly DiscoverPost[] }
-  | { readonly status: "failed"; readonly message: string };
+  | { readonly status: "failed"; readonly message: string; readonly code?: string };
 
 type Request = { readonly platform: string; readonly query: string } | { readonly url: string };
 
@@ -29,7 +29,7 @@ export async function runDiscovery(request: Request): Promise<DiscoveryOutcome> 
     method: "POST",
     body: "url" in request ? { url: request.url } : { ...request, limit: DISCOVERY_LIMIT },
   });
-  if (!created.ok) return { status: "failed", message: created.message };
+  if (!created.ok) return { status: "failed", message: created.message, code: created.code };
 
   const id = created.data.data.id;
   const deadline = Date.now() + MAX_WAIT_MS;

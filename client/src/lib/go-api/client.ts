@@ -27,11 +27,13 @@ export type GoApiResult<T> =
 const errorBodySchema = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
 
 interface RequestOptions {
-  readonly method?: "GET" | "POST" | "PUT" | "DELETE";
+  readonly method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   readonly body?: unknown;
   readonly headers?: Readonly<Record<string, string>>;
   /** For calls that wait on a model; the default suits ordinary requests. */
   readonly timeoutMs?: number;
+  /** For endpoints that need no sign-in, such as the public price list. */
+  readonly anonymous?: boolean;
 }
 
 /** Sends one request and validates the response against `schema`. */
@@ -40,17 +42,21 @@ export async function goApi<T>(
   schema: z.ZodType<T>,
   options: RequestOptions = {},
 ): Promise<GoApiResult<T>> {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) return failure(401, "unauthorized", "Sign in to continue.");
+  let token: string | null = null;
+  if (!options.anonymous) {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return failure(401, "unauthorized", "Sign in to continue.");
+    token = session.access_token;
+  }
 
   try {
     const response = await fetch(`${apiBase()}${path}`, {
       method: options.method ?? "GET",
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...options.headers,
       },

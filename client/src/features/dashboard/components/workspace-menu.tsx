@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, LayoutDashboard, PenSquare } from "lucide-react";
+import { ChevronDown, Gauge, PenSquare } from "lucide-react";
 import Link from "next/link";
 
 const MENU_ITEM =
@@ -34,9 +34,9 @@ export function WorkspaceMenu() {
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={MENU_ITEM}>
-            <Link href="/dashboard/overview">
-              <LayoutDashboard className="size-4 text-ink-soft" />
-              Dashboard
+            <Link href="/dashboard/usage">
+              <Gauge className="size-4 text-ink-soft" />
+              Usage
             </Link>
           </DropdownMenu.Item>
         </DropdownMenu.Content>

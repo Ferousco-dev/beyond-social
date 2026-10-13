@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 
+import { ErrorHelp } from "@/components/billing/error-help";
 import { Button } from "@/components/ui/button";
 
 import { type SceneProposal } from "../../hooks/use-assistant";
@@ -30,7 +31,7 @@ export function SceneCard({ scene, onConfirm, onDismiss }: { scene: SceneProposa
       {scene.state === "done" ? <p className="text-xs text-success">Added to the timeline.</p> : null}
       {scene.state === "failed" ? (
         <p role="alert" className="text-xs text-destructive">
-          {scene.message}
+          {scene.message} <ErrorHelp code={scene.code} className="font-medium text-ink underline underline-offset-2" />
         </p>
       ) : null}
     </div>

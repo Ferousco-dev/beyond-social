@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { emptyProject } from "@/features/studio/core/validate.ts";
 import { StudioScreen } from "@/features/studio/components/studio-screen";
+import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { goApi } from "@/lib/go-api/client";
 import { editorProjectResponse, libraryResponse } from "@/lib/go-api/schemas";
 
@@ -14,7 +15,8 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   if (!z.string().uuid().safeParse(id).success) notFound();
 
-  const [project, library] = await Promise.all([
+  const [user, project, library] = await Promise.all([
+    getCurrentUser(),
     goApi(`/api/v1/editor/projects/${id}`, editorProjectResponse),
     goApi("/api/v1/library?limit=100", libraryResponse),
   ]);
@@ -36,6 +38,7 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       title={title}
       version={version}
       document={isBlank ? emptyProject() : document}
+      plan={user.plan}
       backHref={conversation_id ? `/dashboard/c/${conversation_id}` : "/dashboard/c/new"}
       library={library.ok ? library.data.data : []}
     />

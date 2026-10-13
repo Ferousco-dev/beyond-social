@@ -7,6 +7,7 @@ import Link from "next/link";
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
 
+import { PostPlayer } from "./post-player";
 import { TransformPanel } from "@/features/transform/components/transform-panel";
 
 import { PLATFORM_NAME, formatViews } from "../lib/platforms";
@@ -51,28 +52,15 @@ export function PostDetail({ post }: { post: DiscoverPost }) {
         has its own column and the cap comes off.
       */}
       <div className="mx-auto w-full max-w-[calc(45vh*9/16)] overflow-hidden rounded-lg border border-hairline bg-black lg:max-w-none">
-        {embedUrl ? (
-          <iframe
-            // Keyed on the post so switching swaps the frame rather than
-            // navigating a live one, which leaves the previous video's audio
-            // playing under the new poster.
-            key={post.videoId}
-            src={embedUrl}
-            title={`${name} post by @${post.handle}`}
-            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-            // The player is a third party: it gets no access to this document
-            // and no ability to navigate the page it is embedded in.
-            sandbox="allow-scripts allow-same-origin allow-popups allow-presentation"
-            referrerPolicy="strict-origin-when-cross-origin"
-            className="aspect-[9/16] w-full border-0"
-          />
-        ) : (
-          <div className="flex aspect-[9/16] w-full items-center justify-center px-6 text-center">
-            <p className="text-xs text-ink-soft">
-              This one cannot be played here. Open it on {name} instead.
-            </p>
-          </div>
-        )}
+        <PostPlayer
+          // Keyed on the post so switching shows the new picture, not the last video.
+          key={post.videoId}
+          embedUrl={embedUrl}
+          title={`${name} post by @${post.handle}`}
+          posterUrl={post.thumbnailUrl}
+          platformName={name}
+          postUrl={post.url}
+        />
       </div>
 
       {stats.length > 0 ? (

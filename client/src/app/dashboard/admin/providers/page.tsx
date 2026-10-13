@@ -2,13 +2,14 @@ import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
 import { ProviderKeyForm } from "@/features/admin-console/components/provider-key-form";
-import { providersResponse } from "@/lib/go-api/admin-schemas";
+import { EmailFromForm } from "@/features/admin-console/components/email-from-form";
+import { emailFromResponse, providersResponse } from "@/lib/go-api/admin-schemas";
 import { goApi } from "@/lib/go-api/client";
 
 export const metadata: Metadata = { title: "Admin · Provider keys" };
 
 export default async function AdminProvidersPage(): Promise<ReactNode> {
-  const result = await goApi("/api/v1/admin/providers", providersResponse);
+  const [result, email] = await Promise.all([goApi("/api/v1/admin/providers", providersResponse), goApi("/api/v1/admin/email", emailFromResponse)]);
 
   return (
     <div>
@@ -32,6 +33,7 @@ export default async function AdminProvidersPage(): Promise<ReactNode> {
               <ProviderKeyForm key={credential.name} credential={credential} writable={result.data.data.writable} />
             ))}
           </ul>
+          {email.ok ? <EmailFromForm current={email.data.data.from} fallback={email.data.data.default} /> : null}
         </>
       )}
     </div>

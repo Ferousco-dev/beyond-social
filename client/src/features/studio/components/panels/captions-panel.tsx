@@ -51,7 +51,7 @@ export function CaptionsPanel() {
     setBusy(true);
     const result = await transcribeVideo(clip.src);
     setBusy(false);
-    if (!result.ok) return useStudio.getState().setNotice(result.message);
+    if (!result.ok) return useStudio.getState().setNotice(result.message, result.code);
     const captions = captionsFromWords(result.words, clip, makeId, style);
     if (captions.length === 0) return useStudio.getState().setNotice("No speech was found in that clip.");
     useStudio.getState().edit((p) => replaceCaptions(p, clip.start, endOf(clip), captions));

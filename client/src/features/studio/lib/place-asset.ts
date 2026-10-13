@@ -63,7 +63,7 @@ export async function placeJobVideo(jobId: string, name: string, duration: numbe
   const store = useStudio.getState();
   store.setNotice("Preparing the video…");
   const copied = await adoptVideo(jobId);
-  if (!copied.ok) return useStudio.getState().setNotice(copied.message);
+  if (!copied.ok) return useStudio.getState().setNotice(copied.message, copied.code);
   useStudio.getState().setNotice(null);
   const asset: Asset = { src: mediaRef(copied.mediaId), name: name.slice(0, 120) || "Video", kind: "video", ...(duration ? { duration } : {}) };
   useStudio.getState().edit((p) => addAsset(p, asset));

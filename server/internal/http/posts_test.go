@@ -41,7 +41,7 @@ func (f *fakePostService) Cancel(_ context.Context, user, id string) (publish.Po
 func TestPostEndpoints(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
 	fake := &fakePostService{}
-	h.deps.Posts = fake
+	h.deps.Posts, h.deps.Media = fake, fakeMedia{}
 	h.rebuild()
 	a, b := h.token(t, alice), h.token(t, bob)
 
@@ -54,6 +54,16 @@ func TestPostEndpoints(t *testing.T) {
 	body := `{"platform":"youtube","caption":"hi","job_id":"00000000-0000-4000-8000-000000000009","at":"2026-10-14T18:00:00Z"}`
 	if res := send(h, http.MethodPost, "/api/v1/posts", a, body); res.Code != http.StatusAccepted || fake.last.Platform != social.YouTube || fake.last.At == nil {
 		t.Fatalf("create: %d %s", res.Code, res.Body)
+	}
+	media := `{"platform":"tiktok","caption":"hi","media_id":"10000000-0000-4000-8000-000000000001"}`
+	if res := send(h, http.MethodPost, "/api/v1/posts", a, media); res.Code != http.StatusAccepted || fake.last.SourceURL != "https://files.example/10000000-0000-4000-8000-000000000001" || fake.last.JobID != "" {
+		t.Fatalf("post an uploaded file: %d %s source=%q", res.Code, res.Body, fake.last.SourceURL)
+	}
+	if res := send(h, http.MethodPost, "/api/v1/posts", b, media); res.Code != http.StatusNotFound {
+		t.Fatalf("someone else's file: %d", res.Code)
+	}
+	if res := send(h, http.MethodPost, "/api/v1/posts", a, `{"platform":"tiktok","job_id":"00000000-0000-4000-8000-000000000009","media_id":"10000000-0000-4000-8000-000000000001"}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("both sources: %d", res.Code)
 	}
 	if res := send(h, http.MethodPost, "/api/v1/posts", a, `{"platform":"youtube","job_id":"not-a-uuid"}`); res.Code != http.StatusBadRequest {
 		t.Fatalf("bad job id: %d", res.Code)

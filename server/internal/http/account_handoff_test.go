@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -27,6 +28,19 @@ func (f *fakeProfiles) Ensure(_ context.Context, id, email, name string) (accoun
 }
 
 func (f *fakeProfiles) MarkGranted(context.Context, string) error { return nil }
+func (f *fakeProfiles) SetDisplayName(_ context.Context, id, name string) (accounts.Profile, error) {
+	p := f.rows[id]
+	p.ID, p.DisplayName = id, name
+	f.rows[id] = p
+	return p, nil
+}
+func (f *fakeProfiles) MarkDeleted(_ context.Context, id string) error {
+	p := f.rows[id]
+	now := time.Now()
+	p.DeletedAt = &now
+	f.rows[id] = p
+	return nil
+}
 
 type fakeHandoffStore struct {
 	tokens map[string]string // hash -> user
@@ -224,4 +238,61 @@ func between(s, start, end string) string {
 		return s[:j]
 	}
 	return s
+}
+
+type fakePurger struct{ done chan string }
+
+func (f fakePurger) Purge(_ context.Context, userID string) error {
+	f.done <- userID
+	return nil
+}
+
+type fakeSignIns struct{ removed []string }
+
+func (f *fakeSignIns) RemoveUser(_ context.Context, id string) error {
+	f.removed = append(f.removed, id)
+	return nil
+}
+
+func TestAccountRenameAndDelete(t *testing.T) {
+	h := newHarness(t, &fakeRepo{}, fakePinger{})
+	signIns := &fakeSignIns{}
+	usage := &fakeUsage{plan: credits.PlanFree}
+	purger := fakePurger{done: make(chan string, 1)}
+	h.deps.SignIns, h.deps.Usage, h.deps.Purger = signIns, usage, purger
+	h.rebuild()
+	a := h.token(t, alice)
+
+	if res := send(h, http.MethodPatch, "/api/v1/me", a, `{"name":"  Ada Lovelace "}`); res.Code != http.StatusOK || !strings.Contains(res.Body.String(), "Ada Lovelace") {
+		t.Fatalf("rename: %d %s", res.Code, res.Body)
+	}
+	if res := send(h, http.MethodPatch, "/api/v1/me", a, `{"name":""}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("empty name: %d", res.Code)
+	}
+	if res := send(h, http.MethodDelete, "/api/v1/me", "", `{}`); res.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous delete: %d", res.Code)
+	}
+	if res := send(h, http.MethodDelete, "/api/v1/me", a, `{"confirm_email":"nobody@example.com"}`); res.Code != http.StatusBadRequest || len(signIns.removed) != 0 {
+		t.Fatalf("wrong email: %d removed=%v", res.Code, signIns.removed)
+	}
+	usage.plan = credits.PlanPro
+	if res := send(h, http.MethodDelete, "/api/v1/me", a, `{"confirm_email":"a@example.com"}`); res.Code != http.StatusConflict || len(signIns.removed) != 0 {
+		t.Fatalf("a Pro member deleted while subscribed: %d removed=%v", res.Code, signIns.removed)
+	}
+	usage.plan = credits.PlanFree
+	if res := send(h, http.MethodDelete, "/api/v1/me", a, `{"confirm_email":"A@Example.com"}`); res.Code != http.StatusNoContent || len(signIns.removed) != 1 || signIns.removed[0] != alice {
+		t.Fatalf("delete: %d removed=%v", res.Code, signIns.removed)
+	}
+	select {
+	case erased := <-purger.done:
+		if erased != alice {
+			t.Fatalf("erased %q", erased)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("the account's content was not erased")
+	}
+	// The account is closed at once: the next request is refused.
+	if res := send(h, http.MethodGet, "/api/v1/me", a, ""); res.Code != http.StatusForbidden {
+		t.Fatalf("a deleted account was served: %d", res.Code)
+	}
 }

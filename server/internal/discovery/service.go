@@ -41,6 +41,14 @@ type Service struct {
 	repo      Repository
 	publisher realtime.Publisher
 	biller    Biller
+	quota     func(ctx context.Context, userID string) (int, error)
+}
+
+// WithQuota limits a search before it is queued. It returns the most results the
+// search may have, where zero means no cap, or an error that refuses it.
+func (s *Service) WithQuota(allow func(ctx context.Context, userID string) (int, error)) *Service {
+	s.quota = allow
+	return s
 }
 
 // WithBiller turns on charging. Without one searches are free.
@@ -56,6 +64,15 @@ func NewService(repo Repository, publisher realtime.Publisher) *Service {
 // Create validates the request and queues it. It returns immediately; the
 // actor run happens in the background and progress arrives as events.
 func (s *Service) Create(ctx context.Context, userID string, p Params) (Discovery, error) {
+	if s.quota != nil && p.URL == "" {
+		resultCap, err := s.quota(ctx, userID)
+		if err != nil {
+			return Discovery{}, err
+		}
+		if resultCap > 0 && (p.Limit == 0 || p.Limit > resultCap) {
+			p.Limit = resultCap
+		}
+	}
 	d, err := validate(userID, p)
 	if err != nil {
 		return Discovery{}, err

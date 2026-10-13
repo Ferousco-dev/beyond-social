@@ -13,10 +13,11 @@ import (
 // memStore is a single-lock in-memory Store, enough to exercise the service
 // rules. The SQL implementation is covered by the database tests.
 type memStore struct {
-	mu      sync.Mutex
-	balance map[string]int
-	keys    map[string]Entry
-	prices  map[string]Price
+	mu       sync.Mutex
+	balance  map[string]int
+	keys     map[string]Entry
+	prices   map[string]Price
+	settings map[string]int
 }
 
 func newMem() *memStore {
@@ -47,7 +48,10 @@ func (m *memStore) DailyUsage(context.Context, string, string, time.Time) (int, 
 	return 0, 0, false, nil
 }
 func (m *memStore) SpentSince(context.Context, string, time.Time) (int, error) { return 0, nil }
-func (m *memStore) Setting(context.Context, string) (int, bool, error)         { return 0, false, nil }
+func (m *memStore) Setting(_ context.Context, key string) (int, bool, error) {
+	v, ok := m.settings[key]
+	return v, ok, nil
+}
 func (m *memStore) Price(_ context.Context, a string) (Price, bool, error) {
 	p, ok := m.prices[a]
 	return p, ok, nil
@@ -207,5 +211,30 @@ func TestGeneratedVideoIsChargedPerSecondAndRefundedOnFailure(t *testing.T) {
 	job.Status = jobs.StatusFailed
 	if err := b.Finish(ctx, job); err != nil || m.balance["u1"] != 100 {
 		t.Fatalf("refund: %v balance=%d", err, m.balance["u1"])
+	}
+}
+
+func TestPurchaseAddsOnceAndClawbackNeverGoesBelowZero(t *testing.T) {
+	svc, ctx := NewService(newMem()), context.Background()
+	if applied, err := svc.Purchase(ctx, "u1", 200, "purchase:p1", "bought Starter"); err != nil || !applied {
+		t.Fatalf("purchase: %v %v", applied, err)
+	}
+	if applied, _ := svc.Purchase(ctx, "u1", 200, "purchase:p1", "bought Starter"); applied {
+		t.Fatal("a repeated payment message added credits twice")
+	}
+	if bal, _ := svc.Balance(ctx, "u1"); bal != 200 {
+		t.Fatalf("balance = %d", bal)
+	}
+	if _, err := svc.Purchase(ctx, "u1", 0, "purchase:zero", "x"); err == nil {
+		t.Fatal("an empty purchase was accepted")
+	}
+	if took, err := svc.Clawback(ctx, "u1", 500, "refund:p1", "refunded"); err != nil || took != 200 {
+		t.Fatalf("clawback took %d (%v), want what was left", took, err)
+	}
+	if took, _ := svc.Clawback(ctx, "u1", 500, "refund:p1", "refunded"); took != 0 {
+		t.Fatalf("a repeated clawback took %d more", took)
+	}
+	if bal, _ := svc.Balance(ctx, "u1"); bal != 0 {
+		t.Fatalf("balance = %d", bal)
 	}
 }

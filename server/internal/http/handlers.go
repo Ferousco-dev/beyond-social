@@ -53,9 +53,14 @@ func (a *App) me(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 		return
 	}
+	plan, err := a.deps.Usage.PlanOf(r.Context(), profile.ID)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
 	writeData(w, http.StatusOK, map[string]any{
 		"user_id": profile.ID, "email": profile.Email, "name": profile.DisplayName,
-		"role": profile.Role, "credits": balance, "created_at": profile.CreatedAt,
+		"role": profile.Role, "credits": balance, "plan": plan, "created_at": profile.CreatedAt,
 	})
 }
 

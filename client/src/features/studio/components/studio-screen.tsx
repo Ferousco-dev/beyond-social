@@ -26,9 +26,10 @@ interface StudioScreenProps {
   document: unknown;
   library: readonly LibraryItem[];
   backHref: string;
+  plan: "free" | "pro";
 }
 
-export function StudioScreen({ id, title, version, document, library, backHref }: StudioScreenProps) {
+export function StudioScreen({ id, title, version, document, library, backHref, plan }: StudioScreenProps) {
   const parsed = parseProject(document);
   const loadedId = useStudio((s) => s.projectId);
   const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
@@ -39,6 +40,7 @@ export function StudioScreen({ id, title, version, document, library, backHref }
     if (project && useStudio.getState().projectId !== id) useStudio.getState().load(id, title, version, project);
   }, [id, title, version, project]);
   useEffect(() => () => useStudio.getState().setPlaying(false), []);
+  useEffect(() => useStudio.getState().setPlan(plan), [plan]);
   useAutosave();
   useMediaUrls();
   useShortcuts();

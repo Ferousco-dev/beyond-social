@@ -10,6 +10,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
@@ -43,6 +44,7 @@ type Deps struct {
 	Videos              VideoReader
 	VideoReconciler     VideoReconciler
 	HeygenWebhookSecret func(ctx context.Context) string
+	StripeWebhookSecret func(ctx context.Context) string
 	Vault               CredentialVault
 	Credits             CreditReader
 	Chat                ChatService
@@ -52,13 +54,22 @@ type Deps struct {
 	Library             library.Store
 	Editor              editor.Store
 	Assistant           editor.Assistant
+	Memory              MemoryService
 	AssistBiller        ResourceBiller
 	Transcriber         editor.Transcriber
 	CaptionBiller       ResourceBiller
 	Watcher             editor.Watcher
 	Models              ModelAdmin
-	WatchBiller         ResourceBiller
-	Scenes              SceneService
+	Billing             BillingService
+	Usage               UsageService
+	BillingAdmin        billing.AdminReader
+	EmailSettings       EmailSettings
+	SignIns             accounts.SignInRemover
+	Purger              interface {
+		Purge(ctx context.Context, userID string) error
+	}
+	WatchBiller ResourceBiller
+	Scenes      SceneService
 	// AppURL is the web app the sign-in redirects back into.
 	AppURL string
 	// PublicBaseURL is this service's own address, reported by the admin setup check.
@@ -95,6 +106,9 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/callbacks/kie", a.kieCallback)
 
 	mux.HandleFunc("POST /api/v1/callbacks/heygen", a.heygenCallback)
+	mux.HandleFunc("POST /api/v1/callbacks/stripe", a.stripeCallback)
+	mux.HandleFunc("GET /api/v1/packs", a.listPacks)
+	mux.HandleFunc("GET /api/v1/plans", a.plans)
 
 	// The phone that scans the QR has no session; its token is the capability.
 	// It calls the API from the browser, so these routes allow the frontend origin.
@@ -120,6 +134,10 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/editor/scenes/quote", protected(http.HandlerFunc(a.sceneQuote)))
 	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
 	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
+	mux.Handle("GET /api/v1/memory", protected(http.HandlerFunc(a.memorySettings)))
+	mux.Handle("POST /api/v1/memory", protected(http.HandlerFunc(a.addMemory)))
+	mux.Handle("DELETE /api/v1/memory/{id}", protected(http.HandlerFunc(a.deleteMemory)))
+	mux.Handle("PUT /api/v1/memory/enabled", protected(http.HandlerFunc(a.setMemoryEnabled)))
 	mux.Handle("GET /api/v1/editor/projects", protected(http.HandlerFunc(a.listEditorProjects)))
 	mux.Handle("POST /api/v1/editor/projects", protected(http.HandlerFunc(a.createEditorProject)))
 	mux.Handle("GET /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.getEditorProject)))
@@ -153,8 +171,23 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
 	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
+	mux.Handle("PATCH /api/v1/me", protected(http.HandlerFunc(a.renameMe)))
+	mux.Handle("DELETE /api/v1/me", protected(http.HandlerFunc(a.deleteMe)))
+	mux.Handle("GET /api/v1/usage", protected(http.HandlerFunc(a.myUsage)))
+	mux.Handle("PUT /api/v1/usage/overage", protected(http.HandlerFunc(a.setOverage)))
+	mux.Handle("POST /api/v1/subscription/checkout", protected(http.HandlerFunc(a.subscribe)))
+	mux.Handle("POST /api/v1/subscription/portal", protected(http.HandlerFunc(a.billingPortal)))
+	mux.Handle("POST /api/v1/credits/checkout", protected(http.HandlerFunc(a.checkout)))
+	mux.Handle("GET /api/v1/credits/payments", protected(http.HandlerFunc(a.myPayments)))
+	mux.Handle("GET /api/v1/admin/packs", protected(a.requireAdmin(a.adminPacks)))
+	mux.Handle("POST /api/v1/admin/packs", protected(a.requireAdmin(a.savePack)))
+	mux.Handle("PUT /api/v1/admin/packs/{id}", protected(a.requireAdmin(a.savePack)))
+	mux.Handle("DELETE /api/v1/admin/packs/{id}", protected(a.requireAdmin(a.deletePack)))
 	mux.Handle("GET /api/v1/admin/models", protected(a.requireAdmin(a.listModels)))
 	mux.Handle("PUT /api/v1/admin/models/{role}", protected(a.requireAdmin(a.chooseModel)))
+	mux.Handle("GET /api/v1/admin/billing", protected(a.requireAdmin(a.billingOverview)))
+	mux.Handle("GET /api/v1/admin/email", protected(a.requireAdmin(a.getEmailFrom)))
+	mux.Handle("PUT /api/v1/admin/email", protected(a.requireAdmin(a.setEmailFrom)))
 	mux.Handle("GET /api/v1/admin/setup", protected(a.requireAdmin(a.setup)))
 	mux.Handle("GET /api/v1/admin/providers", protected(a.requireAdmin(a.listProviders)))
 	mux.Handle("PUT /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.setProvider)))

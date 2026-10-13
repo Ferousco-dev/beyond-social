@@ -1,5 +1,6 @@
 "use client";
 
+import { ErrorHelp } from "@/components/billing/error-help";
 import { Compass } from "lucide-react";
 import { type ReactNode } from "react";
 
@@ -24,6 +25,7 @@ export function ResultsGrid({
   detail,
   busy,
   notice,
+  noticeCode,
   query,
   term,
   platform,
@@ -41,6 +43,8 @@ export function ResultsGrid({
   detail: ReactNode;
   busy: boolean;
   notice: string | null;
+  /** Why the search was refused, when a plan limit was the reason. */
+  noticeCode?: string;
   /** What is in the field right now, for the searching line. */
   query: string;
   /** What the shown results were actually a search for. */
@@ -85,6 +89,11 @@ export function ResultsGrid({
           title={notice ?? "Find what is working"}
           body="Search a topic and watch what is already landing on it. Open one to study how it opens, then make your own version of it."
         />
+        {noticeCode ? (
+          <p className="mt-4 text-center">
+            <ErrorHelp code={noticeCode} />
+          </p>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {suggestions.map((suggestion) => (
             <button

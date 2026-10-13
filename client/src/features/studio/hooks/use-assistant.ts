@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { saveMemory } from "@/features/memory/actions";
+
 import { adoptVideo, askAssistant, quoteScene, sceneStatus, startScene, watchClip } from "../assist-actions";
 import { applyOperations, type Request } from "../core/assist.ts";
 import { describeProject } from "../core/describe.ts";
-import { endOf, locate } from "../core/find.ts";
-import { addAsset, addItem } from "../core/ops.ts";
+import { locate } from "../core/find.ts";
 import { makeId } from "../lib/format";
-import { mediaRef, resolveSrc } from "../lib/media-ref";
+import { resolveSrc } from "../lib/media-ref";
+import { placeGeneratedVideo } from "../lib/place-generated";
 import { useStudio } from "../store/editor-store";
 
 export interface SceneProposal {
@@ -18,6 +20,14 @@ export interface SceneProposal {
   readonly credits: number | null;
   readonly state: "ready" | "working" | "done" | "failed" | "dismissed";
   readonly message?: string;
+  readonly code?: string;
+}
+
+/** A fact the assistant suggests keeping. Nothing is saved until the user agrees. */
+export interface RememberProposal {
+  readonly fact: string;
+  readonly state: "ready" | "saving" | "saved" | "dismissed" | "failed";
+  readonly message?: string;
 }
 
 export interface AssistantMessage {
@@ -25,6 +35,7 @@ export interface AssistantMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly scene?: SceneProposal;
+  readonly remember?: RememberProposal;
 }
 
 const HISTORY_TURNS = 10;
@@ -35,9 +46,12 @@ interface Assistant {
   messages: readonly AssistantMessage[];
   busy: boolean;
   error: string | null;
+  errorCode: string | undefined;
   send: (text: string) => Promise<void>;
   confirmScene: (id: string) => Promise<void>;
   dismissScene: (id: string) => void;
+  confirmRemember: (id: string) => Promise<void>;
+  dismissRemember: (id: string) => void;
   clear: () => void;
 }
 
@@ -45,6 +59,7 @@ export function useAssistant(): Assistant {
   const [messages, setMessages] = useState<readonly AssistantMessage[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -61,6 +76,21 @@ export function useAssistant(): Assistant {
   const patchScene = useCallback((id: string, patch: Partial<SceneProposal>): void => {
     setMessages((current) => current.map((m) => (m.id === id && m.scene ? { ...m, scene: { ...m.scene, ...patch } } : m)));
   }, []);
+
+  const patchRemember = useCallback((id: string, patch: Partial<RememberProposal>): void => {
+    setMessages((current) => current.map((m) => (m.id === id && m.remember ? { ...m, remember: { ...m.remember, ...patch } } : m)));
+  }, []);
+
+  const confirmRemember = useCallback(
+    async (id: string): Promise<void> => {
+      const fact = messages.find((m) => m.id === id)?.remember?.fact;
+      if (!fact) return;
+      patchRemember(id, { state: "saving", message: undefined });
+      const saved = await saveMemory(fact);
+      patchRemember(id, saved.ok ? { state: "saved" } : { state: "failed", message: saved.message });
+    },
+    [messages, patchRemember],
+  );
 
   const watch = useCallback(
     async (itemId: string): Promise<void> => {
@@ -94,6 +124,7 @@ export function useAssistant(): Assistant {
       const message = text.trim();
       if (!message || busy) return;
       setError(null);
+      setErrorCode(undefined);
       setBusy(true);
       const history = messages
         .filter((m) => m.content)
@@ -104,6 +135,7 @@ export function useAssistant(): Assistant {
       const result = await askAssistant({ message, history, state: describeProject(h.present, currentTime, clipNotes), projectId: useStudio.getState().projectId ?? undefined });
       if (!result.ok) {
         setBusy(false);
+        setErrorCode(result.code);
         return setError(result.message);
       }
 
@@ -115,6 +147,7 @@ export function useAssistant(): Assistant {
       if (applied.seek !== null) store.seek(applied.seek);
       if (applied.failures.length > 0) summary += ` (${applied.failures.length} of ${result.operations.length} changes could not be made: ${applied.failures[0]})`;
       if (summary) add({ role: "assistant", content: summary });
+      if (result.remember) add({ role: "assistant", content: "", remember: { fact: result.remember, state: "ready" } });
       for (const request of applied.requests) await handle(request);
       setBusy(false);
     },
@@ -128,7 +161,7 @@ export function useAssistant(): Assistant {
       patchScene(id, { state: "working", message: undefined });
       // The message id doubles as the idempotency key, so a double press makes one scene.
       const started = await startScene({ prompt: scene.prompt, seconds: scene.seconds, key: `scene-${id}` });
-      if (!started.ok) return patchScene(id, { state: "failed", message: started.message });
+      if (!started.ok) return patchScene(id, { state: "failed", message: started.message, code: started.code });
 
       const deadline = Date.now() + SCENE_TIMEOUT_MS;
       while (alive.current && Date.now() < deadline) {
@@ -138,20 +171,9 @@ export function useAssistant(): Assistant {
         if (status.state === "done") {
           // The provider's link expires and cannot be exported from, so the clip is copied first.
           const copied = await adoptVideo(started.jobId);
-          if (!copied.ok) return patchScene(id, { state: "failed", message: copied.message });
-          const clipId = makeId();
-          const store = useStudio.getState();
-          const src = mediaRef(copied.mediaId);
-          const track = store.history.present.tracks.find((t) => t.kind === "video");
-          const start = track?.items.reduce((latest, i) => Math.max(latest, endOf(i)), 0) ?? 0;
-          const error = store.edit((p) => {
-            const withAsset = addAsset(p, { src, name: "AI scene", kind: "video", duration: scene.seconds });
-            return withAsset.ok
-              ? addItem(withAsset.value, track?.id ?? "video", { kind: "video", id: clipId, start, duration: scene.seconds, src, trimIn: 0, sourceDuration: scene.seconds, volume: 1 })
-              : withAsset;
-          });
-          if (error) return patchScene(id, { state: "failed", message: error });
-          store.select(clipId);
+          if (!copied.ok) return patchScene(id, { state: "failed", message: copied.message, code: copied.code });
+          const placed = placeGeneratedVideo(copied.mediaId, scene.seconds, "AI scene");
+          if (placed.error) return patchScene(id, { state: "failed", message: placed.error });
           return patchScene(id, { state: "done" });
         }
       }
@@ -164,9 +186,12 @@ export function useAssistant(): Assistant {
     messages,
     busy,
     error,
+    errorCode,
     send,
     confirmScene,
     dismissScene: (id) => patchScene(id, { state: "dismissed" }),
+    confirmRemember,
+    dismissRemember: (id) => patchRemember(id, { state: "dismissed" }),
     clear: () => setMessages([]),
   };
 }

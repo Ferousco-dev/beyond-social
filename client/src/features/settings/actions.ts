@@ -3,63 +3,26 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { logger } from "@/lib/logger";
+import { goApi } from "@/lib/go-api/client";
+import { nameResponse } from "@/lib/go-api/schemas";
 import { createClient } from "@/lib/supabase/server";
 
-/** Account changes the owner can make about themselves. */
+/** Account changes a person makes about themselves. */
 
 export type SettingsResult =
   { status: "ok"; message: string } | { status: "error"; message: string };
 
-const profileSchema = z.object({
-  fullName: z.string().trim().min(1, "Enter your name").max(80),
-});
+const nameSchema = z.object({ fullName: z.string().trim().min(1, "Enter your name").max(80, "Use 80 characters or fewer") });
 
-export async function updateProfile(input: z.input<typeof profileSchema>): Promise<SettingsResult> {
-  const parsed = profileSchema.safeParse(input);
+export async function updateProfile(input: z.input<typeof nameSchema>): Promise<SettingsResult> {
+  const parsed = nameSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Check that name" };
   }
+  const result = await goApi("/api/v1/me", nameResponse, { method: "PATCH", body: { name: parsed.data.fullName } });
+  if (!result.ok) return { status: "error", message: result.message };
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { status: "error", message: "Sign in again to change this" };
-
-  // RLS restricts the update to the owner's own row, so the id filter is
-  // belt-and-braces rather than the actual protection.
-  const { error } = await supabase
-    .from("profiles")
-    .update({ full_name: parsed.data.fullName })
-    .eq("id", user.id);
-
-  if (error) {
-    logger.error("profile update failed", { error: error.message });
-    return { status: "error", message: "Could not save that just now" };
-  }
-
-  /*
-   * The name lives in two places and both have to move.
-   *
-   * This wrote only `profiles`, while everything that displays the name reads
-   * `user_metadata.full_name` off the session, which nothing updated. The save
-   * genuinely worked and the sidebar never changed, so it read as broken.
-   *
-   * Metadata is kept as the read path deliberately: it rides on the session, so
-   * the sidebar costs no query. `profiles` stays the queryable copy for the
-   * settings page, joins and admin.
-   */
-  const { error: metadataError } = await supabase.auth.updateUser({
-    data: { full_name: parsed.data.fullName },
-  });
-  if (metadataError) {
-    logger.error("profile metadata update failed", { error: metadataError.message });
-    return { status: "error", message: "Saved, but the name may not show until you sign in again" };
-  }
-
-  // Layout scope, because the name is rendered by the dashboard shell rather
-  // than by the settings page that changed it.
+  // The name is shown by the dashboard shell, not the settings page that changed it.
   revalidatePath("/dashboard", "layout");
   return { status: "ok", message: "Name updated." };
 }
@@ -75,26 +38,17 @@ const passwordSchema = z
   });
 
 /**
- * Changes the password.
- *
- * Supabase requires a live session for this, which is what stops a stolen tab
- * from being used to lock the real owner out without knowing anything.
+ * Changes the password. Supabase requires a live session for this, which is what
+ * stops a stolen tab from locking the real owner out without knowing anything.
  */
-export async function updatePassword(
-  input: z.input<typeof passwordSchema>,
-): Promise<SettingsResult> {
+export async function updatePassword(input: z.input<typeof passwordSchema>): Promise<SettingsResult> {
   const parsed = passwordSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0]?.message ?? "Check those passwords" };
   }
-
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-
-  if (error) {
-    // Supabase's own message is useful here (too short, previously used), so it
-    // is passed through rather than flattened to a generic failure.
-    return { status: "error", message: error.message };
-  }
+  // Supabase's own message is useful here (too short, previously used), so it is passed through.
+  if (error) return { status: "error", message: error.message };
   return { status: "ok", message: "Password changed." };
 }

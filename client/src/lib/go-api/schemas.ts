@@ -78,8 +78,11 @@ export const meResponse = z.object({
     name: z.string(),
     role: z.enum(["user", "admin"]),
     credits: z.number().int(),
+    plan: z.enum(["free", "pro"]),
   }),
 });
+
+export const nameResponse = z.object({ data: z.object({ name: z.string() }) });
 
 export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
 export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });
@@ -217,6 +220,61 @@ export const wordsResponse = z.object({
 
 export const editorProjectResponse = z.object({ data: editorProjectSchema });
 
+export const usageSnapshotSchema = z.object({
+  plan: z.enum(["free", "pro"]),
+  five_hour_used: z.number(),
+  five_hour_limit: z.number(),
+  five_hour_resets_at: z.string().nullable(),
+  week_used: z.number(),
+  week_limit: z.number(),
+  week_resets_at: z.string(),
+  overage_enabled: z.boolean(),
+  overage_cap: z.number(),
+  overage_used: z.number(),
+});
+export type UsageSnapshot = z.infer<typeof usageSnapshotSchema>;
+export const usageResponse = z.object({ data: z.object({ usage: usageSnapshotSchema, credits: z.number() }) });
+
+export const plansResponse = z.object({
+  data: z.object({
+    pro_price_cents: z.number(),
+    free_credits: z.number(),
+    free_price_multiplier_pct: z.number(),
+    free_avatars: z.number(),
+    free_searches_per_day: z.number(),
+    free_search_results: z.number(),
+    pro_five_hour_limit: z.number(),
+    pro_week_limit: z.number(),
+  }),
+});
+export type PlanInfo = z.infer<typeof plansResponse>["data"];
+
+export const packSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  credits: z.number().int(),
+  price_cents: z.number().int(),
+  currency: z.string(),
+  enabled: z.boolean(),
+  sort: z.number().int(),
+});
+export type CreditPack = z.infer<typeof packSchema>;
+export const packsResponse = z.object({ data: z.array(packSchema) });
+
+export const paymentSchema = z.object({
+  id: z.string(),
+  pack_name: z.string(),
+  credits: z.number().int(),
+  amount_cents: z.number().int(),
+  currency: z.string(),
+  status: z.enum(["pending", "paid", "refunded"]),
+  credits_removed: z.number().int(),
+  created_at: z.string(),
+});
+export type Payment = z.infer<typeof paymentSchema>;
+export const paymentsResponse = z.object({ data: z.array(paymentSchema) });
+export const checkoutResponse = z.object({ data: z.object({ url: z.string().url() }) });
+
 export const libraryItemSchema = z.object({
   id: z.string(),
   type: z.string(),
@@ -228,3 +286,11 @@ export const libraryItemSchema = z.object({
 });
 export type LibraryItem = z.infer<typeof libraryItemSchema>;
 export const libraryResponse = z.object({ data: z.array(libraryItemSchema) });
+
+export const memoryResponse = z.object({
+  data: z.object({
+    enabled: z.boolean(),
+    limit: z.number(),
+    facts: z.array(z.object({ id: z.string(), content: z.string() })),
+  }),
+});
