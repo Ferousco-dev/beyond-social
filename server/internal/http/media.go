@@ -15,6 +15,7 @@ type MediaService interface {
 	RequestUpload(ctx context.Context, userID, name, mime string, size int64) (media.Slot, error)
 	Confirm(ctx context.Context, userID, id string) (media.Descriptor, error)
 	ViewURL(ctx context.Context, userID, id string) (string, error)
+	AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name string) (media.Descriptor, error)
 }
 
 func (a *App) requestMediaUpload(w http.ResponseWriter, r *http.Request) {

@@ -13,6 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
 	"github.com/google/uuid"
 )
@@ -67,6 +68,8 @@ type Item struct {
 	Path      string
 	Ready     bool
 	CreatedAt time.Time
+	// SourceJobID is the job whose finished video this is a copy of, if any.
+	SourceJobID string
 }
 
 // Descriptor is what a message stores and the assistant is told: what the file
@@ -88,12 +91,15 @@ type Store interface {
 	// Get returns ErrNotFound for a file the user does not own.
 	Get(ctx context.Context, userID, id string) (Item, error)
 	MarkReady(ctx context.Context, id string, size int64) error
+	// FindByJob returns the stored copy of a job's video, and whether there is one.
+	FindByJob(ctx context.Context, userID, jobID string) (Item, bool, error)
 }
 
 type Storage interface {
 	SignedUploadToken(ctx context.Context, bucket, path string) (string, error)
 	Stat(ctx context.Context, bucket, path string) (storage.Info, error)
 	SignedURL(ctx context.Context, bucket, path string, ttl time.Duration) (string, error)
+	Upload(ctx context.Context, bucket, path, contentType string, data []byte) error
 }
 
 // Fetcher downloads a stored file through its short-lived link.
@@ -247,4 +253,41 @@ func (s *Service) Load(ctx context.Context, userID, id string, max int64) ([]byt
 		return nil, "", err
 	}
 	return data, item.MIME, nil
+}
+
+// AdoptVideo copies a finished video from a provider's link into the user's own
+// storage, so it keeps working after the provider's link expires and the editor
+// can read it. Copying the same job twice returns the first copy.
+func (s *Service) AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name string) (Descriptor, error) {
+	if existing, found, err := s.store.FindByJob(ctx, userID, jobID); err != nil {
+		return Descriptor{}, err
+	} else if found {
+		return existing.Descriptor(), nil
+	}
+	data, err := s.fetcher.Fetch(ctx, sourceURL, maxBytes[KindVideo])
+	if err != nil {
+		return Descriptor{}, fmt.Errorf("%w: %v", ErrNotUploaded, err)
+	}
+	mime, err := safenet.SniffVideo(data)
+	if err != nil {
+		return Descriptor{}, ErrUnsupported
+	}
+	name = cleanName(name)
+	if name == "" {
+		name = "Video"
+	}
+	id := uuid.NewString()
+	p := userID + "/" + id + extensions[mime]
+	if err := s.storage.Upload(ctx, Bucket, p, mime, data); err != nil {
+		return Descriptor{}, err
+	}
+	item, err := s.store.Create(ctx, Item{ID: id, UserID: userID, Kind: KindVideo, Name: name, MIME: mime, Size: int64(len(data)), Path: p, SourceJobID: jobID})
+	if err != nil {
+		return Descriptor{}, err
+	}
+	if err := s.store.MarkReady(ctx, item.ID, item.Size); err != nil {
+		return Descriptor{}, err
+	}
+	item.Ready = true
+	return item.Descriptor(), nil
 }

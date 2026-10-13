@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/jackc/pgx/v5"
@@ -100,4 +101,36 @@ func (s *EditorStore) ForConversation(ctx context.Context, userID, conversationI
 		return editor.Project{}, err
 	}
 	return scanProject(s.pool.QueryRow(ctx, `select `+projectColumns+` from public.editor_projects where user_id = $1 and conversation_id = $2`, userID, conversationID))
+}
+
+const (
+	contextMessages = 12
+	contextRunes    = 400
+)
+
+func (s *EditorStore) ChatContext(ctx context.Context, userID, projectID string) (string, error) {
+	rows, err := s.pool.Query(ctx, `
+		select m.role, left(m.content, $3)
+		from public.editor_projects p
+		join public.messages m on m.conversation_id = p.conversation_id
+		where p.id = $1 and p.user_id = $2
+		order by m.created_at desc
+		limit $4`, projectID, userID, contextRunes, contextMessages)
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	var lines []string
+	for rows.Next() {
+		var role, content string
+		if err := rows.Scan(&role, &content); err != nil {
+			return "", err
+		}
+		lines = append(lines, role+": "+content)
+	}
+	// Newest first from the query; read oldest first.
+	for i, j := 0, len(lines)-1; i < j; i, j = i+1, j-1 {
+		lines[i], lines[j] = lines[j], lines[i]
+	}
+	return strings.Join(lines, "\n"), rows.Err()
 }

@@ -30,7 +30,9 @@ import (
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
+	"github.com/Ferousco-dev/beyond-social/server/internal/llm"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
+	"github.com/Ferousco-dev/beyond-social/server/internal/openrouter"
 	"github.com/Ferousco-dev/beyond-social/server/internal/orchestrator"
 	"github.com/Ferousco-dev/beyond-social/server/internal/providers"
 	"github.com/Ferousco-dev/beyond-social/server/internal/publish"
@@ -136,10 +138,14 @@ func run() error {
 		Jobs:   jobService, Avatars: avatarService, Provider: heygenClient, CallbackURL: cfg.HeygenCallbackURL(),
 	}
 
+	openRouterClient := openrouter.NewClient(openrouter.Config{KeyFunc: vault.Key(secrets.NameOpenRouter), Referer: cfg.AppURL()})
+	settingsStore := database.NewSettingsStore(pool)
 	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel})
 	if err != nil {
 		return err
 	}
+	chatModel := llm.NewSwitch(llm.RoleChat, geminiClient, openRouterClient, settingsStore)
+	editorModel := llm.NewSwitch(llm.RoleEditorAssistant, geminiClient, openRouterClient, settingsStore)
 	registry := orchestrator.DefaultRegistry()
 	planner := orchestrator.NewPlanner(geminiClient, registry)
 	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
@@ -182,9 +188,9 @@ func run() error {
 	}
 	chatService := chat.NewService(
 		database.NewConversationStore(pool),
-		chat.NewModelRouter(geminiClient),
+		chat.NewModelRouter(chatModel),
 		workflowPlanner,
-	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(geminiClient)).WithScriptPlanner(workflowPlanner).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
+	).WithEvents(hub).WithAlerts(alertService).WithAnalyzer(analysisService).WithAttachments(mediaService).WithScriptWriter(chat.NewModelScriptWriter(chatModel)).WithScriptPlanner(workflowPlanner).WithDailyLimit(func(ctx context.Context) (int, bool, error) {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
@@ -212,10 +218,14 @@ func run() error {
 		PublicBaseURL:       cfg.PublicBaseURL,
 		Library:             database.NewLibraryStore(pool),
 		Editor:              database.NewEditorStore(pool),
-		Assistant:           editor.NewModelAssistant(geminiClient),
+		Assistant:           editor.NewModelAssistant(editorModel),
 		AssistBiller:        credits.NewActionBiller(creditService, credits.ActionEditorAssist),
 		Transcriber:         editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
 		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
+		Models:              llm.NewAdmin(settingsStore, openRouterClient, chatModel, editorModel),
+		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
+		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
+		Scenes:              editorScenes{generate: generateService, credits: creditService},
 		Audit:               database.NewAuditStore(pool),
 		Jobs:                jobService,
 		Discovery:           discoveryService,

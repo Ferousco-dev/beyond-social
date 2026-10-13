@@ -17,12 +17,12 @@ type MediaStore struct {
 
 func NewMediaStore(pool *pgxpool.Pool) *MediaStore { return &MediaStore{pool: pool} }
 
-const mediaColumns = `id::text, user_id::text, kind, name, mime_type, size_bytes, path, ready_at is not null, created_at`
+const mediaColumns = `id::text, user_id::text, kind, name, mime_type, size_bytes, path, ready_at is not null, created_at, coalesce(source_job_id::text, '')`
 
 func scanMedia(row pgx.Row) (media.Item, error) {
 	var i media.Item
 	var kind string
-	err := row.Scan(&i.ID, &i.UserID, &kind, &i.Name, &i.MIME, &i.Size, &i.Path, &i.Ready, &i.CreatedAt)
+	err := row.Scan(&i.ID, &i.UserID, &kind, &i.Name, &i.MIME, &i.Size, &i.Path, &i.Ready, &i.CreatedAt, &i.SourceJobID)
 	i.Kind = media.Kind(kind)
 	if errors.Is(err, pgx.ErrNoRows) || isInvalidText(err) {
 		return media.Item{}, media.ErrNotFound
@@ -32,9 +32,9 @@ func scanMedia(row pgx.Row) (media.Item, error) {
 
 func (s *MediaStore) Create(ctx context.Context, i media.Item) (media.Item, error) {
 	return scanMedia(s.pool.QueryRow(ctx, `
-		insert into public.media (id, user_id, kind, name, mime_type, size_bytes, path)
-		values ($1, $2, $3, $4, $5, $6, $7)
-		returning `+mediaColumns, i.ID, i.UserID, string(i.Kind), i.Name, i.MIME, i.Size, i.Path))
+		insert into public.media (id, user_id, kind, name, mime_type, size_bytes, path, source_job_id)
+		values ($1, $2, $3, $4, $5, $6, $7, nullif($8, '')::uuid)
+		returning `+mediaColumns, i.ID, i.UserID, string(i.Kind), i.Name, i.MIME, i.Size, i.Path, i.SourceJobID))
 }
 
 func (s *MediaStore) Get(ctx context.Context, userID, id string) (media.Item, error) {
@@ -44,4 +44,12 @@ func (s *MediaStore) Get(ctx context.Context, userID, id string) (media.Item, er
 func (s *MediaStore) MarkReady(ctx context.Context, id string, size int64) error {
 	_, err := s.pool.Exec(ctx, `update public.media set ready_at = coalesce(ready_at, now()), size_bytes = $2 where id = $1`, id, size)
 	return err
+}
+
+func (s *MediaStore) FindByJob(ctx context.Context, userID, jobID string) (media.Item, bool, error) {
+	item, err := scanMedia(s.pool.QueryRow(ctx, `select `+mediaColumns+` from public.media where user_id = $1 and source_job_id = $2 and ready_at is not null`, userID, jobID))
+	if errors.Is(err, media.ErrNotFound) {
+		return media.Item{}, false, nil
+	}
+	return item, err == nil, err
 }

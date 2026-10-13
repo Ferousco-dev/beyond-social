@@ -55,6 +55,10 @@ type Deps struct {
 	AssistBiller        ResourceBiller
 	Transcriber         editor.Transcriber
 	CaptionBiller       ResourceBiller
+	Watcher             editor.Watcher
+	Models              ModelAdmin
+	WatchBiller         ResourceBiller
+	Scenes              SceneService
 	// AppURL is the web app the sign-in redirects back into.
 	AppURL string
 	// PublicBaseURL is this service's own address, reported by the admin setup check.
@@ -111,6 +115,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
 	mux.Handle("PUT /api/v1/conversations/{id}/editor", protected(http.HandlerFunc(a.conversationEditor)))
+	mux.Handle("POST /api/v1/editor/watch", protected(http.HandlerFunc(a.editorWatch)))
+	mux.Handle("POST /api/v1/editor/scenes", protected(http.HandlerFunc(a.createScene)))
+	mux.Handle("GET /api/v1/editor/scenes/quote", protected(http.HandlerFunc(a.sceneQuote)))
 	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
 	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
 	mux.Handle("GET /api/v1/editor/projects", protected(http.HandlerFunc(a.listEditorProjects)))
@@ -119,6 +126,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.saveEditorProject)))
 	mux.Handle("DELETE /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.deleteEditorProject)))
 	mux.Handle("GET /api/v1/library", protected(http.HandlerFunc(a.listLibrary)))
+	mux.Handle("POST /api/v1/library/{id}/adopt", protected(http.HandlerFunc(a.adoptLibraryVideo)))
 	mux.Handle("DELETE /api/v1/library/{id}", protected(http.HandlerFunc(a.deleteLibraryVideo)))
 	mux.Handle("GET /api/v1/posts", protected(http.HandlerFunc(a.listPosts)))
 	mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(a.createPost)))
@@ -145,6 +153,8 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
 	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
+	mux.Handle("GET /api/v1/admin/models", protected(a.requireAdmin(a.listModels)))
+	mux.Handle("PUT /api/v1/admin/models/{role}", protected(a.requireAdmin(a.chooseModel)))
 	mux.Handle("GET /api/v1/admin/setup", protected(a.requireAdmin(a.setup)))
 	mux.Handle("GET /api/v1/admin/providers", protected(a.requireAdmin(a.listProviders)))
 	mux.Handle("PUT /api/v1/admin/providers/{name}", protected(a.requireAdmin(a.setProvider)))

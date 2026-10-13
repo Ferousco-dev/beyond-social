@@ -28,6 +28,8 @@ func (a *App) editorAssist(w http.ResponseWriter, r *http.Request) {
 		Message string        `json:"message"`
 		History []editor.Turn `json:"history"`
 		State   string        `json:"state"`
+		// ProjectID lets the assistant read the chat the video came from.
+		ProjectID string `json:"project_id"`
 	}
 	if !decodeJSONLimit(w, r, &req, editor.MaxStateBytes+16<<10) {
 		return
@@ -54,10 +56,19 @@ func (a *App) editorAssist(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// What the video is about comes from its chat. Losing it only makes the answer less informed.
+	about := ""
+	if _, err := uuid.Parse(req.ProjectID); err == nil {
+		if text, err := a.deps.Editor.ChatContext(r.Context(), userID, req.ProjectID); err != nil {
+			slog.Warn("editor chat context", "error", err)
+		} else {
+			about = text
+		}
+	}
 	var reply editor.Reply
 	if !a.charged(w, r, userID, a.deps.AssistBiller, func() error {
 		var err error
-		reply, err = a.deps.Assistant.Assist(r.Context(), req.History, req.Message, req.State)
+		reply, err = a.deps.Assistant.Assist(r.Context(), req.History, req.Message, req.State, about)
 		return err
 	}, "the assistant could not answer") {
 		return
@@ -126,4 +137,33 @@ func (a *App) editorTranscribe(w http.ResponseWriter, r *http.Request) {
 		words = []editor.Word{}
 	}
 	writeData(w, http.StatusOK, map[string]any{"words": words})
+}
+
+func (a *App) editorWatch(w http.ResponseWriter, r *http.Request) {
+	userID, ok := a.editorIdentity(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		URL string `json:"url"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if u, err := url.Parse(req.URL); err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "url must be an https address")
+		return
+	}
+	var notes editor.ClipNotes
+	if !a.charged(w, r, userID, a.deps.WatchBiller, func() error {
+		var err error
+		notes, err = a.deps.Watcher.Watch(r.Context(), req.URL)
+		return err
+	}, "the video could not be watched") {
+		return
+	}
+	if notes.Scenes == nil {
+		notes.Scenes = []editor.ClipScene{}
+	}
+	writeData(w, http.StatusOK, notes)
 }

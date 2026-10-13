@@ -53,3 +53,37 @@ func (a *App) deleteLibraryVideo(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
+
+// adoptLibraryVideo copies a finished video into the user's own storage and
+// returns it as a media file the editor can use.
+func (a *App) adoptLibraryVideo(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "video not found")
+		return
+	}
+	video, err := a.deps.Library.Video(r.Context(), identity.UserID, id)
+	if errors.Is(err, library.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "not_found", "video not found")
+		return
+	}
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	name := video.Prompt
+	if name == "" {
+		name = "Video"
+	}
+	d, err := a.deps.Media.AdoptVideo(r.Context(), identity.UserID, video.ID, video.VideoURL, name)
+	if err != nil {
+		a.mediaError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, d)
+}

@@ -26,6 +26,9 @@ func (fakeMedia) Confirm(_ context.Context, user, id string) (media.Descriptor, 
 	}
 	return media.Descriptor{ID: id, Kind: media.KindImage, Name: "x.png"}, nil
 }
+func (fakeMedia) AdoptVideo(_ context.Context, user, jobID, _, _ string) (media.Descriptor, error) {
+	return media.Descriptor{ID: jobID, Kind: media.KindVideo}, nil
+}
 func (fakeMedia) ViewURL(_ context.Context, user, id string) (string, error) {
 	if user != alice {
 		return "", media.ErrNotFound

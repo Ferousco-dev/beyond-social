@@ -91,3 +91,35 @@ func TestEditorProjectLimit(t *testing.T) {
 		t.Fatalf("limit not enforced: %v", err)
 	}
 }
+
+func TestChatContextReturnsTheChatsRecentMessagesInOrder(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewEditorStore(pool)
+	alice, bob := uuid.NewString(), uuid.NewString()
+	for _, id := range []string{alice, bob} {
+		if _, err := NewProfileStore(pool).Ensure(ctx, id, id[:8]+"@example.com", "U"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var chat string
+	if err := pool.QueryRow(ctx, `insert into public.conversations (user_id, title) values ($1, 'Ad') returning id::text`, alice).Scan(&chat); err != nil {
+		t.Fatal(err)
+	}
+	for i, m := range []struct{ role, text string }{{"user", "make a shoe ad"}, {"assistant", "here is a script"}} {
+		if _, err := pool.Exec(ctx, `insert into public.messages (conversation_id, user_id, role, content, created_at) values ($1, $2, $3, $4, now() + $5 * interval '1 second')`, chat, alice, m.role, m.text, i); err != nil {
+			t.Fatal(err)
+		}
+	}
+	project, err := store.ForConversation(ctx, alice, chat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.ChatContext(ctx, alice, project.ID)
+	if err != nil || got != "user: make a shoe ad\nassistant: here is a script" {
+		t.Fatalf("context = %q err=%v", got, err)
+	}
+	if other, _ := store.ChatContext(ctx, bob, project.ID); other != "" {
+		t.Fatalf("a stranger read the chat: %q", other)
+	}
+}

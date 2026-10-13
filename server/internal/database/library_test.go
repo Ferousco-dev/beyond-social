@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/library"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -45,5 +46,50 @@ func TestLibraryListsOwnFinishedVideosAndHidesThem(t *testing.T) {
 	}
 	if items, _ := store.List(ctx, alice, 10, 0); len(items) != 0 {
 		t.Fatalf("hidden video still listed: %+v", items)
+	}
+}
+
+func TestAdoptedVideoIsFoundByItsJobAndStoredOncePerUser(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	alice := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, alice, alice[:8]+"@example.com", "U"); err != nil {
+		t.Fatal(err)
+	}
+	var job string
+	if err := pool.QueryRow(ctx, `insert into public.jobs (user_id, job_type, status, input, result, completed_at)
+		values ($1, 'video_generate', 'completed', '{"prompt":"a dog"}', '{"video_url":"https://cdn.example/a.mp4"}', now()) returning id::text`, alice).Scan(&job); err != nil {
+		t.Fatal(err)
+	}
+	lib := NewLibraryStore(pool)
+	video, err := lib.Video(ctx, alice, job)
+	if err != nil || video.VideoURL != "https://cdn.example/a.mp4" || video.Prompt != "a dog" {
+		t.Fatalf("video: %+v %v", video, err)
+	}
+	if _, err := lib.Video(ctx, uuid.NewString(), job); !errors.Is(err, library.ErrNotFound) {
+		t.Fatalf("a stranger read it: %v", err)
+	}
+
+	store := NewMediaStore(pool)
+	if _, found, err := store.FindByJob(ctx, alice, job); err != nil || found {
+		t.Fatalf("found before adopting: %v %v", found, err)
+	}
+	id := uuid.NewString()
+	item, err := store.Create(ctx, media.Item{ID: id, UserID: alice, Kind: media.KindVideo, Name: "a dog", MIME: "video/mp4", Size: 10, Path: alice + "/" + id + ".mp4", SourceJobID: job})
+	if err != nil || item.SourceJobID != job {
+		t.Fatalf("create: %+v %v", item, err)
+	}
+	if _, found, _ := store.FindByJob(ctx, alice, job); found {
+		t.Fatal("an unfinished copy was returned")
+	}
+	if err := store.MarkReady(ctx, id, 10); err != nil {
+		t.Fatal(err)
+	}
+	if got, found, err := store.FindByJob(ctx, alice, job); err != nil || !found || got.ID != id {
+		t.Fatalf("find: %+v %v %v", got, found, err)
+	}
+	dup := uuid.NewString()
+	if _, err := store.Create(ctx, media.Item{ID: dup, UserID: alice, Kind: media.KindVideo, Name: "x", MIME: "video/mp4", Size: 10, Path: alice + "/" + dup + ".mp4", SourceJobID: job}); err == nil {
+		t.Fatal("a second copy of the same job was stored")
 	}
 }

@@ -87,18 +87,11 @@ func transcribeSchema() *genai.Schema {
 }
 
 func (t *ModelTranscriber) Transcribe(ctx context.Context, url string) ([]Word, error) {
-	data, err := t.fetcher.Fetch(ctx, url, MaxMediaBytes+1)
-	switch {
-	case err != nil:
-		return nil, fmt.Errorf("%w: %v", ErrUnusable, err)
-	case len(data) > MaxMediaBytes:
-		return nil, ErrTooLarge
-	}
-	mime, err := safenet.SniffVideo(data)
+	media, err := loadVideo(ctx, t.fetcher, url)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUnusable, err)
+		return nil, err
 	}
-	out, _, err := t.client.GenerateJSONFromMedia(ctx, transcribeSystem, "Transcribe this video.", []gemini.Media{{Data: data, MIME: mime}}, transcribeSchema())
+	out, _, err := t.client.GenerateJSONFromMedia(ctx, transcribeSystem, "Transcribe this video.", []gemini.Media{media}, transcribeSchema())
 	if err != nil {
 		return nil, fmt.Errorf("editor: transcribe: %w", err)
 	}
@@ -137,4 +130,20 @@ func DecodeWords(data []byte) ([]Word, error) {
 		}
 	}
 	return words, nil
+}
+
+// loadVideo downloads a video through the safe fetcher and says what it is.
+func loadVideo(ctx context.Context, fetcher Fetcher, url string) (gemini.Media, error) {
+	data, err := fetcher.Fetch(ctx, url, MaxMediaBytes+1)
+	switch {
+	case err != nil:
+		return gemini.Media{}, fmt.Errorf("%w: %v", ErrUnusable, err)
+	case len(data) > MaxMediaBytes:
+		return gemini.Media{}, ErrTooLarge
+	}
+	mime, err := safenet.SniffVideo(data)
+	if err != nil {
+		return gemini.Media{}, fmt.Errorf("%w: %v", ErrUnusable, err)
+	}
+	return gemini.Media{Data: data, MIME: mime}, nil
 }

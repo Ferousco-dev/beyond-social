@@ -20,6 +20,14 @@ func (m *memStore) Get(_ context.Context, userID, id string) (Item, error) {
 	}
 	return i, nil
 }
+func (m *memStore) FindByJob(_ context.Context, userID, jobID string) (Item, bool, error) {
+	for _, i := range m.items {
+		if i.UserID == userID && i.SourceJobID == jobID && i.Ready {
+			return i, true, nil
+		}
+	}
+	return Item{}, false, nil
+}
 func (m *memStore) MarkReady(_ context.Context, id string, size int64) error {
 	i := m.items[id]
 	i.Ready, i.Size = true, size
@@ -38,6 +46,7 @@ func (f fakeStorage) SignedUploadToken(_ context.Context, _, p string) (string, 
 func (f fakeStorage) Stat(context.Context, string, string) (storage.Info, error) {
 	return f.stat, f.err
 }
+func (f fakeStorage) Upload(context.Context, string, string, string, []byte) error { return nil }
 func (f fakeStorage) SignedURL(_ context.Context, _, p string, _ time.Duration) (string, error) {
 	return "https://files.example/" + p, nil
 }
@@ -144,5 +153,28 @@ func TestLoadRefusesTooLargeAndStrangers(t *testing.T) {
 	}
 	if _, _, err := svc.Load(ctx, "u2", slot.ID, 18<<20); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("a stranger loaded it: %v", err)
+	}
+}
+
+func TestAdoptVideoCopiesOnceAndOnlyRealVideo(t *testing.T) {
+	mp4 := append([]byte{0, 0, 0, 24}, []byte("ftypmp42xxxxxxxxxxxxxxxx")...)
+	st := &memStore{items: map[string]Item{}}
+	svc := NewService(st, fakeStorage{}, fakeFetcher{data: mp4})
+	ctx := context.Background()
+
+	first, err := svc.AdoptVideo(ctx, "u1", "job-1", "https://cdn.example/v.mp4", "A dog")
+	if err != nil || first.Kind != KindVideo || first.MIME != "video/mp4" || first.Name != "A dog" {
+		t.Fatalf("adopt: %+v %v", first, err)
+	}
+	again, err := svc.AdoptVideo(ctx, "u1", "job-1", "https://cdn.example/v.mp4", "A dog")
+	if err != nil || again.ID != first.ID || len(st.items) != 1 {
+		t.Fatalf("adopting twice made another copy: %+v %v (%d)", again, err, len(st.items))
+	}
+	if other, err := svc.AdoptVideo(ctx, "u2", "job-1", "https://cdn.example/v.mp4", "x"); err != nil || other.ID == first.ID {
+		t.Fatalf("another user got the first user's copy: %+v %v", other, err)
+	}
+	notVideo := NewService(&memStore{items: map[string]Item{}}, fakeStorage{}, fakeFetcher{data: []byte("<html>")})
+	if _, err := notVideo.AdoptVideo(ctx, "u1", "job-2", "https://cdn.example/v", "x"); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("a non-video was copied: %v", err)
 	}
 }

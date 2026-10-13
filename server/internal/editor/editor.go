@@ -54,6 +54,8 @@ type Store interface {
 	// Save writes only when the stored version equals expected, then bumps it.
 	Save(ctx context.Context, userID, id, title string, document json.RawMessage, expected int) (Project, error)
 	Delete(ctx context.Context, userID, id string) error
+	// ChatContext returns the recent messages of the chat a project belongs to, as plain text.
+	ChatContext(ctx context.Context, userID, projectID string) (string, error)
 }
 
 // ValidateTitle trims a title and checks its length.

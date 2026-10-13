@@ -24,4 +24,6 @@ type Item struct {
 type Store interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]Item, error)
 	Hide(ctx context.Context, userID, id string) error
+	// Video returns a finished video the user owns.
+	Video(ctx context.Context, userID, id string) (Item, error)
 }

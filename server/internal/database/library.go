@@ -2,8 +2,10 @@ package database
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/library"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -50,4 +52,18 @@ func (s *LibraryStore) Hide(ctx context.Context, userID, id string) error {
 		return library.ErrNotFound
 	}
 	return nil
+}
+
+func (s *LibraryStore) Video(ctx context.Context, userID, id string) (library.Item, error) {
+	var it library.Item
+	err := s.pool.QueryRow(ctx, `
+		select id::text, job_type, coalesce(input->>'prompt', ''), result->>'video_url', coalesce(completed_at, created_at)
+		from public.jobs
+		where id = $1 and user_id = $2 and status = 'completed'
+		  and job_type in ('video_generate', 'video_transform', 'avatar_video') and result ? 'video_url'`, id, userID).
+		Scan(&it.ID, &it.Type, &it.Prompt, &it.VideoURL, &it.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) || isInvalidText(err) {
+		return library.Item{}, library.ErrNotFound
+	}
+	return it, err
 }
