@@ -189,6 +189,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// Any tool without something to run it leaves the planner's list.
+	orchestratorService.Seal()
 
 	analysisService := analysis.NewService(jobService)
 	analysisProcessor := &analysis.Processor{

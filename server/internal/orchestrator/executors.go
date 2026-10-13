@@ -24,7 +24,11 @@ import (
 func (s *Service) executeStep(ctx context.Context, workflow Workflow, step *Step) (bool, error) {
 	tool, ok := s.deps.Registry.Get(step.Tool)
 	if !ok {
-		return s.markTerminal(ctx, workflow, step, "unregistered tool")
+		return s.markTerminal(ctx, workflow, step, "that step is not available")
+	}
+	runner, ok := s.runners[tool.Name]
+	if !ok {
+		return s.markTerminal(ctx, workflow, step, "that step is not available")
 	}
 	if tool.Billable {
 		if err := s.deps.Credits.Check(ctx, workflow.UserID, tool.Name, true); err != nil {
@@ -34,33 +38,41 @@ func (s *Service) executeStep(ctx context.Context, workflow Workflow, step *Step
 	if step.Status == StepRunning && step.StartedAt != nil && time.Since(*step.StartedAt) > stuckStepAge {
 		return s.markTerminal(ctx, workflow, step, "step did not settle in time")
 	}
-	switch tool.Name {
-	case "get_job_status":
-		output, err := s.readJob(ctx, workflow.UserID, step)
-		return true, s.finishStep(ctx, workflow, step, output, err)
-	case "get_workflow_status":
-		output, err := s.readWorkflow(ctx, workflow.UserID, step)
-		return true, s.finishStep(ctx, workflow, step, output, err)
-	case "discover_videos":
-		return s.submitOrReconcile(ctx, workflow, step, s.submitDiscovery, s.reconcileDiscovery)
-	case "transform_video":
-		return s.submitOrReconcile(ctx, workflow, step, s.submitTransform, s.reconcileJob)
-	case "schedule_post":
-		if s.deps.Posts == nil {
-			return s.markTerminal(ctx, workflow, step, "posting is not available")
+	if step.Status != StepRunning {
+		// A running step already had its arguments checked and acted on.
+		if err := resolveStep(workflow, step, tool); err != nil {
+			return s.markTerminal(ctx, workflow, step, err.Error())
 		}
-		output, err := s.schedulePost(ctx, workflow, step)
-		return true, s.finishStep(ctx, workflow, step, output, err)
-	case "generate_video":
-		if s.deps.Generate == nil {
-			return s.markTerminal(ctx, workflow, step, "video generation is not available")
-		}
-		return s.submitOrReconcile(ctx, workflow, step, s.submitGenerate, s.reconcileJob)
-	case "create_avatar_video":
-		return s.submitOrReconcile(ctx, workflow, step, s.submitAvatarVideo, s.reconcileJob)
-	default:
-		return s.markTerminal(ctx, workflow, step, "unsupported tool")
 	}
+	if runner.Inline != nil {
+		output, err := runner.Inline(ctx, workflow, step)
+		return true, s.finishStep(ctx, workflow, step, output, err)
+	}
+	return s.submitOrReconcile(ctx, workflow, step, runner.Submit, runner.Reconcile)
+}
+
+// resolveStep fills in the references in a step's arguments from the outputs of
+// the steps it waited for, then checks the result like any other arguments.
+func resolveStep(workflow Workflow, step *Step, tool Tool) error {
+	if len(refsIn(step.Args)) == 0 {
+		return nil
+	}
+	filled, err := fill(step.Args, func(ref Ref) (string, bool) {
+		for _, done := range workflow.Steps {
+			if done.StepID == ref.Step && done.Status == StepCompleted {
+				return outputValue(done.Output, ref.Path)
+			}
+		}
+		return "", false
+	})
+	if err != nil {
+		return errors.New("a step this one depends on did not make what it needs")
+	}
+	if err := tool.ValidateArgs(filled); err != nil {
+		return errors.New("a value passed from an earlier step was not usable")
+	}
+	step.Args = filled
+	return nil
 }
 
 // markTerminal fails a step that can never proceed and chains within the pass,

@@ -82,20 +82,11 @@ func (s *Service) reconcileRunning(ctx context.Context, workflow Workflow, steps
 		if !ok {
 			continue
 		}
-		var (
-			done   bool
-			output map[string]any
-			fail   error
-			err    error
-		)
-		switch step.Tool {
-		case "discover_videos":
-			done, output, fail, err = s.reconcileDiscovery(ctx, workflow, step, ref)
-		case "transform_video", "create_avatar_video", "generate_video":
-			done, output, fail, err = s.reconcileJob(ctx, workflow, step, ref)
-		default:
+		runner, ok := s.runners[step.Tool]
+		if !ok || runner.Reconcile == nil {
 			continue
 		}
+		done, output, fail, err := runner.Reconcile(ctx, workflow, step, ref)
 		if err != nil {
 			return false, err
 		}

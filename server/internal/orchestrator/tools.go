@@ -1,16 +1,30 @@
 package orchestrator
 
 import (
-	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
-	"google.golang.org/genai"
 )
 
-// Tool describes one backend-controlled capability Gemini may select. The
-// executor is wired separately; the registry alone decides what a plan may
-// name. Anything not registered here is rejected at validation time.
+// What a step output holds, so a later step can be checked before anything runs.
+const (
+	KindID     = "id"
+	KindURL    = "url"
+	KindText   = "text"
+	KindNumber = "number"
+)
+
+// Output is a value a finished step makes available to later steps, written
+// ${step.path} in their arguments.
+type Output struct {
+	Path        string
+	Kind        string
+	Description string
+}
+
+// Tool describes one backend-controlled capability a plan may use. The registry
+// decides what a plan may name; a Runner decides how the step is carried out.
 type Tool struct {
 	Name        string
 	Description string
@@ -21,206 +35,174 @@ type Tool struct {
 	// Public tools do something in the outside world that cannot be undone,
 	// such as posting to a social account. They always wait for approval.
 	Public bool
+	// Args documents the arguments for the planner, one line each.
+	Args []string
+	// Outputs are what later steps may reference.
+	Outputs []Output
 	// ValidateArgs rejects malformed or out-of-range arguments.
 	ValidateArgs func(args map[string]any) error
 }
 
 // Registry is the closed set of tools plans may reference.
 type Registry struct {
-	tools map[string]Tool
+	tools    map[string]Tool
+	disabled map[string]bool
 }
 
-// DefaultRegistry exposes only capabilities already implemented and verified
-// in previous phases: Apify discovery, KIE transforms, HeyGen avatar videos,
-// and read-only status lookups.
+func NewRegistry(tools ...Tool) *Registry {
+	r := &Registry{tools: make(map[string]Tool, len(tools)), disabled: map[string]bool{}}
+	for _, tool := range tools {
+		r.Register(tool)
+	}
+	return r
+}
+
+// Register adds a tool, replacing one with the same name.
+func (r *Registry) Register(tool Tool) { r.tools[tool.Name] = tool }
+
+// Disable takes a tool out of use, for example when what it needs is not
+// connected. Plans can no longer name it and the planner is not told about it.
+func (r *Registry) Disable(name string) { r.disabled[name] = true }
+
+// Get returns the tool and whether plans may use it.
+func (r *Registry) Get(name string) (Tool, bool) {
+	tool, ok := r.tools[name]
+	return tool, ok && !r.disabled[name]
+}
+
+// Registered reports whether a tool exists at all, in use or not.
+func (r *Registry) Registered(name string) bool {
+	_, ok := r.tools[name]
+	return ok
+}
+
+// Tools lists the tools in use, in a fixed order so the planner's prompt stays
+// identical between requests.
+func (r *Registry) Tools() []Tool {
+	out := make([]Tool, 0, len(r.tools))
+	for name, tool := range r.tools {
+		if !r.disabled[name] {
+			out = append(out, tool)
+		}
+	}
+	slices.SortFunc(out, func(a, b Tool) int { return strings.Compare(a.Name, b.Name) })
+	return out
+}
+
+// Names lists the names of the tools in use, sorted.
+func (r *Registry) Names() []string {
+	tools := r.Tools()
+	names := make([]string, len(tools))
+	for i, tool := range tools {
+		names[i] = tool.Name
+	}
+	return names
+}
+
+// jobOutputs is what every tool that makes a video offers to later steps.
+func jobOutputs() []Output {
+	return []Output{
+		{"ref", KindID, "the id of the video job"},
+		{"result.video_url", KindURL, "the finished video"},
+		{"result.thumbnail_url", KindURL, "a still from the video"},
+		{"result.duration_seconds", KindNumber, "how long the video is"},
+	}
+}
+
+// DefaultRegistry exposes the capabilities that are built: Apify discovery, KIE
+// video, HeyGen avatar videos, posting, and read-only status lookups.
 func DefaultRegistry() *Registry {
-	tools := []Tool{
-		{
-			Name:        "discover_videos",
-			Description: "Search TikTok or Instagram for videos, or resolve a direct video URL via Apify.",
-			Billable:    true,
-			ValidateArgs: validateObject(map[string]argRule{
-				"platform": {required: true, oneOf: []string{"tiktok", "instagram"}},
-				"query":    {maxRunes: 300},
-				"url":      {maxRunes: 2000},
-				"limit":    {minInt: 1, maxInt: 20},
-			}, "platform"),
+	discover := objectArgs(map[string]argRule{
+		"platform": {required: true, oneOf: []string{"tiktok", "instagram"}},
+		"query":    {maxRunes: 300},
+		"url":      {maxRunes: 2000},
+		"limit":    {minInt: 1, maxInt: 20},
+	}, "platform")
+	transform := objectArgs(map[string]argRule{
+		"video_id": {required: true, maxRunes: 64},
+		"prompt":   {required: true, minRunes: 1, maxRunes: 2000},
+	}, "video_id", "prompt")
+	avatar := objectArgs(map[string]argRule{
+		"avatar_id": {required: true, maxRunes: 64},
+		"script":    {required: true, minRunes: 1, maxRunes: 2000},
+	}, "avatar_id", "script")
+	jobStatus := objectArgs(map[string]argRule{"job_id": {required: true, maxRunes: 64}}, "job_id")
+	workflowStatus := objectArgs(map[string]argRule{"workflow_id": {required: true, maxRunes: 64}}, "workflow_id")
+
+	return NewRegistry(
+		Tool{
+			Name:         "discover_videos",
+			Description:  "Search TikTok or Instagram for videos by keyword, or look up one video from its link, using Apify.",
+			Billable:     true,
+			Args:         append(discover.docs, "give either query or url, not both"),
+			Outputs:      []Output{{"ref", KindID, "the id of the search"}, {"result_count", KindNumber, "how many videos were found"}},
+			ValidateArgs: discover.validate,
 		},
-		{
-			Name:        "transform_video",
-			Description: "Transform a discovered video with a text prompt via KIE AI.",
-			Billable:    true,
-			ValidateArgs: validateObject(map[string]argRule{
-				"video_id": {required: true, maxRunes: 64},
-				"prompt":   {required: true, minRunes: 1, maxRunes: 2000},
-			}, "video_id", "prompt"),
+		Tool{
+			Name:         "transform_video",
+			Description:  "Remake a discovered video in a new style from a text prompt, using KIE.",
+			Billable:     true,
+			Args:         transform.docs,
+			Outputs:      jobOutputs(),
+			ValidateArgs: transform.validate,
 		},
-		{
-			Name:        "create_avatar_video",
-			Description: "Generate a video of a trained HeyGen avatar speaking a script.",
-			Billable:    true,
-			ValidateArgs: validateObject(map[string]argRule{
-				"avatar_id": {required: true, maxRunes: 64},
-				"script":    {required: true, minRunes: 1, maxRunes: 2000},
-			}, "avatar_id", "script"),
+		Tool{
+			Name:         "create_avatar_video",
+			Description:  "Make a video of one of the user's trained avatars speaking a script.",
+			Billable:     true,
+			Args:         avatar.docs,
+			Outputs:      jobOutputs(),
+			ValidateArgs: avatar.validate,
 		},
-		{
+		Tool{
 			Name:        "generate_video",
-			Description: "Make a new video clip of up to 15 seconds from scene descriptions, optionally starting from a picture the user attached, with Kling. Args: scenes (a list of {prompt, seconds}), optional image_media_id, aspect_ratio, sound.",
+			Description: "Make a new video clip from scene descriptions with Kling, optionally starting from a picture the user attached.",
 			Billable:    true,
+			Args: []string{
+				"scenes (required): 1 to 6 scenes, each {prompt, seconds}; the clip runs 3 to 15 seconds in total",
+				"image_media_id: the id of a picture the user attached, used as the first frame",
+				"aspect_ratio: 16:9, 9:16 or 1:1 (ignored when there is a picture)",
+				"sound: true to also make speech and ambience, which costs more",
+			},
+			Outputs: jobOutputs(),
 			ValidateArgs: func(args map[string]any) error {
 				_, err := generate.ParseArgs(args)
 				return err
 			},
 		},
-		{
+		Tool{
 			Name:        "schedule_post",
-			Description: "Post a finished video to one of the user's connected accounts (youtube, tiktok or instagram), now or at a chosen time. Args: platform, caption, optional title, visibility and at (an RFC 3339 time), and video_from (the id of the step that made the video) or job_id.",
+			Description: "Post a finished video to one of the user's connected accounts, now or at a chosen time.",
 			Public:      true,
+			Args: []string{
+				"platform (required): youtube, tiktok or instagram",
+				"caption: the text to post (required except on youtube)",
+				"title, visibility (public, unlisted or private)",
+				"at: when to post, an RFC 3339 time with a time zone; leave out to post as soon as the video is ready",
+				"job_id (required, unless video_from is given): the id of the video, normally ${step.ref} of the step that made it",
+				"video_from: the id of the step that made the video, instead of job_id",
+			},
+			Outputs: []Output{{"post_id", KindID, "the id of the queued post"}},
 			ValidateArgs: func(args map[string]any) error {
 				_, err := ParsePostArgs(args)
 				return err
 			},
 		},
-		{
-			Name:        "get_job_status",
-			Description: "Read the status of a video job created by an earlier step.",
-			ReadOnly:    true,
-			ValidateArgs: validateObject(map[string]argRule{
-				"job_id": {required: true, maxRunes: 64},
-			}, "job_id"),
+		Tool{
+			Name:         "get_job_status",
+			Description:  "Read the status of a video job made by an earlier step.",
+			ReadOnly:     true,
+			Args:         jobStatus.docs,
+			Outputs:      []Output{{"status", KindText, "the job's status"}, {"progress", KindNumber, "percent complete"}},
+			ValidateArgs: jobStatus.validate,
 		},
-		{
-			Name:        "get_workflow_status",
-			Description: "Read the current status and step states of a workflow.",
-			ReadOnly:    true,
-			ValidateArgs: validateObject(map[string]argRule{
-				"workflow_id": {required: true, maxRunes: 64},
-			}, "workflow_id"),
+		Tool{
+			Name:         "get_workflow_status",
+			Description:  "Read the current status and step states of a workflow.",
+			ReadOnly:     true,
+			Args:         workflowStatus.docs,
+			Outputs:      []Output{{"status", KindText, "the workflow's status"}},
+			ValidateArgs: workflowStatus.validate,
 		},
-	}
-	r := &Registry{tools: make(map[string]Tool, len(tools))}
-	for _, tool := range tools {
-		r.tools[tool.Name] = tool
-	}
-	return r
-}
-
-// Get returns the tool and whether it is registered.
-func (r *Registry) Get(name string) (Tool, bool) {
-	tool, ok := r.tools[name]
-	return tool, ok
-}
-
-// Names lists registered tool names for prompts and response schemas.
-func (r *Registry) Names() []string {
-	names := make([]string, 0, len(r.tools))
-	for name := range r.tools {
-		names = append(names, name)
-	}
-	return names
-}
-
-// PlanResponseSchema constrains Gemini to the plan shape and the registered
-// tool names. Schema enforcement is a backstop; Go validation is authoritative.
-func (r *Registry) PlanResponseSchema() *genai.Schema {
-	str := func(desc string, maxRunes int64) *genai.Schema {
-		return &genai.Schema{Type: genai.TypeString, Description: desc, MaxLength: &maxRunes}
-	}
-	strList := func(desc string) *genai.Schema {
-		return &genai.Schema{Type: genai.TypeArray, Description: desc, Items: &genai.Schema{Type: genai.TypeString}}
-	}
-	return &genai.Schema{
-		Type: genai.TypeObject,
-		Properties: map[string]*genai.Schema{
-			"version":      {Type: genai.TypeInteger, Description: "Always 1."},
-			"objective":    str("The user's objective in one sentence.", 500),
-			"missing_info": strList("Questions for the user when essential inputs are missing. Empty when the plan is executable."),
-			"unsupported":  strList("Requested actions no registered tool can perform. Empty when everything is covered."),
-			"steps": {
-				Type:        genai.TypeArray,
-				Description: "Ordered workflow steps. Empty when clarification is needed.",
-				MaxItems:    func() *int64 { n := int64(MaxSteps); return &n }(),
-				Items: &genai.Schema{
-					Type: genai.TypeObject,
-					Properties: map[string]*genai.Schema{
-						"id":      str("Unique step id, lowercase letters, digits, dash, underscore.", 32),
-						"tool":    {Type: genai.TypeString, Format: "enum", Enum: r.Names(), Description: "One registered tool."},
-						"args":    {Type: genai.TypeObject, Description: "Tool arguments. No other tools, URLs, code, or SQL."},
-						"needs":   strList("Ids of steps that must complete first."),
-						"confirm": {Type: genai.TypeBoolean, Description: "True when this step needs explicit user approval."},
-					},
-				},
-			},
-		},
-	}
-}
-
-type argRule struct {
-	required bool
-	minRunes int
-	maxRunes int
-	minInt   int64
-	maxInt   int64
-	oneOf    []string
-}
-
-// validateObject builds an arg validator: required presence, string length
-// bounds, integer ranges, fixed vocabularies, and no unknown fields. Unknown
-// fields are rejected so a plan cannot smuggle instructions past review.
-func validateObject(rules map[string]argRule, required ...string) func(map[string]any) error {
-	return func(args map[string]any) error {
-		for name := range args {
-			if _, ok := rules[name]; !ok {
-				return fmt.Errorf("unknown argument %q", name)
-			}
-		}
-		for _, name := range required {
-			value, ok := args[name]
-			if !ok || value == nil {
-				return fmt.Errorf("missing required argument %q", name)
-			}
-			if s, isStr := value.(string); isStr && strings.TrimSpace(s) == "" {
-				return fmt.Errorf("missing required argument %q", name)
-			}
-		}
-		for name, rule := range rules {
-			value, ok := args[name]
-			if !ok || value == nil {
-				continue
-			}
-			switch v := value.(type) {
-			case string:
-				runes := len([]rune(v))
-				if rule.minRunes > 0 && runes < rule.minRunes {
-					return fmt.Errorf("argument %q too short", name)
-				}
-				if rule.maxRunes > 0 && runes > rule.maxRunes {
-					return fmt.Errorf("argument %q too long", name)
-				}
-				if len(rule.oneOf) > 0 {
-					allowed := false
-					for _, option := range rule.oneOf {
-						if v == option {
-							allowed = true
-							break
-						}
-					}
-					if !allowed {
-						return fmt.Errorf("argument %q has unsupported value", name)
-					}
-				}
-			case float64:
-				if rule.minInt != 0 && int64(v) < rule.minInt {
-					return fmt.Errorf("argument %q below minimum", name)
-				}
-				if rule.maxInt != 0 && int64(v) > rule.maxInt {
-					return fmt.Errorf("argument %q above maximum", name)
-				}
-			default:
-				return fmt.Errorf("argument %q has unsupported type", name)
-			}
-		}
-		return nil
-	}
+	)
 }

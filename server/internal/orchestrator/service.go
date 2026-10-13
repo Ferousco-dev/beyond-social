@@ -118,7 +118,8 @@ type JobReader interface {
 
 // Service orchestrates AI-planned, human-approved workflows.
 type Service struct {
-	deps Deps
+	deps    Deps
+	runners map[string]Runner
 }
 
 // NewService validates the wiring. A nil publisher disables events; every
@@ -136,7 +137,9 @@ func NewService(d Deps) (*Service, error) {
 	case d.Credits == nil:
 		return nil, errors.New("orchestrator: credits checker is required")
 	}
-	return &Service{deps: d}, nil
+	s := &Service{deps: d, runners: map[string]Runner{}}
+	s.wireBuiltIn()
+	return s, nil
 }
 
 // Submit plans a workflow from a natural-language objective and persists it.

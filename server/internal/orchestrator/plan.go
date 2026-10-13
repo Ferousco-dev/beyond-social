@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -91,6 +92,7 @@ func ValidatePlan(plan Plan, registry *Registry) error {
 	}
 
 	ids := make(map[string]int, len(plan.Steps))
+	tools := make(map[string]Tool, len(plan.Steps))
 	for i, step := range plan.Steps {
 		if !stepIDPattern.MatchString(step.ID) {
 			return fmt.Errorf("orchestrator: invalid step id %q", step.ID)
@@ -99,17 +101,11 @@ func ValidatePlan(plan Plan, registry *Registry) error {
 			return fmt.Errorf("orchestrator: duplicate step id %q", step.ID)
 		}
 		ids[step.ID] = i
-
 		tool, ok := registry.Get(step.Tool)
 		if !ok {
-			return fmt.Errorf("orchestrator: unregistered tool %q", step.Tool)
+			return fmt.Errorf("orchestrator: tool %q is not available", step.Tool)
 		}
-		if step.Args == nil {
-			return fmt.Errorf("orchestrator: step %q has no args", step.ID)
-		}
-		if err := tool.ValidateArgs(step.Args); err != nil {
-			return fmt.Errorf("orchestrator: step %q: %w", step.ID, err)
-		}
+		tools[step.ID] = tool
 		for _, need := range step.Needs {
 			if need == step.ID {
 				return fmt.Errorf("orchestrator: step %q depends on itself", step.ID)
@@ -121,6 +117,12 @@ func ValidatePlan(plan Plan, registry *Registry) error {
 			if _, ok := ids[need]; !ok {
 				return fmt.Errorf("orchestrator: step %q needs unknown step %q", step.ID, need)
 			}
+		}
+		if step.Args == nil {
+			return fmt.Errorf("orchestrator: step %q has no args", step.ID)
+		}
+		if err := validateStepArgs(step, tools); err != nil {
+			return fmt.Errorf("orchestrator: step %q: %w", step.ID, err)
 		}
 	}
 	if cycle := findCycle(plan.Steps); cycle != "" {
@@ -165,4 +167,25 @@ func findCycle(steps []PlanStep) string {
 		}
 	}
 	return ""
+}
+
+// validateStepArgs checks a step's arguments with every reference replaced by a
+// stand-in of the right shape. A reference must name a step this one waits for,
+// and an output that step's tool really offers.
+func validateStepArgs(step PlanStep, tools map[string]Tool) error {
+	filled, err := fill(step.Args, func(ref Ref) (string, bool) {
+		if !slices.Contains(step.Needs, ref.Step) {
+			return "", false
+		}
+		for _, out := range tools[ref.Step].Outputs {
+			if out.Path == ref.Path {
+				return sampleFor(out.Kind), true
+			}
+		}
+		return "", false
+	})
+	if err != nil {
+		return fmt.Errorf("a reference points at something unavailable (%v); a step can only use outputs of steps it lists in needs, and only ones the tool gives", err)
+	}
+	return tools[step.ID].ValidateArgs(filled)
 }
