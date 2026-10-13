@@ -21,6 +21,7 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
+	"github.com/Ferousco-dev/beyond-social/server/internal/buildinfo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -216,6 +217,19 @@ func TestReadyReflectsDatabaseAvailability(t *testing.T) {
 	}
 	if strings.Contains(res.Body.String(), "secret") || strings.Contains(res.Body.String(), "refused") {
 		t.Fatalf("readiness leaked internal detail: %s", res.Body)
+	}
+}
+
+// A deploy waits for /ready to name the new commit, so a release that has not
+// replaced the old one yet is never mistaken for it.
+func TestReadyReportsTheBuiltCommit(t *testing.T) {
+	previous := buildinfo.Commit
+	buildinfo.Commit = "0123abc"
+	t.Cleanup(func() { buildinfo.Commit = previous })
+
+	res := newHarness(t, &fakeRepo{}, fakePinger{}).get("/ready", "")
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"version":"0123abc"`) {
+		t.Fatalf("ready: %d %s", res.Code, res.Body)
 	}
 }
 

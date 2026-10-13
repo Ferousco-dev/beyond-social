@@ -9,6 +9,7 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/accounts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
+	"github.com/Ferousco-dev/beyond-social/server/internal/buildinfo"
 )
 
 const readyTimeout = 5 * time.Second
@@ -32,8 +33,9 @@ func (a *App) ready(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ready",
-		"checks": map[string]string{"database": "ok"},
+		"status":  "ready",
+		"version": buildinfo.Commit,
+		"checks":  map[string]string{"database": "ok"},
 	})
 }
 
