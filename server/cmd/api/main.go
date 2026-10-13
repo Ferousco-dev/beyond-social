@@ -96,10 +96,6 @@ func run() error {
 			return err
 		}
 	}
-	sbx, err := newSandboxHooks(cfg)
-	if err != nil {
-		return err
-	}
 	vaultEnv := map[string]string{
 		secrets.NameApify:         cfg.APIFYToken,
 		secrets.NameKIE:           cfg.KIEAPIKey,
@@ -112,14 +108,13 @@ func run() error {
 	for name, value := range cfg.SocialApps {
 		vaultEnv[name] = value
 	}
-	sbx.keys(vaultEnv)
 	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, vaultEnv)
 	alertService := alerts.NewService(database.NewAlertStore(pool), alerts.NewWebhook(vault.Key(secrets.NameAlertWebhook)))
 
-	apifyClient := sbx.apify(apify.NewClientWithKey(vault.Key(secrets.NameApify)))
+	apifyClient := apify.NewClientWithKey(vault.Key(secrets.NameApify))
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
 	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
-	kieClient := sbx.kie(kie.NewClientWithKey(vault.Key(secrets.NameKIE)))
+	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
 	transformProcessor := &transform.Processor{
 		Alerts:      alertService,
 		Jobs:        jobService,
@@ -129,7 +124,7 @@ func run() error {
 		CallbackURL: cfg.KIECallbackURL(),
 	}
 
-	heygenClient := sbx.heygen(heygen.NewClientWithKey(vault.Key(secrets.NameHeygen)))
+	heygenClient := heygen.NewClientWithKey(vault.Key(secrets.NameHeygen))
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	generateService := generate.NewService(jobService)
@@ -146,7 +141,7 @@ func run() error {
 	}
 
 	openRouterClient := openrouter.NewClient(openrouter.Config{KeyFunc: vault.Key(secrets.NameOpenRouter), Referer: cfg.AppURL()})
-	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, HTTPClient: sbx.geminiHTTP()})
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel})
 	if err != nil {
 		return err
 	}
@@ -158,14 +153,14 @@ func run() error {
 	}), profileStore, cfg.AppURL())
 	creditService.WithLimitNotifier(emails)
 	billingStore := database.NewBillingStore(pool)
-	billingService := billing.NewService(billingStore, creditService, sbx.stripe(billing.NewStripe(vault.Key(secrets.NameStripeKey))), cfg.AppURL()).
+	billingService := billing.NewService(billingStore, creditService, billing.NewStripe(vault.Key(secrets.NameStripeKey)), cfg.AppURL()).
 		WithPrices(creditService).WithNotifier(emails).WithTax(creditService.TaxEnabled)
 	purger := purge.New(database.NewPurgeStore(pool), footage, avatarService, media.Bucket, avatars.FootageBucket)
 	chatModel := llm.NewSwitch(llm.RoleChat, geminiClient, openRouterClient, settingsStore)
 	editorModel := llm.NewSwitch(llm.RoleEditorAssistant, geminiClient, openRouterClient, settingsStore)
 	registry := orchestrator.DefaultRegistry()
 	planner := orchestrator.NewPlanner(geminiClient, registry)
-	youtube, tiktok, instagram := sbx.social(social.NewYouTube(), social.NewTikTok(), social.NewInstagram())
+	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
 	var socialSealer social.Sealer
 	if sealer != nil {
 		socialSealer = sealer
@@ -224,7 +219,7 @@ func run() error {
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
-		Probe:               sbx.checker(providers.NewChecker()),
+		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
 		Voices:              voiceService,
@@ -280,7 +275,7 @@ func run() error {
 
 	sweeper := &credits.Sweeper{Open: creditStore, Jobs: jobBiller, Searches: searchBiller, Avatars: avatarBiller}
 	monitor := &providers.Monitor{
-		Checker: sbx.checker(providers.NewChecker()), Key: vault.Key, Alerts: alertService,
+		Checker: providers.NewChecker(), Key: vault.Key, Alerts: alertService,
 		Snapshot:  creditStore.SaveSnapshot,
 		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
 	}

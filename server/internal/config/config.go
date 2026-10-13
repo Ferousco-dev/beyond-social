@@ -24,8 +24,6 @@ type Config struct {
 	Environment string
 	LogLevel    string
 	DatabaseURL string
-	// SandboxURL points every outside service at the local sandbox. Development only.
-	SandboxURL, SandboxCAFile string
 
 	SupabaseURL string
 	// SupabaseJWTSecret is only needed for projects still on the legacy shared
@@ -121,8 +119,6 @@ func LoadFromEnv() (Config, error) {
 	cfg := Config{
 		HTTPPort:          getenvDefault("PORT", "8080"),
 		Environment:       strings.ToLower(getenvDefault("APP_ENV", EnvDevelopment)),
-		SandboxURL:        strings.TrimRight(strings.TrimSpace(os.Getenv("SANDBOX_URL")), "/"),
-		SandboxCAFile:     strings.TrimSpace(os.Getenv("SANDBOX_CA_FILE")),
 		LogLevel:          getenvDefault("LOG_LEVEL", "info"),
 		DatabaseURL:       strings.TrimSpace(os.Getenv("DATABASE_URL")),
 		SupabaseURL:       strings.TrimRight(strings.TrimSpace(os.Getenv("SUPABASE_URL")), "/"),
@@ -157,9 +153,6 @@ func LoadFromEnv() (Config, error) {
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {
 		return Config{}, fmt.Errorf("APP_ENV must be %q or %q", EnvDevelopment, EnvProduction)
-	}
-	if cfg.IsProduction() && (cfg.SandboxURL != "" || cfg.SandboxCAFile != "") {
-		return Config{}, errors.New("SANDBOX_URL and SANDBOX_CA_FILE must not be set in production")
 	}
 	if port, err := strconv.Atoi(cfg.HTTPPort); err != nil || port < 1 || port > 65535 {
 		return Config{}, errors.New("PORT must be an integer between 1 and 65535")

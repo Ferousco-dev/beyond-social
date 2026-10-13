@@ -6,7 +6,6 @@ package safenet
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -32,7 +31,7 @@ func ValidateURL(raw string) (*url.URL, error) {
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil {
 		return nil, ErrBlockedURL
 	}
-	if addr, err := netip.ParseAddr(u.Hostname()); err == nil && !publicAddr(addr) && !sandboxAddr(addr) {
+	if addr, err := netip.ParseAddr(u.Hostname()); err == nil && !publicAddr(addr) {
 		return nil, ErrBlockedURL
 	}
 	return u, nil
@@ -45,15 +44,6 @@ func publicAddr(a netip.Addr) bool {
 		!cgnat.Contains(a)
 }
 
-func sandboxAddr(a netip.Addr) bool { return allowLoopback.Load() && a.Unmap().IsLoopback() }
-
-func sandboxTLS() *tls.Config {
-	if roots := sandboxRoots.Load(); roots != nil {
-		return &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}
-	}
-	return nil
-}
-
 // 100.64.0.0/10 is shared address space used for carrier NAT and some cloud metadata.
 var cgnat = netip.MustParsePrefix("100.64.0.0/10")
 
@@ -64,7 +54,7 @@ func control(_, address string, _ syscall.RawConn) error {
 		return ErrBlockedURL
 	}
 	addr, err := netip.ParseAddr(host)
-	if err != nil || (!publicAddr(addr) && !sandboxAddr(addr)) {
+	if err != nil || (!publicAddr(addr)) {
 		return fmt.Errorf("%w: non-public address", ErrBlockedURL)
 	}
 	return nil
@@ -83,7 +73,6 @@ func NewClient(timeout time.Duration) *http.Client {
 			ResponseHeaderTimeout: 20 * time.Second,
 			MaxIdleConns:          10,
 			DisableCompression:    true,
-			TLSClientConfig:       sandboxTLS(),
 		},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) > maxRedirects {
