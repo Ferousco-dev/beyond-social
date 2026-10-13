@@ -13,9 +13,9 @@ import (
 )
 
 type uploadSeen struct {
-	auth, contentType, uploadType, length string
-	meta                                  map[string]any
-	bytes                                 []byte
+	auth, contentType, length string
+	meta                      map[string]any
+	bytes                     []byte
 }
 
 func fakeUpload(t *testing.T, startStatus, putStatus int, putBody string) (*YouTubeProvider, *uploadSeen) {

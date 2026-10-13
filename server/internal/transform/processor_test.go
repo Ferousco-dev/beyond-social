@@ -37,7 +37,7 @@ func TestHappyPathSubmitsThenCompletesOnlyOnProviderSuccess(t *testing.T) {
 	r.provider.task = kie.Task{State: kie.StatePending, Progress: 50}
 	r.proc.Handle(ctx, r.jobs.get(job.ID))
 	got = r.jobs.get(job.ID)
-	if got.Status != jobs.StatusRunning || got.Progress != 70 || got.Result != nil && len(got.Result) > 0 {
+	if got.Status != jobs.StatusRunning || got.Progress != 70 || len(got.Result) > 0 {
 		t.Fatalf("pending poll: %+v", got)
 	}
 

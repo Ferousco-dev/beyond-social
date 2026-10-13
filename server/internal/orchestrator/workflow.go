@@ -23,17 +23,6 @@ func (s WorkflowStatus) IsTerminal() bool {
 	return s == WorkflowCompleted || s == WorkflowFailed || s == WorkflowCancelled
 }
 
-// allowedTransitions is the complete state machine. Anything absent is
-// rejected by the store, so a late callback or a second approver cannot move
-// a finished workflow.
-var allowedTransitions = map[WorkflowStatus][]WorkflowStatus{
-	WorkflowDraft:                 {WorkflowAwaitingClarification, WorkflowAwaitingApproval, WorkflowCancelled},
-	WorkflowAwaitingClarification: {WorkflowDraft, WorkflowCancelled},
-	WorkflowAwaitingApproval:      {WorkflowApproved, WorkflowCancelled},
-	WorkflowApproved:              {WorkflowRunning, WorkflowCancelled},
-	WorkflowRunning:               {WorkflowCompleted, WorkflowFailed, WorkflowCancelled},
-}
-
 // Step statuses. skipped marks steps abandoned when a dependency failed or
 // the workflow was cancelled.
 type StepStatus string

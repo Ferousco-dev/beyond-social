@@ -15,12 +15,11 @@ import (
 )
 
 type tiktokSeen struct {
-	forms   []url.Values
-	init    map[string]any
-	ranges  []string
-	chunks  [][]byte
-	auth    string
-	initErr string
+	forms  []url.Values
+	init   map[string]any
+	ranges []string
+	chunks [][]byte
+	auth   string
 }
 
 func fakeTikTok(t *testing.T, initCode string) (*TikTokProvider, *tiktokSeen) {
