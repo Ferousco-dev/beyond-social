@@ -12,9 +12,6 @@ concurrency:
   group: deploy-main
   cancel-in-progress: false
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/beyond-social-api
-
 jobs:
   ci:
     name: CI checks
@@ -70,7 +67,7 @@ jobs:
   build-api-image:
     name: Build API image
     needs: ci
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,6 +96,7 @@ jobs:
         with:
           context: server
           push: true
+          build-args: GIT_SHA=${{ github.sha }}
           tags: |
             ${{ steps.ref.outputs.image }}
             ${{ steps.ref.outputs.latest }}
@@ -108,7 +106,7 @@ jobs:
   deploy-api:
     name: Deploy API to Render
     needs: build-api-image
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
 
     steps:
@@ -116,26 +114,47 @@ jobs:
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
           IMAGE_REF: ${{ needs.build-api-image.outputs.image }}
-        run: curl --fail --silent --show-error --max-time 30 --get --data-urlencode "imgURL=${IMAGE_REF}" "${HOOK}"
+        run: |
+          if [ -z "${HOOK}" ]; then
+            echo "The RENDER_DEPLOY_HOOK_URL secret is not set." >&2
+            exit 1
+          fi
+          # The hook already carries ?key=..., so the image goes on as an encoded
+          # query parameter that curl joins with & (a raw ghcr.io/owner/name:tag
+          # has : and / in it, which Render answers with HTTP 400).
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            --get --data-urlencode "imgURL=${IMAGE_REF}" "${HOOK}"
+          echo
 
-      - name: Wait for API health
+      - name: Wait for the new release to be ready
         env:
           API_URL: ${{ vars.API_URL }}
         run: |
-          for i in $(seq 1 40); do
-            if curl --fail --silent --max-time 10 "${API_URL}/ready" > /dev/null; then
-              echo "API is ready"
+          API="${API_URL%/}"
+          if [ -z "${API}" ]; then
+            echo "The API_URL repository variable is not set." >&2
+            exit 1
+          fi
+          # /ready checks the database and names the commit it was built from, so
+          # the release being replaced cannot satisfy this check.
+          for i in $(seq 1 60); do
+            body=$(curl --silent --max-time 10 "${API}/ready" || true)
+            status=$(printf '%s' "${body}" | jq -r '.status // empty' 2>/dev/null || true)
+            version=$(printf '%s' "${body}" | jq -r '.version // empty' 2>/dev/null || true)
+            if [ "${status}" = "ready" ] && [ "${version}" = "${GITHUB_SHA}" ]; then
+              echo "API is ready on ${GITHUB_SHA}"
               exit 0
             fi
-            sleep 15
+            echo "Attempt ${i}: status=${status:-none} version=${version:-none}"
+            sleep 10
           done
-          echo "The API did not become ready in 10 minutes" >&2
+          echo "The API did not report ${GITHUB_SHA} as ready within 10 minutes" >&2
           exit 1
 
   deploy-web:
     name: Deploy frontend to Vercel
     needs: deploy-api
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
