@@ -40,10 +40,14 @@ func newJWKSServer(t *testing.T, keys map[string]*ecdsa.PrivateKey) *jwksServer 
 		s.calls++
 		entries := []map[string]string{}
 		for kid, pub := range s.keys {
+			point, err := pub.Bytes() // 0x04, then X and Y at 32 bytes each
+			if err != nil {
+				panic(err)
+			}
 			entries = append(entries, map[string]string{
 				"kty": "EC", "crv": "P-256", "kid": kid, "alg": "ES256",
-				"x": base64.RawURLEncoding.EncodeToString(pub.X.FillBytes(make([]byte, 32))),
-				"y": base64.RawURLEncoding.EncodeToString(pub.Y.FillBytes(make([]byte, 32))),
+				"x": base64.RawURLEncoding.EncodeToString(point[1:33]),
+				"y": base64.RawURLEncoding.EncodeToString(point[33:]),
 			})
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"keys": entries})

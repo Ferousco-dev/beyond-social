@@ -122,8 +122,17 @@ func (j jwk) publicKey() (any, error) {
 		if err != nil {
 			return nil, err
 		}
-		key := &ecdsa.PublicKey{Curve: elliptic.P256(), X: x, Y: y}
-		if !key.Curve.IsOnCurve(x, y) {
+		const size = 32 // a P-256 coordinate
+		if x.BitLen() > size*8 || y.BitLen() > size*8 {
+			return nil, errors.New("coordinate is too large")
+		}
+		point := make([]byte, 1+2*size)
+		point[0] = 4 // uncompressed
+		x.FillBytes(point[1 : 1+size])
+		y.FillBytes(point[1+size:])
+		// Parsing also proves the point is on the curve.
+		key, err := ecdsa.ParseUncompressedPublicKey(elliptic.P256(), point)
+		if err != nil {
 			return nil, errors.New("point is not on curve")
 		}
 		return key, nil

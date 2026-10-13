@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -99,62 +98,15 @@ func sampleWorkflow() orchestrator.Workflow {
 
 func TestOrchestratorRoutesRequireAuthentication(t *testing.T) {
 	h := workflowHarness(t, &fakeWorkflowService{workflow: sampleWorkflow()})
-	for _, path := range []string{"/api/v1/workflows", "/api/v1/workflows/" + workflowID, "/api/v1/workflows/" + workflowID + "/history"} {
+	for _, path := range []string{"/api/v1/workflows/" + workflowID} {
 		if res := h.get(path, ""); res.Code != http.StatusUnauthorized {
 			t.Errorf("GET %s: expected 401, got %d", path, res.Code)
 		}
 	}
-	for _, path := range []string{"/api/v1/workflows", "/api/v1/workflows/" + workflowID + "/approve", "/api/v1/workflows/" + workflowID + "/start", "/api/v1/workflows/" + workflowID + "/cancel"} {
+	for _, path := range []string{"/api/v1/workflows/" + workflowID + "/approve", "/api/v1/workflows/" + workflowID + "/start", "/api/v1/workflows/" + workflowID + "/cancel"} {
 		if res := h.post(path, "", `{}`); res.Code != http.StatusUnauthorized {
 			t.Errorf("POST %s: expected 401, got %d", path, res.Code)
 		}
-	}
-}
-
-func TestSubmitWorkflow(t *testing.T) {
-	h := workflowHarness(t, &fakeWorkflowService{workflow: sampleWorkflow()})
-	token := h.token(t, alice)
-
-	res := h.post("/api/v1/workflows", token, `{"objective":"find skincare videos"}`)
-	if res.Code != http.StatusAccepted {
-		t.Fatalf("expected 202, got %d: %s", res.Code, res.Body)
-	}
-	var body struct {
-		Data orchestrator.Workflow `json:"data"`
-	}
-	_ = json.Unmarshal(res.Body.Bytes(), &body)
-	if body.Data.Objective != "find skincare videos" || body.Data.UserID != alice {
-		t.Fatalf("ownership must come from the token: %s", res.Body)
-	}
-
-	for name, payload := range map[string]string{
-		"empty":         `{}`,
-		"blank":         `{"objective":"   "}`,
-		"not json":      `nope`,
-		"unknown field": `{"objective":"x","user_id":"` + bob + `"}`,
-	} {
-		if res := h.post("/api/v1/workflows", token, payload); res.Code != http.StatusBadRequest {
-			t.Errorf("%s: expected 400, got %d", name, res.Code)
-		}
-	}
-	if res := h.post("/api/v1/workflows", token, `{"objective":"`+strings.Repeat("x", orchestrator.MaxRequestRunes+1)+`"}`); res.Code != http.StatusBadRequest {
-		t.Errorf("oversized objective: expected 400, got %d", res.Code)
-	}
-}
-
-func TestSubmitWorkflowRespectsCap(t *testing.T) {
-	h := workflowHarness(t, &fakeWorkflowService{err: orchestrator.ErrTooManyWorkflows})
-	res := h.post("/api/v1/workflows", h.token(t, alice), `{"objective":"x"}`)
-	if res.Code != http.StatusTooManyRequests || res.Header().Get("Retry-After") == "" {
-		t.Fatalf("expected 429 with Retry-After, got %d", res.Code)
-	}
-}
-
-func TestSubmitWorkflowModelOutageIs502(t *testing.T) {
-	h := workflowHarness(t, &fakeWorkflowService{err: errors.New("model down")})
-	res := h.post("/api/v1/workflows", h.token(t, alice), `{"objective":"x"}`)
-	if res.Code != http.StatusBadGateway {
-		t.Fatalf("expected 502, got %d", res.Code)
 	}
 }
 
@@ -201,24 +153,6 @@ func TestWorkflowReadsAreOwnerScoped(t *testing.T) {
 	if res := h.get("/api/v1/workflows/not-a-uuid", h.token(t, alice)); res.Code != http.StatusBadRequest {
 		t.Fatalf("malformed id: expected 400, got %d", res.Code)
 	}
-
-	steps := h.get("/api/v1/workflows/"+workflowID+"/history", h.token(t, alice))
-	if steps.Code != http.StatusNotFound {
-		t.Fatalf("history of missing workflow: expected 404, got %d", steps.Code)
-	}
-}
-
-func TestWorkflowStepDetail(t *testing.T) {
-	h := workflowHarness(t, &fakeWorkflowService{workflow: sampleWorkflow()})
-	token := h.token(t, alice)
-
-	res := h.get("/api/v1/workflows/"+workflowID+"/steps/s1", token)
-	if res.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body)
-	}
-	if res := h.get("/api/v1/workflows/"+workflowID+"/steps/nope", token); res.Code != http.StatusNotFound {
-		t.Errorf("unknown step: expected 404, got %d", res.Code)
-	}
 }
 
 func TestStartAndCancelWorkflow(t *testing.T) {
@@ -235,5 +169,16 @@ func TestStartAndCancelWorkflow(t *testing.T) {
 	terminal := workflowHarness(t, &fakeWorkflowService{err: errors.New("workflow already cancelled")})
 	if res := terminal.post("/api/v1/workflows/"+workflowID+"/cancel", terminal.token(t, alice), `{}`); res.Code != http.StatusConflict {
 		t.Errorf("cancel terminal: expected 409, got %d", res.Code)
+	}
+}
+
+// The product has no screen that plans a workflow directly: planning happens
+// inside a chat message, which is charged. A route that planned for free would
+// let anyone run the model without paying.
+func TestThereIsNoUnbilledWayToPlanAWorkflow(t *testing.T) {
+	h := workflowHarness(t, &fakeWorkflowService{workflow: sampleWorkflow()})
+	token := h.token(t, alice)
+	if res := h.post("/api/v1/workflows", token, `{"objective":"find skincare videos"}`); res.Code != http.StatusMethodNotAllowed && res.Code != http.StatusNotFound {
+		t.Fatalf("POST /api/v1/workflows answered %d", res.Code)
 	}
 }

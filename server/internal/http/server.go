@@ -85,10 +85,11 @@ type Deps struct {
 }
 
 type App struct {
-	deps Deps
+	deps   Deps
+	limits *limiter
 }
 
-func NewApp(deps Deps) *App { return &App{deps: deps} }
+func NewApp(deps Deps) *App { return &App{deps: deps, limits: newLimiter()} }
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -121,7 +122,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("OPTIONS /api/v1/handoffs/{token}/claim", cors(func(http.ResponseWriter, *http.Request) {}))
 
 	authenticated := auth.Middleware(a.deps.Verifier, writeUnauthorized)
-	protected := func(h http.Handler) http.Handler { return authenticated(a.requireActiveAccount(h)) }
+	protected := func(h http.Handler) http.Handler { return authenticated(a.limitPerUser(a.requireActiveAccount(h))) }
 	mux.Handle("GET /api/v1/me", protected(http.HandlerFunc(a.me)))
 	mux.Handle("GET /api/v1/jobs", protected(http.HandlerFunc(a.listJobs)))
 	mux.Handle("GET /api/v1/jobs/{id}", protected(http.HandlerFunc(a.getJob)))
@@ -207,14 +208,10 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/discover", protected(http.HandlerFunc(a.createDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}/videos", protected(http.HandlerFunc(a.listDiscoveryVideos)))
-	mux.Handle("POST /api/v1/workflows", protected(http.HandlerFunc(a.submitWorkflow)))
-	mux.Handle("GET /api/v1/workflows", protected(http.HandlerFunc(a.listWorkflows)))
 	mux.Handle("GET /api/v1/workflows/{id}", protected(http.HandlerFunc(a.getWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/approve", protected(http.HandlerFunc(a.approveWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/start", protected(http.HandlerFunc(a.startWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/cancel", protected(http.HandlerFunc(a.cancelWorkflow)))
-	mux.Handle("GET /api/v1/workflows/{id}/history", protected(http.HandlerFunc(a.getWorkflowHistory)))
-	mux.Handle("GET /api/v1/workflows/{id}/steps/{step}", protected(http.HandlerFunc(a.getWorkflowStep)))
 
 	return withRecover(withLogging(jsonRouting(mux)))
 }
