@@ -2,9 +2,10 @@
 
 import { useCallback, useRef, useState, useTransition } from "react";
 
+import { type Route } from "next";
 import { useRouter } from "next/navigation";
 
-import { looksLikeUrl, parseSocialUrl } from "@/lib/social-scrape/url";
+import { isYouTubeLink, looksLikeUrl, parseShortLink, parseSocialUrl } from "@/lib/social-scrape/url";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
 import { useSearchHistory, type PastSearch } from "../hooks/use-search-history";
@@ -171,7 +172,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
           result.status === "unconfigured"
             ? "Search is not connected yet."
             : result.status === "unrecognised"
-              ? "That link is not a TikTok or Instagram post. Paste the post's own page, not a shortened link."
+              ? "That link is not a TikTok, Instagram or YouTube video. Open the post, tap Share, copy the link, and paste it here."
               : result.status === "not_found"
                 ? "Could not find that post. It may be private or removed."
                 : result.message,
@@ -199,7 +200,12 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
       const text = term.trim();
       if (text.length < 2) return;
       if (looksLikeUrl(text)) {
-        const social = parseSocialUrl(text);
+        // YouTube cannot be searched here, but the chat can watch it, so the link goes there.
+        if (isYouTubeLink(text)) {
+          router.push(`/dashboard/c/new?link=${encodeURIComponent(text)}` as Route);
+          return;
+        }
+        const social = parseSocialUrl(text) ?? parseShortLink(text);
         if (social) {
           runUrl(social.url);
           return;
@@ -207,13 +213,13 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
         setResults(null);
         setSelectedId(null);
         setNotice(
-          "That link is not a TikTok or Instagram post. Paste the post's own page, not a shortened link.",
+          "That link is not a TikTok, Instagram or YouTube video. Open the post, tap Share, copy the link, and paste it here.",
         );
         return;
       }
       run(text, on);
     },
-    [run, runUrl],
+    [router, run, runUrl],
   );
 
   const posts = results?.posts ?? [];

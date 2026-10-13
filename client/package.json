@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "typegen": "next typegen",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/features/studio/core/*.test.ts\" \"src/lib/*.test.ts\""
+    "test": "node --test \"src/features/studio/core/*.test.ts\" \"src/lib/**/*.test.ts\""
   },
   "dependencies": {
     "@beyond-social/env": "workspace:*",
