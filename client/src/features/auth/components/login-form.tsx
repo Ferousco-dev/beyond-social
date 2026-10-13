@@ -9,6 +9,8 @@ import { useForm } from "react-hook-form";
 
 import { signInAction, type AuthResult } from "../actions";
 import { loginSchema, type LoginInput } from "../schemas";
+import { safeRedirect } from "@/lib/safe-redirect";
+
 import { FormStatus } from "./form-status";
 import { PasswordField } from "./password-field";
 import { SubmitButton } from "./submit-button";
@@ -48,11 +50,7 @@ export function LoginForm() {
           else window.localStorage.removeItem(LAST_EMAIL_KEY);
 
           const requested = new URLSearchParams(window.location.search).get("redirect");
-          const destination =
-            requested && requested.startsWith("/") && !requested.startsWith("//")
-              ? requested
-              : response.redirectTo;
-          router.push(destination as Route);
+          router.push(safeRedirect(requested, response.redirectTo) as Route);
         }
       } catch {
         setResult({ status: "error", message: "Something went wrong. Please try again." });
