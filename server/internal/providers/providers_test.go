@@ -75,3 +75,15 @@ func TestBalances(t *testing.T) {
 		t.Fatalf("gemini err = %v", err)
 	}
 }
+
+func TestAGoogleRefusalSaysWhyButNeverEchoesFreeText(t *testing.T) {
+	body := `{"error":{"code":403,"message":"key sk-leaky-123 is bad","status":"PERMISSION_DENIED","details":[{"reason":"API_KEY_SERVICE_BLOCKED"}]}}`
+	srv := server(t, 403, body, "sk-leaky-123")
+	defer srv.Close()
+	c := NewChecker()
+	c.Gemini = srv.URL
+	err := c.Verify(context.Background(), secrets.NameGemini, "sk-leaky-123")
+	if err == nil || !strings.Contains(err.Error(), "PERMISSION_DENIED, API_KEY_SERVICE_BLOCKED") || strings.Contains(err.Error(), "leaky") {
+		t.Fatalf("err = %v", err)
+	}
+}

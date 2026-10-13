@@ -11,6 +11,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -176,9 +178,44 @@ func (c *Checker) do(ctx context.Context, method, url, body string, auth func(*h
 	answer, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden:
-		return nil, errors.New("the provider rejected this key")
+		return nil, errors.New("the provider rejected this key" + reasonOf(answer))
 	case resp.StatusCode >= 300:
-		return nil, fmt.Errorf("the provider answered %d", resp.StatusCode)
+		return nil, fmt.Errorf("the provider answered %d%s", resp.StatusCode, reasonOf(answer))
 	}
 	return []byte(strings.TrimSpace(string(answer))), nil
+}
+
+// code matches the shouting-snake names providers use for a reason, such as
+// PERMISSION_DENIED or API_KEY_INVALID. Free text is never passed on, so an
+// error that echoes part of a key cannot leak it.
+var code = regexp.MustCompile(`^[A-Z][A-Z0-9_]{2,47}$`)
+
+// reasonOf reads why a provider refused a request, in the shape Google's APIs
+// use ({"error":{"status":...,"details":[{"reason":...}]}}), as " (REASON)".
+func reasonOf(body []byte) string {
+	var e struct {
+		Error struct {
+			Status  string `json:"status"`
+			Details []struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &e) != nil {
+		return ""
+	}
+	candidates := []string{e.Error.Status}
+	for _, d := range e.Error.Details {
+		candidates = append(candidates, d.Reason)
+	}
+	var found []string
+	for _, c := range candidates {
+		if code.MatchString(c) && !slices.Contains(found, c) {
+			found = append(found, c)
+		}
+	}
+	if len(found) == 0 {
+		return ""
+	}
+	return " (" + strings.Join(found, ", ") + ")"
 }
