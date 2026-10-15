@@ -1,5 +1,6 @@
 import { type Metadata } from "next";
 import Link from "next/link";
+import { type Route } from "next";
 import { type ReactNode } from "react";
 
 export const metadata: Metadata = { title: "Configure video" };
@@ -19,7 +20,7 @@ export default function VideosNewPage(): ReactNode {
         already saved in this browser and will be waiting.
       </p>
       <Link
-        href="/dashboard/new"
+        href={"/dashboard/new" as Route}
         className="mt-6 inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud"
       >
         Back to starting points

@@ -1,5 +1,6 @@
 import { type Metadata } from "next";
 import Link from "next/link";
+import { type Route } from "next";
 import { type ReactNode } from "react";
 
 import { LinkPanel } from "@/features/new-video/components/link-panel";
@@ -38,7 +39,7 @@ export default async function NewVideoPage({
         {OPTIONS.map((item) => (
           <li key={item.id}>
             <Link
-              href={active === item.id ? "/dashboard/new" : `/dashboard/new?option=${item.id}`}
+              href={(active === item.id ? "/dashboard/new" : `/dashboard/new?option=${item.id}`) as Route}
               aria-current={active === item.id ? "true" : undefined}
               className={`block h-full rounded-2xl border p-4 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                 active === item.id

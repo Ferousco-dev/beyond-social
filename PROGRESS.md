@@ -45,3 +45,5 @@ Chat-first creation is retired; structured forms are the interface.
 - Blog frontend wired: public list + detail with SEO metadata, admin CMS (list/new/edit, SEO fields), nav link.
 - M2 done: signup business fields, welcome activation page, Stripe return URLs moved to it.
 - M3 started: New Video button, projects wording, chat copy retired (routes live until M4).
+- M3 done: sidebar, palette, and empty states use project wording.
+- M4 done: /dashboard/new 3-option flow, trending with split, link analysis, script approval, analyses API.
