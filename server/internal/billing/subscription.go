@@ -34,7 +34,7 @@ func (s *Service) Subscribe(ctx context.Context, userID, email string) (string, 
 	}
 	_, url, err := s.gateway.CreateSubscription(ctx, SubscribeInput{
 		UserID: userID, Email: email, Customer: existing.StripeCustomer, PriceCents: price, Currency: "usd",
-		SuccessURL: s.appURL + "/dashboard/usage?upgraded=1", CancelURL: s.appURL + "/pricing", Tax: s.taxOn(ctx),
+		SuccessURL: s.appURL + "/welcome?purchase=pro", CancelURL: s.appURL + "/pricing", Tax: s.taxOn(ctx),
 	})
 	if provider.Code(err) == provider.CodeNotConfigured {
 		return "", ErrUnavailable

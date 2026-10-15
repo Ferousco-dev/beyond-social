@@ -89,7 +89,7 @@ export function MemoryManager({ enabled, facts, limit }: Props) {
             value={draft}
             maxLength={200}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="For example: my audience is Nigerian founders"
+            placeholder="For example: my audience is singapore founders"
             className="min-h-11 min-w-0 flex-1 rounded-lg border border-hairline bg-canvas px-3 text-sm text-ink placeholder:text-ink-soft focus-visible:border-primary focus-visible:outline-none"
           />
           <button

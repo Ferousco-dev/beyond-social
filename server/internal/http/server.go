@@ -30,6 +30,7 @@ type Deps struct {
 	Jobs       *jobs.Service
 	Discovery  *discovery.Service
 	Transform  *transform.Service
+	Analyses   AnalysisStarter
 	Reconciler Reconciler
 	// Webhook secrets are read per request so an admin can rotate them live.
 	WebhookHMACKey func(ctx context.Context) string
@@ -76,6 +77,7 @@ type Deps struct {
 	PublicBaseURL  string
 	CreditAdmin    CreditAdmin
 	CreditLedger   CreditLedger
+	Blog           BlogService
 	Probe          CredentialProbe
 	Audit          Auditor
 	Verifier       *auth.Verifier
@@ -110,6 +112,8 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/callbacks/stripe", a.stripeCallback)
 	mux.HandleFunc("GET /api/v1/packs", a.listPacks)
 	mux.HandleFunc("GET /api/v1/plans", a.plans)
+	mux.HandleFunc("GET /api/v1/blog", a.listBlogPosts)
+	mux.HandleFunc("GET /api/v1/blog/{slug}", a.getPost)
 
 	// The phone that scans the QR has no session; its token is the capability.
 	// It calls the API from the browser, so these routes allow the frontend origin.
@@ -129,6 +133,11 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
+	mux.Handle("GET /api/v1/admin/blog", protected(a.requireAdmin(a.listAllPosts)))
+	mux.Handle("POST /api/v1/admin/blog", protected(a.requireAdmin(a.createBlogPost)))
+	mux.Handle("GET /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.getAnyPost)))
+	mux.Handle("PUT /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.updatePost)))
+	mux.Handle("DELETE /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.deletePost)))
 	mux.Handle("PUT /api/v1/conversations/{id}/editor", protected(http.HandlerFunc(a.conversationEditor)))
 	mux.Handle("POST /api/v1/editor/watch", protected(http.HandlerFunc(a.editorWatch)))
 	mux.Handle("POST /api/v1/editor/scenes", protected(http.HandlerFunc(a.createScene)))
@@ -208,6 +217,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/discover", protected(http.HandlerFunc(a.createDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}/videos", protected(http.HandlerFunc(a.listDiscoveryVideos)))
+	mux.Handle("POST /api/v1/analyses", protected(http.HandlerFunc(a.submitAnalysis)))
 	mux.Handle("GET /api/v1/workflows/{id}", protected(http.HandlerFunc(a.getWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/approve", protected(http.HandlerFunc(a.approveWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/start", protected(http.HandlerFunc(a.startWorkflow)))

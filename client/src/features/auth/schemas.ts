@@ -21,6 +21,17 @@ export const signupSchema = z
   .object({
     fullName: z.string().min(1, "Name is required").max(80),
     email,
+    phone: z
+      .string()
+      .trim()
+      .min(7, "Enter a valid phone number")
+      .max(20, "Enter a valid phone number")
+      .regex(/^[+\d][\d\s\-().]*$/, "Enter a valid phone number"),
+    businessName: z.string().trim().min(1, "Business name is required").max(120),
+    industry: z.string().min(1, "Choose an industry").refine(
+      (value) => (INDUSTRIES as readonly string[]).includes(value),
+      { message: "Choose an industry" },
+    ),
     password,
     confirmPassword: z.string().min(1, "Confirm your password"),
     acceptedTerms: z.boolean().refine((value) => value, {
@@ -43,6 +54,19 @@ export const resetPasswordSchema = z
     message: "Passwords do not match",
     path: ["confirmPassword"],
   });
+
+export const INDUSTRIES = [
+  "Ecommerce & retail",
+  "Hospitality & food",
+  "Health & fitness",
+  "Education",
+  "Finance & insurance",
+  "Real estate",
+  "Entertainment & media",
+  "Marketing agency",
+  "Technology & SaaS",
+  "Other",
+] as const;
 
 export const otpSchema = z.object({
   code: z.string().length(6, "Enter the 6-digit code").regex(/^\d+$/, "Digits only"),

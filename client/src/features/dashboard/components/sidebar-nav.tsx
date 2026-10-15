@@ -38,8 +38,8 @@ interface NavLink {
 
 const LINKS: readonly NavLink[] = [
   {
-    href: "/dashboard/c/new" as Route,
-    label: "New chat",
+    href: "/dashboard/new" as Route,
+    label: "New Video",
     icon: PenSquare,
     motion: "group-hover:-translate-y-px group-hover:-rotate-12",
     exact: true,
@@ -53,7 +53,7 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/library" as Route,
-    label: "Library",
+    label: "Projects",
     icon: Film,
     motion: "group-hover:scale-110",
   },

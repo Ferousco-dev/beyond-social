@@ -18,6 +18,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
+	"github.com/Ferousco-dev/beyond-social/server/internal/blog"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
@@ -228,6 +229,7 @@ func run() error {
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
+		Blog:                blog.NewService(database.NewBlogStore(pool)),
 		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
@@ -261,6 +263,7 @@ func run() error {
 		Jobs:                jobService,
 		Discovery:           discoveryService,
 		Transform:           transform.NewService(jobService, discoveryService),
+		Analyses:            analysisService,
 		Reconciler:          transformProcessor,
 		WebhookHMACKey:      vault.Optional(secrets.NameKIEWebhook),
 		Workflows:           orchestratorService,

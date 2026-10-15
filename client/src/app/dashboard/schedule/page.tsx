@@ -17,8 +17,7 @@ export default async function SchedulePage(): Promise<ReactNode> {
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Schedule</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Videos going out to your accounts. Ask the assistant to post one, for example &ldquo;make this and post it to
-        YouTube tomorrow at 6pm&rdquo;.
+        Videos going out to your accounts. Create a video, then schedule it here for the time it should go out.
       </p>
 
       {!result.ok ? (

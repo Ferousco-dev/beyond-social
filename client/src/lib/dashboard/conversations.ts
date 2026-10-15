@@ -12,5 +12,5 @@ const listResponse = z.object({ data: z.array(z.object({ id: z.string(), title: 
 export async function getSidebarConversations(): Promise<readonly SidebarProject[]> {
   const result = await goApi("/api/v1/conversations?limit=30", listResponse);
   if (!result.ok) return [];
-  return result.data.data.map((c) => ({ id: c.id, title: c.title || "New chat", group: "Recent", pinned: false }));
+  return result.data.data.map((c) => ({ id: c.id, title: c.title || "New project", group: "Recent", pinned: false }));
 }

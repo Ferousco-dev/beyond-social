@@ -8,11 +8,12 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
 import { signUpAction, type AuthResult } from "../actions";
-import { signupSchema, type SignupInput } from "../schemas";
+import { INDUSTRIES, signupSchema, type SignupInput } from "../schemas";
 import { FormStatus } from "./form-status";
 import { PasswordField } from "./password-field";
 import { SubmitButton } from "./submit-button";
 import { TextField } from "./text-field";
+import { Label } from "@/components/ui/label";
 
 export function SignupForm() {
   const router = useRouter();
@@ -29,6 +30,9 @@ export function SignupForm() {
     defaultValues: {
       fullName: "",
       email: "",
+      phone: "",
+      businessName: "",
+      industry: "",
       password: "",
       confirmPassword: "",
       acceptedTerms: false,
@@ -73,6 +77,45 @@ export function SignupForm() {
         error={errors.email?.message}
         {...register("email")}
       />
+      <TextField
+        id="phone"
+        label="Phone number"
+        type="tel"
+        autoComplete="tel"
+        placeholder="+65 8123 4567"
+        error={errors.phone?.message}
+        {...register("phone")}
+      />
+      <TextField
+        id="businessName"
+        label="Business name"
+        autoComplete="organization"
+        placeholder="Acme Studio"
+        error={errors.businessName?.message}
+        {...register("businessName")}
+      />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="industry">Industry</Label>
+        <select
+          id="industry"
+          {...register("industry")}
+          aria-invalid={errors.industry ? true : undefined}
+          aria-describedby={errors.industry ? "industry-error" : undefined}
+          className="h-11 w-full cursor-pointer rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        >
+          <option value="">Choose an industry</option>
+          {INDUSTRIES.map((industry) => (
+            <option key={industry} value={industry}>
+              {industry}
+            </option>
+          ))}
+        </select>
+        {errors.industry ? (
+          <p id="industry-error" className="text-xs text-destructive">
+            {errors.industry.message}
+          </p>
+        ) : null}
+      </div>
       <PasswordField
         id="password"
         label="Password"

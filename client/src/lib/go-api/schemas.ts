@@ -87,6 +87,30 @@ export const nameResponse = z.object({ data: z.object({ name: z.string() }) });
 export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
 export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });
 
+export const blogPostSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  excerpt: z.string(),
+  content: z.string(),
+  featured_image: z.string(),
+  category: z.string(),
+  tags: z.array(z.string()),
+  seo_title: z.string(),
+  seo_description: z.string(),
+  status: z.enum(["draft", "published"]),
+  published_at: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type GoBlogPost = z.infer<typeof blogPostSchema>;
+
+export const blogListResponse = z.object({
+  data: z.array(blogPostSchema),
+  pagination: z.object({ limit: z.number(), offset: z.number(), has_more: z.boolean() }),
+});
+export const blogResponse = z.object({ data: blogPostSchema });
+
 const workflowStepSchema = z.object({
   id: z.string(),
   step_id: z.string(),
