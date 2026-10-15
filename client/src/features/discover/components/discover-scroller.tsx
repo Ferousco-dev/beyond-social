@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
@@ -48,10 +48,20 @@ interface Results {
   readonly countryCode: string | null;
 }
 
-export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: string; note: string }) {
+export function DiscoverScroller({
+  initialQuery = "",
+  initialPlatform = "tiktok",
+  autoSearch = false,
+  note,
+}: {
+  initialQuery?: string;
+  initialPlatform?: ScrapePlatform;
+  autoSearch?: boolean;
+  note: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const [platform, setPlatform] = useState<ScrapePlatform>("tiktok");
+  const [platform, setPlatform] = useState<ScrapePlatform>(initialPlatform);
   const [results, setResults] = useState<Results | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -86,6 +96,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
    * applies its result while still holding the latest one.
    */
   const latestSearch = useRef(0);
+  const initialSearchStarted = useRef(false);
 
   const run = useCallback(
     (term: string, on: ScrapePlatform) => {
@@ -221,6 +232,13 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
     },
     [router, run, runUrl],
   );
+
+  useEffect(() => {
+    if (autoSearch && initialQuery.trim().length >= 2 && !initialSearchStarted.current) {
+      initialSearchStarted.current = true;
+      run(initialQuery, initialPlatform);
+    }
+  }, [autoSearch, initialPlatform, initialQuery, run]);
 
   const posts = results?.posts ?? [];
 

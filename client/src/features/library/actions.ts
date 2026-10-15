@@ -22,7 +22,9 @@ export async function removeFromLibrary(id: string): Promise<LibraryResult> {
 const postSchema = z.object({
   jobId: idSchema,
   platform: z.enum(["youtube", "tiktok", "instagram"]),
+  title: z.string().trim().max(100).default(""),
   caption: z.string().trim().max(2200),
+  visibility: z.enum(["public", "unlisted", "private"]).default("public"),
   at: z.string().datetime().optional(),
   idempotencyKey: z.string().min(8).max(64),
 });

@@ -12,7 +12,12 @@ export const dynamic = "force-dynamic";
  * Searching TikTok and Instagram and scrolling what comes back. The search
  * itself runs on the Go API.
  */
-export default async function TrendsPage() {
+export default async function TrendsPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<{ q?: string; platform?: string }>;
+}) {
+  const params = await searchParams;
   const [user, plans] = await Promise.all([getCurrentUser(), goApi("/api/v1/plans", plansResponse, { anonymous: true })]);
   const free = plans.ok ? plans.data.data : null;
   const note =
@@ -26,7 +31,12 @@ export default async function TrendsPage() {
   // search bar has to stay put while it does.
   return (
     <div className="h-[calc(100dvh-4rem)]">
-      <DiscoverScroller note={note} />
+      <DiscoverScroller
+        note={note}
+        initialQuery={params.q?.slice(0, 160) ?? ""}
+        initialPlatform={params.platform === "instagram" ? "instagram" : "tiktok"}
+        autoSearch
+      />
     </div>
   );
 }

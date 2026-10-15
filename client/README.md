@@ -29,6 +29,37 @@ It serves on `http://localhost:3000`. API-backed features need the Go API to be
 running as well. For the full local stack, configure `server/.env` and use the
 [root setup](../README.md), which starts the API before the web app.
 
+The New Video flow starts at `/dashboard/new` after signing in. It supports
+searching TikTok or Instagram references by industry/topic and target-country
+terms, reviewing an existing public post link, or starting from a structured
+idea brief. The current discovery API treats country as part of the search
+phrase rather than a separate regional filter; it also does not classify
+results as human-led or product-focused. Link analysis shows the summary,
+scene notes, and speech returned by the existing API; the creator can edit
+those notes before continuing.
+
+The guided generation form is available at `/dashboard/videos/new`. Briefs
+from the New Video entry flow carry into that form, and drafts autosave in the
+current browser. The form uses the Go API to quote and generate a single
+3–15 second scene. The current scene generator accepts text prompts only;
+saved avatars and assets are retained as guidance in the draft but are not sent
+as provider reference files.
+
+The Assets page includes a categorized media upload list with previews and
+browser-local names. Uploaded files use the account's private storage, but the
+media API does not yet list or permanently delete account files; the list and
+names therefore do not sync between browsers, and removing or replacing a
+listed item does not delete the prior stored file.
+
+The Schedule page displays scheduled/published post statuses in a calendar and
+allows eligible posts to be cancelled after confirmation. Videos in the Library
+can be queued or scheduled with a platform, title, caption, visibility, and
+date/time. Editing or rescheduling posts depends on API operations that are not
+currently available. Analytics currently explains
+that account-level performance metrics are not supplied by the API; it does not
+display invented figures. Admin Monitoring reports recorded action usage and
+estimated provider costs, not full company profit.
+
 ## Commands
 
 Run from the repository root:

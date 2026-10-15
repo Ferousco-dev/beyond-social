@@ -2,6 +2,8 @@
 
 import {
   CalendarClock,
+  ChartNoAxesCombined,
+  Clapperboard,
   CircleUser,
   Film,
   PenSquare,
@@ -34,9 +36,18 @@ interface NavLink {
   readonly motion: string;
   /** Home is only active on an exact match, since every route sits under it. */
   readonly exact?: boolean;
+  readonly activeWhen?: readonly Route[];
 }
 
 const LINKS: readonly NavLink[] = [
+  {
+    href: "/dashboard/new" as Route,
+    label: "New video",
+    icon: Clapperboard,
+    motion: "group-hover:-translate-y-px group-hover:rotate-6",
+    exact: true,
+    activeWhen: ["/dashboard/videos/new" as Route],
+  },
   {
     href: "/dashboard/c/new" as Route,
     label: "New chat",
@@ -46,7 +57,7 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/assets" as Route,
-    label: "Avatar",
+    label: "Assets",
     icon: CircleUser,
     // The avatar coming into focus as you reach for it.
     motion: "group-hover:scale-110",
@@ -63,6 +74,12 @@ const LINKS: readonly NavLink[] = [
     icon: CalendarClock,
     // A clock hand advancing, which is the one thing this page is about.
     motion: "group-hover:rotate-12",
+  },
+  {
+    href: "/dashboard/analytics" as Route,
+    label: "Analytics",
+    icon: ChartNoAxesCombined,
+    motion: "group-hover:-translate-y-px",
   },
   {
     href: "/dashboard/connections" as Route,
@@ -87,7 +104,8 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
 
   const isActive = (link: NavLink): boolean =>
-    link.exact ? pathname === link.href : pathname.startsWith(link.href);
+    (link.exact ? pathname === link.href : pathname.startsWith(link.href)) ||
+    (link.activeWhen?.includes(pathname as Route) ?? false);
 
   return (
     <div className="flex flex-col gap-0.5 px-2">

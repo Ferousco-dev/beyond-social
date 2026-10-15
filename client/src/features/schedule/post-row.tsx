@@ -1,9 +1,11 @@
 "use client";
 
 import { ExternalLink } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { type ScheduledPost } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +26,17 @@ const PLATFORM: Readonly<Record<ScheduledPost["platform"], string>> = {
   instagram: "Instagram",
 };
 
-export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
+export function PostRow({
+  post,
+  compact = false,
+}: {
+  readonly post: ScheduledPost;
+  readonly compact?: boolean;
+}): ReactNode {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const status = STATUS[post.status];
   const cancellable = post.status === "preparing" || post.status === "scheduled";
 
@@ -35,10 +45,11 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
       setError(null);
       const result = await cancelPost(post.id);
       if (!result.ok) setError(result.message);
+      else router.refresh();
     });
 
-  return (
-    <li className="flex flex-wrap items-start justify-between gap-3 p-4">
+  const content = (
+    <div className={cn("flex flex-wrap items-start justify-between gap-3", compact ? "pt-2" : "p-4")}>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-ink">
           {PLATFORM[post.platform]}
@@ -74,11 +85,27 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
           </a>
         ) : null}
         {cancellable ? (
-          <Button variant="outline" disabled={pending} onClick={cancel}>
+          <Button variant="outline" disabled={pending} onClick={() => setConfirmOpen(true)}>
             Cancel
           </Button>
         ) : null}
       </div>
-    </li>
+      <ConfirmDialog
+        open={confirmOpen}
+        pending={pending}
+        options={{
+          title: "Cancel this post?",
+          description: "The scheduled post will not be published. This cannot be undone.",
+          confirmLabel: pending ? "Cancelling…" : "Cancel post",
+          cancelLabel: "Keep post",
+        }}
+        onResolve={(confirmed) => {
+          setConfirmOpen(false);
+          if (confirmed) cancel();
+        }}
+      />
+    </div>
   );
+
+  return compact ? content : <li className="border-b border-hairline last:border-b-0">{content}</li>;
 }
