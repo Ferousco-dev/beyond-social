@@ -150,6 +150,9 @@ func TestSegmentsAndProviderSpend(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	if _, err := profiles.SetSuspended(ctx, payer, true); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := store.Apply(ctx, credits.Entry{UserID: payer, Kind: credits.KindPurchase, Amount: 500, Key: "p:" + payer}); err != nil {
 		t.Fatal(err)
 	}
@@ -165,8 +168,12 @@ func TestSegmentsAndProviderSpend(t *testing.T) {
 		t.Fatalf("counts = %+v err=%v", counts, err)
 	}
 	paid, err := admin.FindUsers(ctx, "", credits.SegmentPaid, 10)
-	if err != nil || len(paid) != 1 || paid[0].ID != payer {
+	if err != nil || len(paid) != 1 || paid[0].ID != payer || !paid[0].Suspended {
 		t.Fatalf("paid = %+v err=%v", paid, err)
+	}
+	detail, err := NewAdminCreditStore(store).UserDetail(ctx, payer)
+	if err != nil || detail.Email != payer[:8]+"@example.com" || detail.Plan != "Free" || detail.AccountStatus != "suspended" || detail.SubscriptionStatus != "none" {
+		t.Fatalf("user detail = %+v err=%v", detail, err)
 	}
 	if _, err := admin.FindUsers(ctx, "", credits.Segment("vip"), 10); !errors.Is(err, credits.ErrInvalid) {
 		t.Fatalf("unknown segment err = %v", err)

@@ -113,6 +113,36 @@ func TestDeleteVoice(t *testing.T) {
 	}
 }
 
+func TestLibraryVoicesAndExists(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/v1/voices":
+			_, _ = w.Write([]byte(`{"voices":[{"voice_id":"v1","name":"Ava"},{"voice_id":"v2","name":"Leo"}]}`))
+		case strings.HasSuffix(r.URL.Path, "/v1/voices/v1"):
+			_, _ = w.Write([]byte(`{"voice_id":"v1","name":"Ava"}`))
+		case strings.HasSuffix(r.URL.Path, "/v1/voices/ghost"):
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := testClient(server)
+	library, err := client.LibraryVoices(context.Background())
+	if err != nil || len(library) != 2 || library[0].ID != "v1" {
+		t.Fatalf("library = %+v err = %v", library, err)
+	}
+	exists, err := client.VoiceExists(context.Background(), "v1")
+	if err != nil || !exists {
+		t.Fatalf("exists = %v err = %v", exists, err)
+	}
+	exists, err = client.VoiceExists(context.Background(), "ghost")
+	if err != nil || exists {
+		t.Fatalf("missing voice must read as absent: %v %v", exists, err)
+	}
+}
+
 func TestServerErrorsAreClassified(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)

@@ -36,6 +36,12 @@ type Profile struct {
 	GrantedAt *time.Time `json:"-"`
 }
 
+type RegistrationDetails struct {
+	Phone        string
+	BusinessName string
+	Industry     string
+}
+
 // Store creates the profile on first sight, so no database trigger on the auth
 // schema is needed and a freshly reset database needs no backfill.
 type Store interface {
@@ -87,6 +93,34 @@ func (s *Service) Active(ctx context.Context, id, email, displayName string) (Pr
 		}
 	}
 	return p, nil
+}
+
+func (s *Service) ActiveWithDetails(ctx context.Context, id, email, displayName string, details RegistrationDetails) (Profile, error) {
+	p, err := s.Active(ctx, id, email, displayName)
+	if err != nil {
+		return Profile{}, err
+	}
+	details.Phone = strings.TrimSpace(details.Phone)
+	details.BusinessName = strings.TrimSpace(details.BusinessName)
+	details.Industry = strings.TrimSpace(details.Industry)
+	if !details.Valid() || details == (RegistrationDetails{}) {
+		return p, nil
+	}
+	if store, ok := s.store.(interface {
+		SetRegistrationDetails(context.Context, string, RegistrationDetails) error
+	}); ok {
+		if err := store.SetRegistrationDetails(ctx, id, details); err != nil {
+			return Profile{}, err
+		}
+	}
+	return p, nil
+}
+
+func (d RegistrationDetails) Valid() bool {
+	return utf8.RuneCountInString(d.Phone) <= 40 &&
+		utf8.RuneCountInString(d.BusinessName) <= 120 &&
+		utf8.RuneCountInString(d.Industry) <= 80 &&
+		!strings.ContainsFunc(d.Phone+d.BusinessName+d.Industry, unicode.IsControl)
 }
 
 var (

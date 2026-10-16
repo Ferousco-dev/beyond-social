@@ -7,6 +7,7 @@ import { LandingFaq } from "@/components/landing/landing-faq";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingHero } from "@/components/landing/landing-hero";
 import { LandingPricing } from "@/components/landing/landing-pricing";
+import { LatestArticles } from "@/components/landing/latest-articles";
 import { Testimonials } from "@/components/landing/testimonials";
 import { Showcase } from "@/components/landing/showcase";
 
@@ -29,6 +30,7 @@ export default function HomePage(): ReactNode {
         <LandingPricing />
         <Testimonials />
         <LandingFaq />
+        <LatestArticles />
       </main>
       <ClosingPanel />
     </div>

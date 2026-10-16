@@ -53,6 +53,56 @@ type Voice struct {
 	Category string `json:"category"`
 }
 
+// LibraryVoice is a voice anyone may use.
+type LibraryVoice struct {
+	ID   string
+	Name string
+}
+
+// LibraryVoices returns the voices on the key's account, including the
+// shared premade library.
+func (c *Client) LibraryVoices(ctx context.Context) ([]LibraryVoice, error) {
+	voices, err := c.ListVoices(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]LibraryVoice, 0, len(voices))
+	for _, voice := range voices {
+		out = append(out, LibraryVoice{ID: voice.ID, Name: voice.Name})
+	}
+	return out, nil
+}
+
+// VoiceExists reports whether a voice id exists on the account. Only the
+// status matters, so the shape of a voice never affects the answer.
+func (c *Client) VoiceExists(ctx context.Context, voiceID string) (bool, error) {
+	if voiceID == "" {
+		return false, nil
+	}
+	key, err := c.key(ctx)
+	if err != nil {
+		return false, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.apiBase+"/v1/voices/"+voiceID, nil)
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("xi-api-key", key)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return false, &provider.Error{Provider: providerName, Message: "could not reach ElevenLabs", Transient: true, Err: err}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return false, nil
+	}
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
+		return false, provider.FromHTTPStatus(providerName, resp.StatusCode, string(body))
+	}
+	return true, nil
+}
+
 // ListVoices returns the voices on the key's account.
 func (c *Client) ListVoices(ctx context.Context) ([]Voice, error) {
 	key, err := c.key(ctx)

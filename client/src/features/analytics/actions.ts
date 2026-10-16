@@ -6,8 +6,10 @@ import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
 import { postMetricsResponse, slotsResponse } from "@/lib/go-api/schemas";
 import type { InsightSlot, PostMetrics } from "@/lib/go-api/schemas";
 
+export type MetricsPoint = { readonly collectedAt: string; readonly views: number; readonly likes: number; readonly comments: number };
+
 export type MetricsResult =
-  | { readonly status: "ok"; readonly latest: PostMetrics | null; readonly points: number }
+  | { readonly status: "ok"; readonly latest: PostMetrics | null; readonly history: readonly MetricsPoint[] }
   | { readonly status: "unconfigured" }
   | { readonly status: "error"; readonly message: string };
 
@@ -17,7 +19,16 @@ export async function getPostMetrics(postId: string): Promise<MetricsResult> {
   if (!isGoApiConfigured()) return { status: "unconfigured" };
   const result = await goApi(`/api/v1/posts/${postId}/metrics`, postMetricsResponse);
   if (!result.ok) return { status: "error", message: result.message };
-  return { status: "ok", latest: result.data.data.latest, points: result.data.data.history.length };
+  return {
+    status: "ok",
+    latest: result.data.data.latest,
+    history: result.data.data.history.map((point) => ({
+      collectedAt: point.collected_at,
+      views: point.views,
+      likes: point.likes,
+      comments: point.comments,
+    })),
+  };
 }
 
 export type SlotsResult =

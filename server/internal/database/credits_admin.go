@@ -2,9 +2,11 @@ package database
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
+	"github.com/jackc/pgx/v5"
 )
 
 // AdminCreditStore implements credits.AdminStore.
@@ -65,7 +67,7 @@ func (s *AdminCreditStore) SaveSetting(ctx context.Context, key string, value in
 
 func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment credits.Segment, limit int) ([]credits.UserCredits, error) {
 	rows, err := s.pool.Query(ctx, `
-		select p.id::text, p.email, p.display_name, coalesce(b.balance, 0)
+		select p.id::text, p.email, p.display_name, coalesce(b.balance, 0), p.suspended_at is not null
 		from public.profiles p left join public.credit_balances b on b.user_id = p.id
 		where (p.email ilike '%' || $1 || '%' or p.display_name ilike '%' || $1 || '%' or p.id::text = $1)
 		  and p.deleted_at is null
@@ -82,12 +84,39 @@ func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment 
 	out := []credits.UserCredits{}
 	for rows.Next() {
 		var u credits.UserCredits
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Balance); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Balance, &u.Suspended); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
 	}
 	return out, rows.Err()
+}
+
+func (s *AdminCreditStore) UserDetail(ctx context.Context, userID string) (credits.UserDetail, error) {
+	var detail credits.UserDetail
+	err := s.pool.QueryRow(ctx, `
+		select p.id::text, p.email, p.display_name, p.role,
+			p.phone, p.business_name, p.industry,
+			case when p.deleted_at is not null then 'deleted'
+			     when p.suspended_at is not null then 'suspended'
+			     else 'active' end,
+			p.created_at, case when s.user_id is null then 'Free' else 'Pro' end,
+			coalesce(s.status, 'none'), s.current_period_end, coalesce(b.balance, 0),
+			coalesce(u.five_points, 0), coalesce(u.week_points, 0)
+		from public.profiles p
+		left join public.subscriptions s on s.user_id = p.id
+		left join public.credit_balances b on b.user_id = p.id
+		left join public.usage_state u on u.user_id = p.id
+		where p.id = $1`, userID).Scan(
+		&detail.ID, &detail.Email, &detail.Name, &detail.Role,
+		&detail.Phone, &detail.BusinessName, &detail.Industry, &detail.AccountStatus,
+		&detail.CreatedAt, &detail.Plan, &detail.SubscriptionStatus, &detail.CurrentPeriodEnd,
+		&detail.CreditBalance, &detail.FiveHourPoints, &detail.WeeklyPoints,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return credits.UserDetail{}, credits.ErrUnavailable
+	}
+	return detail, err
 }
 
 func (s *AdminCreditStore) Ledger(ctx context.Context, userID string, limit int) ([]credits.LedgerRow, error) {

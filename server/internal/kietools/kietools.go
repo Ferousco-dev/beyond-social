@@ -17,9 +17,10 @@ import (
 
 // Job types, under which each tool's work is stored and claimed.
 const (
-	JobEdit   = "image_edit"
-	JobTalk   = "talking_photo"
-	JobSpeech = "speech"
+	JobEdit       = "image_edit"
+	JobTalk       = "talking_photo"
+	JobSpeech     = "speech"
+	JobLiveAvatar = "live_avatar"
 )
 
 // KIE models. Picture editing is Nano Banana, the talking photo is Kling's

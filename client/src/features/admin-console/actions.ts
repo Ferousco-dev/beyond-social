@@ -51,6 +51,16 @@ export async function adjustUserCredits(userId: string, amount: number, reason: 
   return send(`/api/v1/admin/users/${userId}/credits`, "POST", { amount, reason: reason.trim() }, `/dashboard/admin/users/${userId}`);
 }
 
+export async function setUserSuspension(userId: string, suspended: boolean): Promise<AdminResult> {
+  if (!z.string().uuid().safeParse(userId).success || typeof suspended !== "boolean") return invalid;
+  return send(
+    `/api/v1/admin/users/${userId}/suspension`,
+    "PUT",
+    { suspended },
+    "/dashboard/admin/users",
+  );
+}
+
 export async function resolveAlert(id: string): Promise<AdminResult> {
   if (!z.string().uuid().safeParse(id).success) return invalid;
   return send(`/api/v1/admin/alerts/${id}/resolve`, "POST", undefined, "/dashboard/admin/alerts");

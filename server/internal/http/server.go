@@ -11,10 +11,12 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
+	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
+	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 	"github.com/Ferousco-dev/beyond-social/server/internal/library"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
@@ -37,11 +39,15 @@ type Deps struct {
 	Workflows      WorkflowService
 
 	Accounts            *accounts.Service
+	AdminProfiles       AdminProfileStore
 	Alerts              *alerts.Service
 	Avatars             *avatars.Service
 	Handoff             *handoff.Service
 	Voices              *voices.Service
+	VoiceCloner         VoiceCloner
 	AvatarVideo         *avatarvideo.Service
+	LiveAvatar          *kietools.LiveAvatarService
+	LiveAvatarScripts   chat.ScriptWriter
 	Videos              VideoReader
 	VideoReconciler     VideoReconciler
 	HeygenWebhookSecret func(ctx context.Context) string
@@ -64,6 +70,7 @@ type Deps struct {
 	Billing             BillingService
 	Usage               UsageService
 	BillingAdmin        billing.AdminReader
+	RevenueHistory      RevenueHistoryReader
 	EmailSettings       EmailSettings
 	SignIns             accounts.SignInRemover
 	Purger              interface {
@@ -74,17 +81,20 @@ type Deps struct {
 	// AppURL is the web app the sign-in redirects back into.
 	AppURL string
 	// PublicBaseURL is this service's own address, reported by the admin setup check.
-	PublicBaseURL  string
-	CreditAdmin    CreditAdmin
-	CreditLedger   CreditLedger
-	Blog           BlogService
-	Insights       InsightsService
-	Probe          CredentialProbe
-	Audit          Auditor
-	Verifier       *auth.Verifier
-	Database       Pinger
-	Hub            *realtime.Hub
-	AllowedOrigins []string
+	PublicBaseURL    string
+	CreditAdmin      CreditAdmin
+	AdminUserDetails AdminUserDetailReader
+	Monitoring       AdminMonitoring
+	CreditLedger     CreditLedger
+	Blog             BlogService
+	Insights         InsightsService
+	AssetGroups      AssetGroups
+	Probe            CredentialProbe
+	Audit            Auditor
+	Verifier         *auth.Verifier
+	Database         Pinger
+	Hub              *realtime.Hub
+	AllowedOrigins   []string
 }
 
 type App struct {
@@ -133,12 +143,19 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/jobs/{id}", protected(http.HandlerFunc(a.getJob)))
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
+	mux.Handle("GET /api/v1/admin/monitoring", protected(a.requireAdmin(a.monitoringSnapshot)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
 	mux.Handle("GET /api/v1/admin/blog", protected(a.requireAdmin(a.listAllPosts)))
 	mux.Handle("POST /api/v1/admin/blog", protected(a.requireAdmin(a.createBlogPost)))
 	mux.Handle("GET /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.getAnyPost)))
 	mux.Handle("PUT /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.updatePost)))
 	mux.Handle("DELETE /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.deletePost)))
+	mux.Handle("GET /api/v1/asset-groups", protected(http.HandlerFunc(a.listAssetGroups)))
+	mux.Handle("POST /api/v1/asset-groups", protected(http.HandlerFunc(a.createAssetGroup)))
+	mux.Handle("GET /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.getAssetGroup)))
+	mux.Handle("PUT /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.updateAssetGroup)))
+	mux.Handle("DELETE /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.deleteAssetGroup)))
+	mux.Handle("POST /api/v1/asset-groups/{id}/consent", protected(http.HandlerFunc(a.consentAssetGroup)))
 	mux.Handle("PUT /api/v1/conversations/{id}/editor", protected(http.HandlerFunc(a.conversationEditor)))
 	mux.Handle("POST /api/v1/editor/watch", protected(http.HandlerFunc(a.editorWatch)))
 	mux.Handle("POST /api/v1/editor/scenes", protected(http.HandlerFunc(a.createScene)))
@@ -183,7 +200,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/credits/usage", protected(a.requireAdmin(a.creditUsage)))
 	mux.Handle("GET /api/v1/admin/users/segments", protected(a.requireAdmin(a.userSegments)))
 	mux.Handle("GET /api/v1/admin/users", protected(a.requireAdmin(a.findCreditUsers)))
+	mux.Handle("GET /api/v1/admin/users/{id}", protected(a.requireAdmin(a.adminUserDetail)))
 	mux.Handle("GET /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.userLedger)))
+	mux.Handle("PUT /api/v1/admin/users/{id}/suspension", protected(a.requireAdmin(a.setUserSuspension)))
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
 	mux.Handle("PATCH /api/v1/me", protected(http.HandlerFunc(a.renameMe)))
 	mux.Handle("DELETE /api/v1/me", protected(http.HandlerFunc(a.deleteMe)))
@@ -200,6 +219,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/models", protected(a.requireAdmin(a.listModels)))
 	mux.Handle("PUT /api/v1/admin/models/{role}", protected(a.requireAdmin(a.chooseModel)))
 	mux.Handle("GET /api/v1/admin/billing", protected(a.requireAdmin(a.billingOverview)))
+	mux.Handle("GET /api/v1/admin/billing/history", protected(a.requireAdmin(a.billingRevenueHistory)))
 	mux.Handle("GET /api/v1/admin/email", protected(a.requireAdmin(a.getEmailFrom)))
 	mux.Handle("PUT /api/v1/admin/email", protected(a.requireAdmin(a.setEmailFrom)))
 	mux.Handle("GET /api/v1/admin/setup", protected(a.requireAdmin(a.setup)))
@@ -216,7 +236,10 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/avatars/{id}/consent", protected(http.HandlerFunc(a.refreshAvatarConsent)))
 	mux.Handle("POST /api/v1/avatars/{id}/voice", protected(http.HandlerFunc(a.selectAvatarVoice)))
 	mux.Handle("GET /api/v1/voices", protected(http.HandlerFunc(a.listVoices)))
+	mux.Handle("POST /api/v1/voices/clone", protected(http.HandlerFunc(a.cloneVoice)))
 	mux.Handle("POST /api/v1/videos/avatar", protected(http.HandlerFunc(a.createAvatarVideo)))
+	mux.Handle("POST /api/v1/videos/live-avatar", protected(http.HandlerFunc(a.createLiveAvatarVideo)))
+	mux.Handle("POST /api/v1/videos/live-avatar/script", protected(http.HandlerFunc(a.draftLiveAvatarScript)))
 	mux.Handle("GET /api/v1/videos/{id}", protected(http.HandlerFunc(a.getAvatarVideo)))
 	mux.Handle("POST /api/v1/discover", protected(http.HandlerFunc(a.createDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))

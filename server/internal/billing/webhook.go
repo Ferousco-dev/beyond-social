@@ -116,6 +116,12 @@ func (s *Service) Handle(ctx context.Context, payload []byte) error {
 			return fmt.Errorf("billing: unreadable invoice: %w", err)
 		}
 		return s.invoicePaid(ctx, o)
+	case "invoice.payment_failed":
+		var o invoiceObject
+		if err := json.Unmarshal(e.Data.Object, &o); err != nil {
+			return fmt.Errorf("billing: unreadable invoice: %w", err)
+		}
+		return s.invoiceFailed(ctx, o)
 	case "charge.refunded":
 		var o struct {
 			PaymentIntent  string `json:"payment_intent"`

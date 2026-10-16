@@ -5,7 +5,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Ferousco-dev/beyond-social/server/internal/assets"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
@@ -34,6 +36,35 @@ func TestEditNeedsOneToFourPicturesAndRefusesExtras(t *testing.T) {
 		if _, err := ParseEdit(args); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+type liveGroups struct{ group assets.GroupDetail }
+
+func (g liveGroups) Detail(context.Context, string, string) (assets.GroupDetail, error) {
+	return g.group, nil
+}
+
+type speaker struct{ voice, text string }
+
+func (s *speaker) Speak(_ context.Context, voiceID, _ string, text string) ([]byte, error) {
+	s.voice, s.text = voiceID, text
+	return []byte("mp3"), nil
+}
+
+func TestLiveAvatarBuildsElevenLabsSpeechBeforeSubmittingKIEVideo(t *testing.T) {
+	face := assets.SlotView{MediaID: picture, Kind: "image"}
+	now := time.Now()
+	group := assets.GroupDetail{Group: assets.Group{FaceConsent: &now, VoiceConsent: &now}, Face: &face}
+	sp := &speaker{}
+	up := &uploader{}
+	b := LiveAvatarBuilder{Builder: Builder{Files: &files{}, Fetcher: fetcher{}, Uploader: up}, Groups: liveGroups{group: group}, Speaker: sp}
+	prepared, err := b.BuildLiveAvatar(context.Background(), jobs.Job{UserID: "u", Input: map[string]any{"group_id": "g", "voice_id": "voice-owned", "script": "Hello there", "prompt": "Calm direct-to-camera delivery."}})
+	if err != nil || prepared.Model != ModelTalk || sp.voice != "voice-owned" || sp.text != "Hello there" || up.n != 2 {
+		t.Fatalf("prepared=%+v err=%v voice=%q text=%q uploads=%d", prepared, err, sp.voice, sp.text, up.n)
+	}
+	if prepared.Input["image_url"] == prepared.Input["audio_url"] {
+		t.Fatalf("KIE requires independent image and ElevenLabs audio URLs: %+v", prepared.Input)
 	}
 }
 

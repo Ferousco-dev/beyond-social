@@ -1,6 +1,7 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,6 +12,10 @@ import (
 )
 
 const maxAdminBody = 4 << 10
+
+type AdminUserDetailReader interface {
+	UserDetail(ctx context.Context, userID string) (credits.UserDetail, error)
+}
 
 func decodeAdminBody(w http.ResponseWriter, r *http.Request, into any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxAdminBody))
@@ -95,6 +100,20 @@ func (a *App) findCreditUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, users)
+}
+
+func (a *App) adminUserDetail(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "user id must be a UUID")
+		return
+	}
+	detail, err := a.deps.AdminUserDetails.UserDetail(r.Context(), id)
+	if err != nil {
+		a.adminError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, detail)
 }
 
 func (a *App) userLedger(w http.ResponseWriter, r *http.Request) {

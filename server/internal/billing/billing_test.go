@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,12 +17,13 @@ import (
 )
 
 type memStore struct {
-	invoices []Invoice
-	subs     map[string]Subscription
-	packs    map[string]Pack
-	payments map[string]*Payment
-	sessions map[string]string
-	intents  map[string]string
+	invoices        []Invoice
+	invoiceFailures []Invoice
+	subs            map[string]Subscription
+	packs           map[string]Pack
+	payments        map[string]*Payment
+	sessions        map[string]string
+	intents         map[string]string
 }
 
 func newMem() *memStore {
@@ -121,6 +123,15 @@ func (m *memStore) SaveInvoice(_ context.Context, inv Invoice) error {
 		}
 	}
 	m.invoices = append(m.invoices, inv)
+	return nil
+}
+func (m *memStore) RecordInvoiceFailure(_ context.Context, inv Invoice) error {
+	for _, previous := range m.invoiceFailures {
+		if previous.ID == inv.ID && previous.AttemptCount == inv.AttemptCount {
+			return nil
+		}
+	}
+	m.invoiceFailures = append(m.invoiceFailures, inv)
 	return nil
 }
 func (m *memStore) UserPayments(context.Context, string, int) ([]Payment, error) { return nil, nil }
@@ -484,6 +495,22 @@ func TestPaidInvoicesAreRecordedOnceForTheirOwner(t *testing.T) {
 	other := `{"type":"invoice.paid","data":{"object":{"id":"in_3","customer":"cus_other","amount_paid":500,"currency":"usd"}}}`
 	if err := svc.Handle(ctx, []byte(other)); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("an invoice for a stranger: %v", err)
+	}
+}
+
+func TestFailedInvoiceAttemptsAreRecordedOncePerAttempt(t *testing.T) {
+	svc, store, _, _ := setup()
+	store.subs["u1"] = Subscription{UserID: "u1", Status: "past_due", StripeCustomer: "cus_1"}
+	event := func(attempt int) string {
+		return `{"type":"invoice.payment_failed","data":{"object":{"id":"in_failed","customer":"cus_1","amount_due":2500,"currency":"usd","attempt_count":` + strconv.Itoa(attempt) + `}}}`
+	}
+	for _, attempt := range []int{2, 2, 3} {
+		if err := svc.Handle(context.Background(), []byte(event(attempt))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(store.invoiceFailures) != 2 || store.invoiceFailures[0].AmountCents != 2500 || store.invoiceFailures[1].AttemptCount != 3 {
+		t.Fatalf("failed attempts = %+v", store.invoiceFailures)
 	}
 }
 

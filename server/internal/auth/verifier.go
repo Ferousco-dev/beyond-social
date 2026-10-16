@@ -40,8 +40,11 @@ type claims struct {
 	Role  string `json:"role"`
 	// Supabase copies the sign-up metadata (name) into the access token.
 	Meta struct {
-		FullName string `json:"full_name"`
-		Name     string `json:"name"`
+		FullName     string `json:"full_name"`
+		Name         string `json:"name"`
+		Phone        string `json:"phone"`
+		BusinessName string `json:"business_name"`
+		Industry     string `json:"industry"`
 	} `json:"user_metadata"`
 }
 
@@ -85,7 +88,10 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Identity, error) {
 	if name == "" {
 		name = c.Meta.Name
 	}
-	return Identity{UserID: c.Subject, Email: c.Email, Role: c.Role, Name: name}, nil
+	return Identity{
+		UserID: c.Subject, Email: c.Email, Role: c.Role, Name: name,
+		Phone: c.Meta.Phone, BusinessName: c.Meta.BusinessName, Industry: c.Meta.Industry,
+	}, nil
 }
 
 func (v *Verifier) keyFor(ctx context.Context, t *jwt.Token) (any, error) {

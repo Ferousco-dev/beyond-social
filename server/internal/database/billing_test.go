@@ -138,6 +138,13 @@ func TestOverviewCountsMoneyAndMembers(t *testing.T) {
 	if err := store.SaveSubscription(ctx, billing.Subscription{UserID: user, Status: "active", StripeCustomer: "cus_" + user[:8], StripeSubscription: "sub_" + user[:8]}); err != nil {
 		t.Fatal(err)
 	}
+	canceledUser := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, canceledUser, canceledUser[:8]+"@example.com", "Canceled"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveSubscription(ctx, billing.Subscription{UserID: canceledUser, Status: "canceled"}); err != nil {
+		t.Fatal(err)
+	}
 	inv := billing.Invoice{ID: "in_" + user, UserID: user, AmountCents: 2000, Currency: "usd"}
 	for i := 0; i < 2; i++ {
 		if err := store.SaveInvoice(ctx, inv); err != nil {
@@ -151,14 +158,16 @@ func TestOverviewCountsMoneyAndMembers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if after.ActiveSubscribers != before.ActiveSubscribers+1 || after.SubscriptionCents != before.SubscriptionCents+2000 || after.MonthlyRecurringCents != after.ActiveSubscribers*2000 {
+	if after.ActiveSubscribers != before.ActiveSubscribers+1 || after.CanceledSubscribers != 1 || after.SubscriptionCents != before.SubscriptionCents+2000 || after.MonthlyRecurringCents != after.ActiveSubscribers*2000 {
 		t.Fatalf("before %+v after %+v", before, after)
 	}
 	found := false
+	foundCanceled := false
 	for _, s := range after.Subscribers {
 		found = found || s.Status == "active"
+		foundCanceled = foundCanceled || s.Status == "canceled"
 	}
-	if !found {
+	if !found || !foundCanceled {
 		t.Fatalf("subscribers = %+v", after.Subscribers)
 	}
 }

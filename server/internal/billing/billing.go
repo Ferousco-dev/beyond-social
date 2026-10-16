@@ -81,14 +81,16 @@ type Store interface {
 	UserOfSubscription(ctx context.Context, stripeSubscription string) (string, error)
 	UserOfCustomer(ctx context.Context, stripeCustomer string) (string, error)
 	SaveInvoice(ctx context.Context, inv Invoice) error
+	RecordInvoiceFailure(ctx context.Context, inv Invoice) error
 }
 
 // Invoice is one paid subscription invoice.
 type Invoice struct {
-	ID          string
-	UserID      string
-	AmountCents int
-	Currency    string
+	ID           string
+	UserID       string
+	AmountCents  int
+	Currency     string
+	AttemptCount int
 }
 
 // Notifier sends the emails billing events call for. It must not block or fail.

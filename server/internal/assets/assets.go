@@ -60,6 +60,7 @@ type Group struct {
 type SlotView struct {
 	MediaID string `json:"media_id"`
 	Name    string `json:"name"`
+	Kind    string `json:"kind"`
 	URL     string `json:"url"`
 }
 
@@ -209,7 +210,20 @@ func (s *Service) Detail(ctx context.Context, userID, id string) (GroupDetail, e
 	if err != nil {
 		return GroupDetail{}, err
 	}
-	detail := GroupDetail{Group: group}
+	detail := GroupDetail{Group: group, ExtraViews: []SlotView{}}
+	ids := []string{group.Slots.Face, group.Slots.Voice, group.Slots.Product, group.Slots.Environment}
+	for _, extra := range group.Extras {
+		ids = append(ids, extra.ID)
+	}
+	kinds := map[string]string{}
+	names := map[string]string{}
+	items, err := s.media.Resolve(ctx, userID, ids)
+	if err == nil {
+		for _, item := range items {
+			kinds[item.ID] = string(item.Kind)
+			names[item.ID] = item.Name
+		}
+	}
 	view := func(mediaID string) *SlotView {
 		if mediaID == "" {
 			return nil
@@ -218,7 +232,8 @@ func (s *Service) Detail(ctx context.Context, userID, id string) (GroupDetail, e
 		if err != nil {
 			return nil
 		}
-		return &SlotView{MediaID: mediaID, URL: url}
+		name := names[mediaID]
+		return &SlotView{MediaID: mediaID, Name: name, Kind: kinds[mediaID], URL: url}
 	}
 	detail.Face = view(group.Slots.Face)
 	detail.Voice = view(group.Slots.Voice)
@@ -226,7 +241,9 @@ func (s *Service) Detail(ctx context.Context, userID, id string) (GroupDetail, e
 	detail.Environment = view(group.Slots.Environment)
 	for _, extra := range group.Extras {
 		if v := view(extra.ID); v != nil {
-			v.Name = extra.Label
+			if extra.Label != "" {
+				v.Name = extra.Label
+			}
 			detail.ExtraViews = append(detail.ExtraViews, *v)
 		}
 	}

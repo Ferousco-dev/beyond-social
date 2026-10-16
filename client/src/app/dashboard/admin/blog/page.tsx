@@ -41,6 +41,11 @@ export default async function AdminBlogPage(): Promise<ReactNode> {
                 <span className="shrink-0 rounded-full border border-hairline px-2 py-0.5 text-[11px] text-ink-soft">
                   {post.status}
                 </span>
+                <time className="shrink-0 text-xs text-ink-soft" dateTime={post.published_at ?? post.updated_at}>
+                  {post.published_at
+                    ? `Published ${new Date(post.published_at).toLocaleDateString("en-US")}`
+                    : `Updated ${new Date(post.updated_at).toLocaleDateString("en-US")}`}
+                </time>
               </Link>
             </li>
           ))}

@@ -24,6 +24,23 @@ func TestVerifyAcceptsValidES256Token(t *testing.T) {
 	}
 }
 
+func TestVerifyCarriesRegistrationMetadataFromSignedClaims(t *testing.T) {
+	key := newECKey(t)
+	srv := newJWKSServer(t, map[string]*ecdsa.PrivateKey{"k1": key})
+	v := newTestVerifier(srv.URL, "")
+	claims := baseClaims()
+	claims["user_metadata"] = map[string]any{
+		"phone": "+1 555 0100", "business_name": "Studio", "industry": "Retail",
+	}
+	identity, err := v.Verify(context.Background(), signES256(t, "k1", key, claims))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Phone != "+1 555 0100" || identity.BusinessName != "Studio" || identity.Industry != "Retail" {
+		t.Fatalf("registration details = %+v", identity)
+	}
+}
+
 func TestVerifyRejectsInvalidTokens(t *testing.T) {
 	key := newECKey(t)
 	other := newECKey(t)

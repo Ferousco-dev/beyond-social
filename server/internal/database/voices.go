@@ -18,7 +18,11 @@ func (r *VoiceRecords) OwnVoices(ctx context.Context, userID string) ([]voices.V
 	rows, err := r.pool.Query(ctx, `
 		select provider_voice_id, coalesce(name, 'My avatar') || ' (cloned voice)'
 		from public.avatars
-		where user_id = $1 and training_status = 'ready' and provider_voice_id is not null`, userID)
+		where user_id = $1 and training_status = 'ready' and provider_voice_id is not null
+		union
+		select provider_voice_id, name
+		from public.cloned_voices
+		where user_id = $1`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +46,20 @@ func (r *VoiceRecords) Ownership(ctx context.Context, userID, voiceID string) (o
 	err = r.pool.QueryRow(ctx, `
 		with owners as (
 			select user_id from public.avatars where provider_voice_id = $2
+			union
+			select user_id from public.cloned_voices where provider_voice_id = $2
 		)
 		select coalesce(bool_or(user_id = $1), false), coalesce(bool_or(user_id <> $1), false) from owners`,
 		userID, voiceID).Scan(&own, &other)
 	return own, other, err
+}
+
+// SaveClone records a freshly cloned provider voice for its owner.
+func (r *VoiceRecords) SaveClone(ctx context.Context, userID, providerVoiceID, name string) error {
+	_, err := r.pool.Exec(ctx, `
+		insert into public.cloned_voices (user_id, provider_voice_id, name)
+		values ($1, $2, $3)
+		on conflict (user_id, provider_voice_id) do update set name = excluded.name`,
+		userID, providerVoiceID, name)
+	return err
 }

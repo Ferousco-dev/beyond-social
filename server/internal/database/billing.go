@@ -139,7 +139,24 @@ func (s *BillingStore) UserPayments(ctx context.Context, userID string, limit in
 }
 
 func (s *BillingStore) SaveSubscription(ctx context.Context, sub billing.Subscription) error {
-	_, err := s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var profileID string
+	if err := tx.QueryRow(ctx, `select id::text from public.profiles where id = $1 for update`, sub.UserID).Scan(&profileID); err != nil {
+		return err
+	}
+	var previous billing.Subscription
+	err = tx.QueryRow(ctx, `select status, current_period_end from public.subscriptions where user_id = $1 for update`, sub.UserID).
+		Scan(&previous.Status, &previous.PeriodEnd)
+	exists := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
 		insert into public.subscriptions (user_id, status, stripe_customer, stripe_subscription, current_period_end)
 		values ($1, $2, nullif($3, ''), nullif($4, ''), $5)
 		on conflict (user_id) do update set
@@ -148,7 +165,31 @@ func (s *BillingStore) SaveSubscription(ctx context.Context, sub billing.Subscri
 			stripe_subscription = coalesce(excluded.stripe_subscription, public.subscriptions.stripe_subscription),
 			current_period_end = coalesce(excluded.current_period_end, public.subscriptions.current_period_end),
 			updated_at = now()`, sub.UserID, sub.Status, sub.StripeCustomer, sub.StripeSubscription, sub.PeriodEnd)
-	return err
+	if err != nil {
+		return err
+	}
+
+	eventType := ""
+	switch {
+	case !exists:
+		eventType = "started"
+	case previous.Status != sub.Status:
+		eventType = "status_changed"
+	case sub.PeriodEnd != nil && previous.PeriodEnd != nil && sub.PeriodEnd.After(*previous.PeriodEnd):
+		eventType = "renewed"
+	}
+	if eventType != "" {
+		periodEnd := sub.PeriodEnd
+		if periodEnd == nil {
+			periodEnd = previous.PeriodEnd
+		}
+		if _, err := tx.Exec(ctx, `
+			insert into public.subscription_events (user_id, event_type, status, period_end)
+			values ($1, $2, $3, $4)`, sub.UserID, eventType, sub.Status, periodEnd); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 func (s *BillingStore) SubscriptionOf(ctx context.Context, userID string) (billing.Subscription, error) {
@@ -182,8 +223,34 @@ func (s *BillingStore) UserOfCustomer(ctx context.Context, stripeCustomer string
 }
 
 func (s *BillingStore) SaveInvoice(ctx context.Context, inv billing.Invoice) error {
-	_, err := s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	tag, err := tx.Exec(ctx, `
 		insert into public.invoices (stripe_invoice, user_id, amount_cents, currency) values ($1, $2, $3, $4)
 		on conflict (stripe_invoice) do nothing`, inv.ID, inv.UserID, inv.AmountCents, inv.Currency)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() > 0 {
+		if _, err := tx.Exec(ctx, `
+			insert into public.subscription_events (user_id, event_type, status, amount_cents, currency, invoice_id)
+			values ($1, 'invoice_paid', 'paid', $2, lower($3), $4)
+			on conflict (event_type, invoice_id, attempt_count) where invoice_id is not null do nothing`,
+			inv.UserID, inv.AmountCents, inv.Currency, inv.ID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *BillingStore) RecordInvoiceFailure(ctx context.Context, inv billing.Invoice) error {
+	_, err := s.pool.Exec(ctx, `
+		insert into public.subscription_events (user_id, event_type, status, amount_cents, currency, invoice_id, attempt_count)
+		values ($1, 'invoice_payment_failed', 'past_due', $2, lower($3), $4, $5)
+		on conflict (event_type, invoice_id, attempt_count) where invoice_id is not null do nothing`,
+		inv.UserID, inv.AmountCents, inv.Currency, inv.ID, inv.AttemptCount)
 	return err
 }
