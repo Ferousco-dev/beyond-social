@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   cloneVoiceSample,
@@ -10,7 +10,8 @@ import {
   type GroupDetailResult,
 } from "@/features/asset-groups/actions";
 import { uploadGroupFile } from "@/features/asset-groups/upload";
-import type { AssetGroup, AssetGroupDetail } from "@/lib/go-api/schemas";
+import { listVoices } from "@/features/live-avatar/avatar-video-actions";
+import type { AssetGroup, AssetGroupDetail, GoVoice } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
 const SLOTS = [
@@ -25,10 +26,12 @@ type SlotId = (typeof SLOTS)[number]["id"];
 /** Steps 2–5: fill the four slots by upload, consent, clone the voice. */
 export function UploadsStep({
   group,
+  voiceId,
   onChange,
   onVoiceReady,
 }: {
   group: AssetGroup;
+  voiceId: string;
   onChange: (group: AssetGroupDetail) => void;
   onVoiceReady: (voiceId: string) => void;
 }) {
@@ -36,6 +39,13 @@ export function UploadsStep({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [voiceName, setVoiceName] = useState(group.name);
+  const [voices, setVoices] = useState<readonly GoVoice[]>([]);
+
+  useEffect(() => {
+    void listVoices().then((result) => {
+      if (result.status === "ok") setVoices(result.voices.filter((voice) => voice.scope === "own"));
+    });
+  }, []);
 
   async function refresh(): Promise<void> {
     const result: GroupDetailResult = await getAssetGroup(group.id);
@@ -174,6 +184,19 @@ export function UploadsStep({
             Clone
           </button>
         </span>
+        {voices.length > 0 ? (
+          <label className="mt-3 flex flex-col gap-1.5 text-xs font-medium text-ink">
+            Use a saved cloned voice
+            <select
+              value={voiceId}
+              onChange={(event) => { if (event.target.value !== "") onVoiceReady(event.target.value); }}
+              className="h-10 rounded-[10px] border border-hairline bg-paper px-3 text-sm font-normal text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            >
+              <option value="">Choose a saved voice</option>
+              {voices.map((voice) => <option key={voice.voice_id} value={voice.voice_id}>{voice.name}</option>)}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       {busy ? (

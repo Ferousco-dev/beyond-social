@@ -6,7 +6,7 @@ import type { AssetGroupDetail } from "@/lib/go-api/schemas";
 import type { GoJob } from "@/lib/go-api/schemas";
 
 import type { AvatarBrief } from "./brief-step";
-import { createLiveAvatar } from "./actions";
+import { createLiveAvatar, draftLiveAvatarScript } from "./actions";
 
 /** Final step: write the prompt, compile everything, approve, follow progress. */
 export function PromptStep({
@@ -24,6 +24,7 @@ export function PromptStep({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<GoJob | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
 
   function direction(): string {
     return [brief.objective, brief.audience && `Audience: ${brief.audience}`, brief.product && `Product: ${brief.product}`, brief.style].filter(Boolean).join(". ");
@@ -42,6 +43,19 @@ export function PromptStep({
     setJob(result.job);
   }
 
+  async function draft(): Promise<void> {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const result = await draftLiveAvatarScript(brief);
+    setBusy(false);
+    if (result.status !== "ok") {
+      setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
+      return;
+    }
+    setPrompt(result.script);
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
@@ -55,11 +69,20 @@ export function PromptStep({
         />
       </label>
 
+      <button type="button" onClick={() => void draft()} disabled={busy} className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:opacity-40">
+        {busy ? "Writing…" : "Draft with AI"}
+      </button>
+
+      <label className="flex items-start gap-3 rounded-[10px] border border-hairline bg-paper p-4 text-sm text-ink-soft">
+        <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 size-4 accent-primary" />
+        <span>I have reviewed this script and approve using my consented face and cloned voice to generate this video.</span>
+      </label>
+
       {!job ? (
         <button
           type="button"
           onClick={() => void submit()}
-          disabled={busy || prompt.trim() === ""}
+          disabled={busy || prompt.trim() === "" || !confirmed}
           className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           {busy ? "Starting…" : "Generate video"}

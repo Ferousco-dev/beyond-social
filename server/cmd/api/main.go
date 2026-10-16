@@ -254,6 +254,7 @@ func run() error {
 		Alerts:              alertService,
 		AvatarVideo:         avatarvideo.NewService(jobService, avatarService, voiceService),
 		LiveAvatar:          liveAvatarService,
+		LiveAvatarScripts:   chat.NewModelScriptWriter(chatModel),
 		Videos:              videoProcessor,
 		VideoReconciler:     videoProcessor,
 		HeygenWebhookSecret: vault.Optional(secrets.NameHeygenWebhook),

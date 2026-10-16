@@ -59,7 +59,7 @@ export function LiveAvatarFlow() {
       <h2 className="text-lg font-semibold text-ink">{STEPS[step]}</h2>
 
       {step === 0 ? <GroupStep selected={group} onSelect={(next) => void enterAssets(next)} /> : null}
-      {step === 1 && group ? <UploadsStep group={group} onChange={setDetail} onVoiceReady={setVoiceId} /> : null}
+      {step === 1 && group ? <UploadsStep group={group} voiceId={voiceId} onChange={setDetail} onVoiceReady={setVoiceId} /> : null}
       {step === 2 ? <BriefStep brief={brief} onChange={setBrief} /> : null}
       {step === 3 && detail ? <PromptStep group={detail} brief={brief} voiceId={voiceId} script="" /> : null}
 

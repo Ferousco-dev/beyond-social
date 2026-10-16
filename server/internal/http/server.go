@@ -11,6 +11,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
+	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
@@ -46,6 +47,7 @@ type Deps struct {
 	VoiceCloner         VoiceCloner
 	AvatarVideo         *avatarvideo.Service
 	LiveAvatar          *kietools.LiveAvatarService
+	LiveAvatarScripts   chat.ScriptWriter
 	Videos              VideoReader
 	VideoReconciler     VideoReconciler
 	HeygenWebhookSecret func(ctx context.Context) string
@@ -237,6 +239,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/voices/clone", protected(http.HandlerFunc(a.cloneVoice)))
 	mux.Handle("POST /api/v1/videos/avatar", protected(http.HandlerFunc(a.createAvatarVideo)))
 	mux.Handle("POST /api/v1/videos/live-avatar", protected(http.HandlerFunc(a.createLiveAvatarVideo)))
+	mux.Handle("POST /api/v1/videos/live-avatar/script", protected(http.HandlerFunc(a.draftLiveAvatarScript)))
 	mux.Handle("GET /api/v1/videos/{id}", protected(http.HandlerFunc(a.getAvatarVideo)))
 	mux.Handle("POST /api/v1/discover", protected(http.HandlerFunc(a.createDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))

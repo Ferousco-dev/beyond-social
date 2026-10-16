@@ -29,3 +29,14 @@ export async function createLiveAvatar(input: z.input<typeof requestSchema>): Pr
   });
   return result.ok ? { status: "ok", job: result.data.data } : { status: "error", message: result.message };
 }
+
+const scriptSchema = z.object({ objective: z.string().trim().min(1).max(500), audience: z.string().trim().min(1).max(500), product: z.string().trim().max(500), style: z.string().trim().max(500) });
+const scriptResponse = z.object({ data: z.object({ script: z.string().min(1) }) });
+
+export async function draftLiveAvatarScript(input: z.input<typeof scriptSchema>): Promise<{ readonly status: "ok"; readonly script: string } | { readonly status: "unconfigured" } | { readonly status: "error"; readonly message: string }> {
+  const parsed = scriptSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Add an objective and audience before drafting a script." };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
+  const result = await goApi("/api/v1/videos/live-avatar/script", scriptResponse, { method: "POST", body: parsed.data });
+  return result.ok ? { status: "ok", script: result.data.data.script } : { status: "error", message: result.message };
+}
