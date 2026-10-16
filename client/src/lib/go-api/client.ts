@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
+import { buildRequestConfig } from "./request-config";
+
 /**
  * Calling the Go API from a server action.
  *
@@ -54,14 +56,13 @@ export async function goApi<T>(
 
   try {
     const response = await fetch(`${apiBase()}${path}`, {
-      method: options.method ?? "GET",
+      ...buildRequestConfig(options),
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
         ...options.headers,
       },
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-      cache: "no-store",
       signal: AbortSignal.timeout(options.timeoutMs ?? TIMEOUT_MS),
     });
 

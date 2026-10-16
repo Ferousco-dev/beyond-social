@@ -4,7 +4,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import {
   Clapperboard,
   CornerDownLeft,
-  MessagesSquare,
   PenSquare,
   Search,
   TrendingUp,
@@ -20,10 +19,9 @@ import {
   type ReactNode,
 } from "react";
 
-import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
-type Group = "Actions" | "Navigation" | "Projects";
+type Group = "Actions" | "Navigation";
 
 interface Item {
   id: string;
@@ -59,7 +57,7 @@ const STATIC_ITEMS: Item[] = [
   },
 ];
 
-const GROUP_ORDER: Group[] = ["Actions", "Navigation", "Projects"];
+const GROUP_ORDER: Group[] = ["Actions", "Navigation"];
 
 /**
  * The workspace command palette (Cmd-K). One surface to act, navigate, and find
@@ -67,10 +65,8 @@ const GROUP_ORDER: Group[] = ["Actions", "Navigation", "Projects"];
  * interaction: nothing here is more than a keystroke away.
  */
 export function CommandPalette({
-  projects,
   children,
 }: {
-  projects: readonly SidebarProject[];
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -79,17 +75,10 @@ export function CommandPalette({
   const [activeIndex, setActiveIndex] = useState(0);
 
   const items = useMemo<Item[]>(() => {
-    const projectItems: Item[] = projects.map((p) => ({
-      id: `project:${p.id}`,
-      label: p.title,
-      group: "Projects",
-      icon: MessagesSquare,
-      href: `/dashboard/c/${p.id}` as Route,
-    }));
-    const all = [...STATIC_ITEMS, ...projectItems];
+    const all = STATIC_ITEMS;
     const value = query.trim().toLowerCase();
     return value ? all.filter((item) => item.label.toLowerCase().includes(value)) : all;
-  }, [projects, query]);
+  }, [query]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

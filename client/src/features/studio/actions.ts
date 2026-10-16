@@ -11,6 +11,10 @@ export type StudioResult<T = undefined> =
 
 const idSchema = z.string().uuid();
 
+const createSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+});
+
 const saveSchema = z.object({
   id: idSchema,
   title: z.string().trim().min(1).max(120),
@@ -28,6 +32,18 @@ export async function saveProject(input: z.input<typeof saveSchema>): Promise<St
   });
   if (!result.ok) return { ok: false, message: result.message, conflict: result.code === "stale_project" };
   return { ok: true, value: undefined, version: result.data.data.version };
+}
+
+/** Creates an independent editor project. New videos no longer require a chat. */
+export async function createEditorProject(input: z.input<typeof createSchema>): Promise<StudioResult<string>> {
+  const parsed = createSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Give this video a short title.", conflict: false };
+  const result = await goApi("/api/v1/editor/projects", editorProjectResponse, {
+    method: "POST",
+    body: { title: parsed.data.title, document: {} },
+  });
+  if (!result.ok) return { ok: false, message: result.message, conflict: false };
+  return { ok: true, value: result.data.data.id, version: result.data.data.version };
 }
 
 /** Finds the editor project for a chat, creating it the first time. */

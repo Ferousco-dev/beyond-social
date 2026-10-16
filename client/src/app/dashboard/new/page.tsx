@@ -6,6 +6,7 @@ import { type ReactNode } from "react";
 import { LinkPanel } from "@/features/new-video/components/link-panel";
 import { OwnIdeaPanel } from "@/features/new-video/components/own-idea-panel";
 import { TrendingPanel } from "@/features/new-video/components/trending-panel";
+import { AvatarPackPanel } from "@/features/new-video/components/avatar-pack-panel";
 
 export const metadata: Metadata = { title: "New Video" };
 
@@ -13,6 +14,7 @@ const OPTIONS = [
   { id: "trending", title: "Find trending videos", body: "Search TikTok and Instagram for references in your industry." },
   { id: "link", title: "Use an existing video", body: "Paste a link and get it analysed in seconds." },
   { id: "idea", title: "Start with my own idea", body: "Describe the video in four fields." },
+  { id: "avatar", title: "Use a saved avatar", body: "Generate with a consented face and cloned voice." },
 ] as const;
 
 type OptionId = (typeof OPTIONS)[number]["id"];
@@ -25,9 +27,9 @@ function isOption(value: string | undefined): value is OptionId {
 export default async function NewVideoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ option?: string }>;
+  searchParams: Promise<{ option?: string; link?: string }>;
 }): Promise<ReactNode> {
-  const { option } = await searchParams;
+  const { option, link } = await searchParams;
   const active = isOption(option) ? option : null;
 
   return (
@@ -57,8 +59,9 @@ export default async function NewVideoPage({
       {active ? (
         <div className="mt-6 rounded-2xl border border-hairline bg-paper p-4 sm:p-5">
           {active === "trending" ? <TrendingPanel /> : null}
-          {active === "link" ? <LinkPanel /> : null}
+          {active === "link" ? <LinkPanel initialUrl={link?.startsWith("https://") ? link : ""} /> : null}
           {active === "idea" ? <OwnIdeaPanel /> : null}
+          {active === "avatar" ? <AvatarPackPanel /> : null}
         </div>
       ) : null}
     </div>

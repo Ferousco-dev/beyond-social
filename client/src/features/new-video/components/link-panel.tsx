@@ -8,8 +8,8 @@ const fieldClass =
   "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
 
 /** Option 2: paste a link, watch it get analysed. */
-export function LinkPanel() {
-  const [url, setUrl] = useState("");
+export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
+  const [url, setUrl] = useState(initialUrl);
   const [submitted, setSubmitted] = useState<string | null>(null);
 
   if (submitted) {

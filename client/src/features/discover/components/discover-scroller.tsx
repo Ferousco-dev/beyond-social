@@ -202,7 +202,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
       if (looksLikeUrl(text)) {
         // YouTube cannot be searched here, but the chat can watch it, so the link goes there.
         if (isYouTubeLink(text)) {
-          router.push(`/dashboard/c/new?link=${encodeURIComponent(text)}` as Route);
+          router.push(`/dashboard/new?option=link&link=${encodeURIComponent(text)}` as Route);
           return;
         }
         const social = parseSocialUrl(text) ?? parseShortLink(text);

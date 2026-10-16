@@ -15,7 +15,9 @@ function base(): string {
 async function read<T>(path: string, schema: { safeParse: (v: unknown) => { success: boolean; data?: T } }): Promise<T | null> {
   if (base() === "") return null;
   try {
-    const response = await fetch(`${base()}${path}`, { cache: "no-store" });
+    const response = await fetch(`${base()}${path}`, {
+      next: { revalidate: 300 },
+    });
     if (!response.ok) return null;
     const parsed = schema.safeParse(await response.json().catch(() => null));
     return parsed.success && parsed.data ? parsed.data : null;

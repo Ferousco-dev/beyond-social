@@ -28,9 +28,9 @@ export function WorkspaceMenu() {
           className="z-50 w-56 rounded-xl border border-hairline bg-paper p-1 text-ink shadow-card data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <DropdownMenu.Item asChild className={MENU_ITEM}>
-            <Link href="/dashboard/c/new">
+            <Link href="/dashboard/new">
               <PenSquare className="size-4 text-ink-soft" />
-              New project
+              New video
             </Link>
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={MENU_ITEM}>

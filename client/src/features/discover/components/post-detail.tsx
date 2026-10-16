@@ -78,7 +78,7 @@ export function PostDetail({ post }: { post: DiscoverPost }) {
 
       <div className="flex flex-col gap-2">
         <Link
-          href={`/dashboard/c/new?link=${encodeURIComponent(post.url)}` as Route}
+          href={`/dashboard/new?option=link&link=${encodeURIComponent(post.url)}` as Route}
           className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <Sparkles className="size-3.5" aria-hidden />

@@ -5,16 +5,14 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 import { goApi } from "@/lib/go-api/client";
 import { usageResponse } from "@/lib/go-api/schemas";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
-import { getSidebarConversations } from "@/lib/dashboard/conversations";
 
 /**
  * The signed-in frame around every dashboard page.
  *
- * Recent chats and the credit balance come from the Go API. The shell never
- * reads the database itself.
+ * The shell loads the active user's plan and credit balance from the Go API.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const [user, conversations] = await Promise.all([getCurrentUser(), getSidebarConversations()]);
+  const user = await getCurrentUser();
 
   const usage = user.plan === "pro" ? await goApi("/api/v1/usage", usageResponse) : null;
   const bars = usage?.ok
@@ -26,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const summary = user.credits === null ? null : { balance: user.credits, plan: user.plan, usage: bars };
 
   return (
-    <DashboardShell user={user} projects={conversations} credits={summary}>
+    <DashboardShell user={user} credits={summary}>
       <UsageBanner credits={summary} />
       {children}
     </DashboardShell>

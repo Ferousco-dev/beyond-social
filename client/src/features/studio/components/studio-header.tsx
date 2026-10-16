@@ -38,8 +38,8 @@ export function StudioHeader({ backHref }: { backHref: string }) {
     <header className="flex min-h-13 shrink-0 items-center gap-2 px-3">
       <Link
         href={backHref as Route}
-        aria-label="Back to chat"
-        title="Back to chat"
+        aria-label="Back to new video"
+        title="Back to new video"
         className="inline-flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
       >
         <ArrowLeft className="size-4" aria-hidden />

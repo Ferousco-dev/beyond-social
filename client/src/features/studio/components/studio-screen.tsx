@@ -18,6 +18,7 @@ import { StudioHeader } from "./studio-header";
 import { StudioLayout } from "./studio-layout";
 import { Timeline } from "./timeline/timeline";
 import { ToolPanel } from "./tool-panel";
+import { LiveAvatarJob } from "./live-avatar-job";
 
 interface StudioScreenProps {
   id: string;
@@ -29,9 +30,10 @@ interface StudioScreenProps {
   chatLibrary: readonly LibraryItem[];
   backHref: string;
   plan: "free" | "pro";
+  generation?: { readonly jobId: string; readonly script: string };
 }
 
-export function StudioScreen({ id, title, version, document, library, chatLibrary, backHref, plan }: StudioScreenProps) {
+export function StudioScreen({ id, title, version, document, library, chatLibrary, backHref, plan, generation }: StudioScreenProps) {
   const parsed = parseProject(document);
   const loadedId = useStudio((s) => s.projectId);
   const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
@@ -60,7 +62,7 @@ export function StudioScreen({ id, title, version, document, library, chatLibrar
   if (loadedId !== id) return null;
 
   return (
-    <div className="flex h-svh flex-col overflow-hidden bg-canvas">
+    <div className="relative flex h-svh flex-col overflow-hidden bg-canvas">
       <StudioHeader backHref={backHref} />
       <div className="min-h-0 flex-1">
         <StudioLayout
@@ -70,6 +72,7 @@ export function StudioScreen({ id, title, version, document, library, chatLibrar
           timeline={<Timeline />}
         />
       </div>
+      {generation ? <LiveAvatarJob jobId={generation.jobId} script={generation.script} /> : null}
     </div>
   );
 }
