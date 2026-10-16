@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
 	"github.com/jackc/pgx/v5"
@@ -175,7 +176,8 @@ func (s *BillingStore) SaveSubscription(ctx context.Context, sub billing.Subscri
 		eventType = "started"
 	case previous.Status != sub.Status:
 		eventType = "status_changed"
-	case sub.PeriodEnd != nil && previous.PeriodEnd != nil && sub.PeriodEnd.After(*previous.PeriodEnd):
+	case sub.PeriodEnd != nil && previous.PeriodEnd != nil &&
+		sub.PeriodEnd.Truncate(time.Microsecond).After(previous.PeriodEnd.Truncate(time.Microsecond)):
 		eventType = "renewed"
 	}
 	if eventType != "" {

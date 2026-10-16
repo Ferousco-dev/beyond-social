@@ -47,6 +47,7 @@ npm-debug.log*
 pnpm-debug.log*
 .dev-logs/
 .dev-pid
+/tmp/
 
 # Testing / coverage
 coverage/
@@ -86,3 +87,4 @@ docs/
 .claude
 .vercel
 .env*
+scripts/

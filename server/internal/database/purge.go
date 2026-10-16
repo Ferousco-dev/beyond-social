@@ -18,11 +18,11 @@ func NewPurgeStore(pool *pgxpool.Pool) *PurgeStore { return &PurgeStore{pool: po
 // are left alone. Every table with a user_id must be in one list; a test enforces it.
 var (
 	ErasedTables = []string{
-		"scheduled_posts", "editor_projects", "messages", "conversation_summaries", "conversations", "user_memories", "workflow_steps", "workflows",
-		"discovery_videos", "discoveries", "jobs", "avatar_handoffs", "avatars", "social_oauth_states",
+		"post_metrics", "scheduled_posts", "editor_projects", "messages", "conversation_summaries", "conversations", "user_memories", "workflow_steps", "workflows",
+		"discovery_videos", "discoveries", "jobs", "avatar_handoffs", "avatars", "social_oauth_states", "asset_groups", "cloned_voices",
 		"social_connections", "media", "usage_events", "usage_state",
 	}
-	KeptTables = []string{"admin_audit_log", "credit_balances", "credit_ledger", "invoices", "payments", "subscriptions"}
+	KeptTables = []string{"admin_audit_log", "credit_balances", "credit_ledger", "invoices", "payments", "subscriptions", "subscription_events"}
 )
 
 func (s *PurgeStore) Pending(ctx context.Context, limit int) ([]string, error) {
