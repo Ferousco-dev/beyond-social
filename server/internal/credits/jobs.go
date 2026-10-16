@@ -93,10 +93,15 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 			return 0, "", err
 		}
 		script, _ := job.Input["script"].(string)
-		seconds := max((len([]rune(script))+charsPerSecond-1)/charsPerSecond, 1)
+		seconds := AvatarVideoSeconds(script)
 		return rate * seconds, ActionAvatarVideoSecond, nil
 	}
 	return 0, "", nil
+}
+
+// AvatarVideoSeconds estimates spoken duration using the same rule as billing.
+func AvatarVideoSeconds(script string) int {
+	return max((len([]rune(script))+charsPerSecond-1)/charsPerSecond, 1)
 }
 
 // actual is what a finished job should cost. Avatar videos are charged for the

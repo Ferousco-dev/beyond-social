@@ -54,6 +54,7 @@ function toPost(video: GoVideo): DiscoverPost {
     videoId: video.source_video_id,
     handle: video.creator_handle ?? "",
     url: video.url,
+    playbackUrl: video.video_url ?? null,
     caption: video.caption ?? "",
     viewCount: video.view_count ?? null,
     thumbnailUrl: video.thumbnail_url ?? null,

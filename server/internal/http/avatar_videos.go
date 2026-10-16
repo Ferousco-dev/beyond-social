@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/google/uuid"
 )
@@ -20,6 +23,37 @@ type avatarVideoRequest struct {
 	AvatarID string `json:"avatar_id"`
 	VoiceID  string `json:"voice_id"`
 	Script   string `json:"script"`
+}
+
+func (a *App) quoteAvatarVideo(w http.ResponseWriter, r *http.Request) {
+	if _, ok := auth.IdentityFromContext(r.Context()); !ok {
+		writeUnauthorized(w)
+		return
+	}
+	var req struct {
+		Script string `json:"script"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	characters := utf8.RuneCountInString(strings.TrimSpace(req.Script))
+	if characters == 0 || characters > 3000 {
+		writeError(w, http.StatusBadRequest, "invalid_request", "script must be 1 to 3000 characters")
+		return
+	}
+	if a.deps.AvatarVideoCredits == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "avatar video pricing is not configured")
+		return
+	}
+	rate, err := a.deps.AvatarVideoCredits.Quote(r.Context(), credits.ActionAvatarVideoSecond)
+	if err != nil {
+		if !writeCreditError(w, err) {
+			writeInternal(w, r, err)
+		}
+		return
+	}
+	seconds := credits.AvatarVideoSeconds(req.Script)
+	writeData(w, http.StatusOK, map[string]int{"credits": rate * seconds, "seconds": seconds})
 }
 
 // createAvatarVideo queues a script-to-video job and returns it immediately.

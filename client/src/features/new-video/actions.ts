@@ -6,7 +6,7 @@ import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
 import { jobResponse } from "@/lib/go-api/schemas";
 
 export type AnalysisResult =
-  | { readonly status: "ok"; readonly job: { readonly id: string; readonly state: string; readonly analysis: AnalysisContent | null; readonly error: string | null } }
+  | { readonly status: "ok"; readonly job: { readonly id: string; readonly state: string; readonly stage: string | null; readonly progress: number; readonly analysis: AnalysisContent | null; readonly error: string | null } }
   | { readonly status: "unconfigured" }
   | { readonly status: "error"; readonly message: string };
 
@@ -81,6 +81,8 @@ export async function readAnalysis(jobId: string): Promise<AnalysisResult> {
     job: {
       id: job.id,
       state: job.status,
+      stage: job.stage ?? null,
+      progress: job.progress,
       analysis: content,
       error: job.error ?? null,
     },

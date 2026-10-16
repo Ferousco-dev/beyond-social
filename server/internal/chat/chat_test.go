@@ -39,6 +39,13 @@ func (m *memStore) Get(_ context.Context, user, id string) (Conversation, error)
 	return c, nil
 }
 func (m *memStore) Archive(context.Context, string, string) error { return nil }
+func (m *memStore) Rename(_ context.Context, user, id, title string) error {
+	if user != "u1" || id != "c1" {
+		return ErrNotFound
+	}
+	m.titled = title
+	return nil
+}
 func (m *memStore) Messages(context.Context, string, string, int) ([]Message, error) {
 	return append([]Message(nil), m.msgs...), nil
 }
@@ -124,6 +131,23 @@ func TestSendAnswersAChatMessageAndTitlesTheThread(t *testing.T) {
 	}
 	if store.titled != "hi" {
 		t.Fatalf("title = %q", store.titled)
+	}
+}
+
+func TestRenameValidatesAndTrimsTitle(t *testing.T) {
+	store := newMem()
+	service := NewService(store, nil, nil)
+	if err := service.Rename(context.Background(), "u1", "c1", "  Product launch  "); err != nil || store.titled != "Product launch" {
+		t.Fatalf("rename title = %q err=%v", store.titled, err)
+	}
+	if err := service.Rename(context.Background(), "u1", "c1", "   "); !errors.Is(err, ErrInvalidTitle) {
+		t.Fatalf("empty title error = %v", err)
+	}
+	if err := service.Rename(context.Background(), "u1", "c1", strings.Repeat("x", 121)); !errors.Is(err, ErrInvalidTitle) {
+		t.Fatalf("long title error = %v", err)
+	}
+	if err := service.Rename(context.Background(), "u2", "c1", "Not yours"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("foreign conversation error = %v", err)
 	}
 }
 

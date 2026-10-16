@@ -36,9 +36,9 @@ func IsShort(raw string) bool {
 	switch {
 	case host == "vm.tiktok.com" || host == "vt.tiktok.com" || host == "instagr.am":
 		return strings.Trim(path, "/") != ""
-	case host == "tiktok.com" || host == "www.tiktok.com":
+	case host == "m.tiktok.com" || host == "tiktok.com" || host == "www.tiktok.com":
 		return strings.HasPrefix(path, "/t/")
-	case host == "instagram.com" || host == "www.instagram.com":
+	case host == "m.instagram.com" || host == "instagram.com" || host == "www.instagram.com":
 		return strings.HasPrefix(path, "/share/")
 	}
 	return false

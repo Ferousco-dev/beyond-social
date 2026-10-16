@@ -60,7 +60,7 @@ export function AiPanel() {
             {messages.map((m) => (
               <li key={m.id} className={cn("flex", m.role === "user" && "justify-end")}>
                 {m.scene ? (
-                  <SceneCard scene={m.scene} onConfirm={() => void confirmScene(m.id)} onDismiss={() => dismissScene(m.id)} />
+                  <SceneCard scene={m.scene} onConfirm={(imageMediaId) => void confirmScene(m.id, imageMediaId)} onDismiss={() => dismissScene(m.id)} />
                 ) : m.remember ? (
                   <RememberCard proposal={m.remember} onSave={() => void confirmRemember(m.id)} onDismiss={() => dismissRemember(m.id)} />
                 ) : (

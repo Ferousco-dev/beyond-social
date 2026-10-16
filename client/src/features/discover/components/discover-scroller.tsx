@@ -112,36 +112,34 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
       }
 
       startTransition(async () => {
-        const result = await searchSocial({ query: text, platform: on });
-        // A search is charged, so the sidebar balance has moved.
-        router.refresh();
+        try {
+          const result = await searchSocial({ query: text, platform: on });
+          // A search is charged, so the sidebar balance has moved.
+          router.refresh();
 
-        // A newer search started while this one was in flight, so this
-        // answer is for a term or platform no longer on screen.
-        if (ticket !== latestSearch.current) return;
+          // A newer search started while this one was in flight, so this
+          // answer is for a term or platform no longer on screen.
+          if (ticket !== latestSearch.current) return;
 
-        if (result.status !== "ok") {
+          if (result.status !== "ok") {
+            setResults(null);
+            setSelectedId(null);
+            setNotice(result.status === "unconfigured" ? "Search is not available right now." : result.message);
+            setNoticeCode(result.status === "error" ? result.code : undefined);
+            return;
+          }
+
+          cache.current.set(key, { posts: result.posts, countryCode: result.countryCode });
+          setResults({ posts: result.posts, term: text, platform: on, countryCode: result.countryCode });
+          setSelectedId(result.posts[0]?.videoId ?? null);
+          if (result.posts.length === 0) setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
+        } catch {
+          router.refresh();
+          if (ticket !== latestSearch.current) return;
           setResults(null);
           setSelectedId(null);
-          setNotice(
-            result.status === "unconfigured" ? "Search is not connected yet." : result.message,
-          );
-          setNoticeCode(result.status === "error" ? result.code : undefined);
-          return;
-        }
-
-        cache.current.set(key, { posts: result.posts, countryCode: result.countryCode });
-        setResults({
-          posts: result.posts,
-          term: text,
-          platform: on,
-          countryCode: result.countryCode,
-        });
-        // The first result opens on its own. Landing on a grid where nothing is
-        // playing makes the pane look broken until you happen to click.
-        setSelectedId(result.posts[0]?.videoId ?? null);
-        if (result.posts.length === 0) {
-          setNotice(`Nothing came back for "${text}" on ${PLATFORM_NAME[on]}.`);
+          setNoticeCode(undefined);
+          setNotice("Something went wrong while searching. Please try again.");
         }
       });
     },
@@ -162,32 +160,34 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
     setShown(PAGE);
 
     startTransition(async () => {
-      const result = await scrapePostFromUrl({ url });
-      if (ticket !== latestSearch.current) return;
+      try {
+        const result = await scrapePostFromUrl({ url });
+        if (ticket !== latestSearch.current) return;
 
-      if (result.status !== "ok") {
+        if (result.status !== "ok") {
+          setResults(null);
+          setSelectedId(null);
+          setNotice(
+            result.status === "unconfigured"
+              ? "Search is not available right now."
+              : result.status === "unrecognised"
+                ? "That link is not a TikTok, Instagram or YouTube video. Open the post, tap Share, copy the link, and paste it here."
+                : result.status === "not_found"
+                  ? "Could not find that post. It may be private or removed."
+                  : result.message,
+          );
+          return;
+        }
+
+        setPlatform(result.post.platform);
+        setResults({ posts: [result.post], term: `@${result.post.handle}`, platform: result.post.platform, countryCode: null });
+        setSelectedId(result.post.videoId);
+      } catch {
+        if (ticket !== latestSearch.current) return;
         setResults(null);
         setSelectedId(null);
-        setNotice(
-          result.status === "unconfigured"
-            ? "Search is not connected yet."
-            : result.status === "unrecognised"
-              ? "That link is not a TikTok, Instagram or YouTube video. Open the post, tap Share, copy the link, and paste it here."
-              : result.status === "not_found"
-                ? "Could not find that post. It may be private or removed."
-                : result.message,
-        );
-        return;
+        setNotice("Something went wrong while opening that video. Please try again.");
       }
-
-      setPlatform(result.post.platform);
-      setResults({
-        posts: [result.post],
-        term: `@${result.post.handle}`,
-        platform: result.post.platform,
-        countryCode: null,
-      });
-      setSelectedId(result.post.videoId);
     });
   }, []);
 

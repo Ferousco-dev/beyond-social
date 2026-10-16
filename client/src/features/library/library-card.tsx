@@ -28,7 +28,7 @@ export function LibraryCard({ item }: { readonly item: LibraryItem }): ReactNode
     });
 
   return (
-    <li className="overflow-hidden rounded-xl border border-hairline bg-paper">
+    <li id={`video-${item.id}`} className="scroll-mt-4 overflow-hidden rounded-xl border border-hairline bg-paper">
       <video
         src={item.video_url}
         poster={item.thumbnail_url}

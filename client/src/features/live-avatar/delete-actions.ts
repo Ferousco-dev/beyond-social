@@ -56,11 +56,23 @@ function toSummary(avatar: GoAvatar): TwinSummary {
   };
 }
 
+export type TwinListResult =
+  | { readonly status: "ok"; readonly twins: readonly TwinSummary[] }
+  | { readonly status: "error"; readonly message: string };
+
 /** Everything this person has recorded, default first, newest next. */
-export async function listTwins(): Promise<readonly TwinSummary[]> {
-  if (!isGoApiConfigured()) return [];
+export async function listTwinsResult(): Promise<TwinListResult> {
+  if (!isGoApiConfigured()) return { status: "error", message: "Saved avatars are not available right now." };
   const result = await goApi("/api/v1/avatars?limit=50", avatarsListResponse);
-  return result.ok ? result.data.data.map(toSummary) : [];
+  return result.ok
+    ? { status: "ok", twins: result.data.data.map(toSummary) }
+    : { status: "error", message: "Could not load saved avatars. Try again." };
+}
+
+/** Legacy callers that can safely degrade to an empty list. */
+export async function listTwins(): Promise<readonly TwinSummary[]> {
+  const result = await listTwinsResult();
+  return result.status === "ok" ? result.twins : [];
 }
 
 export type DeleteResult = { status: "ok" } | { status: "error"; message: string };

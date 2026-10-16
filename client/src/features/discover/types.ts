@@ -11,6 +11,8 @@ export interface DiscoverPost {
   readonly videoId: string;
   readonly handle: string;
   readonly url: string;
+  /** Short-lived platform file URL used for direct in-page playback when available. */
+  readonly playbackUrl: string | null;
   readonly caption: string;
   /** As the platform reported it. Null when unreported, and never estimated. */
   readonly viewCount: number | null;

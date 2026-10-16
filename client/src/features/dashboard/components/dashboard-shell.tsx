@@ -5,7 +5,7 @@ import { Menu, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { type Credits, type DashboardUser } from "@/lib/dashboard/data";
+import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
 import { SidebarRail } from "./sidebar-rail";
@@ -16,10 +16,12 @@ import { WorkspaceMenu } from "./workspace-menu";
 export function DashboardShell({
   user,
   credits,
+  projects,
   children,
 }: {
   user: DashboardUser;
   credits: Credits | null;
+  projects: readonly SidebarProject[];
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -47,6 +49,7 @@ export function DashboardShell({
           <AppSidebar
             user={user}
             credits={credits}
+            projects={projects}
             onCollapse={() => setCollapsed(true)}
           />
         )}
@@ -67,6 +70,7 @@ export function DashboardShell({
             <AppSidebar
               user={user}
               credits={credits}
+              projects={projects}
               onNavigate={() => setDrawerOpen(false)}
             />
           </Dialog.Content>

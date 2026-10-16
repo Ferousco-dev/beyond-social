@@ -14,6 +14,10 @@ type CreditReader interface {
 	Balance(ctx context.Context, userID string) (int, error)
 }
 
+type CreditQuoter interface {
+	Quote(ctx context.Context, action string) (int, error)
+}
+
 // CreditAdmin is the admin-facing side of the credit system.
 type CreditAdmin interface {
 	Prices(ctx context.Context) ([]credits.PriceRow, error)

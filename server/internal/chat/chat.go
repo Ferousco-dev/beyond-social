@@ -28,9 +28,10 @@ const (
 )
 
 var (
-	ErrNotFound   = errors.New("conversation not found")
-	ErrInvalid    = errors.New("invalid message")
-	ErrDailyLimit = errors.New("daily message limit reached")
+	ErrNotFound     = errors.New("conversation not found")
+	ErrInvalid      = errors.New("invalid message")
+	ErrInvalidTitle = errors.New("invalid conversation title")
+	ErrDailyLimit   = errors.New("daily message limit reached")
 	// ErrBusy means the user already has as many active workflows as allowed.
 	ErrBusy = errors.New("too many active workflows")
 )
@@ -70,6 +71,7 @@ type Store interface {
 	// Get returns ErrNotFound for a conversation the user does not own.
 	Get(ctx context.Context, userID, id string) (Conversation, error)
 	Archive(ctx context.Context, userID, id string) error
+	Rename(ctx context.Context, userID, id, title string) error
 	Messages(ctx context.Context, userID, id string, limit int) ([]Message, error)
 	// AddUser stores the user's message. With a key, a repeat returns the
 	// original and isNew=false.
@@ -237,6 +239,14 @@ func (s *Service) List(ctx context.Context, userID string, limit, offset int) ([
 
 func (s *Service) Archive(ctx context.Context, userID, id string) error {
 	return s.store.Archive(ctx, userID, id)
+}
+
+func (s *Service) Rename(ctx context.Context, userID, id, title string) error {
+	title = strings.TrimSpace(title)
+	if n := utf8.RuneCountInString(title); n == 0 || n > 120 {
+		return ErrInvalidTitle
+	}
+	return s.store.Rename(ctx, userID, id, title)
 }
 
 // Thread returns a conversation and its messages, oldest first.

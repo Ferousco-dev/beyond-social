@@ -48,7 +48,7 @@ interface Assistant {
   error: string | null;
   errorCode: string | undefined;
   send: (text: string) => Promise<void>;
-  confirmScene: (id: string) => Promise<void>;
+  confirmScene: (id: string, imageMediaId?: string) => Promise<void>;
   dismissScene: (id: string) => void;
   confirmRemember: (id: string) => Promise<void>;
   dismissRemember: (id: string) => void;
@@ -155,12 +155,17 @@ export function useAssistant(): Assistant {
   );
 
   const confirmScene = useCallback(
-    async (id: string): Promise<void> => {
+    async (id: string, imageMediaId?: string): Promise<void> => {
       const scene = messages.find((m) => m.id === id)?.scene;
       if (!scene || scene.state !== "ready") return;
       patchScene(id, { state: "working", message: undefined });
       // The message id doubles as the idempotency key, so a double press makes one scene.
-      const started = await startScene({ prompt: scene.prompt, seconds: scene.seconds, key: `scene-${id}` });
+      const started = await startScene({
+        prompt: scene.prompt,
+        seconds: scene.seconds,
+        key: `scene-${id}`,
+        ...(imageMediaId ? { imageMediaId } : {}),
+      });
       if (!started.ok) return patchScene(id, { state: "failed", message: started.message, code: started.code });
 
       const status = await waitForJob({
@@ -174,7 +179,7 @@ export function useAssistant(): Assistant {
         if (alive.current) patchScene(id, { state: "failed", message: "This is taking longer than expected. It will appear in your Library when it finishes." });
         return;
       }
-      if (status.state === "failed") return patchScene(id, { state: "failed", message: status.message });
+      if (status.state === "failed" || status.state === "error") return patchScene(id, { state: "failed", message: status.message });
       if (status.state !== "done") return;
       // The provider's link expires and cannot be exported from, so the clip is copied first.
       const copied = await adoptVideo(started.jobId);

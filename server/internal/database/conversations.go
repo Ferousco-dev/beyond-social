@@ -102,6 +102,16 @@ func (s *ConversationStore) Archive(ctx context.Context, userID, id string) erro
 	return err
 }
 
+func (s *ConversationStore) Rename(ctx context.Context, userID, id, title string) error {
+	tag, err := s.pool.Exec(ctx, `
+		update public.conversations set title = $3, updated_at = now()
+		where id = $1 and user_id = $2 and archived_at is null`, id, userID, title)
+	if isInvalidText(err) || (err == nil && tag.RowsAffected() == 0) {
+		return chat.ErrNotFound
+	}
+	return err
+}
+
 // Messages returns the newest limit messages, oldest first.
 func (s *ConversationStore) Messages(ctx context.Context, userID, id string, limit int) ([]chat.Message, error) {
 	rows, err := s.pool.Query(ctx, `

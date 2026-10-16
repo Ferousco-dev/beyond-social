@@ -8,6 +8,7 @@ import type { DiscoverPost } from "@/features/discover/types";
 import { cn } from "@/lib/utils";
 
 import { AnalysisView } from "./analysis-view";
+import { ReferencePreview } from "./reference-preview";
 import { ResultGroup } from "./result-group";
 import { splitPosts } from "../lib";
 
@@ -46,6 +47,7 @@ export function TrendingPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<readonly DiscoverPost[] | null>(null);
+  const [selectedPost, setSelectedPost] = useState<DiscoverPost | null>(null);
   const [analysisUrl, setAnalysisUrl] = useState<string | null>(null);
 
   async function search() {
@@ -53,13 +55,20 @@ export function TrendingPanel() {
     setBusy(true);
     setError(null);
     setPosts(null);
-    const result = await searchSocial({ query: query.trim(), platform });
-    setBusy(false);
-    if (result.status !== "ok") {
-      setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
-      return;
+    setSelectedPost(null);
+    try {
+      const result = await searchSocial({ query: query.trim(), platform });
+      if (result.status !== "ok") {
+        setError(result.status === "unconfigured" ? "Search is not available right now." : result.message);
+        return;
+      }
+      setPosts(result.posts);
+      setSelectedPost(result.posts[0] ?? null);
+    } catch {
+      setError("Something went wrong while searching. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    setPosts(result.posts);
   }
 
   if (analysisUrl) {
@@ -146,22 +155,25 @@ export function TrendingPanel() {
       ) : null}
 
       {split ? (
-        <>
-          <ResultGroup
-            title="Human-led videos"
-            posts={split.humanLed}
-            onSelect={(url) => setAnalysisUrl(url)}
-          />
-          <ResultGroup
-            title="Product-focused videos"
-            note="Grouped by caption keywords until the backend classifies videos itself."
-            posts={split.productFocused}
-            onSelect={(url) => setAnalysisUrl(url)}
-          />
-          {split.humanLed.length === 0 && split.productFocused.length === 0 ? (
-            <p className="text-sm text-ink-soft">No videos found. Try different words.</p>
-          ) : null}
-        </>
+        <div className="mt-5 flex min-h-0 flex-col gap-6 lg:flex-row">
+          <aside className="order-first w-full shrink-0 lg:order-last lg:w-[320px]">
+            {selectedPost ? (
+              <ReferencePreview post={selectedPost} onAnalyze={setAnalysisUrl} />
+            ) : (
+              <p className="rounded-lg border border-hairline py-8 text-center text-sm text-ink-soft">No videos found. Try different words.</p>
+            )}
+          </aside>
+          <div className="min-w-0 flex-1 space-y-6 lg:overflow-y-auto lg:pr-1">
+            <ResultGroup title="Human-led videos" posts={split.humanLed} selectedId={selectedPost?.videoId ?? null} onSelect={setSelectedPost} />
+            <ResultGroup
+              title="Product-focused videos"
+              note="Grouped by caption keywords"
+              posts={split.productFocused}
+              selectedId={selectedPost?.videoId ?? null}
+              onSelect={setSelectedPost}
+            />
+          </div>
+        </div>
       ) : null}
     </div>
   );

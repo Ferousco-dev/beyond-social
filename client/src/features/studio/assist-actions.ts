@@ -105,12 +105,13 @@ export async function startScene(input: z.input<typeof sceneSchema>): Promise<Sc
 export type SceneStatus =
   | { readonly state: "working" }
   | { readonly state: "done"; readonly url: string; readonly seconds: number | null }
-  | { readonly state: "failed"; readonly message: string };
+  | { readonly state: "failed"; readonly message: string }
+  | { readonly state: "error"; readonly message: string };
 
 export async function sceneStatus(jobId: string): Promise<SceneStatus> {
   if (!z.string().uuid().safeParse(jobId).success) return { state: "failed", message: "Unknown scene." };
   const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);
-  if (!result.ok) return { state: "working" };
+  if (!result.ok) return { state: "error", message: result.message };
   const job = result.data.data;
   if (job.status === "failed") return { state: "failed", message: job.error ?? "The scene could not be made. Your credits were returned." };
   const url = job.result?.["video_url"];

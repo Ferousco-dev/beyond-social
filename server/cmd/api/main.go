@@ -239,6 +239,7 @@ func run() error {
 		Accounts:            accounts.NewService(profileStore).WithGranter(creditService),
 		AdminProfiles:       profileStore,
 		Credits:             creditService,
+		AvatarVideoCredits:  creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		AdminUserDetails:    database.NewAdminCreditStore(creditStore),
 		CreditLedger:        creditService,

@@ -58,6 +58,7 @@ export function PostDetail({ post }: { post: DiscoverPost }) {
           embedUrl={embedUrl}
           title={`${name} post by @${post.handle}`}
           posterUrl={post.thumbnailUrl}
+          videoUrl={post.playbackUrl}
           platformName={name}
           postUrl={post.url}
         />
