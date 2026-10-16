@@ -71,7 +71,15 @@ export async function quoteScene(seconds: number): Promise<number | null> {
   return result.ok ? result.data.data.credits : null;
 }
 
-const sceneSchema = z.object({ prompt: z.string().trim().min(1).max(2500), seconds: z.number().int().min(3).max(15), key: z.string().min(8).max(64) });
+const sceneSchema = z.object({
+  prompt: z.string().trim().min(1).max(2500),
+  seconds: z.number().int().min(3).max(15),
+  key: z.string().min(8).max(64),
+  aspectRatio: z.enum(["9:16", "16:9", "1:1"]).default("9:16"),
+  sound: z.boolean().default(false),
+  notifyEmail: z.boolean().default(false),
+  imageMediaId: z.string().uuid().optional(),
+});
 
 export type SceneStart = { readonly ok: true; readonly jobId: string } | { readonly ok: false; readonly message: string; readonly code?: string };
 
@@ -79,8 +87,18 @@ export type SceneStart = { readonly ok: true; readonly jobId: string } | { reado
 export async function startScene(input: z.input<typeof sceneSchema>): Promise<SceneStart> {
   const parsed = sceneSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Describe the scene in a sentence or two." };
-  const { key, ...body } = parsed.data;
-  const result = await goApi("/api/v1/editor/scenes", jobResponse, { method: "POST", headers: { "Idempotency-Key": key }, body: { ...body, aspect_ratio: "9:16" } });
+  const { key, aspectRatio, sound, notifyEmail, imageMediaId, ...body } = parsed.data;
+  const result = await goApi("/api/v1/editor/scenes", jobResponse, {
+    method: "POST",
+    headers: { "Idempotency-Key": key },
+    body: {
+      ...body,
+      aspect_ratio: aspectRatio,
+      sound,
+      notify_email: notifyEmail,
+      ...(imageMediaId ? { image_media_id: imageMediaId } : {}),
+    },
+  });
   return result.ok ? { ok: true, jobId: result.data.data.id } : { ok: false, message: result.message, code: result.code };
 }
 

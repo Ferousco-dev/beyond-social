@@ -21,7 +21,7 @@ export default async function LibraryPage(): Promise<ReactNode> {
           {result.message}
         </p>
       ) : result.data.data.length === 0 ? (
-        <p className="mt-6 text-sm text-ink-soft">Nothing here yet. Videos you make in chat appear here when they finish.</p>
+        <p className="mt-6 text-sm text-ink-soft">Nothing here yet. Finished videos appear here in their project.</p>
       ) : (
         <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {result.data.data.map((item) => (

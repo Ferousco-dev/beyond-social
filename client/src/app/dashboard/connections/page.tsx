@@ -26,7 +26,7 @@ export default async function ConnectionsPage({
     <div className="mx-auto w-full max-w-2xl px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Connections</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Connect the accounts you want the assistant to post to. You approve every post before it goes out.
+        Connect the accounts you want to publish to. You approve every post before it goes out.
       </p>
 
       {status && OUTCOMES[status] ? (

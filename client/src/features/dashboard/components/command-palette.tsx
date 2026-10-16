@@ -37,10 +37,10 @@ interface Item {
 const STATIC_ITEMS: Item[] = [
   {
     id: "new-project",
-    label: "New chat",
+    label: "New Video",
     group: "Actions",
     icon: PenSquare,
-    href: "/dashboard/c/new" as Route,
+    href: "/dashboard/new" as Route,
     hint: "N",
   },
   {
@@ -48,7 +48,7 @@ const STATIC_ITEMS: Item[] = [
     label: "Generate a video",
     group: "Actions",
     icon: Clapperboard,
-    href: "/dashboard/c/new" as Route,
+    href: "/dashboard/new" as Route,
   },
   {
     id: "trends",

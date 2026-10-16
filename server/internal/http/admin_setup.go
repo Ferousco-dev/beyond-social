@@ -26,6 +26,7 @@ var credentialChecks = []struct {
 	{secrets.NameOpenRouter, "OpenRouter key", "Providers", false, "Lets the assistant use models other than Gemini"},
 	{secrets.NameApify, "Apify token", "Providers", true, "Discover and link lookup"},
 	{secrets.NameKIE, "KIE key", "Providers", true, "Video generation"},
+	{secrets.NameElevenLabs, "ElevenLabs key", "Providers", true, "Voice cloning and speech for Live Avatar videos. Get one at elevenlabs.io, then paste it on the Provider keys page"},
 	{secrets.NameHeygen, "HeyGen key", "Providers", true, "Avatar videos"},
 	{secrets.NameStripeKey, "Stripe secret key", "Payments", false, "Selling credit packs"},
 	{secrets.NameStripeWebhook, "Stripe webhook secret", "Payments", false, "Confirms payments. In Stripe add the endpoint PUBLIC_BASE_URL/api/v1/callbacks/stripe for checkout.session.completed, checkout.session.async_payment_succeeded, charge.refunded and customer.subscription.created, updated and deleted"},

@@ -96,6 +96,22 @@ func (s *PostStore) Cancel(ctx context.Context, userID, id string) (publish.Post
 	return publish.Post{}, publish.ErrNotCancellable
 }
 
+// Reschedule moves a post that has not started publishing to a new time. The
+// worker picks it up when the new time arrives.
+func (s *PostStore) Reschedule(ctx context.Context, userID, id string, at time.Time) (publish.Post, error) {
+	p, err := scanPost(s.pool.QueryRow(ctx, `
+		update public.scheduled_posts set scheduled_at = $3, next_run_at = $3, updated_at = now()
+		where id = $1 and user_id = $2 and status in ('preparing', 'scheduled') and publish_started_at is null
+		returning `+postColumns, id, userID, at))
+	if !errors.Is(err, publish.ErrNotFound) {
+		return p, err
+	}
+	if _, getErr := s.Get(ctx, userID, id); getErr != nil {
+		return publish.Post{}, getErr
+	}
+	return publish.Post{}, publish.ErrNotReschedulable
+}
+
 // Claim leases due posts. A claimed post's next_run_at moves out by the lease,
 // so one that its worker never finished becomes due again by itself.
 func (s *PostStore) Claim(ctx context.Context, limit int, lease time.Duration) ([]publish.Post, error) {

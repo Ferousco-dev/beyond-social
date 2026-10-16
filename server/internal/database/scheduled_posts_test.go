@@ -79,6 +79,37 @@ func TestPostsAreOwnedIdempotentCancellableAndLeased(t *testing.T) {
 	}
 }
 
+func TestAPostCanBeRescheduledUntilItStarts(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewPostStore(pool)
+	alice, bob := uuid.NewString(), uuid.NewString()
+	for _, id := range []string{alice, bob} {
+		if _, err := NewProfileStore(pool).Ensure(ctx, id, id[:8]+"@example.com", "U"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	draft := publish.Post{UserID: alice, Platform: social.YouTube, Caption: "hi", Visibility: "public", SourceURL: "https://cdn.example/v.mp4", ScheduledAt: time.Now().Add(time.Hour)}
+	post, _, err := store.Create(ctx, draft, "")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := store.Reschedule(ctx, bob, post.ID, time.Now().Add(2*time.Hour)); !errors.Is(err, publish.ErrNotFound) {
+		t.Fatalf("a stranger rescheduled it: %v", err)
+	}
+	later := time.Now().Add(2 * time.Hour).Truncate(time.Second)
+	moved, err := store.Reschedule(ctx, alice, post.ID, later)
+	if err != nil || !moved.ScheduledAt.Equal(later) || moved.NextRunAt == nil || !moved.NextRunAt.Equal(later) {
+		t.Fatalf("reschedule = %+v err=%v", moved, err)
+	}
+	if _, err := store.Advance(ctx, post.ID, publish.Update{Status: publish.StatusPublishing, MarkStarted: true}); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	if _, err := store.Reschedule(ctx, alice, post.ID, time.Now().Add(3*time.Hour)); !errors.Is(err, publish.ErrNotReschedulable) {
+		t.Fatalf("a started post was rescheduled: %v", err)
+	}
+}
+
 func TestACancelledPostIsNeverClaimedOrChanged(t *testing.T) {
 	pool := testPool(t)
 	ctx := context.Background()

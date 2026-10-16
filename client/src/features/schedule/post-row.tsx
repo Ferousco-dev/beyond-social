@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { type ScheduledPost } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
-import { cancelPost } from "./actions";
+import { cancelPost, reschedulePost } from "./actions";
 
 const STATUS: Readonly<Record<ScheduledPost["status"], { label: string; tone: string }>> = {
   preparing: { label: "Getting ready", tone: "text-ink-soft" },
@@ -27,8 +27,11 @@ const PLATFORM: Readonly<Record<ScheduledPost["platform"], string>> = {
 export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [when, setWhen] = useState("");
   const status = STATUS[post.status];
-  const cancellable = post.status === "preparing" || post.status === "scheduled";
+  const movable = post.status === "preparing" || post.status === "scheduled";
+  const cancellable = movable;
 
   const cancel = (): void =>
     startTransition(async () => {
@@ -36,6 +39,19 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
       const result = await cancelPost(post.id);
       if (!result.ok) setError(result.message);
     });
+
+  const reschedule = (): void => {
+    if (when === "") return;
+    startTransition(async () => {
+      setError(null);
+      const result = await reschedulePost(post.id, when);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setEditing(false);
+    });
+  };
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 p-4">
@@ -55,6 +71,20 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
             {post.error}
           </p>
         ) : null}
+        {editing ? (
+          <span className="mt-2 flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={when}
+              onChange={(event) => setWhen(event.target.value)}
+              aria-label="New date and time"
+              className="h-9 rounded-lg border border-hairline bg-paper px-2 text-xs text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            />
+            <Button variant="outline" disabled={pending || when === ""} onClick={reschedule}>
+              Move
+            </Button>
+          </span>
+        ) : null}
         {error ? (
           <p role="alert" className="mt-1 text-xs text-destructive">
             {error}
@@ -72,6 +102,11 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
             View
             <ExternalLink className="size-3.5" aria-hidden />
           </a>
+        ) : null}
+        {movable && !editing ? (
+          <Button variant="outline" disabled={pending} onClick={() => setEditing(true)}>
+            Reschedule
+          </Button>
         ) : null}
         {cancellable ? (
           <Button variant="outline" disabled={pending} onClick={cancel}>

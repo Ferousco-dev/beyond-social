@@ -8,7 +8,7 @@ import { type ReactNode } from "react";
 import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
-/** Recent chats, newest first. */
+/** Recent projects, newest first. */
 export function SidebarConversations({
   items,
   onNavigate,
@@ -19,7 +19,7 @@ export function SidebarConversations({
   const pathname = usePathname();
 
   if (items.length === 0) {
-    return <p className="px-3 text-sm text-ink-soft">Your chats will appear here.</p>;
+    return <p className="px-3 text-sm text-ink-soft">Your previous projects will appear here.</p>;
   }
 
   return (

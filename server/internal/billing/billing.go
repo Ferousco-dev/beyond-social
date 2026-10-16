@@ -174,7 +174,7 @@ func (s *Service) WithPrices(p Prices) *Service {
 
 func NewService(store Store, credits Credits, gateway Gateway, appURL string) *Service {
 	base := strings.TrimRight(appURL, "/")
-	return &Service{store: store, credits: credits, gateway: gateway, appURL: base, successURL: base + "/dashboard/credits?paid=1", cancelURL: base + "/dashboard/credits?cancelled=1"}
+	return &Service{store: store, credits: credits, gateway: gateway, appURL: base, successURL: base + "/welcome?purchase=credits", cancelURL: base + "/dashboard/credits?cancelled=1"}
 }
 
 func (s *Service) Packs(ctx context.Context, enabledOnly bool) ([]Pack, error) {

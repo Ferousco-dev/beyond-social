@@ -30,8 +30,8 @@ export const SETUP_SECTIONS: readonly DocSection[] = [
     summary: "Where every secret is pasted, and how to know it works.",
     paragraphs: [
       "Paste a key and save. It is encrypted before it is stored and is never shown again, only whether it is set. Each key has a Test button that makes a harmless call to the provider and reports the result.",
-      "This page covers the language model, the video service, the avatar service, trend scraping, Stripe, Resend for email, and the alert webhook. A key pasted here overrides one set on the host.",
-      "Rotate a key by pasting a new one. If a provider key stops working, the Alerts page tells you.",
+      "This page covers the language model, the video service, the voice service (ElevenLabs for cloning and speech), trend scraping, Stripe, Resend for email, and the alert webhook. A key pasted here overrides one set on the host.",
+      "For ElevenLabs: create an account at elevenlabs.io, copy an API key, and paste it here. Cloning needs a Creator plan or higher on their side; without it, voice creation is refused and the app says so. Rotate a key by pasting a new one. If a provider key stops working, the Alerts page tells you.",
     ],
     links: [
       { label: "Provider keys", href: "/dashboard/admin/providers" },

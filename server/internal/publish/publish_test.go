@@ -68,6 +68,17 @@ func (m *memStore) Cancel(_ context.Context, user, id string) (Post, error) {
 	p.Status = StatusCancelled
 	return *p, nil
 }
+func (m *memStore) Reschedule(_ context.Context, user, id string, at time.Time) (Post, error) {
+	p, ok := m.posts[id]
+	if !ok || p.UserID != user {
+		return Post{}, ErrNotFound
+	}
+	if (p.Status != StatusPreparing && p.Status != StatusScheduled) || p.PublishStartedAt != nil {
+		return Post{}, ErrNotReschedulable
+	}
+	p.ScheduledAt = at
+	return *p, nil
+}
 func (m *memStore) Claim(context.Context, int, time.Duration) ([]Post, error) { return nil, nil }
 func (m *memStore) Advance(_ context.Context, id string, u Update) (Post, error) {
 	m.mu.Lock()
@@ -190,6 +201,27 @@ func TestOnlyAPostThatHasNotStartedCanBeCancelled(t *testing.T) {
 	store.posts[other.ID].PublishStartedAt = timePtr(time.Now())
 	if _, err := svc.Cancel(ctx, "u1", other.ID); !errors.Is(err, ErrNotCancellable) {
 		t.Fatalf("a post already sent was cancelled: %v", err)
+	}
+}
+
+func TestOnlyAPostThatHasNotStartedCanBeRescheduled(t *testing.T) {
+	ctx := context.Background()
+	store := newMem()
+	svc := newService(fakeAccounts{}, store)
+	post, _, _ := svc.Schedule(ctx, "u1", Request{Platform: social.YouTube, JobID: "job-1"}, "")
+	if _, err := svc.Reschedule(ctx, "u2", post.ID, time.Now().Add(2*time.Hour)); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("someone else rescheduled it: %v", err)
+	}
+	if _, err := svc.Reschedule(ctx, "u1", post.ID, time.Now().Add(-time.Hour)); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("a past time was accepted: %v", err)
+	}
+	moved, err := svc.Reschedule(ctx, "u1", post.ID, time.Now().Add(2*time.Hour))
+	if err != nil || moved.Status != StatusPreparing {
+		t.Fatalf("reschedule = %+v err=%v", moved, err)
+	}
+	store.posts[post.ID].PublishStartedAt = timePtr(time.Now())
+	if _, err := svc.Reschedule(ctx, "u1", post.ID, time.Now().Add(3*time.Hour)); !errors.Is(err, ErrNotReschedulable) {
+		t.Fatalf("a post already sent was rescheduled: %v", err)
 	}
 }
 

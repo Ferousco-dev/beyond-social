@@ -87,6 +87,30 @@ export const nameResponse = z.object({ data: z.object({ name: z.string() }) });
 export const ticketResponse = z.object({ data: z.object({ path: z.string(), token: z.string() }) });
 export const handoffResponse = z.object({ data: z.object({ token: z.string(), expires_at: z.string() }) });
 
+export const blogPostSchema = z.object({
+  id: z.string(),
+  slug: z.string(),
+  title: z.string(),
+  excerpt: z.string(),
+  content: z.string(),
+  featured_image: z.string(),
+  category: z.string(),
+  tags: z.array(z.string()),
+  seo_title: z.string(),
+  seo_description: z.string(),
+  status: z.enum(["draft", "published"]),
+  published_at: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type GoBlogPost = z.infer<typeof blogPostSchema>;
+
+export const blogListResponse = z.object({
+  data: z.array(blogPostSchema),
+  pagination: z.object({ limit: z.number(), offset: z.number(), has_more: z.boolean() }),
+});
+export const blogResponse = z.object({ data: blogPostSchema });
+
 const workflowStepSchema = z.object({
   id: z.string(),
   step_id: z.string(),
@@ -203,6 +227,29 @@ const postSchema = z.object({
 export type ScheduledPost = z.infer<typeof postSchema>;
 export const postsResponse = z.object({ data: z.array(postSchema) });
 export const postResponse = z.object({ data: postSchema });
+
+export const metricsSchema = z.object({
+  post_id: z.string(),
+  views: z.number(),
+  likes: z.number(),
+  comments: z.number(),
+  shares: z.number(),
+  collected_at: z.string(),
+});
+export type PostMetrics = z.infer<typeof metricsSchema>;
+
+export const postMetricsResponse = z.object({
+  data: z.object({ latest: metricsSchema.nullable(), history: z.array(metricsSchema) }),
+});
+
+export const slotSchema = z.object({
+  weekday: z.number().int().min(0).max(6),
+  hour: z.number().int().min(0).max(23),
+  score: z.number(),
+  posts: z.number(),
+});
+export type InsightSlot = z.infer<typeof slotSchema>;
+export const slotsResponse = z.object({ data: z.object({ slots: z.array(slotSchema) }) });
 
 const editorProjectSchema = z.object({
   id: z.string(),

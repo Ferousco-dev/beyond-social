@@ -18,6 +18,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
+	"github.com/Ferousco-dev/beyond-social/server/internal/blog"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
 	"github.com/Ferousco-dev/beyond-social/server/internal/config"
 	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
@@ -29,6 +30,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
+	"github.com/Ferousco-dev/beyond-social/server/internal/insights"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
@@ -156,6 +158,7 @@ func run() error {
 		return from
 	}), profileStore, cfg.AppURL())
 	creditService.WithLimitNotifier(emails)
+	transformProcessor.Notifier = emails
 	billingStore := database.NewBillingStore(pool)
 	billingService := billing.NewService(billingStore, creditService, billing.NewStripe(vault.Key(secrets.NameStripeKey)), cfg.AppURL()).
 		WithPrices(creditService).WithNotifier(emails).WithTax(creditService.TaxEnabled)
@@ -207,6 +210,8 @@ func run() error {
 		Store: postStore, Fetcher: transformProcessor.Fetcher, Vault: footage, Tokens: socialService,
 		Publishers: map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}, Alerts: alertService,
 	}
+	insightsService := insights.NewService(database.NewMetricsStore(pool), socialService, youtube)
+	go insights.NewCollector(insightsService, 15*time.Minute).Run(ctx)
 	memoryStore := database.NewMemoryStore(pool)
 	memoryService := memory.NewService(memoryStore)
 	chatService := chat.NewService(
@@ -228,6 +233,8 @@ func run() error {
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
+		Blog:                blog.NewService(database.NewBlogStore(pool)),
+		Insights:            insightsService,
 		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
@@ -261,6 +268,7 @@ func run() error {
 		Jobs:                jobService,
 		Discovery:           discoveryService,
 		Transform:           transform.NewService(jobService, discoveryService),
+		Analyses:            analysisService,
 		Reconciler:          transformProcessor,
 		WebhookHMACKey:      vault.Optional(secrets.NameKIEWebhook),
 		Workflows:           orchestratorService,

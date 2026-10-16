@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CircleUser,
   Film,
+  LineChart,
   PenSquare,
   Share2,
   TrendingUp,
@@ -38,8 +39,8 @@ interface NavLink {
 
 const LINKS: readonly NavLink[] = [
   {
-    href: "/dashboard/c/new" as Route,
-    label: "New chat",
+    href: "/dashboard/new" as Route,
+    label: "New Video",
     icon: PenSquare,
     motion: "group-hover:-translate-y-px group-hover:-rotate-12",
     exact: true,
@@ -53,7 +54,7 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/library" as Route,
-    label: "Library",
+    label: "Projects",
     icon: Film,
     motion: "group-hover:scale-110",
   },
@@ -63,6 +64,12 @@ const LINKS: readonly NavLink[] = [
     icon: CalendarClock,
     // A clock hand advancing, which is the one thing this page is about.
     motion: "group-hover:rotate-12",
+  },
+  {
+    href: "/dashboard/analytics" as Route,
+    label: "Analytics",
+    icon: LineChart,
+    motion: "group-hover:scale-110",
   },
   {
     href: "/dashboard/connections" as Route,

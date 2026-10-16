@@ -42,7 +42,7 @@ export function AppSidebar({
 
       <SidebarNav onNavigate={onNavigate} />
 
-      <nav aria-label="Recent chats" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
+      <nav aria-label="Recent projects" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2">
         <SidebarConversations items={projects} onNavigate={onNavigate} />
       </nav>
 

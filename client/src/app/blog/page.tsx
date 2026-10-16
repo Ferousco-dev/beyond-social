@@ -1,38 +1,52 @@
 import { type Metadata } from "next";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { PageShell, Prose } from "@/components/landing/page-shell";
+import { getPublishedPosts } from "@/features/blog/queries";
 
 export const metadata: Metadata = { title: "Notes" };
 
-const linkClass =
-  "rounded-sm text-ink underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+export default async function BlogPage(): Promise<ReactNode> {
+  const posts = await getPublishedPosts();
 
-export default function Page(): ReactNode {
   return (
     <PageShell
       eyebrow="Company"
       title="Notes"
       lede="Working notes on building an AI video engine: retrieval, evaluation, and what it takes to make a generated shot look directed."
     >
-      <Prose>
-        <p>
-          There is nothing here yet. This page will hold notes written while building the product,
-          which means the first one gets published when there is a result worth reporting rather
-          than on a schedule. We would rather leave it empty than fill it with posts that exist to
-          be posted.
-        </p>
-        <p>
-          The subjects are already obvious to us: how craft knowledge is retrieved and assembled
-          into a prompt, how to judge output quality without watching every frame by hand, what the
-          generation actually costs to run, and the times a change made the video worse. If you want
-          to be told when the first note goes up, email{" "}
-          <a className={linkClass} href="mailto:hello@beyondsocial.app">
-            hello@beyondsocial.app
-          </a>
-          .
-        </p>
-      </Prose>
+      {posts.length === 0 ? (
+        <Prose>
+          <p>
+            There is nothing here yet. The first note goes up when there is a result worth
+            reporting rather than on a schedule.
+          </p>
+        </Prose>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {posts.map((post) => (
+            <li key={post.id}>
+              <Link
+                href={`/blog/${post.slug}`}
+                className="group block rounded-2xl border border-hairline bg-paper p-5 transition-colors hover:bg-cloud/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {post.category !== "" ? (
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-primary">
+                    {post.category}
+                  </p>
+                ) : null}
+                <h2 className="mt-2 text-xl font-semibold tracking-tight text-ink group-hover:underline">
+                  {post.title}
+                </h2>
+                {post.excerpt !== "" ? (
+                  <p className="mt-2 text-sm leading-relaxed text-ink-soft">{post.excerpt}</p>
+                ) : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </PageShell>
   );
 }

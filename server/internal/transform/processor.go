@@ -79,7 +79,14 @@ type Processor struct {
 	Resolver    Resolver
 	CallbackURL string // empty when no public URL is configured; polling still works
 	Alerts      alerts.Reporter
-	Now         func() time.Time
+	// Notifier sends completion emails for jobs that opted in. Nil skips them.
+	Notifier VideoNotifier
+	Now      func() time.Time
+}
+
+// VideoNotifier tells an owner their video finished.
+type VideoNotifier interface {
+	VideoReady(userID string)
 }
 
 func (p *Processor) now() time.Time {
@@ -145,6 +152,7 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 			Status: jobs.StatusCompleted, Stage: ptr(stageDone), Progress: ptr(100),
 			Result: p.result(job.Type, task.ResultURLs),
 		})
+		p.notifyVideoReady(job)
 	case kie.StateFailed:
 		slog.Warn("generation failed at provider", "job_id", job.ID, "code", task.FailCode, "reason", task.FailMsg)
 		p.fail(ctx, job, msgFailed)
@@ -169,6 +177,18 @@ func (p *Processor) fail(ctx context.Context, job jobs.Job, message string) {
 	saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	p.advance(saveCtx, job, jobs.Update{Status: jobs.StatusFailed, Error: message})
+}
+
+// notifyVideoReady emails the owner when they opted in at submit time.
+// Best effort: mail must never fail a finished generation.
+func (p *Processor) notifyVideoReady(job jobs.Job) {
+	if p.Notifier == nil {
+		return
+	}
+	notify, _ := job.Input["notify_email"].(bool)
+	if notify {
+		p.Notifier.VideoReady(job.UserID)
+	}
 }
 
 // advance applies an update and reports whether it took effect. A job that is

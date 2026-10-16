@@ -183,7 +183,7 @@ func TestCheckoutSendsTheSnapshotAndReturnsStripesPage(t *testing.T) {
 		t.Fatalf("%q %v", url, err)
 	}
 	in := gateway.in
-	if in.Credits != 200 || in.AmountCents != 1000 || in.UserID != "u1" || in.SuccessURL != "https://app.example/dashboard/credits?paid=1" {
+	if in.Credits != 200 || in.AmountCents != 1000 || in.UserID != "u1" || in.SuccessURL != "https://app.example/welcome?purchase=credits" {
 		t.Fatalf("input = %+v", in)
 	}
 	if store.sessions["cs_test_1"] == "" {
@@ -364,7 +364,7 @@ func TestSubscribingUsesTheAdminsPriceAndRefusesAMemberWhoAlreadyHasPro(t *testi
 	if err != nil || !strings.HasPrefix(url, "https://checkout.stripe.com/") {
 		t.Fatalf("%q %v", url, err)
 	}
-	if gateway.sub.PriceCents != 2500 || gateway.sub.UserID != "u1" || gateway.sub.SuccessURL != "https://app.example/dashboard/usage?upgraded=1" {
+	if gateway.sub.PriceCents != 2500 || gateway.sub.UserID != "u1" || gateway.sub.SuccessURL != "https://app.example/welcome?purchase=pro" {
 		t.Fatalf("input = %+v", gateway.sub)
 	}
 	store.subs["u1"] = Subscription{UserID: "u1", Status: "active", StripeCustomer: "cus_1"}

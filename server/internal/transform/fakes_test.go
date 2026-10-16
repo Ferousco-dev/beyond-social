@@ -214,6 +214,7 @@ type rig struct {
 	provider *fakeProvider
 	fetcher  *fakeFetcher
 	resolver *fakeResolver
+	notify   *fakeNotifier
 	proc     *Processor
 }
 
@@ -224,6 +225,7 @@ func newRig(t *testing.T) *rig {
 	r.resolver = &fakeResolver{url: "https://cdn.example/v.mp4"}
 	r.proc = &Processor{Jobs: r.service, Provider: r.provider, Fetcher: r.fetcher, Resolver: r.resolver,
 		CallbackURL: "https://api.example/api/v1/callbacks/kie"}
+	r.notify = &fakeNotifier{}
 	return r
 }
 
@@ -241,3 +243,7 @@ func (r *rig) queued() jobs.Job {
 }
 
 var errNotFound = discovery.ErrNotFound
+
+type fakeNotifier struct{ users []string }
+
+func (f *fakeNotifier) VideoReady(userID string) { f.users = append(f.users, userID) }

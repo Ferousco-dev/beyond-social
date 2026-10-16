@@ -54,7 +54,7 @@ function VideoGrid({
   return (
     <section aria-label={title}>
       <h3 className="px-3 pt-3 text-xs text-ink-soft">{title}</h3>
-      {items.length === 0 && empty ? <p className="p-3 text-sm text-ink-soft">Videos you make in chat appear here.</p> : null}
+      {items.length === 0 && empty ? <p className="p-3 text-sm text-ink-soft">Finished videos appear here.</p> : null}
       <ul className="grid grid-cols-2 gap-2 p-3">
         {items.map((item) => (
           <li
