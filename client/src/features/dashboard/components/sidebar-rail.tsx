@@ -26,7 +26,7 @@ const RAIL_LABEL = "text-[11px] leading-none font-medium";
 
 const LINKS = [
   { href: "/dashboard", label: "New", icon: PenSquare },
-  { href: "/dashboard/library", label: "Library", icon: LibraryBig },
+  { href: "/dashboard/projects", label: "Projects", icon: LibraryBig },
   { href: "/dashboard/trends", label: "Discover", icon: TrendingUp },
 ] as const;
 

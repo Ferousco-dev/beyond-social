@@ -19,6 +19,7 @@ import { StudioLayout } from "./studio-layout";
 import { Timeline } from "./timeline/timeline";
 import { ToolPanel } from "./tool-panel";
 import { LiveAvatarJob } from "./live-avatar-job";
+import { type ProjectGeneration } from "../core/types.ts";
 
 interface StudioScreenProps {
   id: string;
@@ -30,7 +31,7 @@ interface StudioScreenProps {
   chatLibrary: readonly LibraryItem[];
   backHref: string;
   plan: "free" | "pro";
-  generation?: { readonly jobId: string; readonly script: string };
+  generation?: ProjectGeneration;
 }
 
 export function StudioScreen({ id, title, version, document, library, chatLibrary, backHref, plan, generation }: StudioScreenProps) {
@@ -64,6 +65,7 @@ export function StudioScreen({ id, title, version, document, library, chatLibrar
   return (
     <div className="relative flex h-svh flex-col overflow-hidden bg-canvas">
       <StudioHeader backHref={backHref} />
+      {generation ? <LiveAvatarJob generation={generation} /> : null}
       <div className="min-h-0 flex-1">
         <StudioLayout
           tools={<ToolPanel library={library} chatLibrary={chatLibrary} />}
@@ -72,7 +74,6 @@ export function StudioScreen({ id, title, version, document, library, chatLibrar
           timeline={<Timeline />}
         />
       </div>
-      {generation ? <LiveAvatarJob jobId={generation.jobId} script={generation.script} /> : null}
     </div>
   );
 }

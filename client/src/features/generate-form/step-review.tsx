@@ -55,7 +55,10 @@ export function StepReview({
       setError(result.message);
       return;
     }
-    const project = await createEditorProject({ title: values.objective.trim() || "New video" });
+    const project = await createEditorProject({
+      title: values.objective.trim() || "New video",
+      generation: { jobId: result.jobId, script: prompt, state: "running" },
+    });
     setStarting(false);
     if (!project.ok) {
       setError(project.message);

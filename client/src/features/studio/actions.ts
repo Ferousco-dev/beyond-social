@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { goApi } from "@/lib/go-api/client";
 import { editorProjectResponse } from "@/lib/go-api/schemas";
+import { projectGenerationSchema } from "./core/types.ts";
 
 export type StudioResult<T = undefined> =
   | { readonly ok: true; readonly value: T; readonly version: number }
@@ -13,6 +14,7 @@ const idSchema = z.string().uuid();
 
 const createSchema = z.object({
   title: z.string().trim().min(1).max(120),
+  generation: projectGenerationSchema.optional(),
 });
 
 const saveSchema = z.object({
@@ -40,7 +42,7 @@ export async function createEditorProject(input: z.input<typeof createSchema>): 
   if (!parsed.success) return { ok: false, message: "Give this video a short title.", conflict: false };
   const result = await goApi("/api/v1/editor/projects", editorProjectResponse, {
     method: "POST",
-    body: { title: parsed.data.title, document: {} },
+    body: { title: parsed.data.title, document: parsed.data.generation ? { generation: parsed.data.generation } : {} },
   });
   if (!result.ok) return { ok: false, message: result.message, conflict: false };
   return { ok: true, value: result.data.data.id, version: result.data.data.version };

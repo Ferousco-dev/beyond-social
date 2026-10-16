@@ -1,5 +1,5 @@
 import { acceptsItem, overlaps } from "./find.ts";
-import { projectSchema, type Project, type Result } from "./types.ts";
+import { projectSchema, type Project, type ProjectGeneration, type Result } from "./types.ts";
 
 /**
  * Reads a stored document. The shape is checked first, then the rules the
@@ -28,13 +28,14 @@ function withStandardTracks(project: Project): Project {
   return { ...project, tracks: [{ id: "text", kind: "text", items: [] }, ...project.tracks] };
 }
 
-export function emptyProject(): Project {
+export function emptyProject(generation?: ProjectGeneration): Project {
   return {
     version: 1,
     width: 1080,
     height: 1920,
     fps: 30,
     assets: [],
+    ...(generation ? { generation } : {}),
     tracks: [
       { id: "text", kind: "text", items: [] },
       { id: "captions", kind: "caption", items: [] },

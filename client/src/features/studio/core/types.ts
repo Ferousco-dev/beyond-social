@@ -114,6 +114,14 @@ export const assetSchema = z.object({
 });
 export type Asset = z.infer<typeof assetSchema>;
 
+export const projectGenerationSchema = z.object({
+  jobId: z.string().uuid(),
+  script: z.string().max(2500),
+  state: z.enum(["running", "completed", "failed"]),
+  message: z.string().max(500).optional(),
+});
+export type ProjectGeneration = z.infer<typeof projectGenerationSchema>;
+
 export const projectSchema = z.object({
   version: z.literal(1),
   width: z.number().int().min(16).max(4096),
@@ -121,6 +129,7 @@ export const projectSchema = z.object({
   fps: z.number().min(1).max(120),
   tracks: z.array(trackSchema).max(24),
   assets: z.array(assetSchema).max(100).optional(),
+  generation: projectGenerationSchema.optional(),
 });
 export type Project = z.infer<typeof projectSchema>;
 
