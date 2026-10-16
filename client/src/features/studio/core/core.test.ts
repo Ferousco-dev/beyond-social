@@ -137,6 +137,18 @@ test("a stored project is checked for shape and for rules the shape cannot say",
   assert.ok(!parseProject(duplicate).ok);
 });
 
+test("a saved generation stays attached to its editor project", () => {
+  const generation = {
+    jobId: "d2719b5c-9b2a-4f41-9f9c-6d09a8ed92fb",
+    script: "A short product introduction",
+    state: "running" as const,
+  };
+  const parsed = parseProject(emptyProject(generation));
+  assert.ok(parsed.ok);
+  assert.deepEqual(parsed.value.generation, generation);
+  assert.ok(!parseProject({ ...emptyProject(), generation: { ...generation, jobId: "bad" } }).ok);
+});
+
 test("an item's settings change, but only to valid values and never its timing", () => {
   const project = withClip();
   const louder = items(must(updateItem(project, "a", { volume: 0.5 })))[0];

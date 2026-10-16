@@ -53,7 +53,7 @@ const LINKS: readonly NavLink[] = [
     motion: "group-hover:scale-110",
   },
   {
-    href: "/dashboard/library" as Route,
+    href: "/dashboard/projects" as Route,
     label: "Projects",
     icon: Film,
     motion: "group-hover:scale-110",

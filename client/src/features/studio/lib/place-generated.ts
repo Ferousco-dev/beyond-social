@@ -15,6 +15,11 @@ export function placeGeneratedVideo(mediaId: string, seconds: number, name: stri
   const src = mediaRef(mediaId);
   const clipId = makeId();
   const track = store.history.present.tracks.find((t) => t.kind === "video");
+  const existing = track?.items.find((item) => item.kind === "video" && item.src === src);
+  if (existing?.kind === "video") {
+    store.select(existing.id);
+    return { error: null };
+  }
   const start = track?.items.reduce((latest, i) => Math.max(latest, endOf(i)), 0) ?? 0;
   const error = store.edit((p) => {
     const withAsset = addAsset(p, { src, name, kind: "video", duration: seconds });

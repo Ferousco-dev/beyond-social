@@ -1,12 +1,14 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { adoptVideo, sceneStatus } from "../assist-actions";
 import { placeGeneratedVideo } from "../lib/place-generated";
 import { useJobSocket } from "@/lib/go-api/use-job-socket";
 import { type JobView } from "@/lib/go-api/jobs";
+import { type ProjectGeneration } from "../core/types.ts";
+import { useStudio } from "../store/editor-store";
 
 const WORDS_PER_SECOND = 2.5;
 
@@ -15,10 +17,29 @@ function estimateSeconds(script: string): number {
 }
 
 /** Watches an avatar generation while the editor remains usable, then places it on the timeline. */
-export function LiveAvatarJob({ jobId, script }: { jobId: string; script: string }) {
-  const [message, setMessage] = useState("Generating your avatar video…");
-  const [finished, setFinished] = useState(false);
+export function LiveAvatarJob({ generation }: { generation: ProjectGeneration }) {
+  const { jobId, script, state: initialState } = generation;
+  const initialMessage = initialState === "completed"
+    ? "Your video is on this project's timeline."
+    : initialState === "failed"
+      ? generation.message ?? "This video could not be generated."
+      : "Generation is running. You can leave and reopen this project.";
+  const [message, setMessage] = useState(initialMessage);
+  const [finished, setFinished] = useState(initialState !== "running");
   const adopting = useRef(false);
+
+  const saveGenerationState = useCallback((state: ProjectGeneration["state"], detail?: string): void => {
+    useStudio.getState().edit((project) => {
+      if (project.generation?.jobId !== jobId) return { ok: true, value: project };
+      return {
+        ok: true,
+        value: {
+          ...project,
+          generation: { ...project.generation, state, message: detail },
+        },
+      };
+    });
+  }, [jobId]);
 
   const finish = useCallback(async (): Promise<void> => {
     if (adopting.current) return;
@@ -27,6 +48,7 @@ export function LiveAvatarJob({ jobId, script }: { jobId: string; script: string
     if (result.state === "failed") {
       setFinished(true);
       setMessage(result.message);
+      saveGenerationState("failed", result.message);
       return;
     }
     if (result.state !== "done") {
@@ -38,17 +60,21 @@ export function LiveAvatarJob({ jobId, script }: { jobId: string; script: string
     if (!copied.ok) {
       setFinished(true);
       setMessage(copied.message);
+      saveGenerationState("failed", copied.message);
       return;
     }
     const placed = placeGeneratedVideo(copied.mediaId, result.seconds ?? estimateSeconds(script), "Avatar video");
     setFinished(true);
     setMessage(placed.error ?? "Avatar video added to your timeline.");
-  }, [jobId, script]);
+    saveGenerationState(placed.error ? "failed" : "completed", placed.error ?? undefined);
+  }, [jobId, saveGenerationState, script]);
 
   const onUpdate = useCallback((job: JobView): void => {
     if (job.status === "failed") {
       setFinished(true);
-      setMessage(job.error ?? "This avatar video could not be generated.");
+      const detail = job.error ?? "This video could not be generated.";
+      setMessage(detail);
+      saveGenerationState("failed", detail);
       return;
     }
     if (job.status === "completed") {
@@ -56,7 +82,7 @@ export function LiveAvatarJob({ jobId, script }: { jobId: string; script: string
       return;
     }
     setMessage(job.stage ? `${job.stage}…` : "Generating your avatar video…");
-  }, [finish]);
+  }, [finish, saveGenerationState]);
 
   const resync = useCallback((): void => {
     void finish();
@@ -64,10 +90,26 @@ export function LiveAvatarJob({ jobId, script }: { jobId: string; script: string
 
   useJobSocket({ jobId, active: !finished, onUpdate, onResync: resync, onConnection: () => undefined });
 
+  useEffect(() => {
+    if (finished) return;
+    void finish();
+    const interval = setInterval(() => void finish(), 3_000);
+    return () => clearInterval(interval);
+  }, [finish, finished]);
+
   return (
-    <p role="status" className="absolute bottom-3 left-1/2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-lg border border-hairline bg-paper px-3 py-2 text-xs text-ink shadow-card">
-      {!finished ? <Loader2 className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
-      <span>{message}</span>
-    </p>
+    <section role="status" aria-live="polite" className="flex shrink-0 items-start gap-3 border-b border-hairline bg-paper px-4 py-3 text-ink sm:px-6">
+      {initialState === "completed" || (finished && message.includes("added to your timeline")) ? (
+        <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+      ) : initialState === "failed" || (finished && message !== "Your video is on this project's timeline.") ? (
+        <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
+      ) : (
+        <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin motion-reduce:animate-none text-primary" aria-hidden />
+      )}
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Video generation</p>
+        <p className="mt-0.5 break-words text-sm text-ink-soft">{message}</p>
+      </div>
+    </section>
   );
 }

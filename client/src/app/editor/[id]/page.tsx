@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { emptyProject } from "@/features/studio/core/validate.ts";
+import { projectGenerationSchema } from "@/features/studio/core/types.ts";
 import { StudioScreen } from "@/features/studio/components/studio-screen";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { goApi } from "@/lib/go-api/client";
@@ -35,12 +36,22 @@ export default async function EditorPage({
       </p>
     );
   }
-  const { title, version, document } = project.data.data;
-  // A new project has no timeline until a video or asset is added.
-  const isBlank = typeof document === "object" && document !== null && Object.keys(document).length === 0;
-  const generation = typeof job === "string" && z.string().uuid().safeParse(job).success && typeof script === "string"
-    ? { jobId: job, script }
-    : undefined;
+  const { title, version } = project.data.data;
+  const rawDocument = project.data.data.document;
+  const documentRecord = z.record(z.string(), z.unknown()).safeParse(rawDocument);
+  const storedGeneration = documentRecord.success
+    ? projectGenerationSchema.safeParse(documentRecord.data.generation)
+    : null;
+  const queryGeneration = typeof job === "string" && typeof script === "string"
+    ? projectGenerationSchema.safeParse({ jobId: job, script, state: "running" })
+    : null;
+  const generation = storedGeneration?.success
+    ? storedGeneration.data
+    : queryGeneration?.success
+      ? queryGeneration.data
+      : undefined;
+  const isBlank = documentRecord.success && Object.keys(documentRecord.data).every((key) => key === "generation");
+  const document = isBlank ? emptyProject(generation) : rawDocument;
 
   return (
     <StudioScreen
