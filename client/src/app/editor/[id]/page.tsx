@@ -11,8 +11,15 @@ import { editorProjectResponse, libraryResponse } from "@/lib/go-api/schemas";
 export const metadata: Metadata = { title: "Editor" };
 export const dynamic = "force-dynamic";
 
-export default async function EditorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ job?: string; script?: string }>;
+}) {
   const { id } = await params;
+  const { job, script } = await searchParams;
   if (!z.string().uuid().safeParse(id).success) notFound();
 
   const [user, project, library] = await Promise.all([
@@ -20,9 +27,6 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
     goApi(`/api/v1/editor/projects/${id}`, editorProjectResponse),
     goApi("/api/v1/library?limit=100", libraryResponse),
   ]);
-  // The videos the chat this project came from made, so they are the first thing offered.
-  const chatId = project.ok ? project.data.data.conversation_id : undefined;
-  const fromChat = chatId ? await goApi(`/api/v1/library?conversation=${chatId}&limit=50`, libraryResponse) : null;
   if (!project.ok) {
     if (project.status === 404) notFound();
     return (
@@ -31,9 +35,12 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       </p>
     );
   }
-  const { title, version, document, conversation_id } = project.data.data;
-  // A project just opened from a chat has no timeline yet.
+  const { title, version, document } = project.data.data;
+  // A new project has no timeline until a video or asset is added.
   const isBlank = typeof document === "object" && document !== null && Object.keys(document).length === 0;
+  const generation = typeof job === "string" && z.string().uuid().safeParse(job).success && typeof script === "string"
+    ? { jobId: job, script }
+    : undefined;
 
   return (
     <StudioScreen
@@ -42,9 +49,10 @@ export default async function EditorPage({ params }: { params: Promise<{ id: str
       version={version}
       document={isBlank ? emptyProject() : document}
       plan={user.plan}
-      backHref={conversation_id ? `/dashboard/c/${conversation_id}` : "/dashboard/c/new"}
+      backHref="/dashboard/new"
       library={library.ok ? library.data.data : []}
-      chatLibrary={fromChat?.ok ? fromChat.data.data : []}
+      chatLibrary={[]}
+      generation={generation}
     />
   );
 }

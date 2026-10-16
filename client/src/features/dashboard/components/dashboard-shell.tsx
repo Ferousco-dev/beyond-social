@@ -5,7 +5,7 @@ import { Menu, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
-import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
+import { type Credits, type DashboardUser } from "@/lib/dashboard/data";
 
 import { AppSidebar } from "./app-sidebar";
 import { SidebarRail } from "./sidebar-rail";
@@ -15,12 +15,10 @@ import { WorkspaceMenu } from "./workspace-menu";
 
 export function DashboardShell({
   user,
-  projects,
   credits,
   children,
 }: {
   user: DashboardUser;
-  projects: readonly SidebarProject[];
   credits: Credits | null;
   children: ReactNode;
 }) {
@@ -44,11 +42,10 @@ export function DashboardShell({
         )}
       >
         {collapsed ? (
-          <SidebarRail user={user} projects={projects} onExpand={() => setCollapsed(false)} />
+          <SidebarRail user={user} onExpand={() => setCollapsed(false)} />
         ) : (
           <AppSidebar
             user={user}
-            projects={projects}
             credits={credits}
             onCollapse={() => setCollapsed(true)}
           />
@@ -69,7 +66,6 @@ export function DashboardShell({
             <Dialog.Title className="sr-only">Navigation</Dialog.Title>
             <AppSidebar
               user={user}
-              projects={projects}
               credits={credits}
               onNavigate={() => setDrawerOpen(false)}
             />
@@ -99,7 +95,7 @@ export function DashboardShell({
             {/* One trigger, two shapes. It used to be hidden below `sm`, which
                 left search reachable only by a keyboard shortcut, so on a phone
                 there was no way to reach it at all. */}
-            <CommandPalette projects={projects}>
+            <CommandPalette>
               <button
                 type="button"
                 aria-label="Search or run a command"

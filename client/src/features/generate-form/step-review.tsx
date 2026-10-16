@@ -1,10 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { type Route } from "next";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { quoteScene, sceneStatus, startScene } from "@/features/studio/assist-actions";
+import { quoteScene, startScene } from "@/features/studio/assist-actions";
+import { createEditorProject } from "@/features/studio/actions";
 
 import type { GenerateFormValues } from "./types";
 
@@ -18,11 +19,10 @@ export function StepReview({
   balance: number | null;
   onChange: (patch: Partial<GenerateFormValues>) => void;
 }) {
+  const router = useRouter();
   const [credits, setCredits] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [state, setState] = useState<"idle" | "working" | "failed" | "done">("idle");
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,28 +35,12 @@ export function StepReview({
     };
   }, [values.seconds]);
 
-  useEffect(() => {
-    if (!jobId || state === "done" || state === "failed") return;
-    const timer = window.setTimeout(() => {
-      void sceneStatus(jobId).then((status) => {
-        if (status.state === "done") {
-          setState("done");
-          setVideoUrl(status.url);
-        } else if (status.state === "failed") {
-          setState("failed");
-          setError(status.message);
-        }
-      });
-    }, 3000);
-    return () => window.clearTimeout(timer);
-  }, [jobId, state]);
-
   const prompt = buildPrompt(values);
 
   async function generate() {
     setConfirming(false);
     setError(null);
-    setState("working");
+    setStarting(true);
     const result = await startScene({
       prompt,
       seconds: values.seconds,
@@ -67,11 +51,17 @@ export function StepReview({
       ...(values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {}),
     });
     if (!result.ok) {
-      setState("idle");
+      setStarting(false);
       setError(result.message);
       return;
     }
-    setJobId(result.jobId);
+    const project = await createEditorProject({ title: values.objective.trim() || "New video" });
+    setStarting(false);
+    if (!project.ok) {
+      setError(project.message);
+      return;
+    }
+    router.push(`/editor/${project.value}?job=${result.jobId}&script=${encodeURIComponent(prompt)}` as Route);
   }
 
   const rows: ReadonlyArray<[string, string]> = [
@@ -116,27 +106,7 @@ export function StepReview({
         Email me when the video is ready
       </label>
 
-      {state === "working" || jobId ? (
-        <div className="flex flex-col gap-2" aria-live="polite">
-          {state === "done" && videoUrl ? (
-            <>
-              <video src={videoUrl} controls playsInline className="w-full rounded-xl" />
-              <Link
-                href={"/dashboard/library" as Route}
-                className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
-              >
-                Open in Projects
-              </Link>
-            </>
-          ) : state === "failed" ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error ?? "Generation failed."}
-            </p>
-          ) : (
-            <p className="text-sm text-ink-soft">Generating… this usually takes a minute.</p>
-          )}
-        </div>
-      ) : confirming ? (
+      {confirming ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-primary bg-paper p-4" role="alertdialog" aria-label="Confirm generation">
           <p className="text-sm text-ink">
             Start generation for <span className="font-semibold tabular-nums">{credits ?? "…" } credits</span>?
@@ -146,13 +116,15 @@ export function StepReview({
             <button
               type="button"
               onClick={() => void generate()}
+              disabled={starting}
               className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
-              Confirm and generate
+              {starting ? "Opening editor…" : "Confirm and generate"}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
+              disabled={starting}
               className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud"
             >
               Back
@@ -171,7 +143,7 @@ export function StepReview({
           Review and generate
         </button>
       )}
-      {error && state !== "failed" ? (
+      {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>

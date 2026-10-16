@@ -1,7 +1,6 @@
-import { type Route } from "next";
 import { redirect } from "next/navigation";
 
-// Projects belong to chats and open from a chat's "Open editor" button.
+// Editors are the workspace for every video project.
 export default function EditorIndexPage(): never {
-  redirect("/dashboard/c/new" as Route);
+  redirect("/dashboard/new");
 }

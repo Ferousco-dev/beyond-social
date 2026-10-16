@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { type Route } from "next";
 import { useState } from "react";
 
 import type { AssetGroupDetail } from "@/lib/go-api/schemas";
@@ -7,6 +9,7 @@ import type { GoJob } from "@/lib/go-api/schemas";
 
 import type { AvatarBrief } from "./brief-step";
 import { createLiveAvatar, draftLiveAvatarScript } from "./actions";
+import { createEditorProject } from "@/features/studio/actions";
 
 /** Final step: write the prompt, compile everything, approve, follow progress. */
 export function PromptStep({
@@ -20,6 +23,7 @@ export function PromptStep({
   voiceId: string;
   script: string;
 }) {
+  const router = useRouter();
   const [prompt, setPrompt] = useState(script);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +39,19 @@ export function PromptStep({
     setBusy(true);
     setError(null);
     const result = await createLiveAvatar({ groupId: group.id, voiceId, script: prompt, prompt: direction(), idempotencyKey: crypto.randomUUID() });
-    setBusy(false);
     if (result.status !== "ok") {
+      setBusy(false);
       setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
       return;
     }
+    const project = await createEditorProject({ title: brief.objective.trim() || "Avatar video" });
+    setBusy(false);
+    if (!project.ok) {
+      setError(project.message);
+      return;
+    }
     setJob(result.job);
+    router.push(`/editor/${project.value}?job=${result.job.id}&script=${encodeURIComponent(prompt)}` as Route);
   }
 
   async function draft(): Promise<void> {
@@ -88,7 +99,7 @@ export function PromptStep({
           {busy ? "Starting…" : "Generate video"}
         </button>
       ) : (
-        <p className="rounded-[10px] border border-hairline bg-paper p-4 text-sm text-ink-soft">Your video is {job.status}. It will appear in Projects when complete.</p>
+        <p className="rounded-[10px] border border-hairline bg-paper p-4 text-sm text-ink-soft">Opening your editor…</p>
       )}
 
       {error ? (

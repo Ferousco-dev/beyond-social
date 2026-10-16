@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { getAssetGroup } from "@/features/asset-groups/actions";
 import type { AssetGroup, AssetGroupDetail } from "@/lib/go-api/schemas";
@@ -15,6 +16,7 @@ const STEPS = ["Group", "Assets", "Brief", "Prompt"] as const;
 
 /** Live Avatar: group, uploads, brief, prompt, generate. Uploads only. */
 export function LiveAvatarFlow() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [group, setGroup] = useState<AssetGroup | null>(null);
   const [detail, setDetail] = useState<AssetGroupDetail | null>(null);
@@ -27,6 +29,17 @@ export function LiveAvatarFlow() {
     if (result.status === "ok") setDetail(result.group);
     setStep(1);
   }
+
+  useEffect(() => {
+    const groupId = searchParams.get("group");
+    if (!groupId || group !== null) return;
+    void getAssetGroup(groupId).then((result) => {
+      if (result.status !== "ok") return;
+      setGroup(result.group);
+      setDetail(result.group);
+      setStep(1);
+    });
+  }, [group, searchParams]);
 
   const ready =
     step === 0 ? group !== null :
