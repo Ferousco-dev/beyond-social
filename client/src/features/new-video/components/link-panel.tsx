@@ -7,7 +7,7 @@ import { AnalysisView } from "./analysis-view";
 const fieldClass =
   "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
 
-/** Option 2: paste a link, watch it get analysed. */
+/** Option 2: paste a link, then explicitly ask for an analysis. */
 export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [submitted, setSubmitted] = useState<string | null>(null);
@@ -40,12 +40,12 @@ export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
             disabled={url.trim() === ""}
             className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            Analyse
+            Analyze video
           </button>
         </span>
       </label>
       <p className="text-xs text-ink-soft">
-        Links the service cannot open get a clear error instead of a silent stall.
+        Analysis creates a summary and fresh script. It does not generate or transform a video.
       </p>
     </form>
   );

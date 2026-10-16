@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
+import { Spinner } from "@/components/ui/spinner";
 import { getAssetGroup } from "@/features/asset-groups/actions";
 import type { AssetGroup, AssetGroupDetail } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,28 @@ export function LiveAvatarFlow() {
   const [detail, setDetail] = useState<AssetGroupDetail | null>(null);
   const [voiceId, setVoiceId] = useState("");
   const [brief, setBrief] = useState<AvatarBrief>({ objective: "", audience: "", product: "", style: "" });
+  const [isContinuing, setIsContinuing] = useState(false);
+  const continueTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (continueTimerRef.current !== null) {
+        window.clearTimeout(continueTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleContinue(): void {
+    if (isContinuing || step >= STEPS.length - 1) return;
+    setIsContinuing(true);
+    if (continueTimerRef.current !== null) {
+      window.clearTimeout(continueTimerRef.current);
+    }
+    continueTimerRef.current = window.setTimeout(() => {
+      setStep((current) => current + 1);
+      setIsContinuing(false);
+    }, 220);
+  }
 
   async function enterAssets(next: AssetGroup): Promise<void> {
     setGroup(next);
@@ -81,7 +104,8 @@ export function LiveAvatarFlow() {
           <button
             type="button"
             onClick={() => setStep(step - 1)}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud"
+            disabled={isContinuing}
+            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
           >
             Back
           </button>
@@ -89,11 +113,13 @@ export function LiveAvatarFlow() {
         {step < STEPS.length - 1 ? (
           <button
             type="button"
-            onClick={() => setStep(step + 1)}
-            disabled={!ready}
-            className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
+            onClick={handleContinue}
+            disabled={!ready || isContinuing}
+            aria-busy={isContinuing}
+            className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Continue
+            {isContinuing ? <Spinner className="size-4" /> : null}
+            <span>{isContinuing ? "Continuing" : "Continue"}</span>
           </button>
         ) : null}
       </div>

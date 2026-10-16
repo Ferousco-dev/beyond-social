@@ -5,8 +5,10 @@ import { findWatchableLink, isYouTubeLink, parseShortLink, parseSocialUrl } from
 
 test("share-sheet links are recognised without being followed", () => {
   assert.deepEqual(parseShortLink("https://vm.tiktok.com/ZMabc123/"), { platform: "tiktok", url: "https://vm.tiktok.com/ZMabc123/" });
+  assert.equal(parseShortLink("https://m.tiktok.com/t/ZTabc123/?utm=x")?.url, "https://m.tiktok.com/t/ZTabc123/");
   assert.equal(parseShortLink("https://www.tiktok.com/t/ZTabc123/?utm=x")?.url, "https://www.tiktok.com/t/ZTabc123/");
   assert.equal(parseShortLink("https://instagr.am/p/Cabc123/")?.platform, "instagram");
+  assert.equal(parseShortLink("https://m.instagram.com/share/reel/BAbc123/?utm=x")?.platform, "instagram");
   assert.equal(parseShortLink("https://www.instagram.com/share/reel/BAbc123/")?.platform, "instagram");
 });
 

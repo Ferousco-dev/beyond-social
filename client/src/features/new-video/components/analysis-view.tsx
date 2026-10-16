@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { type Route } from "next";
+import { useRouter } from "next/navigation";
+
+import { Spinner } from "@/components/ui/spinner";
 
 import { readAnalysis, startAnalysis, type AnalysisContent } from "../actions";
 
@@ -14,6 +18,7 @@ export interface ApprovedScript {
 }
 
 const POLL_MS = 3_000;
+const MAX_ANALYSIS_WAIT_MS = 8 * 60 * 1000;
 
 /** Phase 2: watch the analysis land, then shape the suggested script. */
 export function AnalysisView({
@@ -27,22 +32,32 @@ export function AnalysisView({
 }) {
   const [jobId, setJobId] = useState<string | null>(null);
   const [state, setState] = useState<string>("queued");
+  const [stage, setStage] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
   const [analysis, setAnalysis] = useState<AnalysisContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
+  const startedAt = useRef(Date.now());
 
   useEffect(() => {
     let cancelled = false;
-    startAnalysis({ url, idempotencyKey: crypto.randomUUID() }).then((result) => {
-      if (cancelled) return;
-      if (result.status !== "ok") {
-        setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
-        return;
-      }
-      setJobId(result.job.id);
-      setState(result.job.state);
-      if (result.job.analysis) setAnalysis(result.job.analysis);
-    });
+    startedAt.current = Date.now();
+    void startAnalysis({ url, idempotencyKey: crypto.randomUUID() })
+      .then((result) => {
+        if (cancelled) return;
+        if (result.status !== "ok") {
+          setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
+          return;
+        }
+        setJobId(result.job.id);
+        setState(result.job.state);
+        setStage(result.job.stage);
+        setProgress(result.job.progress);
+        if (result.job.analysis) setAnalysis(result.job.analysis);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Something went wrong while starting the analysis. Go back and try again.");
+      });
     return () => {
       cancelled = true;
     };
@@ -52,18 +67,26 @@ export function AnalysisView({
     if (!jobId || analysis || error) return;
     if (state !== "queued" && state !== "running") return;
     const timer = window.setTimeout(() => {
-      void readAnalysis(jobId).then((result) => {
-        if (result.status !== "ok") {
-          setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
-          return;
-        }
-        setState(result.job.state);
-        if (result.job.analysis) {
-          setAnalysis(result.job.analysis);
-        } else if (result.job.state === "failed") {
-          setError(result.job.error ?? "The analysis failed.");
-        }
-      });
+      if (Date.now() - startedAt.current >= MAX_ANALYSIS_WAIT_MS) {
+        setError("The analysis is taking too long. No video was generated. Go back and try again.");
+        return;
+      }
+      void readAnalysis(jobId)
+        .then((result) => {
+          if (result.status !== "ok") {
+            setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
+            return;
+          }
+          setState(result.job.state);
+          setStage(result.job.stage);
+          setProgress(result.job.progress);
+          if (result.job.analysis) {
+            setAnalysis(result.job.analysis);
+          } else if (result.job.state === "failed") {
+            setError(result.job.error ?? "The analysis failed. No video was generated.");
+          }
+        })
+        .catch(() => setError("Something went wrong while checking the analysis. Go back and try again."));
     }, POLL_MS);
     return () => window.clearTimeout(timer);
   }, [jobId, analysis, error, state]);
@@ -80,11 +103,24 @@ export function AnalysisView({
   }
 
   if (!analysis) {
+    const status = state === "queued"
+      ? "Waiting for analysis to start…"
+      : stage === "fetching"
+        ? "Fetching the video…"
+        : stage === "watching"
+          ? "Analyzing the video and audio…"
+          : "Analysis is running…";
     return (
       <div className="flex flex-col items-start gap-3" aria-live="polite">
-        <p className="text-sm text-ink-soft">
-          {state === "running" ? "Watching the video…" : "Queued for analysis…"}
+        <p role="status" className="flex items-center gap-2 text-sm text-ink-soft">
+          <Spinner className="size-4 text-primary" />
+          {status}
         </p>
+        {state === "running" ? (
+          <div role="progressbar" aria-label="Video analysis progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress} className="h-1.5 w-full overflow-hidden rounded-full bg-cloud">
+            <span className="block h-full bg-primary transition-[width]" style={{ width: `${progress}%` }} />
+          </div>
+        ) : null}
         <BackButton onBack={onBack} />
       </div>
     );
@@ -129,6 +165,7 @@ function ScriptEditor({
   onApprove: (script: ApprovedScript) => void;
   onBack: () => void;
 }) {
+  const router = useRouter();
   const [hook, setHook] = useState(analysis.hook);
   const [main, setMain] = useState(analysis.scenes.map((scene) => scene.visual).join("\n"));
   const [dialogue, setDialogue] = useState(analysis.voiceover);
@@ -178,8 +215,19 @@ function ScriptEditor({
       {approved ? (
         <div className="flex flex-col gap-3">
           <p role="status" className="rounded-xl border border-hairline bg-paper p-3 text-sm text-ink">
-            Script approved. The main generation page lands in the next milestone and picks it up from here.
+            Gemini analyzed the source and drafted a fresh script. Video setup uses that script; it does not reuse the source clip.
           </p>
+          <button
+            type="button"
+            onClick={() => {
+              window.sessionStorage.removeItem("bs:generate-draft");
+              window.sessionStorage.removeItem("bs:own-idea");
+              router.push("/dashboard/videos/new" as Route);
+            }}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Continue to video setup
+          </button>
           <BackButton onBack={onBack} />
         </div>
       ) : (

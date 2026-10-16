@@ -7,6 +7,7 @@ interface Props {
   readonly embedUrl: string | null;
   readonly title: string;
   readonly posterUrl: string | null;
+  readonly videoUrl: string | null;
   readonly platformName: string;
   readonly postUrl: string;
 }
@@ -21,14 +22,39 @@ interface Props {
  * the picture first and loading the player on a press cuts those loads to the
  * ones someone wants, and a reload button covers the times it is still refused.
  */
-export function PostPlayer({ embedUrl, title, posterUrl, platformName, postUrl }: Props): ReactNode {
+export function PostPlayer({ embedUrl, title, posterUrl, videoUrl, platformName, postUrl }: Props): ReactNode {
   const [started, setStarted] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [videoFailed, setVideoFailed] = useState(false);
 
-  if (!embedUrl) {
+  if (videoUrl && !videoFailed) {
     return (
-      <div className="flex aspect-[9/16] w-full items-center justify-center px-6 text-center">
-        <p className="text-xs text-ink-soft">This one cannot be played here. Open it on {platformName} instead.</p>
+      <video
+        src={videoUrl}
+        poster={posterUrl ?? undefined}
+        controls
+        playsInline
+        preload="metadata"
+        onError={() => setVideoFailed(true)}
+        aria-label={title}
+        className="aspect-[9/16] w-full bg-black object-contain"
+      />
+    );
+  }
+
+  if (videoFailed || !embedUrl || platformName === "TikTok") {
+    return (
+      <div className="relative flex aspect-[9/16] w-full flex-col items-center justify-center gap-3 bg-canvas px-6 text-center">
+        {posterUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- third-party poster used as a fallback
+          <img src={posterUrl} alt="" referrerPolicy="no-referrer" className="absolute inset-0 size-full object-cover opacity-30" />
+        ) : null}
+        <p role={videoFailed ? "status" : undefined} className="relative text-sm text-paper">
+          {videoFailed ? "This video could not play here." : "TikTok blocks in-page playback for this post."}
+        </p>
+        <a href={postUrl} target="_blank" rel="noopener noreferrer" className="relative inline-flex min-h-10 items-center rounded-lg bg-paper px-3 text-sm font-medium text-ink hover:bg-cloud">
+          Open on {platformName}
+        </a>
       </div>
     );
   }

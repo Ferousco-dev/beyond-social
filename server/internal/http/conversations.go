@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
@@ -23,6 +24,7 @@ type ChatService interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]chat.Conversation, error)
 	Thread(ctx context.Context, userID, id string) (chat.Conversation, []chat.Message, error)
 	Archive(ctx context.Context, userID, id string) error
+	Rename(ctx context.Context, userID, id, title string) error
 	Send(ctx context.Context, userID, conversationID, content, key string, attachments []string, timeZone string) (chat.Exchange, error)
 }
 
@@ -105,6 +107,32 @@ func (a *App) archiveConversation(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 	default:
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (a *App) renameConversation(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	id, valid := conversationID(w, r)
+	if !ok || !valid {
+		return
+	}
+	var req struct {
+		Title string `json:"title"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	err := a.deps.Chat.Rename(r.Context(), identity.UserID, id, title)
+	switch {
+	case errors.Is(err, chat.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "conversation not found")
+	case errors.Is(err, chat.ErrInvalidTitle):
+		writeError(w, http.StatusBadRequest, "invalid_request", "title must be 1 to 120 characters")
+	case err != nil:
+		writeInternal(w, r, err)
+	default:
+		writeData(w, http.StatusOK, map[string]string{"id": id, "title": title})
 	}
 }
 

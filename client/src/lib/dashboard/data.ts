@@ -13,8 +13,9 @@ export interface DashboardUser {
 export interface SidebarProject {
   readonly id: string;
   readonly title: string;
-  readonly group: string;
-  readonly pinned: boolean;
+  readonly href: string;
+  readonly kind: "video" | "chat";
+  readonly updatedAt: string;
 }
 
 export interface Credits {

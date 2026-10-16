@@ -10,11 +10,21 @@ import (
 	"testing"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
+	"github.com/Ferousco-dev/beyond-social/server/internal/credits"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	"github.com/Ferousco-dev/beyond-social/server/internal/voices"
 )
 
 const readyAvatarID = "50000000-0000-4000-8000-000000000001"
+
+type fakeAvatarVideoCredits struct{ rate int }
+
+func (f fakeAvatarVideoCredits) Quote(_ context.Context, action string) (int, error) {
+	if action != credits.ActionAvatarVideoSecond {
+		return 0, errors.New("unexpected credit action")
+	}
+	return f.rate, nil
+}
 
 func registerBody(path string) string {
 	return `{"storage_path":"` + path + `","name":"Sarah","consent_confirmed":true,"consent_version":1}`
@@ -190,6 +200,27 @@ func TestCreateAvatarVideo(t *testing.T) {
 	}
 	if len(h.jobs.rows) != 1 {
 		t.Fatalf("expected one job, got %d", len(h.jobs.rows))
+	}
+}
+
+func TestAvatarVideoQuoteUsesTheBillingDuration(t *testing.T) {
+	h := newHarness(t, &fakeRepo{}, fakePinger{})
+	h.deps.AvatarVideoCredits = fakeAvatarVideoCredits{rate: 4}
+	h.rebuild()
+	token := h.token(t, alice)
+
+	res := h.post("/api/v1/videos/avatar/quote", token, `{"script":"`+strings.Repeat("a", 31)+`"}`)
+	if res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"credits":12`) || !strings.Contains(res.Body.String(), `"seconds":3`) {
+		t.Fatalf("quote: %d %s", res.Code, res.Body)
+	}
+	if res := h.post("/api/v1/videos/avatar/quote", token, `{"script":" "}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("empty script: %d %s", res.Code, res.Body)
+	}
+	if res := h.post("/api/v1/videos/avatar/quote", token, `{"script":"`+strings.Repeat("a", 3001)+`"}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("long script: %d %s", res.Code, res.Body)
+	}
+	if res := h.post("/api/v1/videos/avatar/quote", "", `{"script":"Hello"}`); res.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous: %d", res.Code)
 	}
 }
 

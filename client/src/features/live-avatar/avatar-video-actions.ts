@@ -22,6 +22,18 @@ const startSchema = z.object({
   idempotencyKey: z.string().min(8).max(128),
 });
 
+const quoteResponse = z.object({ data: z.object({ credits: z.number(), seconds: z.number() }) });
+
+export async function quoteAvatarVideoScript(script: string): Promise<number | null> {
+  const parsed = z.string().trim().min(1).max(3000).safeParse(script);
+  if (!parsed.success || !isGoApiConfigured()) return null;
+  const result = await goApi("/api/v1/videos/avatar/quote", quoteResponse, {
+    method: "POST",
+    body: { script: parsed.data },
+  });
+  return result.ok ? result.data.data.credits : null;
+}
+
 export async function startAvatarVideo(input: z.input<typeof startSchema>): Promise<StartResult> {
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) {

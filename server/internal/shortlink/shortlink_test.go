@@ -12,8 +12,10 @@ func TestOnlyShareSheetAddressesAreShort(t *testing.T) {
 	for raw, want := range map[string]bool{
 		"https://vm.tiktok.com/ZMabc123/":                  true,
 		"https://vt.tiktok.com/ZSabc123/":                  true,
+		"https://m.tiktok.com/t/ZTabc123/":                 true,
 		"https://www.tiktok.com/t/ZTabc123/":               true,
 		"https://instagr.am/p/Cabc123/":                    true,
+		"https://m.instagram.com/share/reel/BAbc123/":       true,
 		"https://www.instagram.com/share/reel/BAbc123/":    true,
 		"https://www.tiktok.com/@someone/video/7300000000": false,
 		"https://www.instagram.com/reel/Cabc123/":          false,

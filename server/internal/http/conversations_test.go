@@ -27,6 +27,18 @@ func (f fakeChat) Thread(_ context.Context, user, id string) (chat.Conversation,
 	return chat.Conversation{ID: id}, []chat.Message{{ID: "m1", Role: chat.RoleUser, Content: "hi"}}, nil
 }
 func (f fakeChat) Archive(context.Context, string, string) error { return nil }
+func (f fakeChat) Rename(_ context.Context, user, id, title string) error {
+	if f.err != nil {
+		return f.err
+	}
+	if user != alice || id != convID {
+		return chat.ErrNotFound
+	}
+	if strings.TrimSpace(title) == "" {
+		return chat.ErrInvalidTitle
+	}
+	return nil
+}
 func (f fakeChat) Send(_ context.Context, _, _, content, _ string, _ []string, _ string) (chat.Exchange, error) {
 	if f.err != nil {
 		return chat.Exchange{}, f.err
@@ -55,6 +67,15 @@ func TestConversationEndpoints(t *testing.T) {
 	}
 	if res := send(h, http.MethodGet, base, "", ""); res.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous: %d", res.Code)
+	}
+	if res := send(h, http.MethodPatch, base+"/"+convID, token, `{"title":"Product launch"}`); res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"Product launch"`) {
+		t.Fatalf("rename: %d %s", res.Code, res.Body)
+	}
+	if res := send(h, http.MethodPatch, base+"/"+convID, token, `{"title":"   "}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("empty rename: %d %s", res.Code, res.Body)
+	}
+	if res := send(h, http.MethodPatch, base+"/"+convID, h.token(t, bob), `{"title":"Not yours"}`); res.Code != http.StatusNotFound {
+		t.Fatalf("rename stranger's conversation: %d", res.Code)
 	}
 	res := send(h, http.MethodPost, base+"/"+convID+"/messages", token, `{"content":"hello"}`)
 	if res.Code != http.StatusCreated || !strings.Contains(res.Body.String(), `"reply"`) {

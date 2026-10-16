@@ -5,6 +5,7 @@ import { DashboardShell } from "@/features/dashboard/components/dashboard-shell"
 import { goApi } from "@/lib/go-api/client";
 import { usageResponse } from "@/lib/go-api/schemas";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
+import { getSidebarProjects } from "@/lib/dashboard/conversations";
 
 /**
  * The signed-in frame around every dashboard page.
@@ -14,7 +15,10 @@ import { getCurrentUser } from "@/lib/dashboard/current-user";
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getCurrentUser();
 
-  const usage = user.plan === "pro" ? await goApi("/api/v1/usage", usageResponse) : null;
+  const [usage, projects] = await Promise.all([
+    user.plan === "pro" ? goApi("/api/v1/usage", usageResponse) : Promise.resolve(null),
+    getSidebarProjects(),
+  ]);
   const bars = usage?.ok
     ? {
         fiveHour: { used: usage.data.data.usage.five_hour_used, limit: usage.data.data.usage.five_hour_limit, resetsAt: usage.data.data.usage.five_hour_resets_at },
@@ -24,7 +28,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const summary = user.credits === null ? null : { balance: user.credits, plan: user.plan, usage: bars };
 
   return (
-    <DashboardShell user={user} credits={summary}>
+    <DashboardShell user={user} credits={summary} projects={projects}>
       <UsageBanner credits={summary} />
       {children}
     </DashboardShell>

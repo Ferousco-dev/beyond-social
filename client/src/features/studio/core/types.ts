@@ -116,9 +116,19 @@ export type Asset = z.infer<typeof assetSchema>;
 
 export const projectGenerationSchema = z.object({
   jobId: z.string().uuid(),
-  script: z.string().max(2500),
+  script: z.string().max(5000),
   state: z.enum(["running", "completed", "failed"]),
   message: z.string().max(500).optional(),
+  generator: z.enum(["kie", "avatar", "live-avatar"]).optional(),
+  avatarId: z.string().uuid().optional(),
+  groupId: z.string().uuid().optional(),
+  voiceId: z.string().max(200).optional(),
+  direction: z.string().max(2000).optional(),
+  seconds: z.number().int().min(3).max(15).optional(),
+  aspectRatio: z.enum(["9:16", "16:9", "1:1"]).optional(),
+  sound: z.boolean().optional(),
+  notifyEmail: z.boolean().optional(),
+  imageMediaId: z.string().uuid().optional(),
 });
 export type ProjectGeneration = z.infer<typeof projectGenerationSchema>;
 

@@ -69,6 +69,15 @@ func TestConversationsAreOwnedOrdersAndDeduplicate(t *testing.T) {
 	if err := store.SetTitle(ctx, conv.ID, "one"); err != nil {
 		t.Fatal(err)
 	}
+	if err := store.Rename(ctx, bob, conv.ID, "Not yours"); !errors.Is(err, chat.ErrNotFound) {
+		t.Fatalf("a stranger renamed it: %v", err)
+	}
+	if err := store.Rename(ctx, alice, conv.ID, "Product launch"); err != nil {
+		t.Fatal(err)
+	}
+	if renamed, err := store.Get(ctx, alice, conv.ID); err != nil || renamed.Title != "Product launch" {
+		t.Fatalf("renamed conversation = %+v err=%v", renamed, err)
+	}
 	if list, _ := store.List(ctx, alice, 10, 0); len(list) != 1 {
 		t.Fatalf("a titled thread must be listed: %+v", list)
 	}

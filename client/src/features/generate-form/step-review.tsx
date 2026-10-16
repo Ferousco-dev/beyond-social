@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { quoteScene, startScene } from "@/features/studio/assist-actions";
 import { createEditorProject } from "@/features/studio/actions";
+import { quoteAvatarVideoScript, startAvatarVideo } from "@/features/live-avatar/avatar-video-actions";
 
 import type { GenerateFormValues } from "./types";
 
@@ -24,55 +25,97 @@ export function StepReview({
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [quoteAttempt, setQuoteAttempt] = useState(0);
+  const avatarScript = buildAvatarScript(values);
+  const prompt = values.avatarId !== "" ? avatarScript : buildPrompt(values);
+  const promptLength = Array.from(prompt).length;
 
   useEffect(() => {
     let cancelled = false;
-    void quoteScene(values.seconds).then((cost) => {
-      if (!cancelled) setCredits(cost);
+    setCredits(null);
+    setQuoteError(null);
+    if (values.avatarId !== "" && avatarScript.trim() === "") return;
+    const quote = values.avatarId !== ""
+      ? quoteAvatarVideoScript(avatarScript)
+      : quoteScene(values.seconds);
+    void quote.then((cost) => {
+      if (cancelled) return;
+      setCredits(cost);
+      if (cost === null) setQuoteError("Could not estimate the generation cost. Please try again.");
+    }).catch(() => {
+      if (!cancelled) setQuoteError("Something went wrong while checking the cost. Please try again.");
     });
     return () => {
       cancelled = true;
     };
-  }, [values.seconds]);
-
-  const prompt = buildPrompt(values);
+  }, [values.seconds, values.avatarId, avatarScript, quoteAttempt]);
 
   async function generate() {
     setConfirming(false);
     setError(null);
     setStarting(true);
-    const result = await startScene({
-      prompt,
-      seconds: values.seconds,
-      key: crypto.randomUUID(),
-      aspectRatio: values.aspectRatio,
-      sound: values.dialogue.trim() !== "",
-      notifyEmail: values.notifyEmail,
-      ...(values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {}),
-    });
-    if (!result.ok) {
+    try {
+      let jobId: string;
+      if (values.avatarId !== "") {
+        const result = await startAvatarVideo({ avatarId: values.avatarId, script: prompt, idempotencyKey: crypto.randomUUID() });
+        if (result.status !== "ok") {
+          setError(result.status === "unconfigured" ? "Avatar video generation is not available right now." : result.message);
+          return;
+        }
+        jobId = result.job.id;
+      } else {
+        const result = await startScene({
+          prompt,
+          seconds: values.seconds,
+          key: crypto.randomUUID(),
+          aspectRatio: values.aspectRatio,
+          sound: values.dialogue.trim() !== "",
+          notifyEmail: values.notifyEmail,
+          ...(values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {}),
+        });
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        jobId = result.jobId;
+      }
+      const project = await createEditorProject({
+        title: values.objective.trim() || (values.avatarId ? "Avatar video" : "New video"),
+        generation: values.avatarId !== ""
+          ? { jobId, script: prompt, state: "running", generator: "avatar", avatarId: values.avatarId }
+          : {
+              jobId,
+              script: prompt,
+              state: "running",
+              generator: "kie",
+              seconds: values.seconds,
+              aspectRatio: values.aspectRatio,
+              sound: values.dialogue.trim() !== "",
+              notifyEmail: values.notifyEmail,
+              ...(values.firstFrameId ? { imageMediaId: values.firstFrameId } : {}),
+            },
+      });
+      if (!project.ok) {
+        setError(project.message);
+        return;
+      }
+      router.push(`/editor/${project.value}?job=${jobId}&script=${encodeURIComponent(prompt)}` as Route);
+    } catch {
+      setError("Something went wrong while starting generation. Your project is still safe; please try again.");
+    } finally {
       setStarting(false);
-      setError(result.message);
-      return;
     }
-    const project = await createEditorProject({
-      title: values.objective.trim() || "New video",
-      generation: { jobId: result.jobId, script: prompt, state: "running" },
-    });
-    setStarting(false);
-    if (!project.ok) {
-      setError(project.message);
-      return;
-    }
-    router.push(`/editor/${project.value}?job=${result.jobId}&script=${encodeURIComponent(prompt)}` as Route);
   }
 
   const rows: ReadonlyArray<[string, string]> = [
-    ["Objective", `${values.purpose || "—"} · ${values.audience || "—"}`],
-    ["Format", `${values.platform} · ${values.aspectRatio} · ${values.seconds}s`],
-    ["Script", values.hook !== "" ? values.hook : values.scenes.slice(0, 80)],
+    ["Objective", values.objective || "—"],
+    ["Purpose & audience", [values.purpose, values.audience].filter(Boolean).join(" · ") || "—"],
+    ["Format", values.avatarId !== "" ? `Saved avatar · ${Math.max(1, Math.ceil(Array.from(avatarScript).length / 15))}s estimate` : `${values.platform} · ${values.aspectRatio} · ${values.seconds}s`],
+    ["Generator", values.avatarId !== "" ? "HeyGen avatar video" : "KIE Kling 3.0 video"],
+    ["Script", values.avatarId !== "" ? avatarScript || "Add dialogue or narration" : values.hook !== "" ? values.hook : values.scenes.slice(0, 80)],
     ["Speech", `${values.language} · ${values.tone}`],
-    ["Assets", values.firstFrameId !== "" ? "First frame attached" : "None"],
+    ["Assets", values.avatarId !== "" ? "Saved avatar" : values.firstFrameId !== "" ? "First frame attached" : "None"],
   ];
 
   return (
@@ -88,7 +131,7 @@ export function StepReview({
           <dt className="w-20 shrink-0 font-medium text-ink-soft">Cost</dt>
           <dd className="min-w-0 flex-1 text-ink">
             {credits === null ? (
-              "Estimating…"
+              values.avatarId !== "" && avatarScript === "" ? "Add avatar dialogue to estimate" : "Estimating…"
             ) : (
               <>
                 <span className="font-semibold tabular-nums">{credits} credits</span>
@@ -99,15 +142,23 @@ export function StepReview({
         </div>
       </dl>
 
-      <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
-        <input
-          type="checkbox"
-          checked={values.notifyEmail}
-          onChange={(event) => onChange({ notifyEmail: event.target.checked })}
-          className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
-        />
-        Email me when the video is ready
-      </label>
+      {quoteError ? (
+        <p role="alert" className="text-sm text-destructive">
+          {quoteError} <button type="button" onClick={() => setQuoteAttempt((attempt) => attempt + 1)} className="font-medium underline underline-offset-2">Retry estimate</button>
+        </p>
+      ) : null}
+
+      {values.avatarId === "" ? (
+        <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={values.notifyEmail}
+            onChange={(event) => onChange({ notifyEmail: event.target.checked })}
+            className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+          />
+          Email me when the video is ready
+        </label>
+      ) : null}
 
       {confirming ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-primary bg-paper p-4" role="alertdialog" aria-label="Confirm generation">
@@ -139,9 +190,18 @@ export function StepReview({
           type="button"
           onClick={() => {
             setError(null);
+            if (values.avatarId !== "" && prompt.trim() === "") {
+              setError("Add dialogue or narration for your avatar before generating.");
+              return;
+            }
+            if (promptLength > 2500) {
+              setError("This prompt is over 2,500 characters. Shorten the script before generating.");
+              return;
+            }
             setConfirming(true);
           }}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+          disabled={credits === null || quoteError !== null}
+          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Review and generate
         </button>
@@ -157,6 +217,11 @@ export function StepReview({
 
 function buildPrompt(values: GenerateFormValues): string {
   const parts = [
+    values.objective !== "" ? `Objective: ${values.objective}` : "",
+    values.purpose !== "" ? `Purpose: ${values.purpose}` : "",
+    values.audience !== "" ? `Target audience: ${values.audience}` : "",
+    values.platform !== "" ? `Format for ${values.platform}` : "",
+    values.country !== "" ? `Market: ${values.country}` : "",
     values.visualStyle,
     values.contentKind !== "" ? `${values.contentKind} video` : "",
     values.hook !== "" ? `Opens with: ${values.hook}` : "",
@@ -166,6 +231,11 @@ function buildPrompt(values: GenerateFormValues): string {
     values.tone !== "" ? `Tone: ${values.tone}` : "",
     values.cta !== "" ? `Ends with: ${values.cta}` : "",
     values.product !== "" ? `Featuring: ${values.product}` : "",
+    values.music !== "" ? `Music: ${values.music}` : "",
   ];
   return parts.map((part) => part.trim()).filter((part) => part !== "").join("\n");
+}
+
+function buildAvatarScript(values: GenerateFormValues): string {
+  return [values.hook, values.dialogue, values.cta].map((part) => part.trim()).filter(Boolean).join("\n");
 }

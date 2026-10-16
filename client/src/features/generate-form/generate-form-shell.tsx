@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { StepAssets } from "./step-assets";
@@ -30,6 +31,28 @@ function readJSON<T>(key: string): T | null {
 export function GenerateFormShell({ balance }: { balance: number | null }) {
   const [step, setStep] = useState(0);
   const [values, setValues] = useState<GenerateFormValues>(EMPTY_FORM);
+  const [isContinuing, setIsContinuing] = useState(false);
+  const continueTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (continueTimerRef.current !== null) {
+        window.clearTimeout(continueTimerRef.current);
+      }
+    };
+  }, []);
+
+  function handleContinue(): void {
+    if (isContinuing || step >= STEPS.length - 1) return;
+    setIsContinuing(true);
+    if (continueTimerRef.current !== null) {
+      window.clearTimeout(continueTimerRef.current);
+    }
+    continueTimerRef.current = window.setTimeout(() => {
+      setStep((current) => current + 1);
+      setIsContinuing(false);
+    }, 220);
+  }
 
   // Prefill once: the own-idea brief, then the approved analysis script.
   useEffect(() => {
@@ -105,7 +128,8 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
           <button
             type="button"
             onClick={() => setStep(step - 1)}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud"
+            disabled={isContinuing}
+            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
           >
             Back
           </button>
@@ -113,10 +137,13 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
         {step < STEPS.length - 1 ? (
           <button
             type="button"
-            onClick={() => setStep(step + 1)}
-            className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+            onClick={handleContinue}
+            disabled={isContinuing}
+            aria-busy={isContinuing}
+            className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
           >
-            Continue
+            {isContinuing ? <Spinner className="size-4" /> : null}
+            <span>{isContinuing ? "Continuing" : "Continue"}</span>
           </button>
         ) : null}
       </div>

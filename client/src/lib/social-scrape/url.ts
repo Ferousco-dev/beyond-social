@@ -17,7 +17,7 @@ export interface ParsedSocialUrl {
 }
 
 /** `/p/`, `/reel/` and `/reels/` all identify a single post. */
-const INSTAGRAM_POST = /^https:\/\/(?:www\.)?instagram\.com\/(p|reel|reels)\/([\w-]+)/i;
+const INSTAGRAM_POST = /^https:\/\/(?:www\.|m\.)?instagram\.com\/(p|reel|reels)\/([\w-]+)/i;
 
 export function parseSocialUrl(input: string): ParsedSocialUrl | null {
   const trimmed = input.trim();
@@ -54,13 +54,13 @@ export function parseShortLink(input: string): ParsedSocialUrl | null {
   if ((host === "vm.tiktok.com" || host === "vt.tiktok.com") && path.replace(/\//g, "") !== "") {
     return { platform: "tiktok", url: clean };
   }
-  if ((host === "tiktok.com" || host === "www.tiktok.com") && path.startsWith("/t/")) {
+  if ((host === "m.tiktok.com" || host === "tiktok.com" || host === "www.tiktok.com") && path.startsWith("/t/")) {
     return { platform: "tiktok", url: clean };
   }
   if (host === "instagr.am" && path.replace(/\//g, "") !== "") {
     return { platform: "instagram", url: clean };
   }
-  if ((host === "instagram.com" || host === "www.instagram.com") && path.startsWith("/share/")) {
+  if ((host === "m.instagram.com" || host === "instagram.com" || host === "www.instagram.com") && path.startsWith("/share/")) {
     return { platform: "instagram", url: clean };
   }
   return null;

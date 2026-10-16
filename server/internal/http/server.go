@@ -54,6 +54,7 @@ type Deps struct {
 	StripeWebhookSecret func(ctx context.Context) string
 	Vault               CredentialVault
 	Credits             CreditReader
+	AvatarVideoCredits  CreditQuoter
 	Chat                ChatService
 	Media               MediaService
 	Social              SocialService
@@ -190,6 +191,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/conversations", protected(http.HandlerFunc(a.createConversation)))
 	mux.Handle("GET /api/v1/conversations", protected(http.HandlerFunc(a.listConversations)))
 	mux.Handle("GET /api/v1/conversations/{id}", protected(http.HandlerFunc(a.getConversation)))
+	mux.Handle("PATCH /api/v1/conversations/{id}", protected(http.HandlerFunc(a.renameConversation)))
 	mux.Handle("DELETE /api/v1/conversations/{id}", protected(http.HandlerFunc(a.archiveConversation)))
 	mux.Handle("POST /api/v1/conversations/{id}/messages", protected(http.HandlerFunc(a.sendMessage)))
 	mux.Handle("GET /api/v1/credits", protected(http.HandlerFunc(a.myCredits)))
@@ -238,6 +240,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/voices", protected(http.HandlerFunc(a.listVoices)))
 	mux.Handle("POST /api/v1/voices/clone", protected(http.HandlerFunc(a.cloneVoice)))
 	mux.Handle("POST /api/v1/videos/avatar", protected(http.HandlerFunc(a.createAvatarVideo)))
+	mux.Handle("POST /api/v1/videos/avatar/quote", protected(http.HandlerFunc(a.quoteAvatarVideo)))
 	mux.Handle("POST /api/v1/videos/live-avatar", protected(http.HandlerFunc(a.createLiveAvatarVideo)))
 	mux.Handle("POST /api/v1/videos/live-avatar/script", protected(http.HandlerFunc(a.draftLiveAvatarScript)))
 	mux.Handle("GET /api/v1/videos/{id}", protected(http.HandlerFunc(a.getAvatarVideo)))

@@ -17,6 +17,7 @@ export interface GenerateFormValues {
   cta: string;
   music: string;
   firstFrameId: string;
+  avatarId: string;
   notifyEmail: boolean;
 }
 
@@ -39,6 +40,7 @@ export const EMPTY_FORM: GenerateFormValues = {
   cta: "",
   music: "",
   firstFrameId: "",
+  avatarId: "",
   notifyEmail: false,
 };
 

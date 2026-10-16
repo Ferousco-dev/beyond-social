@@ -38,33 +38,53 @@ export function PromptStep({
     if (prompt.trim() === "" || busy) return;
     setBusy(true);
     setError(null);
-    const result = await createLiveAvatar({ groupId: group.id, voiceId, script: prompt, prompt: direction(), idempotencyKey: crypto.randomUUID() });
-    if (result.status !== "ok") {
+    try {
+      const result = await createLiveAvatar({ groupId: group.id, voiceId, script: prompt, prompt: direction(), idempotencyKey: crypto.randomUUID() });
+      if (result.status !== "ok") {
+        setError(result.status === "unconfigured" ? "Avatar generation is not available right now." : result.message);
+        return;
+      }
+      const project = await createEditorProject({
+        title: brief.objective.trim() || "Avatar video",
+        generation: {
+          jobId: result.job.id,
+          script: prompt,
+          state: "running",
+          generator: "live-avatar",
+          groupId: group.id,
+          voiceId,
+          direction: direction(),
+        },
+      });
+      if (!project.ok) {
+        setError(project.message);
+        return;
+      }
+      setJob(result.job);
+      router.push(`/editor/${project.value}?job=${result.job.id}&script=${encodeURIComponent(prompt)}` as Route);
+    } catch {
+      setError("Something went wrong while starting avatar generation. Please try again.");
+    } finally {
       setBusy(false);
-      setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
-      return;
     }
-    const project = await createEditorProject({ title: brief.objective.trim() || "Avatar video" });
-    setBusy(false);
-    if (!project.ok) {
-      setError(project.message);
-      return;
-    }
-    setJob(result.job);
-    router.push(`/editor/${project.value}?job=${result.job.id}&script=${encodeURIComponent(prompt)}` as Route);
   }
 
   async function draft(): Promise<void> {
     if (busy) return;
     setBusy(true);
     setError(null);
-    const result = await draftLiveAvatarScript(brief);
-    setBusy(false);
-    if (result.status !== "ok") {
-      setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
-      return;
+    try {
+      const result = await draftLiveAvatarScript(brief);
+      if (result.status !== "ok") {
+        setError(result.status === "unconfigured" ? "Script drafting is not available right now." : result.message);
+        return;
+      }
+      setPrompt(result.script);
+    } catch {
+      setError("Something went wrong while drafting the script. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    setPrompt(result.script);
   }
 
   return (
