@@ -111,6 +111,47 @@ export const blogListResponse = z.object({
 });
 export const blogResponse = z.object({ data: blogPostSchema });
 
+export const assetSlotsSchema = z.object({
+  face: z.string(),
+  voice: z.string(),
+  product: z.string(),
+  environment: z.string(),
+});
+export const assetExtraSchema = z.object({ id: z.string(), label: z.string() });
+export const assetGroupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slots: assetSlotsSchema,
+  extras: z.array(assetExtraSchema),
+  face_consent_at: z.string().nullable().optional(),
+  voice_consent_at: z.string().nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type AssetGroup = z.infer<typeof assetGroupSchema>;
+export const assetGroupListResponse = z.object({ data: z.array(assetGroupSchema) });
+export const assetGroupResponse = z.object({ data: assetGroupSchema });
+
+const slotViewSchema = z.object({
+  media_id: z.string(),
+  name: z.string(),
+  kind: z.string(),
+  url: z.string(),
+});
+type SlotView = z.infer<typeof slotViewSchema>;
+export const assetGroupDetailSchema = assetGroupSchema.extend({
+  face_view: slotViewSchema.nullable().optional(),
+  voice_view: slotViewSchema.nullable().optional(),
+  product_view: slotViewSchema.nullable().optional(),
+  environment_view: slotViewSchema.nullable().optional(),
+  extra_views: z
+    .array(slotViewSchema)
+    .nullable()
+    .transform((views): SlotView[] => views ?? []),
+});
+export type AssetGroupDetail = z.infer<typeof assetGroupDetailSchema>;
+export const assetGroupDetailResponse = z.object({ data: assetGroupDetailSchema });
+
 const workflowStepSchema = z.object({
   id: z.string(),
   step_id: z.string(),

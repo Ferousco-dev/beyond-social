@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { UserSuspensionButton } from "@/features/admin-console/components/user-suspension-button";
 import { adminUsersResponse, segmentCountsResponse } from "@/lib/go-api/admin-schemas";
 import { goApi } from "@/lib/go-api/client";
 
@@ -71,17 +72,21 @@ export default async function AdminUsersPage({
       ) : (
         <ul className="mt-4 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
           {users.data.data.map((user) => (
-            <li key={user.id}>
+            <li key={user.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <Link
                 href={`/dashboard/admin/users/${user.id}`}
-                className="flex min-h-14 items-center justify-between gap-3 px-4 py-3 hover:bg-cloud"
+                className="min-w-0 flex-1 hover:text-primary"
               >
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-medium text-ink">{user.name || user.email}</span>
                   <span className="block truncate text-xs text-ink-soft">{user.email}</span>
                 </span>
-                <span className="shrink-0 text-sm tabular-nums text-ink">{user.balance} credits</span>
               </Link>
+              <span className="shrink-0 text-xs text-ink-soft" aria-label={user.suspended ? "Suspended" : "Active"}>
+                {user.suspended ? "Suspended" : "Active"}
+              </span>
+              <span className="shrink-0 text-sm tabular-nums text-ink">{user.balance} credits</span>
+              <UserSuspensionButton userId={user.id} suspended={user.suspended} />
             </li>
           ))}
         </ul>

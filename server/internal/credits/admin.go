@@ -40,10 +40,29 @@ type Setting struct {
 }
 
 type UserCredits struct {
-	ID      string `json:"id"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Balance int    `json:"balance"`
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Balance   int    `json:"balance"`
+	Suspended bool   `json:"suspended"`
+}
+
+type UserDetail struct {
+	ID                 string     `json:"id"`
+	Email              string     `json:"email"`
+	Name               string     `json:"name"`
+	Phone              string     `json:"phone"`
+	BusinessName       string     `json:"businessName"`
+	Industry           string     `json:"industry"`
+	Role               string     `json:"role"`
+	AccountStatus      string     `json:"accountStatus"`
+	CreatedAt          time.Time  `json:"createdAt"`
+	Plan               string     `json:"plan"`
+	SubscriptionStatus string     `json:"subscriptionStatus"`
+	CurrentPeriodEnd   *time.Time `json:"currentPeriodEnd,omitempty"`
+	CreditBalance      int        `json:"creditBalance"`
+	FiveHourPoints     int        `json:"fiveHourPoints"`
+	WeeklyPoints       int        `json:"weeklyPoints"`
 }
 
 type LedgerRow struct {

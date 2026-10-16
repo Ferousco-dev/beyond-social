@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type ReactNode } from "react";
 
-import { PageShell, Prose } from "@/components/landing/page-shell";
+import { PageShell } from "@/components/landing/page-shell";
+import { BlogArticleBody } from "@/features/blog/components/blog-article-body";
 import { getPublishedPost, getPublishedPosts } from "@/features/blog/queries";
 
 export async function generateMetadata({
@@ -29,23 +30,21 @@ export default async function BlogPostPage({
   const post = await getPublishedPost(slug);
   if (!post) notFound();
 
-  const published = post.published_at ? new Date(post.published_at) : null;
-
   return (
     <PageShell
       eyebrow={post.category !== "" ? post.category : "Notes"}
       title={post.title}
       lede={post.excerpt}
     >
-      <Prose>
-        {published ? (
-          <p className="text-sm text-ink-soft">
-            {published.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-          </p>
-        ) : null}
-        {post.content.split(/\n{2,}/).map((paragraph, index) => (
-          <p key={index}>{paragraph}</p>
-        ))}
+      <BlogArticleBody post={{
+        category: post.category,
+        title: post.title,
+        excerpt: post.excerpt,
+        content: post.content,
+        featuredImage: post.featured_image,
+        publishedAt: post.published_at,
+      }} />
+      <div className="mt-10">
         <p>
           <Link
             href="/blog"
@@ -54,7 +53,7 @@ export default async function BlogPostPage({
             All notes
           </Link>
         </p>
-      </Prose>
+      </div>
     </PageShell>
   );
 }

@@ -49,6 +49,9 @@ type Config struct {
 	// HeygenWebhookSecret verifies webhook signatures. Optional: without it
 	// callbacks are treated as hints and the video is always re-read from HeyGen.
 	HeygenWebhookSecret string
+	// ElevenLabsAPIKey clones voices and renders speech. Optional: the admin
+	// can paste it later under Provider keys; cloning refuses without it.
+	ElevenLabsAPIKey string
 	// SupabaseServiceRoleKey lets the service hand a private recording to HeyGen
 	// through a signed URL and delete it afterwards. Server-side only.
 	SupabaseServiceRoleKey string
@@ -136,6 +139,7 @@ func LoadFromEnv() (Config, error) {
 		AlertWebhookURL:        strings.TrimSpace(os.Getenv("ALERT_WEBHOOK_URL")),
 		HeygenAPIKey:           strings.TrimSpace(os.Getenv("HEYGEN_API_KEY")),
 		HeygenWebhookSecret:    strings.TrimSpace(os.Getenv("HEYGEN_WEBHOOK_SECRET")),
+		ElevenLabsAPIKey:       strings.TrimSpace(os.Getenv("ELEVENLABS_API_KEY")),
 		SupabaseServiceRoleKey: strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY")),
 
 		GeminiAPIKey:     strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),

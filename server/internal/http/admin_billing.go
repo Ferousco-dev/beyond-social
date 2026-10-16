@@ -7,8 +7,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
+	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
 	"github.com/Ferousco-dev/beyond-social/server/internal/mailer"
 )
+
+type RevenueHistoryReader interface {
+	RevenueHistory(ctx context.Context, days int) ([]billing.RevenuePoint, error)
+}
 
 func (a *App) billingOverview(w http.ResponseWriter, r *http.Request) {
 	info, err := a.deps.Usage.Info(r.Context())
@@ -22,6 +27,20 @@ func (a *App) billingOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, overview)
+}
+
+func (a *App) billingRevenueHistory(w http.ResponseWriter, r *http.Request) {
+	days, err := intParam(r, "days", 30, 7, 90)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	points, err := a.deps.RevenueHistory.RevenueHistory(r.Context(), days)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, points)
 }
 
 // EmailSettings reads and changes the From address of the product's emails.

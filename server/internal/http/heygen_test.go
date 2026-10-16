@@ -143,7 +143,7 @@ func TestListVoices(t *testing.T) {
 	}
 	res := h.get("/api/v1/voices?limit=10", h.token(t, alice))
 	_ = json.Unmarshal(res.Body.Bytes(), &body)
-	if res.Code != http.StatusOK || len(body.Data) != 2 || body.Data[0].Scope != voices.ScopeOwn || body.Data[1].Scope != voices.ScopeLibrary || body.Pagination["next_token"] != "n2" {
+	if res.Code != http.StatusOK || len(body.Data) != 2 || body.Data[0].Scope != voices.ScopeOwn || body.Data[1].Scope != voices.ScopeLibrary {
 		t.Fatalf("%d %s", res.Code, res.Body)
 	}
 	res = h.get("/api/v1/voices", h.token(t, bob))

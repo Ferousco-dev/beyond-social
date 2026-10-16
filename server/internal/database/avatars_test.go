@@ -217,6 +217,20 @@ func TestVoiceOwnership(t *testing.T) {
 	if list, _ := records.OwnVoices(ctx, bob); len(list) != 1 || list[0].ID != "bob-clone" {
 		t.Fatalf("bob's list: %+v", list)
 	}
+
+	// ElevenLabs clones join the same ownership answers.
+	if err := records.SaveClone(ctx, alice, "eleven-1", "Feranmi"); err != nil {
+		t.Fatalf("save clone: %v", err)
+	}
+	if own, other, _ := records.Ownership(ctx, alice, "eleven-1"); !own || other {
+		t.Fatalf("cloned voice must be alice's: own=%v other=%v", own, other)
+	}
+	if own, other, _ := records.Ownership(ctx, bob, "eleven-1"); own || !other {
+		t.Fatalf("cloned voice must read as someone else's for bob: own=%v other=%v", own, other)
+	}
+	if list, _ := records.OwnVoices(ctx, alice); len(list) != 2 {
+		t.Fatalf("clones join the voice list: %+v", list)
+	}
 }
 
 func TestDeleteReassignsDefaultAndIsOwnerScoped(t *testing.T) {

@@ -17,6 +17,24 @@ export type WorkflowResult =
  * then follow it to completion. Ownership is enforced server-side; the plan
  * hash binds approval to the previewed plan.
  */
+const submitSchema = z.object({
+  objective: z.string().trim().min(1).max(2000),
+  idempotencyKey: z.string().min(8).max(128),
+});
+
+export async function submitWorkflow(input: z.input<typeof submitSchema>): Promise<WorkflowResult> {
+  const parsed = submitSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Describe the workflow first." };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
+
+  const result = await goApi("/api/v1/workflows", workflowResponse, {
+    method: "POST",
+    body: { objective: parsed.data.objective },
+    headers: { "Idempotency-Key": parsed.data.idempotencyKey },
+  });
+  return result.ok ? { status: "ok", workflow: result.data.data } : { status: "error", message: result.message };
+}
+
 export async function approveWorkflow(workflowId: string, planHash: string): Promise<WorkflowResult> {
   if (!z.string().uuid().safeParse(workflowId).success || !/^[0-9a-f]{64}$/.test(planHash)) {
     return { status: "error", message: "Unknown workflow." };

@@ -30,6 +30,7 @@ var credentialChecks = []struct {
 	{secrets.NameHeygen, "HeyGen key", "Providers", true, "Avatar videos"},
 	{secrets.NameStripeKey, "Stripe secret key", "Payments", false, "Selling credit packs"},
 	{secrets.NameStripeWebhook, "Stripe webhook secret", "Payments", false, "Confirms payments. In Stripe add the endpoint PUBLIC_BASE_URL/api/v1/callbacks/stripe for checkout.session.completed, checkout.session.async_payment_succeeded, charge.refunded and customer.subscription.created, updated and deleted"},
+	{secrets.NameStripeWebhook, "Stripe webhook secret", "Payments", false, "Confirms payments. In Stripe add the endpoint PUBLIC_BASE_URL/api/v1/callbacks/stripe for checkout.session.completed, checkout.session.async_payment_succeeded, charge.refunded, customer.subscription.created/updated/deleted, invoice.paid, and invoice.payment_failed"},
 	{secrets.NameResend, "Resend key", "Email", false, "Receipts and billing emails. Verify a sending domain in Resend and set the From address below"},
 	{secrets.NameAlertWebhook, "Alert webhook", "Alerts", false, "A Slack or Discord webhook that is told when a provider runs low or a key breaks"},
 	{secrets.NameKIEWebhook, "KIE webhook secret", "Webhooks", false, "Signs completion callbacks"},

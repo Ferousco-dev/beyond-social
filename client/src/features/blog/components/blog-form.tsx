@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Eye } from "lucide-react";
 import { useState } from "react";
 
 import type { GoBlogPost } from "@/lib/go-api/schemas";
 
+import { BlogArticleBody, type BlogArticleDraft } from "./blog-article-body";
 import { createPost, deletePost, updatePost } from "../admin-actions";
 
 const inputClass =
@@ -16,6 +18,19 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<BlogArticleDraft | null>(null);
+
+  function updatePreview(form: HTMLFormElement | null): void {
+    if (!form) return;
+    const fields = new FormData(form);
+    setPreview({
+      category: String(fields.get("category") ?? ""),
+      title: String(fields.get("title") ?? ""),
+      excerpt: String(fields.get("excerpt") ?? ""),
+      content: String(fields.get("content") ?? ""),
+      featuredImage: String(fields.get("featured_image") ?? ""),
+    });
+  }
 
   async function onSubmit(form: FormData): Promise<void> {
     setBusy(true);
@@ -77,6 +92,11 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
           </select>
         </div>
       </div>
+      {post?.published_at ? (
+        <p className="text-xs text-ink-soft">
+          Published {new Date(post.published_at).toLocaleDateString("en-US")}. Saving as a draft unpublishes it; publishing again records a new date.
+        </p>
+      ) : null}
       <div>
         <label className={labelClass} htmlFor="blog-title">Title</label>
         <input id="blog-title" name="title" required defaultValue={post?.title ?? ""} className={inputClass} />
@@ -86,7 +106,7 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
         <textarea id="blog-excerpt" name="excerpt" rows={2} defaultValue={post?.excerpt ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary" />
       </div>
       <div>
-        <label className={labelClass} htmlFor="blog-content">Content (Markdown)</label>
+        <label className={labelClass} htmlFor="blog-content">Content</label>
         <textarea id="blog-content" name="content" rows={12} defaultValue={post?.content ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 font-mono text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -120,6 +140,15 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
       ) : null}
       <div className="flex gap-2">
         <button
+          type="button"
+          onClick={(event) => updatePreview(event.currentTarget.form)}
+          disabled={busy}
+          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink hover:bg-cloud disabled:opacity-40"
+        >
+          <Eye className="size-4" aria-hidden />
+          {preview ? "Refresh preview" : "Preview"}
+        </button>
+        <button
           type="submit"
           disabled={busy}
           className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
@@ -137,6 +166,15 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
           </button>
         ) : null}
       </div>
+      {preview ? (
+        <section aria-label="Unpublished article preview" className="border-t border-hairline pt-6">
+          <p className="text-xs font-medium uppercase text-ink-soft">Preview · not published</p>
+          {preview.category ? <p className="mt-4 text-xs font-medium uppercase text-primary">{preview.category}</p> : null}
+          <h2 className="mt-2 text-xl font-semibold text-ink">{preview.title || "Untitled post"}</h2>
+          {preview.excerpt ? <p className="mt-2 text-sm text-ink-soft">{preview.excerpt}</p> : null}
+          <div className="mt-6"><BlogArticleBody post={preview} /></div>
+        </section>
+      ) : null}
     </form>
   );
 }

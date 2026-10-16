@@ -52,6 +52,30 @@ func TestActive(t *testing.T) {
 	}
 }
 
+type registrationStore struct {
+	fakeStore
+	details RegistrationDetails
+}
+
+func (f *registrationStore) SetRegistrationDetails(_ context.Context, _ string, details RegistrationDetails) error {
+	f.details = details
+	return nil
+}
+
+func TestActiveWithDetailsPersistsValidatedSignupFields(t *testing.T) {
+	store := &registrationStore{fakeStore: fakeStore{p: Profile{ID: "u1"}}}
+	svc := NewService(store)
+	_, err := svc.ActiveWithDetails(context.Background(), "u1", "u@example.com", "User", RegistrationDetails{
+		Phone: " +1 555 0100 ", BusinessName: " Studio ", Industry: " Retail ",
+	})
+	if err != nil || store.details != (RegistrationDetails{Phone: "+1 555 0100", BusinessName: "Studio", Industry: "Retail"}) {
+		t.Fatalf("details = %+v err=%v", store.details, err)
+	}
+	if _, err := svc.ActiveWithDetails(context.Background(), "u1", "u@example.com", "User", RegistrationDetails{BusinessName: strings.Repeat("x", 121)}); err != nil {
+		t.Fatalf("invalid metadata should not block account access: %v", err)
+	}
+}
+
 type recordingRemover struct {
 	err   error
 	asked []string

@@ -25,16 +25,14 @@ Chat-first creation is retired; structured forms are the interface.
 - [ ] M5 — 5-step generation form A–E (credit estimate, confirm, progress, autosave)
 - [ ] M6 — Schedule calendar + publishing statuses (backend exists)
 - [ ] M7 — Analytics views + learning (backend collector missing)
-- [ ] M8 — Admin gaps (suspend route, profit view, blog CMS, monitoring page)
-- [ ] M9 — Hardening (backups missing, README exists, rate limits exist)
+- [x] M8: Admin gaps (suspend route, profit view, blog CMS, monitoring page)
+- [ ] M9: Hardening (backups missing, README exists, rate limits exist)
 
 ## Backend gaps for later milestones
 
 - Asset library tables (face/voice/product/background) with rename/replace/delete.
-- Admin suspend/restore route (schema enforced, no route).
 - Analytics collector + posting-time recommender.
 - Blog backend (posts table + API).
-- Subscription lifecycle audit rows.
 - Backups.
 
 ## Log
@@ -51,3 +49,7 @@ Chat-first creation is retired; structured forms are the interface.
 - M6 done: schedule calendar, reschedule inline, PUT posts route; API restarted with it.
 - M7 done: post_metrics table, YouTube collector, slots recommender, analytics page, best-time hints.
 - M5b started: ElevenLabs client + vault key + setup checklist + admin docs done.
+- M5b backend: asset groups API, voice cloning API with group consent gate.
+- M5b voices switched HeyGen to ElevenLabs; full Go suite green.
+- M5b frontend: groups pages, Live Avatar step flow, production build green.
+- M8 done: admin suspend/restore route, combined profit view with cost data, monitoring snapshot endpoint and dashboard page.

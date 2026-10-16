@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
+	"github.com/Ferousco-dev/beyond-social/server/internal/elevenlabs"
 )
 
 type fakeRecords struct {
@@ -21,39 +21,30 @@ func (f fakeRecords) Ownership(_ context.Context, userID, voiceID string) (bool,
 }
 
 type fakeProvider struct {
-	page    heygen.VoicePage
+	library []elevenlabs.LibraryVoice
 	exists  map[string]bool
 	err     error
-	lastQ   heygen.VoiceQuery
-	getCall int
+	calls   int
 }
 
-func (f *fakeProvider) ListVoices(_ context.Context, q heygen.VoiceQuery) (heygen.VoicePage, error) {
-	f.lastQ = q
-	return f.page, f.err
+func (f *fakeProvider) LibraryVoices(context.Context) ([]elevenlabs.LibraryVoice, error) {
+	return f.library, f.err
 }
 
-func (f *fakeProvider) GetVoice(_ context.Context, id string) (heygen.Voice, bool, error) {
-	f.getCall++
-	return heygen.Voice{ID: id}, f.exists[id], f.err
+func (f *fakeProvider) VoiceExists(_ context.Context, id string) (bool, error) {
+	f.calls++
+	return f.exists[id], f.err
 }
 
 var ctx = context.Background()
 
-func TestListPutsOwnVoicesFirstOnTheFirstPageOnly(t *testing.T) {
-	p := &fakeProvider{page: heygen.VoicePage{Voices: []heygen.Voice{{ID: "lib-1", Name: "Ava", Language: "English"}}, HasMore: true, NextToken: "n"}}
+func TestListPutsOwnVoicesFirst(t *testing.T) {
+	p := &fakeProvider{library: []elevenlabs.LibraryVoice{{ID: "lib-1", Name: "Ava"}}}
 	s := NewService(fakeRecords{own: []Voice{{ID: "mine", Name: "Mine", Scope: ScopeOwn}}}, p)
 
 	page, err := s.List(ctx, "alice", Query{Limit: 20})
-	if err != nil || len(page.Voices) != 2 || page.Voices[0].ID != "mine" || page.Voices[1].Scope != ScopeLibrary || !page.HasMore || page.NextToken != "n" {
+	if err != nil || len(page.Voices) != 2 || page.Voices[0].ID != "mine" || page.Voices[1].Scope != ScopeLibrary {
 		t.Fatalf("%+v %v", page, err)
-	}
-	if p.lastQ.Type != "public" {
-		t.Fatalf("only the public library may be listed, got type %q", p.lastQ.Type)
-	}
-	next, _ := s.List(ctx, "alice", Query{Limit: 20, Token: "n"})
-	if len(next.Voices) != 1 || next.Voices[0].Scope != ScopeLibrary {
-		t.Fatalf("later pages must not repeat own voices: %+v", next)
 	}
 }
 
@@ -61,13 +52,13 @@ func TestAllowed(t *testing.T) {
 	p := &fakeProvider{exists: map[string]bool{"lib-1": true, "bobs": true}}
 	s := NewService(fakeRecords{owners: map[string]string{"mine": "alice", "bobs": "bob"}}, p)
 
-	if err := s.Allowed(ctx, "alice", "mine"); err != nil || p.getCall != 0 {
-		t.Fatalf("own voices need no provider call: %v calls=%d", err, p.getCall)
+	if err := s.Allowed(ctx, "alice", "mine"); err != nil || p.calls != 0 {
+		t.Fatalf("own voices need no provider call: %v calls=%d", err, p.calls)
 	}
 	if err := s.Allowed(ctx, "alice", "lib-1"); err != nil {
 		t.Fatalf("library voices are allowed: %v", err)
 	}
-	// Bob's cloned voice exists at HeyGen, but it is not Alice's to use.
+	// Bob's cloned voice exists at the provider, but it is not Alice's to use.
 	if err := s.Allowed(ctx, "alice", "bobs"); !errors.Is(err, ErrNotAllowed) {
 		t.Fatalf("another user's voice must be refused: %v", err)
 	}

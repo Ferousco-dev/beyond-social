@@ -148,10 +148,12 @@ func (s *Service) subscriptionStarted(ctx context.Context, userID, customer, sub
 }
 
 type invoiceObject struct {
-	ID         string `json:"id"`
-	Customer   string `json:"customer"`
-	AmountPaid int    `json:"amount_paid"`
-	Currency   string `json:"currency"`
+	ID           string `json:"id"`
+	Customer     string `json:"customer"`
+	AmountPaid   int    `json:"amount_paid"`
+	AmountDue    int    `json:"amount_due"`
+	AttemptCount int    `json:"attempt_count"`
+	Currency     string `json:"currency"`
 }
 
 // invoicePaid records a paid subscription invoice for the revenue view.
@@ -164,4 +166,17 @@ func (s *Service) invoicePaid(ctx context.Context, o invoiceObject) error {
 		return err
 	}
 	return s.store.SaveInvoice(ctx, Invoice{ID: o.ID, UserID: userID, AmountCents: o.AmountPaid, Currency: o.Currency})
+}
+
+func (s *Service) invoiceFailed(ctx context.Context, o invoiceObject) error {
+	if o.ID == "" || o.Customer == "" || o.AmountDue <= 0 {
+		return nil
+	}
+	userID, err := s.store.UserOfCustomer(ctx, o.Customer)
+	if err != nil {
+		return err
+	}
+	return s.store.RecordInvoiceFailure(ctx, Invoice{
+		ID: o.ID, UserID: userID, AmountCents: o.AmountDue, Currency: o.Currency, AttemptCount: o.AttemptCount,
+	})
 }

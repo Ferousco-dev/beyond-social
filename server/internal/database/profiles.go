@@ -69,6 +69,27 @@ func (s *ProfileStore) MarkDeleted(ctx context.Context, id string) error {
 	return err
 }
 
+func (s *ProfileStore) SetSuspended(ctx context.Context, id string, suspended bool) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		update public.profiles
+		set suspended_at = case when $2 then coalesce(suspended_at, now()) else null end
+		where id = $1 and deleted_at is null`, id, suspended)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+func (s *ProfileStore) SetRegistrationDetails(ctx context.Context, id string, details accounts.RegistrationDetails) error {
+	_, err := s.pool.Exec(ctx, `
+		update public.profiles set
+			phone = case when $2 <> '' then $2 else phone end,
+			business_name = case when $3 <> '' then $3 else business_name end,
+			industry = case when $4 <> '' then $4 else industry end
+		where id = $1`, id, details.Phone, details.BusinessName, details.Industry)
+	return err
+}
+
 // Email returns where to write to a person, for the product's own emails.
 func (s *ProfileStore) Email(ctx context.Context, id string) (string, error) {
 	var email string

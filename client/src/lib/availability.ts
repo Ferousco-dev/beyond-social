@@ -36,6 +36,8 @@ export function routeAvailability(pathname: string): RouteAvailability {
     if (path === "/dashboard/c" || path.startsWith("/dashboard/c/")) return "available";
     // The structured New Video flow and generation form.
     if (path === "/dashboard/new" || path === "/dashboard/videos" || path.startsWith("/dashboard/videos/")) return "available";
+    // Asset groups and their detail pages.
+    if (path === "/dashboard/assets" || path.startsWith("/dashboard/assets/")) return "available";
     return "page-unavailable";
   }
   return "available";

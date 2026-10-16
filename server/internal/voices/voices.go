@@ -1,15 +1,14 @@
 // Package voices decides which voices a user may speak with and lists them.
 //
-// HeyGen keeps every cloned voice in one workspace, so HeyGen itself cannot say
-// whose voice is whose. Ownership is therefore decided here, from our own
-// records of which voices we created for which user.
+// Cloned voices are recorded per user. The shared library comes from
+// ElevenLabs; a voice recorded for someone else is refused whoever lists it.
 package voices
 
 import (
 	"context"
 	"errors"
 
-	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
+	"github.com/Ferousco-dev/beyond-social/server/internal/elevenlabs"
 )
 
 var ErrNotAllowed = errors.New("voice is not available to this user")
@@ -39,10 +38,10 @@ type Records interface {
 	Ownership(ctx context.Context, userID, voiceID string) (own, other bool, err error)
 }
 
-// Provider is the part of the HeyGen client used here.
+// Provider is the part of the ElevenLabs client used here.
 type Provider interface {
-	ListVoices(ctx context.Context, q heygen.VoiceQuery) (heygen.VoicePage, error)
-	GetVoice(ctx context.Context, voiceID string) (heygen.Voice, bool, error)
+	LibraryVoices(ctx context.Context) ([]elevenlabs.LibraryVoice, error)
+	VoiceExists(ctx context.Context, voiceID string) (bool, error)
 }
 
 type Service struct {
@@ -65,8 +64,9 @@ type Page struct {
 	NextToken string
 }
 
-// List returns the user's own voices first (on the first page only), then the
-// shared HeyGen library.
+// List returns the user's own voices first, then the shared ElevenLabs
+// library. ElevenLabs exposes no language, gender, or paging filters, so the
+// query fields are accepted and ignored rather than rejected.
 func (s *Service) List(ctx context.Context, userID string, q Query) (Page, error) {
 	var out []Voice
 	if q.Token == "" {
@@ -76,19 +76,19 @@ func (s *Service) List(ctx context.Context, userID string, q Query) (Page, error
 		}
 		out = append(out, own...)
 	}
-	page, err := s.provider.ListVoices(ctx, heygen.VoiceQuery{Type: "public", Language: q.Language, Gender: q.Gender, Limit: q.Limit, Token: q.Token})
+	library, err := s.provider.LibraryVoices(ctx)
 	if err != nil {
 		return Page{}, err
 	}
-	for _, v := range page.Voices {
-		out = append(out, Voice{ID: v.ID, Name: v.Name, Scope: ScopeLibrary, Language: v.Language, Gender: v.Gender, PreviewAudioURL: v.PreviewAudioURL})
+	for _, v := range library {
+		out = append(out, Voice{ID: v.ID, Name: v.Name, Scope: ScopeLibrary})
 	}
-	return Page{Voices: out, HasMore: page.HasMore, NextToken: page.NextToken}, nil
+	return Page{Voices: out}, nil
 }
 
-// Allowed returns nil when userID may use voiceID: it is one of their own, or
-// a voice HeyGen offers that no other user owns. A voice recorded for someone
-// else is refused whatever HeyGen says about it.
+// Allowed returns nil when userID may use voiceID: it is one of their own,
+// or a shared library voice no other user owns. A voice recorded for someone
+// else is refused whatever the library says.
 func (s *Service) Allowed(ctx context.Context, userID, voiceID string) error {
 	if voiceID == "" {
 		return ErrNotAllowed
@@ -103,7 +103,7 @@ func (s *Service) Allowed(ctx context.Context, userID, voiceID string) error {
 	if other {
 		return ErrNotAllowed
 	}
-	_, exists, err := s.provider.GetVoice(ctx, voiceID)
+	exists, err := s.provider.VoiceExists(ctx, voiceID)
 	if err != nil {
 		return err
 	}

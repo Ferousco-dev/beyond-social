@@ -14,6 +14,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
 	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
 	"github.com/Ferousco-dev/beyond-social/server/internal/apify"
+	"github.com/Ferousco-dev/beyond-social/server/internal/assets"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
@@ -25,6 +26,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
+	"github.com/Ferousco-dev/beyond-social/server/internal/elevenlabs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
@@ -108,6 +110,7 @@ func run() error {
 		secrets.NameHeygen:        cfg.HeygenAPIKey,
 		secrets.NameHeygenWebhook: cfg.HeygenWebhookSecret,
 		secrets.NameGemini:        cfg.GeminiAPIKey,
+		secrets.NameElevenLabs:    cfg.ElevenLabsAPIKey,
 		secrets.NameAlertWebhook:  cfg.AlertWebhookURL,
 	}
 	for name, value := range cfg.SocialApps {
@@ -137,7 +140,11 @@ func run() error {
 	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient}.Build
 	transformProcessor.Builders = mediaBuilders
 	transformProcessor.ResultKeys = kietools.ResultKeys
-	voiceService := voices.NewService(database.NewVoiceRecords(pool), heygenClient)
+	voiceService := voices.NewService(database.NewVoiceRecords(pool), elevenlabs.NewClientWithKey(vault.Key(secrets.NameElevenLabs)))
+	voiceCloner := voices.NewCloneService(database.NewVoiceRecords(pool), mediaService, elevenlabs.NewClientWithKey(vault.Key(secrets.NameElevenLabs)))
+	assetService := assets.NewService(database.NewAssetStore(pool), mediaService)
+	liveAvatarService := kietools.NewLiveAvatarService(jobService, assetService, voiceService)
+	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}, Groups: assetService, Speaker: elevenlabs.NewClientWithKey(vault.Key(secrets.NameElevenLabs))}.BuildLiveAvatar
 	avatarStore := database.NewAvatarStore(pool)
 	avatarService := avatars.NewService(avatarStore, footage, heygenClient, hub, cfg.AllowedOrigins).WithVoices(voiceService).WithBiller(avatarBiller).WithQuota(entitlements.CheckAvatar)
 	avatarProcessor := &avatars.Processor{Service: avatarService, Repo: avatarStore, Alerts: alertService}
@@ -230,17 +237,23 @@ func run() error {
 		Posts:               postService,
 		AppURL:              cfg.AppURL(),
 		Accounts:            accounts.NewService(profileStore).WithGranter(creditService),
+		AdminProfiles:       profileStore,
 		Credits:             creditService,
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
+		AdminUserDetails:    database.NewAdminCreditStore(creditStore),
 		CreditLedger:        creditService,
 		Blog:                blog.NewService(database.NewBlogStore(pool)),
 		Insights:            insightsService,
+		AssetGroups:         assetService,
+		Monitoring:          database.NewMonitoringStore(pool),
 		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),
 		Voices:              voiceService,
+		VoiceCloner:         voiceCloner,
 		Alerts:              alertService,
 		AvatarVideo:         avatarvideo.NewService(jobService, avatarService, voiceService),
+		LiveAvatar:          liveAvatarService,
 		Videos:              videoProcessor,
 		VideoReconciler:     videoProcessor,
 		HeygenWebhookSecret: vault.Optional(secrets.NameHeygenWebhook),
@@ -256,6 +269,7 @@ func run() error {
 		Billing:             billingService,
 		Usage:               creditService,
 		BillingAdmin:        billingStore,
+		RevenueHistory:      billingStore,
 		EmailSettings:       settingsStore,
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		Purger:              purger,
@@ -344,6 +358,13 @@ func run() error {
 				Name: "talking_photo", Capacity: 3, Timeout: transform.HandleTimeout,
 				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
 					return jobService.Claim(ctx, kietools.JobTalk, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "live_avatar", Capacity: 3, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, kietools.JobLiveAvatar, n, transform.Lease)
 				},
 				Handle: transformProcessor.Handle,
 			},

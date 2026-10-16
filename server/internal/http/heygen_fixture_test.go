@@ -7,6 +7,7 @@ import (
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatars"
 	"github.com/Ferousco-dev/beyond-social/server/internal/avatarvideo"
+	"github.com/Ferousco-dev/beyond-social/server/internal/elevenlabs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
@@ -28,11 +29,21 @@ type heygenFixture struct {
 
 func newHeygenFixture(jobService *jobs.Service, pub realtime.Publisher) *heygenFixture {
 	f := &heygenFixture{repo: &fakeAvatarRepo{rows: map[string]avatars.Avatar{}}, provider: &fakeHeygen{video: heygen.Video{Status: heygen.VideoProcessing}}}
-	f.voices = voices.NewService(fakeVoiceRecords{}, f.provider)
+	f.voices = voices.NewService(fakeVoiceRecords{}, &fakeElevenVoices{})
 	f.avatars = avatars.NewService(f.repo, fakeFootage{}, f.provider, pub, []string{"https://app.example.com"}).WithVoices(f.voices)
 	f.videoService = avatarvideo.NewService(jobService, f.avatars, f.voices)
 	f.processor = &avatarvideo.Processor{Jobs: jobService, Avatars: f.avatars, Provider: f.provider}
 	return f
+}
+
+type fakeElevenVoices struct{}
+
+func (fakeElevenVoices) LibraryVoices(context.Context) ([]elevenlabs.LibraryVoice, error) {
+	return []elevenlabs.LibraryVoice{{ID: "lib-1", Name: "Ava"}}, nil
+}
+
+func (fakeElevenVoices) VoiceExists(_ context.Context, id string) (bool, error) {
+	return id == "lib-1", nil
 }
 
 // seedReady gives userID a ready avatar and returns its ID.

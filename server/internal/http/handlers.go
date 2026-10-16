@@ -87,7 +87,9 @@ func (a *App) requireActiveAccount(next http.Handler) http.Handler {
 			writeUnauthorized(w)
 			return
 		}
-		if _, err := a.deps.Accounts.Active(r.Context(), identity.UserID, identity.Email, identity.Name); err != nil {
+		if _, err := a.deps.Accounts.ActiveWithDetails(r.Context(), identity.UserID, identity.Email, identity.Name, accounts.RegistrationDetails{
+			Phone: identity.Phone, BusinessName: identity.BusinessName, Industry: identity.Industry,
+		}); err != nil {
 			a.accountError(w, r, err)
 			return
 		}
