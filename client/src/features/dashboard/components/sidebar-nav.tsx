@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CircleUser,
   Film,
+  LineChart,
   PenSquare,
   Share2,
   TrendingUp,
@@ -63,6 +64,12 @@ const LINKS: readonly NavLink[] = [
     icon: CalendarClock,
     // A clock hand advancing, which is the one thing this page is about.
     motion: "group-hover:rotate-12",
+  },
+  {
+    href: "/dashboard/analytics" as Route,
+    label: "Analytics",
+    icon: LineChart,
+    motion: "group-hover:scale-110",
   },
   {
     href: "/dashboard/connections" as Route,

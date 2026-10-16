@@ -78,6 +78,7 @@ type Deps struct {
 	CreditAdmin    CreditAdmin
 	CreditLedger   CreditLedger
 	Blog           BlogService
+	Insights       InsightsService
 	Probe          CredentialProbe
 	Audit          Auditor
 	Verifier       *auth.Verifier
@@ -159,6 +160,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/posts", protected(http.HandlerFunc(a.listPosts)))
 	mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(a.createPost)))
 	mux.Handle("POST /api/v1/posts/{id}/cancel", protected(http.HandlerFunc(a.cancelPost)))
+	mux.Handle("PUT /api/v1/posts/{id}", protected(http.HandlerFunc(a.reschedulePost)))
+	mux.Handle("GET /api/v1/posts/{id}/metrics", protected(http.HandlerFunc(a.getPostMetrics)))
+	mux.Handle("GET /api/v1/insights/slots", protected(http.HandlerFunc(a.getInsightSlots)))
 	mux.Handle("GET /api/v1/social", protected(http.HandlerFunc(a.listSocial)))
 	mux.Handle("POST /api/v1/social/{platform}/connect", protected(http.HandlerFunc(a.connectSocial)))
 	mux.Handle("DELETE /api/v1/social/{platform}", protected(http.HandlerFunc(a.disconnectSocial)))

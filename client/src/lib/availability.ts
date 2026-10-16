@@ -12,7 +12,7 @@
  */
 
 /** Dashboard pages that run on the Go API today. Anything else is unavailable. */
-const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable", "/dashboard/credits", "/dashboard/connections", "/dashboard/schedule", "/dashboard/library", "/dashboard/usage"]);
+const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboard/assets", "/dashboard/avatar", "/dashboard/avatar/new", "/dashboard/unavailable", "/dashboard/credits", "/dashboard/connections", "/dashboard/schedule", "/dashboard/library", "/dashboard/usage", "/dashboard/analytics"]);
 
 /** The admin console runs entirely on the Go API, so all of it is available. */
 const ADMIN_PREFIX = "/dashboard/admin";
@@ -34,6 +34,8 @@ export function routeAvailability(pathname: string): RouteAvailability {
     if (path === ADMIN_PREFIX || path.startsWith(`${ADMIN_PREFIX}/`)) return "available";
     // The combined project workspace (canvas + chat) runs here now.
     if (path === "/dashboard/c" || path.startsWith("/dashboard/c/")) return "available";
+    // The structured New Video flow and generation form.
+    if (path === "/dashboard/new" || path === "/dashboard/videos" || path.startsWith("/dashboard/videos/")) return "available";
     return "page-unavailable";
   }
   return "available";

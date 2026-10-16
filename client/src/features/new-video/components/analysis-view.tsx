@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 
 import { readAnalysis, startAnalysis, type AnalysisContent } from "../actions";
 
+export const APPROVED_SCRIPT_KEY = "bs:approved-script";
+
+export interface ApprovedScript {
+  hook: string;
+  main: string;
+  dialogue: string;
+  cta: string;
+}
+
 const POLL_MS = 3_000;
 
 /** Phase 2: watch the analysis land, then shape the suggested script. */
@@ -82,7 +91,10 @@ export function AnalysisView({
   }
 
   return (
-    <ScriptEditor analysis={analysis} context={context} approved={approved} onApprove={() => setApproved(true)} onBack={onBack} />
+    <ScriptEditor analysis={analysis} context={context} approved={approved} onApprove={(script) => {
+      window.sessionStorage.setItem(APPROVED_SCRIPT_KEY, JSON.stringify(script));
+      setApproved(true);
+    }} onBack={onBack} />
   );
 }
 
@@ -114,7 +126,7 @@ function ScriptEditor({
   analysis: AnalysisContent;
   context: string;
   approved: boolean;
-  onApprove: () => void;
+  onApprove: (script: ApprovedScript) => void;
   onBack: () => void;
 }) {
   const [hook, setHook] = useState(analysis.hook);
@@ -174,7 +186,7 @@ function ScriptEditor({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={onApprove}
+            onClick={() => onApprove({ hook, main, dialogue, cta })}
             className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Approve script

@@ -41,6 +41,13 @@ func (n *Notifier) ProEnded(userID string) {
 	})
 }
 
+// VideoReady tells someone their video finished, when they asked to be told.
+func (n *Notifier) VideoReady(userID string) {
+	n.send(userID, func() (string, string) {
+		return "Your video is ready", fmt.Sprintf("Your video finished generating and is waiting in your library.\n\nWatch it: %s/dashboard/library%s", n.appURL, signoff)
+	})
+}
+
 // LimitReached tells a Pro member a usage limit is full and when it refills.
 func (n *Notifier) LimitReached(userID, window string, resetsAt time.Time) {
 	n.send(userID, func() (string, string) {

@@ -38,6 +38,16 @@ func (f *fakePostService) Cancel(_ context.Context, user, id string) (publish.Po
 	return publish.Post{ID: id, Status: publish.StatusCancelled}, nil
 }
 
+func (f *fakePostService) Reschedule(_ context.Context, user, id string, at time.Time) (publish.Post, error) {
+	if user != alice {
+		return publish.Post{}, publish.ErrNotFound
+	}
+	if id == "70000000-0000-4000-8000-000000000001" {
+		return publish.Post{}, publish.ErrNotReschedulable
+	}
+	return publish.Post{ID: id, Status: publish.StatusScheduled, ScheduledAt: at}, nil
+}
+
 func TestPostEndpoints(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
 	fake := &fakePostService{}
@@ -97,5 +107,22 @@ func TestPostEndpoints(t *testing.T) {
 	}
 	if res := send(h, http.MethodPost, "/api/v1/posts/nope/cancel", a, ""); res.Code != http.StatusNotFound {
 		t.Fatalf("malformed id: %d", res.Code)
+	}
+
+	reschedule := `{"at":"2026-11-14T18:00:00Z"}`
+	if res := send(h, http.MethodPut, "/api/v1/posts/"+postID, a, reschedule); res.Code != http.StatusOK || !strings.Contains(res.Body.String(), "2026-11-14") {
+		t.Fatalf("reschedule: %d %s", res.Code, res.Body)
+	}
+	if res := send(h, http.MethodPut, "/api/v1/posts/70000000-0000-4000-8000-000000000001", a, reschedule); res.Code != http.StatusConflict {
+		t.Fatalf("not reschedulable: expected 409, got %d", res.Code)
+	}
+	if res := send(h, http.MethodPut, "/api/v1/posts/"+postID, b, reschedule); res.Code != http.StatusNotFound {
+		t.Fatalf("a stranger rescheduled: %d", res.Code)
+	}
+	if res := send(h, http.MethodPut, "/api/v1/posts/"+postID, a, `{}`); res.Code != http.StatusBadRequest {
+		t.Fatalf("missing time: expected 400, got %d", res.Code)
+	}
+	if res := send(h, http.MethodPut, "/api/v1/posts/nope", a, reschedule); res.Code != http.StatusNotFound {
+		t.Fatalf("malformed id: expected 404, got %d", res.Code)
 	}
 }

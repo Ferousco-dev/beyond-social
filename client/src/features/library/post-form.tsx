@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { type Route } from "next";
-import { useId, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type FormEvent, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { getInsightSlots } from "@/features/analytics/actions";
 
 import { postFromLibrary } from "./actions";
 
@@ -28,7 +29,27 @@ export function PostForm({ jobId, onDone }: { readonly jobId: string; readonly o
   const [when, setWhen] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Best posting times learned from this account's own history. Nothing shows
+  // until the account has enough published posts to learn from.
+  useEffect(() => {
+    let cancelled = false;
+    setSuggestion(null);
+    void getInsightSlots(platform).then((result) => {
+      if (cancelled || result.status !== "ok" || result.slots.length === 0) return;
+      const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const best = result.slots
+        .slice(0, 2)
+        .map((slot) => `${days[slot.weekday]} ${slot.hour}:00`)
+        .join(" or ");
+      setSuggestion(`This account does best around ${best}.`);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [platform]);
 
   const submit = (event: FormEvent): void => {
     event.preventDefault();
@@ -93,6 +114,9 @@ export function PostForm({ jobId, onDone }: { readonly jobId: string; readonly o
           When (leave empty to post now)
         </label>
         <input id={`${id}-when`} type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={FIELD} />
+        {suggestion ? (
+          <p className="mt-1 text-xs text-ink-soft">{suggestion}</p>
+        ) : null}
       </div>
       {error ? (
         <p role="alert" className="text-xs text-destructive">

@@ -228,6 +228,29 @@ export type ScheduledPost = z.infer<typeof postSchema>;
 export const postsResponse = z.object({ data: z.array(postSchema) });
 export const postResponse = z.object({ data: postSchema });
 
+export const metricsSchema = z.object({
+  post_id: z.string(),
+  views: z.number(),
+  likes: z.number(),
+  comments: z.number(),
+  shares: z.number(),
+  collected_at: z.string(),
+});
+export type PostMetrics = z.infer<typeof metricsSchema>;
+
+export const postMetricsResponse = z.object({
+  data: z.object({ latest: metricsSchema.nullable(), history: z.array(metricsSchema) }),
+});
+
+export const slotSchema = z.object({
+  weekday: z.number().int().min(0).max(6),
+  hour: z.number().int().min(0).max(23),
+  score: z.number(),
+  posts: z.number(),
+});
+export type InsightSlot = z.infer<typeof slotSchema>;
+export const slotsResponse = z.object({ data: z.object({ slots: z.array(slotSchema) }) });
+
 const editorProjectSchema = z.object({
   id: z.string(),
   title: z.string(),

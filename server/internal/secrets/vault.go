@@ -18,6 +18,8 @@ const (
 	NameHeygen        = "heygen"
 	NameHeygenWebhook = "heygen_webhook_secret"
 	NameGemini        = "gemini"
+	// NameElevenLabs clones voices and renders speech for Live Avatar videos.
+	NameElevenLabs = "elevenlabs"
 	// Stripe takes payments for credit packs.
 	// Resend sends receipts and billing emails.
 	NameResend = "resend_api_key"
@@ -40,7 +42,7 @@ const (
 
 // Names lists every credential the product can use, in display order.
 var Names = []string{
-	NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini, NameOpenRouter, NameStripeKey, NameStripeWebhook, NameResend, NameAlertWebhook,
+	NameApify, NameKIE, NameKIEWebhook, NameHeygen, NameHeygenWebhook, NameGemini, NameElevenLabs, NameOpenRouter, NameStripeKey, NameStripeWebhook, NameResend, NameAlertWebhook,
 	NameYouTubeClientID, NameYouTubeClientSecret, NameTikTokClientKey, NameTikTokClientSecret, NameMetaAppID, NameMetaAppSecret,
 }
 

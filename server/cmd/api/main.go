@@ -30,6 +30,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/handoff"
 	"github.com/Ferousco-dev/beyond-social/server/internal/heygen"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
+	"github.com/Ferousco-dev/beyond-social/server/internal/insights"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
@@ -157,6 +158,7 @@ func run() error {
 		return from
 	}), profileStore, cfg.AppURL())
 	creditService.WithLimitNotifier(emails)
+	transformProcessor.Notifier = emails
 	billingStore := database.NewBillingStore(pool)
 	billingService := billing.NewService(billingStore, creditService, billing.NewStripe(vault.Key(secrets.NameStripeKey)), cfg.AppURL()).
 		WithPrices(creditService).WithNotifier(emails).WithTax(creditService.TaxEnabled)
@@ -208,6 +210,8 @@ func run() error {
 		Store: postStore, Fetcher: transformProcessor.Fetcher, Vault: footage, Tokens: socialService,
 		Publishers: map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}, Alerts: alertService,
 	}
+	insightsService := insights.NewService(database.NewMetricsStore(pool), socialService, youtube)
+	go insights.NewCollector(insightsService, 15*time.Minute).Run(ctx)
 	memoryStore := database.NewMemoryStore(pool)
 	memoryService := memory.NewService(memoryStore)
 	chatService := chat.NewService(
@@ -230,6 +234,7 @@ func run() error {
 		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
 		CreditLedger:        creditService,
 		Blog:                blog.NewService(database.NewBlogStore(pool)),
+		Insights:            insightsService,
 		Probe:               providers.NewChecker(),
 		Avatars:             avatarService,
 		Handoff:             handoff.NewService(database.NewHandoffStore(pool), avatarService),

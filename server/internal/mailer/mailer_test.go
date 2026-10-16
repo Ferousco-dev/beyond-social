@@ -83,10 +83,11 @@ func TestEmailsNameTheRightPlaceAndNeverFailTheCaller(t *testing.T) {
 	n.ProStarted("u1")
 	n.PaymentFailed("u1")
 	n.ProEnded("u1")
+	n.VideoReady("u1")
 	n.LimitReached("u1", "five_hour", time.Date(2026, 10, 14, 15, 0, 0, 0, time.UTC))
 	n.LimitReached("u1", "week", time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC))
-	if len(mail.sent) != 6 {
-		t.Fatalf("sent %d, want 6", len(mail.sent))
+	if len(mail.sent) != 7 {
+		t.Fatalf("sent %d, want 7", len(mail.sent))
 	}
 	for _, m := range mail.sent {
 		if m.To != "a@example.com" || m.Subject == "" || !strings.Contains(m.Text, "https://app.example/") {
@@ -96,8 +97,8 @@ func TestEmailsNameTheRightPlaceAndNeverFailTheCaller(t *testing.T) {
 	if !strings.Contains(mail.sent[0].Text, "200 credits") || !strings.Contains(mail.sent[0].Text, "USD 10.00") {
 		t.Errorf("receipt: %s", mail.sent[0].Text)
 	}
-	if !strings.Contains(mail.sent[4].Text, "five hour session") || !strings.Contains(mail.sent[5].Text, "weekly") {
-		t.Errorf("limit texts: %q / %q", mail.sent[4].Text, mail.sent[5].Text)
+	if !strings.Contains(mail.sent[5].Text, "five hour session") || !strings.Contains(mail.sent[6].Text, "weekly") {
+		t.Errorf("limit texts: %q / %q", mail.sent[5].Text, mail.sent[6].Text)
 	}
 
 	// An unknown user, or a sender that fails, must not panic or return an error to anyone.
@@ -106,7 +107,7 @@ func TestEmailsNameTheRightPlaceAndNeverFailTheCaller(t *testing.T) {
 	n.ProStarted("u1")
 	mail.err = provider.ErrNotConfigured("resend")
 	n.ProStarted("u1")
-	if len(mail.sent) != 6 {
+	if len(mail.sent) != 7 {
 		t.Fatalf("a failed send was counted: %d", len(mail.sent))
 	}
 }

@@ -47,3 +47,7 @@ Chat-first creation is retired; structured forms are the interface.
 - M3 started: New Video button, projects wording, chat copy retired (routes live until M4).
 - M3 done: sidebar, palette, and empty states use project wording.
 - M4 done: /dashboard/new 3-option flow, trending with split, link analysis, script approval, analyses API.
+- M5 done: 5-step generation form with quote, confirm, progress, email opt-in; new scenes fields and completion mail endpoints.
+- M6 done: schedule calendar, reschedule inline, PUT posts route; API restarted with it.
+- M7 done: post_metrics table, YouTube collector, slots recommender, analytics page, best-time hints.
+- M5b started: ElevenLabs client + vault key + setup checklist + admin docs done.

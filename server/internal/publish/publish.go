@@ -36,6 +36,8 @@ var (
 	ErrNotFound = errors.New("post not found")
 	// ErrNotCancellable means the post is already on its way or finished.
 	ErrNotCancellable = errors.New("this post can no longer be cancelled")
+	// ErrNotReschedulable means the post already started or finished.
+	ErrNotReschedulable = errors.New("this post can no longer be rescheduled")
 )
 
 const (
@@ -89,6 +91,8 @@ type Store interface {
 	CountOpen(ctx context.Context, userID string) (int, error)
 	// Cancel moves a post that has not started publishing to cancelled.
 	Cancel(ctx context.Context, userID, id string) (Post, error)
+	// Reschedule moves a post that has not started publishing to a new time.
+	Reschedule(ctx context.Context, userID, id string, at time.Time) (Post, error)
 	// Claim leases due posts, pushing their next_run_at out by lease.
 	Claim(ctx context.Context, limit int, lease time.Duration) ([]Post, error)
 	Advance(ctx context.Context, id string, u Update) (Post, error)
@@ -216,4 +220,12 @@ func (s *Service) Get(ctx context.Context, userID, id string) (Post, error) {
 // Cancel stops a post that has not started publishing.
 func (s *Service) Cancel(ctx context.Context, userID, id string) (Post, error) {
 	return s.store.Cancel(ctx, userID, id)
+}
+
+// Reschedule moves a post that has not started publishing to a new time.
+func (s *Service) Reschedule(ctx context.Context, userID, id string, at time.Time) (Post, error) {
+	if at.Before(s.now().Add(-scheduleGrace)) || at.After(s.now().Add(maxLeadTime)) {
+		return Post{}, fmt.Errorf("%w: choose a time from now to a year ahead", ErrInvalid)
+	}
+	return s.store.Reschedule(ctx, userID, id, at)
 }

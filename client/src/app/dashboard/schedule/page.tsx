@@ -4,6 +4,7 @@ import { type Route } from "next";
 import { type ReactNode } from "react";
 
 import { PostRow } from "@/features/schedule/post-row";
+import { ScheduleCalendar } from "@/features/schedule/schedule-calendar";
 import { goApi } from "@/lib/go-api/client";
 import { postsResponse } from "@/lib/go-api/schemas";
 
@@ -33,11 +34,14 @@ export default async function SchedulePage(): Promise<ReactNode> {
           to start.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
-          {result.data.data.map((post) => (
-            <PostRow key={post.id} post={post} />
-          ))}
-        </ul>
+        <div className="mt-6 flex flex-col gap-6">
+          <ScheduleCalendar posts={result.data.data} />
+          <ul className="divide-y divide-hairline rounded-xl border border-hairline bg-paper">
+            {result.data.data.map((post) => (
+              <PostRow key={post.id} post={post} />
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

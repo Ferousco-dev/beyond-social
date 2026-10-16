@@ -53,6 +53,8 @@ type Request struct {
 	AspectRatio string
 	// Sound asks the model for speech, effects and ambience, which costs more.
 	Sound bool
+	// NotifyEmail sends the owner an email when the clip finishes.
+	NotifyEmail bool
 }
 
 // TotalSeconds is the length of the clip, and what it is charged for.
@@ -103,7 +105,7 @@ func ParseArgs(args map[string]any) (Request, error) {
 	var r Request
 	for name := range args {
 		switch name {
-		case "scenes", "image_media_id", "aspect_ratio", "sound":
+		case "scenes", "image_media_id", "aspect_ratio", "sound", "notify_email":
 		default:
 			return Request{}, fmt.Errorf("%w: unknown argument %q", ErrInvalid, name)
 		}
@@ -129,6 +131,7 @@ func ParseArgs(args map[string]any) (Request, error) {
 	r.ImageMediaID, _ = args["image_media_id"].(string)
 	r.AspectRatio, _ = args["aspect_ratio"].(string)
 	r.Sound, _ = args["sound"].(bool)
+	r.NotifyEmail, _ = args["notify_email"].(bool)
 	return r, r.Validate()
 }
 
@@ -159,6 +162,9 @@ func (r Request) Args() map[string]any {
 	}
 	if r.Sound {
 		args["sound"] = true
+	}
+	if r.NotifyEmail {
+		args["notify_email"] = true
 	}
 	return args
 }

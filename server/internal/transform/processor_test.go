@@ -54,6 +54,41 @@ func TestHappyPathSubmitsThenCompletesOnlyOnProviderSuccess(t *testing.T) {
 	}
 }
 
+func TestCompletionEmailOnlyWhenOptedIn(t *testing.T) {
+	r := newRig(t)
+	r.proc.Notifier = r.notify
+	r.provider.task = kie.Task{State: kie.StateSuccess, ResultURLs: []string{"https://cdn.kie/out.mp4"}}
+	newNotifiedJob := func(notify bool) jobs.Job {
+		input := map[string]any{
+			"video_id": "vid-1", "platform": "tiktok", "source_url": "https://www.tiktok.com/@a/video/1",
+			"prompt": "make it neon", "duration": "5", "resolution": "720p",
+		}
+		if notify {
+			input["notify_email"] = true
+		}
+		job, _, err := r.service.Create(context.Background(), alice, JobType, input, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return job
+	}
+
+	// Without the flag, success stays silent.
+	r.proc.Handle(ctx, newNotifiedJob(false))
+	if len(r.notify.users) != 0 {
+		t.Fatalf("no email expected, got %v", r.notify.users)
+	}
+
+	// With the flag, one email goes to the owner and only the owner.
+	job := newNotifiedJob(true)
+	r.proc.Handle(ctx, job)
+	r.provider.task = kie.Task{State: kie.StateSuccess, ResultURLs: []string{"https://cdn.kie/out.mp4"}}
+	r.proc.Handle(ctx, r.jobs.get(job.ID))
+	if len(r.notify.users) != 1 || r.notify.users[0] != alice {
+		t.Fatalf("expected one email to alice, got %v", r.notify.users)
+	}
+}
+
 func TestProviderFailureIsGenericAndTerminal(t *testing.T) {
 	r := newRig(t)
 	job := r.queued()

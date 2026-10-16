@@ -218,6 +218,9 @@ func TestEditorWatchAndScenes(t *testing.T) {
 	if res := send(h, http.MethodPost, "/api/v1/editor/scenes", a, `{"prompt":"a dog runs on","seconds":5}`); res.Code != http.StatusAccepted || scenes.last.TotalSeconds() != 5 {
 		t.Fatalf("scene: %d %s", res.Code, res.Body)
 	}
+	if res := send(h, http.MethodPost, "/api/v1/editor/scenes", a, `{"prompt":"a dog runs on","seconds":5,"notify_email":true,"image_media_id":"40000000-0000-4000-8000-000000000001"}`); res.Code != http.StatusAccepted || !scenes.last.NotifyEmail || scenes.last.ImageMediaID != "40000000-0000-4000-8000-000000000001" {
+		t.Fatalf("options must reach the request: %d %+v", res.Code, scenes.last)
+	}
 	scenes.err = generate.ErrInvalid
 	if res := send(h, http.MethodPost, "/api/v1/editor/scenes", a, `{"prompt":"","seconds":5}`); res.Code != http.StatusBadRequest {
 		t.Fatalf("invalid scene: %d", res.Code)

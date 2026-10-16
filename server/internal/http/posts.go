@@ -18,6 +18,7 @@ type PostService interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]publish.Post, error)
 	Get(ctx context.Context, userID, id string) (publish.Post, error)
 	Cancel(ctx context.Context, userID, id string) (publish.Post, error)
+	Reschedule(ctx context.Context, userID, id string, at time.Time) (publish.Post, error)
 }
 
 func (a *App) listPosts(w http.ResponseWriter, r *http.Request) {
@@ -115,6 +116,44 @@ func (a *App) cancelPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, post)
+}
+
+// reschedulePost moves a post that has not started publishing to a new time.
+func (a *App) reschedulePost(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "post not found")
+		return
+	}
+	var req struct {
+		At time.Time `json:"at"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.At.IsZero() {
+		writeError(w, http.StatusBadRequest, "invalid_request", "send the new time as at")
+		return
+	}
+	post, err := a.deps.Posts.Reschedule(r.Context(), identity.UserID, id, req.At)
+	if err != nil {
+		a.postRescheduleError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, post)
+}
+
+func (a *App) postRescheduleError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, publish.ErrNotReschedulable) {
+		writeError(w, http.StatusConflict, "not_reschedulable", err.Error())
+		return
+	}
+	a.postError(w, r, err)
 }
 
 func (a *App) postError(w http.ResponseWriter, r *http.Request, err error) {

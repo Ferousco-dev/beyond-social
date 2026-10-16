@@ -65,6 +65,20 @@ func TestArgsRoundTripAndRefuseExtras(t *testing.T) {
 	}
 }
 
+func TestNotifyEmailRoundTrips(t *testing.T) {
+	r := twoScenes()
+	r.NotifyEmail = true
+	got, err := ParseArgs(r.Args())
+	if err != nil || !got.NotifyEmail {
+		t.Fatalf("got = %+v err=%v", got, err)
+	}
+	plain := twoScenes()
+	got, err = ParseArgs(plain.Args())
+	if err != nil || got.NotifyEmail {
+		t.Fatalf("opt-in must default off: %+v err=%v", got, err)
+	}
+}
+
 type fakePictures struct {
 	data []byte
 	err  error
