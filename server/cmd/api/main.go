@@ -206,10 +206,10 @@ func run() error {
 	// Any tool without something to run it leaves the planner's list.
 	orchestratorService.Seal()
 
-	analysisService := analysis.NewService(jobService)
+	analysisService := analysis.NewService(jobService).WithLinks(linkResolver)
 	analysisProcessor := &analysis.Processor{
 		Jobs: jobService, Watcher: geminiClient, Resolver: transformProcessor.Resolver,
-		Fetcher: transformProcessor.Fetcher, Uploads: mediaService, Alerts: alertService,
+		Fetcher: transformProcessor.Fetcher, Uploads: mediaService, Stored: mediaService, Alerts: alertService,
 	}
 
 	workflowPlanner := chat.NewWorkflowPlanner(orchestratorService, registry)
@@ -341,6 +341,13 @@ func run() error {
 					return jobService.Claim(ctx, analysis.JobType, n, analysis.Lease)
 				},
 				Handle: analysisProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "video_fetch", Capacity: 3, Timeout: analysis.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, analysis.FetchJobType, n, analysis.Lease)
+				},
+				Handle: analysisProcessor.HandleFetch,
 			},
 			&worker.Pool[jobs.Job]{
 				Name: "video_generate", Capacity: 3, Timeout: transform.HandleTimeout,

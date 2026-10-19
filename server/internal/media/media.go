@@ -268,6 +268,17 @@ func (s *Service) AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name
 	if err != nil {
 		return Descriptor{}, fmt.Errorf("%w: %v", ErrNotUploaded, err)
 	}
+	return s.StoreVideo(ctx, userID, jobID, name, data)
+}
+
+// StoreVideo saves video bytes already in hand as the user's own file. Storing
+// the same job twice returns the first copy.
+func (s *Service) StoreVideo(ctx context.Context, userID, jobID, name string, data []byte) (Descriptor, error) {
+	if existing, found, err := s.store.FindByJob(ctx, userID, jobID); err != nil {
+		return Descriptor{}, err
+	} else if found {
+		return existing.Descriptor(), nil
+	}
 	mime, err := safenet.SniffVideo(data)
 	if err != nil {
 		return Descriptor{}, ErrUnsupported
