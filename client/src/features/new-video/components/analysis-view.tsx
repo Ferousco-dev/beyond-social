@@ -23,10 +23,15 @@ const MAX_ANALYSIS_WAIT_MS = 8 * 60 * 1000;
 /** Phase 2: watch the analysis land, then shape the suggested script. */
 export function AnalysisView({
   url,
+  mediaId,
+  notes,
   context,
   onBack,
 }: {
   url: string;
+  /** A previewed link's stored copy, analysed in place of downloading it again. */
+  mediaId?: string;
+  notes?: string;
   context: string;
   onBack: () => void;
 }) {
@@ -42,7 +47,7 @@ export function AnalysisView({
   useEffect(() => {
     let cancelled = false;
     startedAt.current = Date.now();
-    void startAnalysis({ url, idempotencyKey: crypto.randomUUID() })
+    void startAnalysis({ url, mediaId, notes, idempotencyKey: crypto.randomUUID() })
       .then((result) => {
         if (cancelled) return;
         if (result.status !== "ok") {
@@ -61,7 +66,7 @@ export function AnalysisView({
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, mediaId, notes]);
 
   useEffect(() => {
     if (!jobId || analysis || error) return;

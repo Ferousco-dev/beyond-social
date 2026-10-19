@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { attachmentUrl } from "@/features/conversation/media-actions";
 import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
 import { jobResponse } from "@/lib/go-api/schemas";
 
@@ -47,21 +48,30 @@ function toContent(raw: z.infer<typeof analysisContentSchema>): AnalysisContent 
   };
 }
 
-const startSchema = z.object({
-  url: z.string().trim().min(1).max(2000),
-  idempotencyKey: z.string().min(8).max(128),
-});
+const startSchema = z
+  .object({
+    url: z.string().trim().max(2000).optional(),
+    mediaId: z.string().uuid().optional(),
+    notes: z.string().trim().max(1000).optional(),
+    idempotencyKey: z.string().min(8).max(128),
+  })
+  .refine((value) => Boolean(value.url) || Boolean(value.mediaId));
 
-/** Queues a link analysis and reads its current state, including the result. */
+/**
+ * Queues an analysis and reads its current state, including the result. A
+ * previewed link is sent as the stored file it became, so it is not downloaded
+ * a second time.
+ */
 export async function startAnalysis(input: z.input<typeof startSchema>): Promise<AnalysisResult> {
   const parsed = startSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Paste a video link first." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
 
+  const { url, mediaId, notes, idempotencyKey } = parsed.data;
   const created = await goApi("/api/v1/analyses", jobResponse, {
     method: "POST",
-    body: { url: parsed.data.url },
-    headers: { "Idempotency-Key": parsed.data.idempotencyKey },
+    body: mediaId ? { media_id: mediaId, notes } : { url, notes },
+    headers: { "Idempotency-Key": idempotencyKey },
   });
   if (!created.ok) return { status: "error", message: created.message };
   return readAnalysis(created.data.data.id);
@@ -84,6 +94,64 @@ export async function readAnalysis(jobId: string): Promise<AnalysisResult> {
       stage: job.stage ?? null,
       progress: job.progress,
       analysis: content,
+      error: job.error ?? null,
+    },
+  };
+}
+
+export type LinkPreviewResult =
+  | {
+      readonly status: "ok";
+      readonly job: {
+        readonly id: string;
+        readonly state: string;
+        readonly kind: string | null;
+        readonly url: string | null;
+        readonly videoUrl: string | null;
+        readonly mediaId: string | null;
+        readonly error: string | null;
+      };
+    }
+  | { readonly status: "unconfigured" }
+  | { readonly status: "error"; readonly message: string };
+
+const previewResultSchema = z.object({
+  kind: z.string().optional(),
+  url: z.string().optional(),
+  media_id: z.string().uuid().optional(),
+});
+
+/** Starts downloading a pasted link so it can be watched before it is analysed. */
+export async function startLinkPreview(input: { url: string; idempotencyKey: string }): Promise<LinkPreviewResult> {
+  const parsed = startSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: "Paste a video link first." };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
+  const created = await goApi("/api/v1/analyses/previews", jobResponse, {
+    method: "POST",
+    body: { url: parsed.data.url },
+    headers: { "Idempotency-Key": parsed.data.idempotencyKey },
+  });
+  if (!created.ok) return { status: "error", message: created.message };
+  return readLinkPreview(created.data.data.id);
+}
+
+export async function readLinkPreview(jobId: string): Promise<LinkPreviewResult> {
+  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "Unknown preview." };
+  if (!isGoApiConfigured()) return { status: "unconfigured" };
+  const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);
+  if (!result.ok) return { status: "error", message: result.message };
+  const job = result.data.data;
+  const parsed = previewResultSchema.safeParse(job.result ?? {});
+  const stored = parsed.success ? parsed.data : {};
+  return {
+    status: "ok",
+    job: {
+      id: job.id,
+      state: job.status,
+      kind: stored.kind ?? null,
+      url: stored.url ?? null,
+      mediaId: stored.media_id ?? null,
+      videoUrl: stored.media_id ? await attachmentUrl(stored.media_id) : null,
       error: job.error ?? null,
     },
   };

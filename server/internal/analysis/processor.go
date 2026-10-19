@@ -63,8 +63,10 @@ type Processor struct {
 	Fetcher  Fetcher
 	// Uploads reads a video the user uploaded. Optional.
 	Uploads Uploads
-	Alerts  alerts.Reporter
-	Now     func() time.Time
+	// Stored keeps previewed videos. Optional: without it, fetch jobs fail.
+	Stored Stored
+	Alerts alerts.Reporter
+	Now    func() time.Time
 }
 
 func (p *Processor) now() time.Time {
@@ -105,7 +107,9 @@ func (p *Processor) Handle(ctx context.Context, job jobs.Job) {
 	}
 	p.advance(ctx, job, jobs.Update{Stage: ptr(stageWatching), Progress: ptr(40)})
 
-	data, _, err := p.Watcher.GenerateJSONFromMedia(ctx, system, "Analyse this video.", []gemini.Media{media}, schema())
+	watchStart := p.now()
+	data, _, err := p.Watcher.GenerateJSONFromMedia(ctx, system, prompt(job), []gemini.Media{media}, schema())
+	slog.Info("analysis watched", "job_id", job.ID, "watch_ms", p.now().Sub(watchStart).Milliseconds())
 	if err != nil {
 		p.failed(ctx, job, err)
 		return
@@ -128,14 +132,18 @@ func (p *Processor) load(ctx context.Context, link Link) (gemini.Media, error) {
 	if link.Kind == KindYouTube {
 		return gemini.Media{URI: link.URL}, nil
 	}
+	start := p.now()
 	fileURL, err := p.Resolver.Resolve(ctx, video.Platform(link.Kind), link.URL)
 	if err != nil {
 		return gemini.Media{}, err
 	}
+	resolved := p.now()
 	data, err := p.Fetcher.Fetch(ctx, fileURL, MaxInlineBytes)
 	if err != nil {
 		return gemini.Media{}, err
 	}
+	slog.Info("analysis media loaded", "kind", link.Kind, "resolve_ms", resolved.Sub(start).Milliseconds(),
+		"fetch_ms", p.now().Sub(resolved).Milliseconds(), "bytes", len(data))
 	mime, err := safenet.SniffVideo(data)
 	if err != nil {
 		return gemini.Media{}, err
@@ -208,4 +216,14 @@ func (p *Processor) loadUpload(ctx context.Context, userID, id string) (gemini.M
 		return gemini.Media{}, err
 	}
 	return gemini.Media{Data: data, MIME: mime}, nil
+}
+
+// prompt is the instruction sent with the video, plus anything the person asked
+// the analysis to pay attention to.
+func prompt(job jobs.Job) string {
+	notes := str(job.Input, "notes")
+	if notes == "" {
+		return "Analyse this video."
+	}
+	return "Analyse this video.\n\nThe person who will remake it asked for this to be kept in mind:\n" + notes
 }

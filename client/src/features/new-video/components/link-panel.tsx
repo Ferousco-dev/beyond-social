@@ -3,17 +3,37 @@
 import { useState } from "react";
 
 import { AnalysisView } from "./analysis-view";
+import { LinkPreview } from "./link-preview";
 
 const fieldClass =
   "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
 
-/** Option 2: paste a link, then explicitly ask for an analysis. */
+interface Approved {
+  url: string;
+  mediaId?: string;
+  notes: string;
+}
+
+/** Option 2: paste a link, watch the video, then explicitly ask for an analysis. */
 export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
   const [url, setUrl] = useState(initialUrl);
   const [submitted, setSubmitted] = useState<string | null>(null);
+  const [approved, setApproved] = useState<Approved | null>(null);
+
+  if (approved) {
+    return (
+      <AnalysisView
+        url={approved.url}
+        mediaId={approved.mediaId}
+        notes={approved.notes}
+        context="Pasted link"
+        onBack={() => setApproved(null)}
+      />
+    );
+  }
 
   if (submitted) {
-    return <AnalysisView url={submitted} context="Pasted link" onBack={() => setSubmitted(null)} />;
+    return <LinkPreview url={submitted} onApprove={setApproved} onBack={() => setSubmitted(null)} />;
   }
 
   return (
@@ -40,12 +60,12 @@ export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
             disabled={url.trim() === ""}
             className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            Analyze video
+            Preview video
           </button>
         </span>
       </label>
       <p className="text-xs text-ink-soft">
-        Analysis creates a summary and fresh script. It does not generate or transform a video.
+        You will see the video first. Analysis creates a summary and fresh script; it does not generate or transform a video.
       </p>
     </form>
   );

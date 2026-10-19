@@ -248,6 +248,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/discover/{id}", protected(http.HandlerFunc(a.getDiscovery)))
 	mux.Handle("GET /api/v1/discover/{id}/videos", protected(http.HandlerFunc(a.listDiscoveryVideos)))
 	mux.Handle("POST /api/v1/analyses", protected(http.HandlerFunc(a.submitAnalysis)))
+	mux.Handle("POST /api/v1/analyses/previews", protected(http.HandlerFunc(a.submitAnalysisPreview)))
 	mux.Handle("GET /api/v1/workflows/{id}", protected(http.HandlerFunc(a.getWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/approve", protected(http.HandlerFunc(a.approveWorkflow)))
 	mux.Handle("POST /api/v1/workflows/{id}/start", protected(http.HandlerFunc(a.startWorkflow)))

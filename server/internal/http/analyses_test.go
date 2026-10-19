@@ -15,7 +15,18 @@ type fakeAnalyses struct {
 	err error
 }
 
-func (f *fakeAnalyses) Start(_ context.Context, _ string, _ analysis.Link, _, _ string) (jobs.Job, bool, error) {
+func (f *fakeAnalyses) Queue(_ context.Context, _ string, _ analysis.Request, _ string) (jobs.Job, bool, error) {
+	return f.result()
+}
+
+func (f *fakeAnalyses) StartFetch(_ context.Context, _, raw, _ string) (jobs.Job, bool, error) {
+	if _, ok := analysis.ParseLink(raw); !ok {
+		return jobs.Job{}, false, analysis.ErrBadLink
+	}
+	return f.result()
+}
+
+func (f *fakeAnalyses) result() (jobs.Job, bool, error) {
 	if f.err != nil {
 		return jobs.Job{}, false, f.err
 	}
