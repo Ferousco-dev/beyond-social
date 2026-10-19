@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { INDUSTRIES } from "@/features/auth/schemas";
+import { INDUSTRIES, INDUSTRY_MAX, OTHER_INDUSTRY, resolveIndustry } from "@/features/auth/schemas";
 import { searchSocial } from "@/features/discover/search-actions";
 import type { DiscoverPost } from "@/features/discover/types";
 import { cn } from "@/lib/utils";
@@ -40,7 +40,9 @@ const fieldClass =
 
 /** Option 1: trending search with industry and country, then pick a reference. */
 export function TrendingPanel() {
-  const [industry, setIndustry] = useState<string>(INDUSTRIES[0] ?? "");
+  const [industryChoice, setIndustryChoice] = useState<string>(INDUSTRIES[0] ?? "");
+  const [customIndustry, setCustomIndustry] = useState("");
+  const industry = resolveIndustry(industryChoice, customIndustry) || "your industry";
   const [country, setCountry] = useState<string>(COUNTRIES[0] ?? "Worldwide");
   const [platform, setPlatform] = useState<(typeof PLATFORMS)[number]["id"]>("tiktok");
   const [query, setQuery] = useState("");
@@ -88,7 +90,7 @@ export function TrendingPanel() {
       >
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
           Industry
-          <select value={industry} onChange={(event) => setIndustry(event.target.value)} className={cn(fieldClass, "cursor-pointer")}>
+          <select value={industryChoice} onChange={(event) => setIndustryChoice(event.target.value)} className={cn(fieldClass, "cursor-pointer")}>
             {INDUSTRIES.map((item) => (
               <option key={item} value={item}>
                 {item}
@@ -96,6 +98,18 @@ export function TrendingPanel() {
             ))}
           </select>
         </label>
+        {industryChoice === OTHER_INDUSTRY ? (
+          <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
+            Your industry
+            <input
+              value={customIndustry}
+              onChange={(event) => setCustomIndustry(event.target.value)}
+              maxLength={INDUSTRY_MAX}
+              placeholder="Pet grooming"
+              className={fieldClass}
+            />
+          </label>
+        ) : null}
         <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
           Target country
           <select value={country} onChange={(event) => setCountry(event.target.value)} className={cn(fieldClass, "cursor-pointer")}>

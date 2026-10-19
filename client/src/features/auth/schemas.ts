@@ -11,6 +11,12 @@ const password = z
   .regex(/[A-Z]/, "Add an uppercase letter")
   .regex(/[0-9]/, "Add a number");
 
+/** Matches the profiles.industry column limit. */
+export const INDUSTRY_MAX = 80;
+
+/** The list entry that lets a person type their own industry. */
+export const OTHER_INDUSTRY = "Other";
+
 export const loginSchema = z.object({
   email,
   password: z.string().min(1, "Password is required"),
@@ -32,6 +38,7 @@ export const signupSchema = z
       (value) => (INDUSTRIES as readonly string[]).includes(value),
       { message: "Choose an industry" },
     ),
+    industryOther: z.string().trim().max(INDUSTRY_MAX, `Use at most ${INDUSTRY_MAX} characters`),
     password,
     confirmPassword: z.string().min(1, "Confirm your password"),
     acceptedTerms: z.boolean().refine((value) => value, {
@@ -41,6 +48,10 @@ export const signupSchema = z
   .refine((values) => values.password === values.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+  })
+  .refine((values) => values.industry !== OTHER_INDUSTRY || values.industryOther.length >= 2, {
+    message: "Tell us your industry",
+    path: ["industryOther"],
   });
 
 export const forgotPasswordSchema = z.object({ email });
@@ -65,8 +76,13 @@ export const INDUSTRIES = [
   "Entertainment & media",
   "Marketing agency",
   "Technology & SaaS",
-  "Other",
+  OTHER_INDUSTRY,
 ] as const;
+
+/** The industry to store: what was typed when "Other" is chosen, else the choice. */
+export function resolveIndustry(industry: string, industryOther: string): string {
+  return industry === OTHER_INDUSTRY ? industryOther.trim() : industry;
+}
 
 export const otpSchema = z.object({
   code: z.string().length(6, "Enter the 6-digit code").regex(/^\d+$/, "Digits only"),
