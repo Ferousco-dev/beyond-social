@@ -12,6 +12,7 @@ import {
   loginSchema,
   otpSchema,
   resetPasswordSchema,
+  resolveIndustry,
   signupSchema,
   type ForgotPasswordInput,
   type LoginInput,
@@ -100,7 +101,7 @@ export async function signUpAction(input: SignupInput): Promise<AuthResult> {
         full_name: parsed.data.fullName,
         phone: parsed.data.phone,
         business_name: parsed.data.businessName,
-        industry: parsed.data.industry,
+        industry: resolveIndustry(parsed.data.industry, parsed.data.industryOther),
       },
     },
   });

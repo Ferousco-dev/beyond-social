@@ -8,7 +8,7 @@ import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 
 import { signUpAction, type AuthResult } from "../actions";
-import { INDUSTRIES, signupSchema, type SignupInput } from "../schemas";
+import { INDUSTRIES, INDUSTRY_MAX, OTHER_INDUSTRY, signupSchema, type SignupInput } from "../schemas";
 import { FormStatus } from "./form-status";
 import { PasswordField } from "./password-field";
 import { SubmitButton } from "./submit-button";
@@ -33,6 +33,7 @@ export function SignupForm() {
       phone: "",
       businessName: "",
       industry: "",
+      industryOther: "",
       password: "",
       confirmPassword: "",
       acceptedTerms: false,
@@ -116,6 +117,16 @@ export function SignupForm() {
           </p>
         ) : null}
       </div>
+      {watch("industry") === OTHER_INDUSTRY ? (
+        <TextField
+          id="industryOther"
+          label="Your industry"
+          maxLength={INDUSTRY_MAX}
+          placeholder="Pet grooming"
+          error={errors.industryOther?.message}
+          {...register("industryOther")}
+        />
+      ) : null}
       <PasswordField
         id="password"
         label="Password"
