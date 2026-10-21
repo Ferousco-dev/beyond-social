@@ -14,12 +14,21 @@ const projectsResponse = z.object({
   data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string() })),
 });
 
-// A draft only appears while it is still in progress. Once the analysis
-// completes, the person either continues to video setup (it drops off this
-// list because they are past it) or walks away; a draft that goes stale here
-// forever would just be clutter.
+// A draft appears while it is in progress, and for a while after it finishes:
+// the UI's own poll can miss a completion (a backgrounded tab throttles its
+// timer), so the only record of a finished job may be here. Once the person
+// opens it, either they continue to video setup or they walk away; either way
+// a draft that stayed forever once truly stale would just be clutter, so a
+// completed one only counts for a couple of hours.
 const draftJobTypes = new Set(["video_fetch", "video_analysis"]);
-const draftStatuses = new Set(["queued", "running"]);
+const inProgressStatuses = new Set(["queued", "running"]);
+const completedDraftWindowMs = 2 * 60 * 60 * 1000;
+
+function isDraftworthy(job: { readonly status: string; readonly updated_at: string }): boolean {
+  if (inProgressStatuses.has(job.status)) return true;
+  if (job.status !== "completed") return false;
+  return Date.now() - new Date(job.updated_at).getTime() < completedDraftWindowMs;
+}
 
 function draftStage(type: string): "preview" | "analysis" | null {
   if (type === "video_fetch") return "preview";
@@ -54,13 +63,14 @@ export async function getSidebarProjects(): Promise<readonly SidebarProject[]> {
     : [];
   const drafts = jobs.ok
     ? jobs.data.data
-        .filter((job) => draftJobTypes.has(job.type) && draftStatuses.has(job.status))
+        .filter((job) => draftJobTypes.has(job.type) && isDraftworthy(job))
         .map((job) => {
           const stage = draftStage(job.type);
           const url = typeof job.input?.url === "string" ? job.input.url : "";
+          const label = job.status === "completed" ? "Ready" : "Draft";
           return {
             id: job.id,
-            title: url !== "" ? `Draft: ${url}` : "Draft video",
+            title: url !== "" ? `${label}: ${url}` : `${label} video`,
             href: `/dashboard/new?option=link&job=${job.id}&stage=${stage ?? "preview"}`,
             kind: "draft" as const,
             updatedAt: job.updated_at,
