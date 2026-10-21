@@ -15,10 +15,19 @@ interface Approved {
 }
 
 /** Option 2: paste a link, watch the video, then explicitly ask for an analysis. */
-export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
+export function LinkPanel({
+  initialUrl = "",
+  resumeJobId,
+  resumeStage,
+}: {
+  initialUrl?: string;
+  /** A draft reopened from the sidebar: an in-progress preview or analysis job to pick back up. */
+  resumeJobId?: string;
+  resumeStage?: "preview" | "analysis";
+}) {
   const [url, setUrl] = useState(initialUrl);
-  const [submitted, setSubmitted] = useState<string | null>(null);
-  const [approved, setApproved] = useState<Approved | null>(null);
+  const [submitted, setSubmitted] = useState<string | null>(resumeStage === "preview" ? "" : null);
+  const [approved, setApproved] = useState<Approved | null>(resumeStage === "analysis" ? { url: "", notes: "" } : null);
 
   if (approved) {
     return (
@@ -27,13 +36,21 @@ export function LinkPanel({ initialUrl = "" }: { initialUrl?: string }) {
         mediaId={approved.mediaId}
         notes={approved.notes}
         context="Pasted link"
+        resumeJobId={resumeStage === "analysis" ? resumeJobId : undefined}
         onBack={() => setApproved(null)}
       />
     );
   }
 
-  if (submitted) {
-    return <LinkPreview url={submitted} onApprove={setApproved} onBack={() => setSubmitted(null)} />;
+  if (submitted !== null) {
+    return (
+      <LinkPreview
+        url={submitted}
+        resumeJobId={resumeStage === "preview" ? resumeJobId : undefined}
+        onApprove={setApproved}
+        onBack={() => setSubmitted(null)}
+      />
+    );
   }
 
   return (

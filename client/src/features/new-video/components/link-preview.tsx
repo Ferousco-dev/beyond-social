@@ -20,10 +20,13 @@ type Preview = Extract<LinkPreviewResult, { status: "ok" }>["job"];
  */
 export function LinkPreview({
   url,
+  resumeJobId,
   onApprove,
   onBack,
 }: {
   url: string;
+  /** A fetch job already in progress (e.g. opened from a sidebar draft): poll it instead of starting a new one. */
+  resumeJobId?: string;
   onApprove: (choice: { url: string; mediaId?: string; notes: string }) => void;
   onBack: () => void;
 }) {
@@ -65,6 +68,19 @@ export function LinkPreview({
       }, POLL_MS);
     };
 
+    if (resumeJobId) {
+      void readLinkPreview(resumeJobId)
+        .then((result) => {
+          const job = apply(result);
+          if (job && job.state !== "completed") poll(resumeJobId);
+        })
+        .catch(() => !cancelled && setError("Something went wrong while fetching the video."));
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+      };
+    }
+
     void startLinkPreview({ url, idempotencyKey: crypto.randomUUID() })
       .then((result) => {
         const job = apply(result);
@@ -76,7 +92,7 @@ export function LinkPreview({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [url]);
+  }, [url, resumeJobId]);
 
   if (error) {
     return (

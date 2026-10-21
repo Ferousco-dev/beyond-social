@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { FileVideo, LoaderCircle, MessageCircle, MoreHorizontal } from "lucide-react";
+import { Clock, FileVideo, LoaderCircle, MessageCircle, MoreHorizontal } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -28,9 +28,10 @@ export function SidebarProjectRow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const descriptionId = useId();
-  const Icon = item.kind === "video" ? FileVideo : MessageCircle;
+  const Icon = item.kind === "video" ? FileVideo : item.kind === "chat" ? MessageCircle : Clock;
 
   async function rename(event: FormEvent<HTMLFormElement>): Promise<void> {
+    if (item.kind === "draft") return;
     event.preventDefault();
     setBusy(true);
     setError(null);
@@ -42,6 +43,7 @@ export function SidebarProjectRow({
   }
 
   async function remove(): Promise<void> {
+    if (item.kind === "draft") return;
     setBusy(true);
     setError(null);
     const result = await deleteProject(item.kind, item.id);
@@ -66,19 +68,21 @@ export function SidebarProjectRow({
         <Icon className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate">{item.title}</span>
       </Link>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button type="button" aria-label={`Actions for ${item.title}`} className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-soft hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary pointer-coarse:size-11">
-            <MoreHorizontal className="size-4" aria-hidden />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-36 rounded-lg border border-hairline bg-paper p-1 text-ink shadow-card">
-            <DropdownMenu.Item onSelect={() => { setTitle(item.title); setError(null); setRenameOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud">Rename</DropdownMenu.Item>
-            <DropdownMenu.Item onSelect={() => { setError(null); setDeleteOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-cloud">Delete</DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      {item.kind !== "draft" ? (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button type="button" aria-label={`Actions for ${item.title}`} className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-ink-soft hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary pointer-coarse:size-11">
+              <MoreHorizontal className="size-4" aria-hidden />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-36 rounded-lg border border-hairline bg-paper p-1 text-ink shadow-card">
+              <DropdownMenu.Item onSelect={() => { setTitle(item.title); setError(null); setRenameOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud">Rename</DropdownMenu.Item>
+              <DropdownMenu.Item onSelect={() => { setError(null); setDeleteOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-cloud">Delete</DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      ) : null}
 
       <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
         <Dialog.Portal>

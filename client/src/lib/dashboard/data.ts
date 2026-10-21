@@ -14,7 +14,7 @@ export interface SidebarProject {
   readonly id: string;
   readonly title: string;
   readonly href: string;
-  readonly kind: "video" | "chat";
+  readonly kind: "video" | "chat" | "draft";
   readonly updatedAt: string;
 }
 
