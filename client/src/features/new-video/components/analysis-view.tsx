@@ -26,6 +26,7 @@ export function AnalysisView({
   mediaId,
   notes,
   context,
+  resumeJobId,
   onBack,
 }: {
   url: string;
@@ -33,9 +34,11 @@ export function AnalysisView({
   mediaId?: string;
   notes?: string;
   context: string;
+  /** An analysis job already in progress (e.g. opened from a sidebar draft): poll it instead of starting a new one. */
+  resumeJobId?: string;
   onBack: () => void;
 }) {
-  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(resumeJobId ?? null);
   const [state, setState] = useState<string>("queued");
   const [stage, setStage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
@@ -47,6 +50,29 @@ export function AnalysisView({
   useEffect(() => {
     let cancelled = false;
     startedAt.current = Date.now();
+
+    if (resumeJobId) {
+      void readAnalysis(resumeJobId)
+        .then((result) => {
+          if (cancelled) return;
+          if (result.status !== "ok") {
+            setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
+            return;
+          }
+          setState(result.job.state);
+          setStage(result.job.stage);
+          setProgress(result.job.progress);
+          if (result.job.analysis) setAnalysis(result.job.analysis);
+          else if (result.job.state === "failed") setError(result.job.error ?? "The analysis failed. No video was generated.");
+        })
+        .catch(() => {
+          if (!cancelled) setError("Something went wrong while checking the analysis. Go back and try again.");
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     void startAnalysis({ url, mediaId, notes, idempotencyKey: crypto.randomUUID() })
       .then((result) => {
         if (cancelled) return;
@@ -66,7 +92,7 @@ export function AnalysisView({
     return () => {
       cancelled = true;
     };
-  }, [url, mediaId, notes]);
+  }, [url, mediaId, notes, resumeJobId]);
 
   useEffect(() => {
     if (!jobId || analysis || error) return;

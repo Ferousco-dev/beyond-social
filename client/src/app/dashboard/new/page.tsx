@@ -27,10 +27,11 @@ function isOption(value: string | undefined): value is OptionId {
 export default async function NewVideoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ option?: string; link?: string }>;
+  searchParams: Promise<{ option?: string; link?: string; job?: string; stage?: string }>;
 }): Promise<ReactNode> {
-  const { option, link } = await searchParams;
+  const { option, link, job, stage } = await searchParams;
   const active = isOption(option) ? option : null;
+  const resumeStage = stage === "preview" || stage === "analysis" ? stage : undefined;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
@@ -59,7 +60,13 @@ export default async function NewVideoPage({
       {active ? (
         <div className="mt-6 rounded-2xl border border-hairline bg-paper p-4 sm:p-5">
           {active === "trending" ? <TrendingPanel /> : null}
-          {active === "link" ? <LinkPanel initialUrl={link?.startsWith("https://") ? link : ""} /> : null}
+          {active === "link" ? (
+            <LinkPanel
+              initialUrl={link?.startsWith("https://") ? link : ""}
+              resumeJobId={job}
+              resumeStage={resumeStage}
+            />
+          ) : null}
           {active === "idea" ? <OwnIdeaPanel /> : null}
           {active === "avatar" ? <AvatarPackPanel /> : null}
         </div>

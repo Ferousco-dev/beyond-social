@@ -45,6 +45,18 @@ export const discoveryResponse = z.object({ data: discoverySchema });
 export const videosResponse = z.object({ data: z.array(videoSchema) });
 export const jobResponse = z.object({ data: jobSchema });
 
+/** A row from the job list, enough to show and resume an in-progress draft. */
+export const jobListItemSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  status: z.enum(["queued", "running", "completed", "failed", "ready"]),
+  input: z.record(z.string(), z.unknown()).nullable().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+export type GoJobListItem = z.infer<typeof jobListItemSchema>;
+export const jobsListResponse = z.object({ data: z.array(jobListItemSchema) });
+
 const avatarSchema = z.object({
   id: z.string(),
   name: z.string(),
