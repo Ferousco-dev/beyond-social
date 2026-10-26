@@ -21,6 +21,7 @@ function estimateSeconds(script: string): number {
 /** Watches an avatar generation while the editor remains usable, then places it on the timeline. */
 export function LiveAvatarJob({ generation }: { generation: ProjectGeneration }) {
   const { script, state: initialState } = generation;
+  const isAvatarGenerator = generation.generator === "avatar" || generation.generator === "live-avatar";
   const [jobId, setJobId] = useState(generation.jobId);
   const initialMessage = initialState === "completed"
     ? "Your video is on this project's timeline."
@@ -76,12 +77,17 @@ export function LiveAvatarJob({ generation }: { generation: ProjectGeneration })
       adopting.current = false;
       return;
     }
-    const placed = placeGeneratedVideo(copied.mediaId, result.seconds ?? estimateSeconds(script), "Avatar video");
+    // The provider's own reported length comes first; for a Kie scene, the
+    // seconds asked for is the next best thing (it is not derived from the
+    // script, which is only a word-count guess for avatar speech pacing).
+    const seconds = result.seconds ?? generation.seconds ?? estimateSeconds(script);
+    const label = isAvatarGenerator ? "Avatar video" : "AI scene";
+    const placed = placeGeneratedVideo(copied.mediaId, seconds, label);
     setFinished(true);
     setFailed(Boolean(placed.error));
-    setMessage(placed.error ?? "Avatar video added to your timeline.");
+    setMessage(placed.error ?? `${label} added to your timeline.`);
     saveGenerationState(placed.error ? "failed" : "completed", placed.error ?? undefined);
-  }, [jobId, saveGenerationState, script]);
+  }, [jobId, saveGenerationState, script, generation.seconds, isAvatarGenerator]);
 
   const onUpdate = useCallback((job: JobView): void => {
     if (job.status === "failed") {
@@ -97,8 +103,8 @@ export function LiveAvatarJob({ generation }: { generation: ProjectGeneration })
       return;
     }
     setFailed(false);
-    setMessage(job.stage ? `${job.stage}…` : "Generating your avatar video…");
-  }, [finish, saveGenerationState]);
+    setMessage(job.stage ? `${job.stage}…` : isAvatarGenerator ? "Generating your avatar video…" : "Generating your video…");
+  }, [finish, saveGenerationState, isAvatarGenerator]);
 
   const resync = useCallback((): void => {
     void finish();
