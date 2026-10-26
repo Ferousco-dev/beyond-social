@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { Spinner } from "@/components/ui/spinner";
+import { waitForJob } from "@/lib/go-api/wait-for-job";
 
-import { readAnalysis, startAnalysis, type AnalysisContent } from "../actions";
+import { readAnalysis, startAnalysis, type AnalysisContent, type AnalysisResult } from "../actions";
 
 export const APPROVED_SCRIPT_KEY = "bs:approved-script";
 
@@ -17,7 +18,6 @@ export interface ApprovedScript {
   cta: string;
 }
 
-const POLL_MS = 3_000;
 const MAX_ANALYSIS_WAIT_MS = 8 * 60 * 1000;
 
 /** Phase 2: watch the analysis land, then shape the suggested script. */
@@ -38,36 +38,57 @@ export function AnalysisView({
   resumeJobId?: string;
   onBack: () => void;
 }) {
-  const [jobId, setJobId] = useState<string | null>(resumeJobId ?? null);
   const [state, setState] = useState<string>("queued");
   const [stage, setStage] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [analysis, setAnalysis] = useState<AnalysisContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [approved, setApproved] = useState(false);
-  const startedAt = useRef(Date.now());
 
   useEffect(() => {
     let cancelled = false;
-    startedAt.current = Date.now();
+
+    const apply = (result: AnalysisResult): void => {
+      if (cancelled || result.status !== "ok") return;
+      setState(result.job.state);
+      setStage(result.job.stage);
+      setProgress(result.job.progress);
+      if (result.job.analysis) setAnalysis(result.job.analysis);
+      else if (result.job.state === "failed") setError(result.job.error ?? "The analysis failed. No video was generated.");
+    };
+
+    // Watches over the API's WebSocket instead of a plain timer: a backgrounded
+    // tab can have its timers paused for a long time, but a push still lands
+    // once the connection resumes, and the 15s backstop catches a missed one.
+    const watch = async (id: string) => {
+      const result = await waitForJob({
+        jobId: id,
+        check: () => readAnalysis(id),
+        isDone: (r) => r.status !== "ok" || r.job.analysis !== null || r.job.state === "failed",
+        timeoutMs: MAX_ANALYSIS_WAIT_MS,
+        alive: () => !cancelled,
+      });
+      if (result === null) {
+        if (!cancelled) setError("The analysis is taking too long. No video was generated. Go back and try again.");
+        return;
+      }
+      if (result.status !== "ok") {
+        setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
+        return;
+      }
+      apply(result);
+    };
 
     if (resumeJobId) {
-      void readAnalysis(resumeJobId)
-        .then((result) => {
-          if (cancelled) return;
-          if (result.status !== "ok") {
-            setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
-            return;
-          }
-          setState(result.job.state);
-          setStage(result.job.stage);
-          setProgress(result.job.progress);
-          if (result.job.analysis) setAnalysis(result.job.analysis);
-          else if (result.job.state === "failed") setError(result.job.error ?? "The analysis failed. No video was generated.");
-        })
-        .catch(() => {
-          if (!cancelled) setError("Something went wrong while checking the analysis. Go back and try again.");
-        });
+      void readAnalysis(resumeJobId).then((result) => {
+        if (cancelled) return;
+        if (result.status !== "ok") {
+          setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
+          return;
+        }
+        apply(result);
+        if (!result.job.analysis && result.job.state !== "failed") void watch(resumeJobId);
+      });
       return () => {
         cancelled = true;
       };
@@ -80,11 +101,8 @@ export function AnalysisView({
           setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
           return;
         }
-        setJobId(result.job.id);
-        setState(result.job.state);
-        setStage(result.job.stage);
-        setProgress(result.job.progress);
-        if (result.job.analysis) setAnalysis(result.job.analysis);
+        apply(result);
+        if (!result.job.analysis) void watch(result.job.id);
       })
       .catch(() => {
         if (!cancelled) setError("Something went wrong while starting the analysis. Go back and try again.");
@@ -93,34 +111,6 @@ export function AnalysisView({
       cancelled = true;
     };
   }, [url, mediaId, notes, resumeJobId]);
-
-  useEffect(() => {
-    if (!jobId || analysis || error) return;
-    if (state !== "queued" && state !== "running") return;
-    const timer = window.setTimeout(() => {
-      if (Date.now() - startedAt.current >= MAX_ANALYSIS_WAIT_MS) {
-        setError("The analysis is taking too long. No video was generated. Go back and try again.");
-        return;
-      }
-      void readAnalysis(jobId)
-        .then((result) => {
-          if (result.status !== "ok") {
-            setError(result.status === "unconfigured" ? "Analysis is not available right now." : result.message);
-            return;
-          }
-          setState(result.job.state);
-          setStage(result.job.stage);
-          setProgress(result.job.progress);
-          if (result.job.analysis) {
-            setAnalysis(result.job.analysis);
-          } else if (result.job.state === "failed") {
-            setError(result.job.error ?? "The analysis failed. No video was generated.");
-          }
-        })
-        .catch(() => setError("Something went wrong while checking the analysis. Go back and try again."));
-    }, POLL_MS);
-    return () => window.clearTimeout(timer);
-  }, [jobId, analysis, error, state]);
 
   if (error) {
     return (
