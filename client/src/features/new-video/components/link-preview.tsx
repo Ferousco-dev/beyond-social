@@ -4,10 +4,10 @@ import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Spinner } from "@/components/ui/spinner";
+import { waitForJob } from "@/lib/go-api/wait-for-job";
 
 import { readLinkPreview, startLinkPreview, type LinkPreviewResult } from "../actions";
 
-const POLL_MS = 2_000;
 const MAX_WAIT_MS = 4 * 60 * 1000;
 const NOTES_MAX = 1000;
 
@@ -36,8 +36,6 @@ export function LinkPreview({
 
   useEffect(() => {
     let cancelled = false;
-    let timer: number | undefined;
-    const startedAt = Date.now();
 
     const apply = (result: LinkPreviewResult): Preview | null => {
       if (cancelled) return null;
@@ -53,44 +51,40 @@ export function LinkPreview({
       return result.job;
     };
 
-    const poll = (jobId: string) => {
-      timer = window.setTimeout(() => {
-        if (Date.now() - startedAt >= MAX_WAIT_MS) {
-          setError("Fetching the video is taking too long. Go back and try again.");
-          return;
-        }
-        void readLinkPreview(jobId)
-          .then((result) => {
-            const job = apply(result);
-            if (job && job.state !== "completed") poll(jobId);
-          })
-          .catch(() => !cancelled && setError("Something went wrong while fetching the video."));
-      }, POLL_MS);
+    // Watches over the API's WebSocket instead of a plain timer: a backgrounded
+    // tab can have its timers paused for a long time, but a push still lands
+    // once the connection resumes, and the 15s backstop catches a missed one.
+    const run = async (jobId: string) => {
+      const result = await waitForJob({
+        jobId,
+        check: () => readLinkPreview(jobId),
+        isDone: (r) => r.status !== "ok" || r.job.state === "completed" || r.job.state === "failed",
+        timeoutMs: MAX_WAIT_MS,
+        alive: () => !cancelled,
+      });
+      if (result === null) {
+        if (!cancelled) setError("Fetching the video is taking too long. Go back and try again.");
+        return;
+      }
+      apply(result);
     };
 
     if (resumeJobId) {
-      void readLinkPreview(resumeJobId)
-        .then((result) => {
-          const job = apply(result);
-          if (job && job.state !== "completed") poll(resumeJobId);
-        })
-        .catch(() => !cancelled && setError("Something went wrong while fetching the video."));
+      void run(resumeJobId);
       return () => {
         cancelled = true;
-        window.clearTimeout(timer);
       };
     }
 
     void startLinkPreview({ url, idempotencyKey: crypto.randomUUID() })
       .then((result) => {
         const job = apply(result);
-        if (job && job.state !== "completed") poll(job.id);
+        if (job && job.state !== "completed" && job.state !== "failed") void run(job.id);
       })
       .catch(() => !cancelled && setError("Something went wrong while fetching the video."));
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, [url, resumeJobId]);
 
