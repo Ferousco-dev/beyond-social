@@ -1,0 +1,177 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type Route } from "next";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { useForm } from "react-hook-form";
+
+import { signUpAction, type AuthResult } from "../actions";
+import { INDUSTRIES, INDUSTRY_MAX, OTHER_INDUSTRY, signupSchema, type SignupInput } from "../schemas";
+import { FormStatus } from "./form-status";
+import { PasswordField } from "./password-field";
+import { SubmitButton } from "./submit-button";
+import { TextField } from "./text-field";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+
+export function SignupForm() {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<AuthResult | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<SignupInput>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      businessName: "",
+      industry: "",
+      industryOther: "",
+      password: "",
+      confirmPassword: "",
+      acceptedTerms: false,
+    },
+  });
+
+  function onSubmit(values: SignupInput) {
+    setResult(null);
+    startTransition(async () => {
+      try {
+        const response = await signUpAction(values);
+        setResult(response);
+        if (response.status === "success" && response.redirectTo) {
+          window.sessionStorage.setItem("bs:pending-email", values.email);
+          router.push(response.redirectTo as Route);
+        }
+      } catch {
+        setResult({ status: "error", message: "Something went wrong. Please try again." });
+      }
+    });
+  }
+
+  return (
+    <form noValidate onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {result?.status === "error" ? <FormStatus status="error" message={result.message} /> : null}
+
+      <TextField
+        id="fullName"
+        label="Full name"
+        autoComplete="name"
+        autoFocus
+        placeholder="Alex Rivera"
+        error={errors.fullName?.message}
+        {...register("fullName")}
+      />
+      <TextField
+        id="email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        placeholder="you@company.com"
+        error={errors.email?.message}
+        {...register("email")}
+      />
+      <TextField
+        id="phone"
+        label="Phone number"
+        type="tel"
+        autoComplete="tel"
+        placeholder="+65 8123 4567"
+        error={errors.phone?.message}
+        {...register("phone")}
+      />
+      <TextField
+        id="businessName"
+        label="Business name"
+        autoComplete="organization"
+        placeholder="Acme Studio"
+        error={errors.businessName?.message}
+        {...register("businessName")}
+      />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="industry">Industry</Label>
+        <Select
+          id="industry"
+          value={watch("industry")}
+          onValueChange={(industry) => setValue("industry", industry, { shouldValidate: true })}
+          placeholder="Choose an industry"
+          invalid={Boolean(errors.industry)}
+          aria-describedby={errors.industry ? "industry-error" : undefined}
+          options={INDUSTRIES.map((industry) => ({ value: industry, label: industry }))}
+        />
+        {errors.industry ? (
+          <p id="industry-error" className="text-xs text-destructive">
+            {errors.industry.message}
+          </p>
+        ) : null}
+      </div>
+      {watch("industry") === OTHER_INDUSTRY ? (
+        <TextField
+          id="industryOther"
+          label="Your industry"
+          maxLength={INDUSTRY_MAX}
+          placeholder="Pet grooming"
+          error={errors.industryOther?.message}
+          {...register("industryOther")}
+        />
+      ) : null}
+      <PasswordField
+        id="password"
+        label="Password"
+        autoComplete="new-password"
+        placeholder="********"
+        showStrength
+        value={watch("password")}
+        error={errors.password?.message}
+        {...register("password")}
+      />
+      <PasswordField
+        id="confirmPassword"
+        label="Confirm password"
+        autoComplete="new-password"
+        placeholder="********"
+        value={watch("confirmPassword")}
+        error={errors.confirmPassword?.message}
+        {...register("confirmPassword")}
+      />
+
+      <label className="flex items-start gap-2.5 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
+          {...register("acceptedTerms")}
+        />
+        <span>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" className="font-medium text-primary hover:underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            target="_blank"
+            className="font-medium text-primary hover:underline"
+          >
+            Privacy Policy
+          </Link>
+        </span>
+      </label>
+      {errors.acceptedTerms ? (
+        <p className="-mt-3 text-sm text-destructive">{errors.acceptedTerms.message}</p>
+      ) : null}
+
+      <SubmitButton pending={pending} size="lg" className="mt-1 w-full">
+        Create account
+      </SubmitButton>
+    </form>
+  );
+}
