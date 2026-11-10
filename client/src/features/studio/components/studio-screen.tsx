@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-
+import { repairProject } from "../core/repair.ts";
 import { parseProject } from "../core/validate.ts";
 import { useAutosave } from "../hooks/use-autosave";
 import { useMediaUrls } from "../hooks/use-media-urls";
@@ -31,12 +31,21 @@ interface StudioScreenProps {
 }
 
 export function StudioScreen({ id, title, version, document, backHref, generation }: StudioScreenProps) {
-  const parsed = parseProject(document);
+  // A project that fails the strict check is repaired on screen rather than refused. Nothing is
+  // written back until the person makes a change, so the stored copy is untouched until then.
+  const opened = useMemo(() => {
+    const parsed = parseProject(document);
+    if (parsed.ok) return { project: parsed.value, problems: [] as readonly string[], error: null };
+    const repaired = repairProject(document);
+    if (repaired) return { project: repaired.project, problems: repaired.problems, error: null };
+    return { project: null, problems: [] as readonly string[], error: parsed.error };
+  }, [document]);
+  const [notedRepair, setNotedRepair] = useState(false);
   const loadedId = useStudio((s) => s.projectId);
   const desktop = useMediaQuery(STUDIO_PANELS.DESKTOP_QUERY);
 
   // The screen shows nothing until the store holds this project, so no panel ever reads a stale one.
-  const project = parsed.ok ? parsed.value : null;
+  const project = opened.project;
   useEffect(() => {
     if (project && useStudio.getState().projectId !== id) useStudio.getState().load(id, title, version, project);
   }, [id, title, version, project]);
@@ -45,11 +54,11 @@ export function StudioScreen({ id, title, version, document, backHref, generatio
   useMediaUrls();
   useShortcuts();
 
-  if (!parsed.ok) {
+  if (opened.error !== null) {
     return (
       <div className="flex h-svh items-center justify-center p-6 text-center">
         <p role="alert" className="max-w-sm text-sm text-ink-soft">
-          This project could not be opened: {parsed.error}
+          This project could not be opened: {opened.error}
         </p>
       </div>
     );
@@ -66,6 +75,16 @@ export function StudioScreen({ id, title, version, document, backHref, generatio
   return (
     <div className="relative flex h-svh flex-col overflow-hidden bg-canvas">
       <StudioHeader backHref={backHref} />
+      {opened.problems.length > 0 && !notedRepair ? (
+        <div role="status" className="flex items-start gap-3 border-y border-hairline bg-cloud px-4 py-2 text-xs text-ink">
+          <p className="min-w-0 flex-1">
+            This project had problems, so it was repaired for display: {opened.problems.join(" ")} Your saved copy is unchanged until you make an edit.
+          </p>
+          <button type="button" onClick={() => setNotedRepair(true)} className="shrink-0 cursor-pointer font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-primary">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
       {generation?.generator === "conversation" ? <ConversationJob /> : generation ? <LiveAvatarJob generation={generation} /> : null}
       <div className="min-h-0 flex-1">
         {desktop ? <StudioLayout {...panes} /> : <MobileStudioLayout {...panes} />}

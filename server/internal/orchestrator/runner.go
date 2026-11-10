@@ -79,7 +79,6 @@ func (s *Service) wireBuiltIn() {
 		set("generate_video", Runner{Submit: s.submitGenerate, Reconcile: s.reconcileJob})
 	}
 	if d.Media != nil {
-		set("edit_image", Runner{Submit: s.submitMedia(kietools.JobEdit), Reconcile: s.reconcileJob})
 		set("talking_photo", Runner{Submit: s.submitMedia(kietools.JobTalk), Reconcile: s.reconcileJob})
 		set("speak_text", Runner{Submit: s.submitMedia(kietools.JobSpeech), Reconcile: s.reconcileJob})
 	}

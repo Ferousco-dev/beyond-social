@@ -1,11 +1,13 @@
 import {
   ALL_FORMATS,
+  AudioBufferSink,
   AudioBufferSource,
   BufferTarget,
   CanvasSink,
   CanvasSource,
   canEncodeVideo,
   Input,
+  type InputAudioTrack,
   Mp4OutputFormat,
   Output,
   UrlSource,
@@ -31,6 +33,12 @@ export interface ExportOptions {
   readonly signal: AbortSignal;
 }
 
+export interface ExportResult {
+  readonly blob: Blob;
+  /** Things the person should know about, such as a clip whose sound could not be included. */
+  readonly warnings: readonly string[];
+}
+
 const mediaOf = (project: Project, kind: Media["kind"]): Media[] =>
   project.tracks.flatMap((t) => t.items.filter((i): i is Media => i.kind === kind));
 
@@ -44,39 +52,110 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+/** How much of the timeline is mixed at once, so memory stays flat however long the video is. */
+const WINDOW_SECONDS = 10;
+/** A file the streaming reader cannot handle is decoded whole only if it is smaller than this. */
+const WHOLE_FILE_LIMIT_BYTES = 150 * 1024 * 1024;
+
+/** One sound in the project, ready to be read a piece at a time. */
+interface Voice {
+  readonly item: Media;
+  readonly name: string;
+  /** Reads just the part of the file that is asked for. Null when the whole file had to be decoded. */
+  readonly sink: AudioBufferSink | null;
+  readonly decoded: AudioBuffer | null;
+}
+
+const nameOf = (project: Project, item: Media): string =>
+  project.assets?.find((asset) => asset.src === item.src)?.name ?? (item.kind === "audio" ? "A sound" : "A video");
+
+/** Decodes a whole file, for the rare codec the streaming reader cannot handle. Refuses very large files. */
+async function decodeWhole(url: string): Promise<AudioBuffer> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("The file could not be fetched.");
+  const length = Number(response.headers.get("content-length") ?? 0);
+  if (length > WHOLE_FILE_LIMIT_BYTES) throw new Error("The file is too large to decode.");
+  return new OfflineAudioContext(2, 1, SAMPLE_RATE).decodeAudioData(await response.arrayBuffer());
+}
+
 /**
- * Mixes every sound in the project into one stereo track. A video whose sound
- * cannot be read is skipped rather than failing the whole export.
+ * Opens every sound in the project. Videos that simply have no sound are
+ * skipped quietly; a sound that is there but cannot be read is reported
+ * through `warn`, so an export never goes silent without saying so.
  */
-async function mixAudio(project: Project, urls: ExportOptions["urls"], seconds: number): Promise<AudioBuffer | null> {
-  const sounds = [...mediaOf(project, "audio"), ...mediaOf(project, "video")];
-  const context = new OfflineAudioContext(2, Math.ceil(seconds * SAMPLE_RATE), SAMPLE_RATE);
-  let used = 0;
-  for (const item of sounds) {
+async function prepareVoices(
+  project: Project,
+  urls: ExportOptions["urls"],
+  videoInputs: ReadonlyMap<string, Input>,
+  opened: Input[],
+  warn: (message: string) => void,
+): Promise<Voice[]> {
+  const voices: Voice[] = [];
+  for (const item of [...mediaOf(project, "audio"), ...mediaOf(project, "video")]) {
     const url = resolveSrc(item.src, urls);
     if (!url || item.volume === 0) continue;
+    const name = nameOf(project, item);
     try {
-      const response = await fetch(url);
-      if (!response.ok) continue;
-      const buffer = await context.decodeAudioData(await response.arrayBuffer());
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      source.buffer = buffer;
-      gain.gain.value = item.volume;
-      source.connect(gain).connect(context.destination);
-      source.playbackRate.value = speedOf(item);
-      // The last argument is in source seconds, so a faster clip reads more of the file.
-      source.start(item.start, item.trimIn, item.duration * speedOf(item));
-      used += 1;
+      let input = videoInputs.get(item.id);
+      if (!input) {
+        input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
+        opened.push(input);
+      }
+      const track: InputAudioTrack | null = await input.getPrimaryAudioTrack();
+      if (!track) {
+        if (item.kind === "audio") warn(`${name} has no sound to include.`);
+        continue;
+      }
+      if (await track.canDecode()) {
+        voices.push({ item, name, sink: new AudioBufferSink(track), decoded: null });
+        continue;
+      }
+      voices.push({ item, name, sink: null, decoded: await decodeWhole(url) });
     } catch {
-      continue;
+      warn(`${name}: its sound could not be read, so it is missing from the export.`);
     }
   }
-  return used > 0 ? context.startRendering() : null;
+  return voices;
+}
+
+/** Mixes one stretch of the timeline into stereo, reading only the pieces of each file that fall inside it. */
+async function mixWindow(voices: readonly Voice[], from: number, to: number, warn: (message: string) => void): Promise<AudioBuffer> {
+  const context = new OfflineAudioContext(2, Math.max(1, Math.round((to - from) * SAMPLE_RATE)), SAMPLE_RATE);
+  for (const { item, name, sink, decoded } of voices) {
+    const speed = speedOf(item);
+    const lo = Math.max(from, item.start);
+    const hi = Math.min(to, endOf(item));
+    if (hi <= lo) continue;
+    // The same stretch, measured in the file's own seconds.
+    const sourceFrom = item.trimIn + (lo - item.start) * speed;
+    const sourceTo = item.trimIn + (hi - item.start) * speed;
+    const gain = context.createGain();
+    // The preview player tops out at full volume, so the file does too.
+    gain.gain.value = Math.min(1, item.volume);
+    gain.connect(context.destination);
+    const place = (buffer: AudioBuffer, bufferStart: number): void => {
+      const begin = Math.max(bufferStart, sourceFrom);
+      const length = Math.min(bufferStart + buffer.duration, sourceTo) - begin;
+      if (length <= 0) return;
+      const node = context.createBufferSource();
+      node.buffer = buffer;
+      node.playbackRate.value = speed;
+      node.connect(gain);
+      // The last argument is in the file's seconds, so a faster clip reads more of it.
+      node.start(Math.max(0, item.start + (begin - item.trimIn) / speed - from), begin - bufferStart, length);
+    };
+    try {
+      if (sink) for await (const piece of sink.buffers(sourceFrom, sourceTo)) place(piece.buffer, piece.timestamp);
+      else if (decoded) place(decoded, 0);
+    } catch {
+      warn(`${name}: part of its sound could not be read, so it is missing from the export.`);
+    }
+  }
+  return context.startRendering();
 }
 
 /** Renders the project to an MP4 in the browser: each frame is drawn on a canvas and encoded as it goes. */
-export async function exportProject(project: Project, { urls, onProgress, signal }: ExportOptions): Promise<Blob> {
+export async function exportProject(project: Project, { urls, onProgress, signal }: ExportOptions): Promise<ExportResult> {
   const seconds = projectDuration(project);
   if (seconds <= 0) throw new Error("There is nothing on the timeline to export.");
   if (!(await canEncodeVideo("avc", { width: project.width, height: project.height }))) {
@@ -94,6 +173,11 @@ export async function exportProject(project: Project, { urls, onProgress, signal
 
   const sinks = new Map<string, Sink>();
   const images = new Map<string, HTMLImageElement>();
+  const opened: Input[] = [];
+  const warnings: string[] = [];
+  const warn = (message: string): void => {
+    if (!warnings.includes(message)) warnings.push(message);
+  };
   try {
     for (const item of mediaOf(project, "video")) {
       const url = resolveSrc(item.src, urls);
@@ -116,12 +200,16 @@ export async function exportProject(project: Project, { urls, onProgress, signal
     const output = new Output({ format: new Mp4OutputFormat(), target });
     const video = new CanvasSource(canvas, { codec: "avc", bitrate: VIDEO_BITRATE });
     output.addVideoTrack(video, { frameRate: project.fps });
-    const mixed = await mixAudio(project, urls, seconds);
-    const audio = mixed ? new AudioBufferSource({ codec: "aac", bitrate: AUDIO_BITRATE }) : null;
+    const voices = await prepareVoices(project, urls, new Map([...sinks].map(([id, { input }]) => [id, input])), opened, warn);
+    const audio = voices.length > 0 ? new AudioBufferSource({ codec: "aac", bitrate: AUDIO_BITRATE }) : null;
     if (audio) output.addAudioTrack(audio);
     await output.start();
-    if (audio && mixed) {
-      await audio.add(mixed);
+    if (audio) {
+      // Mixed and encoded a window at a time, so a long video never sits in memory whole.
+      for (let from = 0; from < seconds; from += WINDOW_SECONDS) {
+        cancelled();
+        await audio.add(await mixWindow(voices, from, Math.min(seconds, from + WINDOW_SECONDS), warn));
+      }
       audio.close();
     }
 
@@ -143,8 +231,9 @@ export async function exportProject(project: Project, { urls, onProgress, signal
     video.close();
     await output.finalize();
     if (!target.buffer) throw new Error("The export produced no file.");
-    return new Blob([target.buffer], { type: "video/mp4" });
+    return { blob: new Blob([target.buffer], { type: "video/mp4" }), warnings };
   } finally {
     for (const { input } of sinks.values()) input.dispose();
+    for (const input of opened) input.dispose();
   }
 }

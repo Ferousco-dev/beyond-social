@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** The composer that lived here is being moved to the new backend; Discover is the start for now. */
+/** Signing in lands on New Video, where creation starts. Discover is one click away in the sidebar. */
 export default function DashboardPage(): never {
-  redirect("/dashboard/trends");
+  redirect("/dashboard/new");
 }

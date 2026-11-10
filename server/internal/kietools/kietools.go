@@ -17,22 +17,20 @@ import (
 
 // Job types, under which each tool's work is stored and claimed.
 const (
-	JobEdit       = "image_edit"
 	JobTalk       = "talking_photo"
 	JobSpeech     = "speech"
 	JobLiveAvatar = "live_avatar"
 )
 
-// KIE models. Picture editing is Nano Banana, the talking photo is Kling's
+// KIE models. The talking photo is Kling's
 // avatar model, and speech is ElevenLabs with its ready-made voices.
 const (
-	ModelEdit   = "google/nano-banana-edit"
 	ModelTalk   = "kling/ai-avatar-standard"
 	ModelSpeech = "elevenlabs/text-to-speech-multilingual-v2"
 )
 
 // ResultKeys names where each job type's finished file is stored in its result.
-var ResultKeys = map[string]string{JobEdit: "image_url", JobTalk: "video_url", JobSpeech: "audio_url"}
+var ResultKeys = map[string]string{JobTalk: "video_url", JobSpeech: "audio_url"}
 
 const (
 	MaxPictures      = 4

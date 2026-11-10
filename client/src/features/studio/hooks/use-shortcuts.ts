@@ -22,7 +22,7 @@ export function useShortcuts(): void {
         else state.undo();
       } else if (event.key === " ") {
         event.preventDefault();
-        state.setPlaying(!state.playing);
+        state.togglePlay();
       } else if (event.key.toLowerCase() === "b" && !mod) split();
       else if (event.key === "Backspace" || event.key === "Delete") {
         event.preventDefault();

@@ -23,12 +23,7 @@ export function PreviewPanel() {
 
   const duration = projectDuration(project);
   const scale = PREVIEW_SHORT_SIDE / Math.min(project.width, project.height);
-  const toggle = (): void => {
-    const state = useStudio.getState();
-    if (state.playing) return state.setPlaying(false);
-    if (state.currentTime >= duration) state.seek(0);
-    state.setPlaying(duration > 0);
-  };
+  const toggle = (): void => useStudio.getState().togglePlay();
 
   return (
     <section aria-label="Preview" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">

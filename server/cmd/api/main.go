@@ -324,13 +324,6 @@ func run() error {
 				Handle: transformProcessor.Handle,
 			},
 			&worker.Pool[jobs.Job]{
-				Name: "image_edit", Capacity: 3, Timeout: transform.HandleTimeout,
-				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
-					return jobService.Claim(ctx, kietools.JobEdit, n, transform.Lease)
-				},
-				Handle: transformProcessor.Handle,
-			},
-			&worker.Pool[jobs.Job]{
 				Name: "talking_photo", Capacity: 3, Timeout: transform.HandleTimeout,
 				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
 					return jobService.Claim(ctx, kietools.JobTalk, n, transform.Lease)

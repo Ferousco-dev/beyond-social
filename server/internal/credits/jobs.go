@@ -40,11 +40,10 @@ func (b *JobBiller) Finish(ctx context.Context, job jobs.Job) error {
 	if job.Status == jobs.StatusFailed {
 		return b.svc.Refund(ctx, job.UserID, job.ID, "job failed")
 	}
-	actual, err := b.actual(ctx, job)
-	if err != nil {
-		return err
-	}
-	return b.svc.Settle(ctx, job.UserID, job.ID, actual)
+	// Every job is priced before it starts and costs exactly what was reserved, so the charge is
+	// kept as it is. Settling through Service.Settle would apply a free user's price multiplier
+	// a second time to an amount that already includes it, handing credits back when it is below 100%.
+	return b.svc.Keep(ctx, job.UserID, job.ID)
 }
 
 func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, error) {
@@ -60,9 +59,6 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		}
 		rate, err := b.svc.Quote(ctx, "video_generate_second")
 		return rate * req.TotalSeconds(), "video_generate_second", err
-	case kietools.JobEdit:
-		credits, err := b.svc.Quote(ctx, kietools.JobEdit)
-		return credits, kietools.JobEdit, err
 	case kietools.JobTalk:
 		req, err := kietools.ParseTalk(job.Input)
 		if err != nil {
@@ -91,10 +87,4 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		return rate * int(math.Ceil(seconds)), ActionTalkingSecond, err
 	}
 	return 0, "", nil
-}
-
-// actual is what a finished job costs: what was reserved for it, since every
-// job is priced before it starts from what it was asked to make.
-func (b *JobBiller) actual(ctx context.Context, job jobs.Job) (int, error) {
-	return b.svc.store.Reserved(ctx, job.ID)
 }

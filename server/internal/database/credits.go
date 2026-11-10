@@ -76,6 +76,15 @@ func (s *CreditStore) Balance(ctx context.Context, userID string) (int, error) {
 	return balance, err
 }
 
+func (s *CreditStore) EntryAmount(ctx context.Context, key string) (int, bool, error) {
+	var amount int
+	err := s.pool.QueryRow(ctx, `select amount from public.credit_ledger where idempotency_key = $1`, key).Scan(&amount)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, false, nil
+	}
+	return amount, err == nil, err
+}
+
 func (s *CreditStore) Reserved(ctx context.Context, jobID string) (int, error) {
 	var amount int
 	err := s.pool.QueryRow(ctx, `select -amount from public.credit_ledger where idempotency_key = $1`, "reserve:"+jobID).Scan(&amount)

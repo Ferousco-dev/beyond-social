@@ -13,8 +13,10 @@ overrides:
   # Lint-time only, reached through eslint. Patch bumps within the ranges eslint
   # already asks for, so the audit is clean rather than noisy.
   js-yaml@4: "^4.3.1"
-  brace-expansion@1: "^1.1.18"
-  brace-expansion@5: "^5.0.9"
+  brace-expansion@1: "^1.1.21"
+  brace-expansion@5: "^5.0.12"
+  source-map-js: "^1.2.2"
+  zod@4: "^4.6.6"
 
 # Native packages permitted to run install scripts (they ship prebuilt binaries).
 allowBuilds:

@@ -59,9 +59,11 @@ export function splitItem(project: Project, itemId: string, at: number, newId: s
   const first = at - item.start;
   const head: Item = { ...item, duration: first, ...splitKeyframes(item, first).head };
   const rest = splitKeyframes(item, first).tail;
+  // Only the first half comes in with the entrance; the second continues from the cut.
+  const noEntrance = "transition" in item ? { transition: undefined } : {};
   const tail: Item = hasSource
-    ? { ...item, id: newId, start: at, duration: item.duration - first, trimIn: item.trimIn + first * speedOf(item), ...rest }
-    : { ...item, id: newId, start: at, duration: item.duration - first, ...rest };
+    ? { ...item, id: newId, start: at, duration: item.duration - first, trimIn: item.trimIn + first * speedOf(item), ...rest, ...noEntrance }
+    : { ...item, id: newId, start: at, duration: item.duration - first, ...rest, ...noEntrance };
   const next = withItem({ ...found.track, items: found.track.items.filter((i) => i.id !== itemId) }, head);
   if (!next.ok) return next;
   const done = withItem(next.value, tail);

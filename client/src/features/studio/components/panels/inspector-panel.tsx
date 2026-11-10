@@ -54,8 +54,8 @@ function Fields({ item }: { item: Item }) {
       if (item.kind !== "video" && item.kind !== "audio") return null;
       return (
         <>
-          <Field label="Volume" value={`${Math.round(item.volume * 100)}%`}>
-            <input type="range" min={0} max={200} value={Math.round(item.volume * 100)} onChange={(e) => change(item.id, { volume: Number(e.target.value) / 100 })} className="w-full accent-primary" />
+          <Field label="Volume" value={`${Math.round(Math.min(1, item.volume) * 100)}%`}>
+            <input type="range" min={0} max={100} value={Math.round(Math.min(1, item.volume) * 100)} onChange={(e) => change(item.id, { volume: Number(e.target.value) / 100 })} className="w-full accent-primary" />
           </Field>
           <SpeedField item={item} />
         </>

@@ -1,90 +1,48 @@
 # Dependencies
 node_modules/
 .pnpm-store/
-**/node_modules/
-**/.pnpm-store/
 
-# Build outputs
-dist/
+# Build output
 .next/
-.next-dev/
 out/
+dist/
 build/
-**/.next/
-**/.next-dev/
-**/dist/
-**/build/
-
-# Tool caches
 .turbo/
-.vercel/
-**/.turbo/
-**/.vercel/
-
-# Environment and secrets: only the *.example templates are committed
-.env
-.env.*
-**/.env
-**/.env.*
-!.env.example
-!.env.*.example
-!**/.env.example
-!**/.env.*.example
-*.pem
-*.key
-*.p12
-*.pfx
-service-account*.json
-
-# Generated app metadata
 *.tsbuildinfo
-**/*.tsbuildinfo
-
-# Logs
-*.log
-yarn-error.log*
-npm-debug.log*
-pnpm-debug.log*
-.dev-logs/
-.dev-pid
-/tmp/
-
-# Testing / coverage
-coverage/
-
-# Editor / OS
-.DS_Store
-.idea/
-*.swp
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-
-# Go
-server/bin/
-/server/api
-*.exe
-*.test
-*.out
-*.prof
-
-# Python (services/telegram-agent)
-__pycache__/
-*.pyc
-
-# Next.js generated types
 next-env.d.ts
 
+# Go
+server/app
+server/*.exe
+server/*.test
+server/*.out
+server/coverage.*
 
-dump.rdb
-deno.lock
-docs/
+# Secrets: never commit these. The .example files stay.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
 
-# Local-only project files
-/AGENTS.md
-/CLAUDE.md
-/dev.sh
-.claude
-.vercel
-.env*
-scripts/
+# Vercel link (ids are local to your machine)
+.vercel/
+
+# Logs and caches
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.eslintcache
+coverage/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+
+# Local tooling
+.claude/
+*.local

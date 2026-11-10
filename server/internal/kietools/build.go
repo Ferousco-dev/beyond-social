@@ -77,25 +77,6 @@ func extensionFor(mimeType string) string {
 
 var badRequest = &transform.UserError{Message: "That request was not valid. Please try again."}
 
-// BuildEdit implements transform.Builder for picture edits.
-func (b Builder) BuildEdit(ctx context.Context, job jobs.Job) (transform.Prepared, error) {
-	req, err := ParseEdit(job.Input)
-	if err != nil {
-		return transform.Prepared{}, badRequest
-	}
-	urls := make([]string, len(req.Pictures))
-	for i, p := range req.Pictures {
-		if urls[i], err = b.hosted(ctx, job.UserID, p); err != nil {
-			return transform.Prepared{}, err
-		}
-	}
-	input := map[string]any{"prompt": req.Prompt, "image_urls": urls}
-	if req.AspectRatio != "" {
-		input["aspect_ratio"] = req.AspectRatio
-	}
-	return transform.Prepared{Model: ModelEdit, Input: input}, nil
-}
-
 // BuildTalk implements transform.Builder for talking photos.
 func (b Builder) BuildTalk(ctx context.Context, job jobs.Job) (transform.Prepared, error) {
 	req, err := ParseTalk(job.Input)
@@ -128,5 +109,5 @@ func (b Builder) BuildSpeech(_ context.Context, job jobs.Job) (transform.Prepare
 
 // Builders registers all three with the KIE processor.
 func (b Builder) Builders() map[string]transform.Builder {
-	return map[string]transform.Builder{JobEdit: b.BuildEdit, JobTalk: b.BuildTalk, JobSpeech: b.BuildSpeech}
+	return map[string]transform.Builder{JobTalk: b.BuildTalk, JobSpeech: b.BuildSpeech}
 }

@@ -3,7 +3,6 @@ package kietools
 import (
 	"context"
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
@@ -14,28 +13,6 @@ import (
 )
 
 const picture = "10000000-0000-4000-8000-000000000001"
-
-func TestEditNeedsOneToFourPicturesAndRefusesExtras(t *testing.T) {
-	ok := map[string]any{"prompt": "bright office", "image_media_ids": []any{picture}, "image_urls": []any{"https://files.example/a.png"}}
-	if e, err := ParseEdit(ok); err != nil || len(e.Pictures) != 2 {
-		t.Fatalf("edit = %+v err = %v", e, err)
-	}
-	five := []any{picture, picture, picture, picture, picture}
-	for name, args := range map[string]map[string]any{
-		"no pictures":  {"prompt": "x"},
-		"five":         {"prompt": "x", "image_media_ids": five},
-		"no prompt":    {"image_media_ids": []any{picture}},
-		"bad id":       {"prompt": "x", "image_media_ids": []any{"../etc"}},
-		"http link":    {"prompt": "x", "image_urls": []any{"http://files.example/a.png"}},
-		"bad ratio":    {"prompt": "x", "image_media_ids": []any{picture}, "aspect_ratio": "2:1"},
-		"extra":        {"prompt": "x", "image_media_ids": []any{picture}, "model": "other"},
-		"prompt limit": {"prompt": strings.Repeat("a", MaxPromptRunes+1), "image_media_ids": []any{picture}},
-	} {
-		if _, err := ParseEdit(args); !errors.Is(err, ErrInvalid) {
-			t.Errorf("%s: err = %v", name, err)
-		}
-	}
-}
 
 func TestLiveAvatarLipSyncsTheFaceToTheVoiceRecordingAsItIs(t *testing.T) {
 	up := &uploader{}
@@ -118,10 +95,6 @@ func TestBuildersHostEveryInputAtKIEAndNeverTouchAVoice(t *testing.T) {
 	s, err := b.BuildSpeech(context.Background(), jobs.Job{Input: map[string]any{"text": "hello"}})
 	if err != nil || s.Input["voice"] != DefaultVoice {
 		t.Fatalf("speech = %+v err = %v", s, err)
-	}
-	e, err := b.BuildEdit(context.Background(), jobs.Job{UserID: "u", Input: map[string]any{"prompt": "x", "image_media_ids": []any{picture}}})
-	if err != nil || e.Model != ModelEdit || len(e.Input["image_urls"].([]string)) != 1 {
-		t.Fatalf("edit = %+v err = %v", e, err)
 	}
 }
 

@@ -147,7 +147,9 @@ func (s *Stripe) CreateSubscription(ctx context.Context, in SubscribeInput) (str
 	case in.Email != "":
 		form.Set("customer_email", in.Email)
 	}
-	raw, err := s.do(ctx, http.MethodPost, "/checkout/sessions", form, "")
+	// Two quick clicks within the same five minutes get the same payment page back, not two.
+	key := fmt.Sprintf("subscribe:%s:%d:%d", in.UserID, in.PriceCents, time.Now().Unix()/300)
+	raw, err := s.do(ctx, http.MethodPost, "/checkout/sessions", form, key)
 	if err != nil {
 		return "", "", err
 	}

@@ -17,20 +17,25 @@ interface Props extends Pick<ButtonProps, "variant" | "size" | "className"> {
 export function RedirectButton({ action, children, signedOutHref, ...rest }: Props): ReactNode {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Stays true once Stripe's page is on its way, so a second click cannot open another checkout.
+  const [leaving, setLeaving] = useState(false);
 
   const go = (): void =>
     startTransition(async () => {
       setError(null);
       const result = await action();
-      if (result.ok) window.location.assign(result.url);
+      if (result.ok) {
+        setLeaving(true);
+        window.location.assign(result.url);
+      }
       else if (signedOutHref && result.message.toLowerCase().includes("sign in")) window.location.assign(signedOutHref);
       else setError(result.message);
     });
 
   return (
     <div>
-      <Button {...rest} disabled={pending} onClick={go}>
-        {pending ? "Opening" : children}
+      <Button {...rest} disabled={pending || leaving} onClick={go}>
+        {pending || leaving ? "Opening" : children}
       </Button>
       {error ? (
         <p role="alert" className="mt-2 text-xs text-destructive">

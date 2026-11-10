@@ -164,23 +164,6 @@ func DefaultRegistry() *Registry {
 			},
 		},
 		Tool{
-			Name:        "edit_image",
-			Description: "Change a picture from a description, for example put the person in it into a new scene, keeping their face the same. Make this its own plan when the user wants to see the picture before a video is made from it.",
-			Billable:    true,
-			Args: []string{
-				"prompt (required): what to change; say to keep the person's face, hair and skin identical when there is a person",
-				"image_media_ids: ids of pictures the user attached",
-				"image_urls: links to pictures made by earlier steps, normally ${step.result.image_url}",
-				"1 to 4 pictures in total; the first is the main one",
-				"aspect_ratio: auto, 16:9, 9:16, 1:1, 4:3 or 3:4",
-			},
-			Outputs: fileOutputs("image_url", KindURL, "the edited picture"),
-			ValidateArgs: func(args map[string]any) error {
-				_, err := kietools.ParseEdit(args)
-				return err
-			},
-		},
-		Tool{
 			Name:        "talking_photo",
 			Description: "Make a still picture speak a voice recording as a video. The voice is played exactly as given, never changed.",
 			Billable:    true,

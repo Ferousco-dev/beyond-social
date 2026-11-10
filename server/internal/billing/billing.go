@@ -273,7 +273,7 @@ func (s *Service) Refunded(ctx context.Context, intent string, amount, refunded 
 	if want <= 0 {
 		return s.store.AddRemoved(ctx, payment.ID, 0, full)
 	}
-	took, err := s.credits.Clawback(ctx, payment.UserID, want, fmt.Sprintf("refund:%s:%d", payment.ID, refunded), "payment refunded")
+	took, err := s.credits.Clawback(ctx, payment.UserID, want, fmt.Sprintf("refund:%s:%d:%d", payment.ID, refunded, payment.CreditsRemoved), "payment refunded")
 	if err != nil {
 		return err
 	}

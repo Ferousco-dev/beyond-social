@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { commit, createHistory, redo, undo, type History } from "../core/history.ts";
+import { commit, createHistory, redo, replacePresent, undo, type History } from "../core/history.ts";
 import { projectDuration } from "../core/find.ts";
 import { type Project, type Result } from "../core/types.ts";
 import { STUDIO_ZOOM } from "../config";
@@ -66,6 +66,8 @@ interface StudioState {
   /** Marks a stretch of the video; anything shorter than a tenth of a second clears it. */
   setRange: (range: TimeRange | null) => void;
   setPlaying: (playing: boolean) => void;
+  /** Plays or pauses; playing from the very end starts again from the beginning. */
+  togglePlay: () => void;
   setClock: (time: number) => void;
   zoomBy: (factor: number) => void;
   setZoom: (zoom: number) => void;
@@ -97,7 +99,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   load: (id, title, version, project) =>
     set({
       projectId: id, title, version, history: createHistory(project), saved: project, saveStatus: "saved", clipNotes: {},
-      gestureBase: null, selection: null, currentTime: 0, range: null, playing: false,
+      gestureBase: null, lastEdit: null, selection: null, currentTime: 0, range: null, playing: false,
     }),
 
   edit: (edit, key) => {
@@ -110,7 +112,7 @@ export const useStudio = create<StudioState>((set, get) => ({
     const now = Date.now();
     const merge = key !== undefined && lastEdit?.key === key && now - lastEdit.at < COALESCE_MS;
     set({
-      history: merge ? { ...history, present: result.value } : commit(history, result.value),
+      history: merge ? replacePresent(history, result.value) : commit(history, result.value),
       gestureBase: null,
       lastEdit: key === undefined ? null : { key, at: now },
       saveStatus: "pending",
@@ -132,8 +134,9 @@ export const useStudio = create<StudioState>((set, get) => ({
     set({ gestureBase: null, history: commit({ ...history, present: gestureBase }, history.present), saveStatus: "pending" });
   },
 
-  undo: () => set((s) => ({ history: undo(s.history), saveStatus: "pending" })),
-  redo: () => set((s) => ({ history: redo(s.history), saveStatus: "pending" })),
+  // Stepping through history ends any run of merged edits, so the next change is its own step.
+  undo: () => set((s) => ({ history: undo(s.history), lastEdit: null, saveStatus: "pending" })),
+  redo: () => set((s) => ({ history: redo(s.history), lastEdit: null, saveStatus: "pending" })),
 
   markSaved: (project, version) =>
     set((s) => ({ saved: project, version, saveStatus: s.history.present === project ? "saved" : "pending" })),
@@ -147,6 +150,13 @@ export const useStudio = create<StudioState>((set, get) => ({
   seek: (time) => set({ currentTime: clamp(time, 0, projectDuration(get().history.present) + 30) }),
   setRange: (range) => set({ range: range && range.end - range.start >= 0.1 ? range : null }),
   setPlaying: (playing) => set({ playing }),
+  togglePlay: () => {
+    const { playing, currentTime, history } = get();
+    if (playing) return set({ playing: false });
+    const duration = projectDuration(history.present);
+    if (duration <= 0) return;
+    set({ playing: true, ...(currentTime >= duration ? { currentTime: 0 } : {}) });
+  },
   setClock: (currentTime) => set({ currentTime }),
   zoomBy: (factor) => set((s) => ({ zoom: clamp(s.zoom * factor, STUDIO_ZOOM.MIN, STUDIO_ZOOM.MAX) })),
   setZoom: (zoom) => set({ zoom: clamp(zoom, STUDIO_ZOOM.MIN, STUDIO_ZOOM.MAX) }),

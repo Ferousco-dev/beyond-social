@@ -3,11 +3,12 @@
 import { AlertCircle, ArrowLeft, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { type Route } from "next";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { ErrorHelp } from "@/components/billing/error-help";
 import { cn } from "@/lib/utils";
 
+import { FALLBACK_TITLE } from "../hooks/use-autosave";
 import { useStudio, type SaveStatus } from "../store/editor-store";
 import { ExportDialog } from "./export-dialog";
 
@@ -22,6 +23,8 @@ const SAVE: Record<SaveStatus, { label: string; tone: string }> = {
 const NOTICE_MS = 4000;
 
 export function StudioHeader({ backHref }: { backHref: string }) {
+  // Leaving loads the dashboard, which can take a moment; show that the click registered.
+  const [leaving, setLeaving] = useState(false);
   const title = useStudio((s) => s.title);
   const status = useStudio((s) => s.saveStatus);
   const notice = useStudio((s) => s.notice);
@@ -40,15 +43,24 @@ export function StudioHeader({ backHref }: { backHref: string }) {
         href={backHref as Route}
         aria-label="Back to new video"
         title="Back to new video"
+        aria-busy={leaving}
+        onClick={(event) => {
+          if (leaving) event.preventDefault();
+          else setLeaving(true);
+        }}
         className="inline-flex size-8 items-center justify-center rounded-md text-ink-soft hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
       >
-        <ArrowLeft className="size-4" aria-hidden />
+        {leaving ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <ArrowLeft className="size-4" aria-hidden />}
       </Link>
       <input
         aria-label="Project name"
         value={title}
         maxLength={120}
         onChange={(event) => useStudio.getState().setTitle(event.target.value)}
+        // A project always has a name: an empty one is put back rather than failing every save.
+        onBlur={(event) => {
+          if (event.target.value.trim() === "") useStudio.getState().setTitle(FALLBACK_TITLE);
+        }}
         className="h-8 min-w-0 max-w-64 rounded-md bg-transparent px-2 text-sm font-medium text-ink hover:bg-cloud focus-visible:bg-cloud focus-visible:outline-none"
       />
       <span role="status" className={cn("flex items-center gap-1 text-xs", look.tone)}>

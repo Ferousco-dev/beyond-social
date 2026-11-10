@@ -40,6 +40,10 @@ func (m *memStore) Apply(_ context.Context, e Entry) (int, bool, error) {
 	m.keys[e.Key] = e
 	return m.balance[e.UserID], true, nil
 }
+func (m *memStore) EntryAmount(_ context.Context, key string) (int, bool, error) {
+	e, ok := m.keys[key]
+	return e.Amount, ok, nil
+}
 func (m *memStore) Balance(_ context.Context, u string) (int, error) { return m.balance[u], nil }
 func (m *memStore) Reserved(_ context.Context, jobID string) (int, error) {
 	return -m.keys["reserve:"+jobID].Amount, nil
@@ -230,10 +234,26 @@ func TestPurchaseAddsOnceAndClawbackNeverGoesBelowZero(t *testing.T) {
 	if took, err := svc.Clawback(ctx, "u1", 500, "refund:p1", "refunded"); err != nil || took != 200 {
 		t.Fatalf("clawback took %d (%v), want what was left", took, err)
 	}
-	if took, _ := svc.Clawback(ctx, "u1", 500, "refund:p1", "refunded"); took != 0 {
-		t.Fatalf("a repeated clawback took %d more", took)
+	// A repeat takes nothing more; it reports what the first one took so a caller can record it.
+	if took, _ := svc.Clawback(ctx, "u1", 500, "refund:p1", "refunded"); took != 200 {
+		t.Fatalf("a repeated clawback reported %d", took)
 	}
 	if bal, _ := svc.Balance(ctx, "u1"); bal != 0 {
 		t.Fatalf("balance = %d", bal)
+	}
+}
+
+func TestARepeatedClawbackReportsWhatItTookTheFirstTime(t *testing.T) {
+	store := newMem()
+	svc := NewService(store)
+	ctx := context.Background()
+	store.balance["u1"] = 30
+	first, err := svc.Clawback(ctx, "u1", 20, "refund:p1:100", "refund")
+	if err != nil || first != 20 {
+		t.Fatalf("first = %d %v", first, err)
+	}
+	again, err := svc.Clawback(ctx, "u1", 20, "refund:p1:100", "refund")
+	if err != nil || again != 20 || store.balance["u1"] != 10 {
+		t.Fatalf("repeat = %d %v balance %d", again, err, store.balance["u1"])
 	}
 }

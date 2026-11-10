@@ -52,10 +52,12 @@ export function useCanvasDrag(canvas: HTMLCanvasElement | null): void {
       const stop = (): void => {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", stop);
+        window.removeEventListener("pointercancel", stop);
         useStudio.getState().endDrag();
       };
       window.addEventListener("pointermove", move);
       window.addEventListener("pointerup", stop);
+      window.addEventListener("pointercancel", stop);
     };
     canvas.addEventListener("pointerdown", onDown);
     return () => canvas.removeEventListener("pointerdown", onDown);

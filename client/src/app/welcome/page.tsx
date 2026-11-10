@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { AutoRefresh } from "@/features/billing/auto-refresh";
 import { PageShell } from "@/components/landing/page-shell";
 import { getCurrentUser } from "@/lib/dashboard/current-user";
 import { goApi } from "@/lib/go-api/client";
@@ -23,17 +24,22 @@ export default async function WelcomePage({
   const balance = credits.ok ? credits.data.data.balance : null;
   const pro = user.plan === "pro";
   const boughtCredits = purchase === "credits";
+  // Stripe sends the person back before it tells us the payment went through.
+  const activating = purchase === "pro" && !pro;
 
   return (
     <PageShell
-      eyebrow="Payment confirmed"
-      title={pro && !boughtCredits ? "Welcome to Pro" : "You're topped up"}
+      eyebrow={activating ? "Almost there" : "Payment confirmed"}
+      title={activating ? "Activating Pro" : pro && !boughtCredits ? "Welcome to Pro" : "You're topped up"}
       lede={
-        pro && !boughtCredits
+        activating
+          ? "Your payment went through and your membership is switching on. This page updates by itself, usually within a few seconds."
+          : pro && !boughtCredits
           ? "Your subscription is active. Higher limits are on, and you can buy credit packs whenever a session runs full."
           : "Your credits land as soon as the payment confirms, usually within seconds."
       }
     >
+      {activating ? <AutoRefresh /> : null}
       <div className="flex flex-col gap-3 rounded-2xl border border-hairline bg-paper p-5">
         <p className="text-sm text-ink-soft">
           Plan <span className="font-medium text-ink">{pro ? "Pro" : "Free"}</span>

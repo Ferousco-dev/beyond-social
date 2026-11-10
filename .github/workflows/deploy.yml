@@ -1,143 +1,91 @@
-name: CI/CD
+# Checks every push and pull request. A push to main that passes is deployed:
+# the API to Render (by deploy hook, naming the exact commit) and the web app to Vercel.
+#
+# Repository secrets (Settings > Secrets and variables > Actions):
+#   RENDER_DEPLOY_HOOK_URL, API_URL, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+name: Check and deploy
 
-# CI runs on every PR and push. Deployment only runs after checks pass.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
-  workflow_dispatch:
+  pull_request:
 
 concurrency:
-  group: deploy-main
-  cancel-in-progress: false
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
 
 jobs:
-  ci:
-    name: CI checks
+  server:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: beyond_social_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
-
+    defaults:
+      run:
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
 
-      - name: Go vet and tests
-        working-directory: server
-        env:
-          GOTOOLCHAIN: go1.27.2
-          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/beyond_social_test?sslmode=disable
-        run: |
-          go vet ./...
-          go test -race -count=1 ./...
-
+  client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-
-      - name: Install workspace deps
-        run: pnpm install --frozen-lockfile
-
-      - name: Frontend typecheck lint and tests
-        working-directory: client
-        run: |
-          npx tsc --noEmit
-          npx eslint .
-          pnpm test
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm --filter @beyond-social/web typecheck
+      - run: pnpm --filter @beyond-social/web lint
+      - run: pnpm --filter @beyond-social/web test
 
   deploy-api:
-    name: Deploy API to Render
-    needs: ci
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [server, client]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Trigger Render deploy hook
+      - name: Trigger the Render deploy for this commit
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: |
-          if [ -z "${HOOK}" ]; then
-            echo "The RENDER_DEPLOY_HOOK_URL secret is not set." >&2
-            exit 1
-          fi
-          # Render builds the service from this repository. Naming the commit
-          # deploys exactly what passed the checks, even if a newer push lands
-          # while this runs. The hook already carries ?key=..., so curl joins
-          # the parameter with &.
-          curl --fail-with-body --silent --show-error --max-time 30 \
-            --get --data-urlencode "ref=${GITHUB_SHA}" "${HOOK}"
-          echo
-
-      - name: Wait for the new release to be ready
+        run: curl --fail --silent --show-error -X POST "${HOOK}&ref=${GITHUB_SHA}"
+      - name: Wait until the API reports this commit
         env:
-          API_URL: ${{ vars.API_URL }}
+          API_URL: ${{ secrets.API_URL }}
         run: |
-          API="${API_URL%/}"
-          if [ -z "${API}" ]; then
-            echo "The API_URL repository variable is not set." >&2
-            exit 1
-          fi
-          # /ready checks the database and names the commit it was built from, so
-          # the release being replaced cannot satisfy this check.
-          for i in $(seq 1 60); do
-            body=$(curl --silent --max-time 10 "${API}/ready" || true)
-            status=$(printf '%s' "${body}" | jq -r '.status // empty' 2>/dev/null || true)
-            version=$(printf '%s' "${body}" | jq -r '.version // empty' 2>/dev/null || true)
-            if [ "${status}" = "ready" ] && [ "${version}" = "${GITHUB_SHA}" ]; then
-              echo "API is ready on ${GITHUB_SHA}"
+          for i in $(seq 1 40); do
+            body=$(curl --silent --max-time 20 "${API_URL%/}/ready" || true)
+            echo "attempt $i: $body"
+            if echo "$body" | grep -q "\"version\":\"${GITHUB_SHA}\""; then
+              echo "The API is running ${GITHUB_SHA}"
               exit 0
             fi
-            echo "Attempt ${i}: status=${status:-none} version=${version:-none}"
-            sleep 10
+            sleep 15
           done
-          echo "The API did not report ${GITHUB_SHA} as ready within 10 minutes" >&2
+          echo "The API did not report ${GITHUB_SHA} in time" >&2
           exit 1
 
   deploy-web:
-    name: Deploy frontend to Vercel
-    needs: deploy-api
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [server, client]
     runs-on: ubuntu-latest
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel env
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build frontend
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy frontend
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: npx --yes vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx --yes vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx --yes vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

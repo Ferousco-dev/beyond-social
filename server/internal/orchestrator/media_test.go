@@ -34,7 +34,7 @@ func mediaService(media MediaSubmitter, scripts ScriptChecker) (*Service, *fakeS
 		Store: store, Planner: NewPlanner(&stubPlanClient{}, registry), Registry: registry,
 		Discovery: &fakeDiscovery{status: discovery.StatusCompleted},
 		Transform: &fakeTransform{},
-		Media: media, Scripts: scripts,
+		Media:     media, Scripts: scripts,
 		Jobs: &fakeJobs{status: jobs.StatusCompleted, result: map[string]any{
 			"audio_url": "https://cdn.example/voice.mp3", "image_url": "https://cdn.example/p.png", "video_url": "https://cdn.example/v.mp4",
 		}},
@@ -89,7 +89,7 @@ func TestAReviewedScriptIsSpokenAndGivenToATalkingPhoto(t *testing.T) {
 func TestMediaToolsAreOffWithoutTheirProviders(t *testing.T) {
 	service, _ := mediaService(nil, nil)
 	service.Seal()
-	for _, name := range []string{"edit_image", "talking_photo", "speak_text", "check_script"} {
+	for _, name := range []string{"talking_photo", "speak_text", "check_script"} {
 		if _, ok := service.deps.Registry.Get(name); ok {
 			t.Errorf("%s should be disabled", name)
 		}

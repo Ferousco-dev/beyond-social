@@ -23,7 +23,9 @@ func (s *Service) Subscribe(ctx context.Context, userID, email string) (string, 
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return "", err
 	}
-	if existing.Status == "active" || existing.Status == "trialing" {
+	// A member whose card failed (past_due) still has a Stripe subscription that is retrying;
+	// a second checkout would bill them twice. They fix the card in the portal instead.
+	if existing.Status == "active" || existing.Status == "trialing" || existing.Status == "past_due" {
 		return "", ErrAlreadyPro
 	}
 	price := defaultProPriceCents
@@ -115,6 +117,12 @@ func (s *Service) subscriptionChanged(ctx context.Context, o subscriptionObject)
 	}
 	previous, _ := s.store.SubscriptionOf(ctx, userID)
 	status := stripeStatus(o.Status)
+	// Stripe does not promise to deliver messages in order. The end of an old membership must not
+	// cancel the new one that replaced it.
+	if status == "canceled" && previous.StripeSubscription != "" && o.ID != previous.StripeSubscription &&
+		(previous.Status == "active" || previous.Status == "trialing" || previous.Status == "past_due") {
+		return nil
+	}
 	if err := s.store.SaveSubscription(ctx, Subscription{
 		UserID: userID, Status: status, StripeCustomer: o.Customer, StripeSubscription: o.ID, PeriodEnd: o.periodEnd(),
 	}); err != nil {

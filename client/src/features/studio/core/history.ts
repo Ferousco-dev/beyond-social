@@ -14,6 +14,14 @@ export function commit<T>(history: History<T>, next: T): History<T> {
   return { past: [...history.past, history.present].slice(-LIMIT), present: next, future: [] };
 }
 
+/**
+ * Folds a change into the current step instead of starting a new one. It is a
+ * new edit, so whatever could have been redone no longer follows from it.
+ */
+export function replacePresent<T>(history: History<T>, next: T): History<T> {
+  return { ...history, present: next, future: [] };
+}
+
 export function undo<T>(history: History<T>): History<T> {
   const previous = history.past[history.past.length - 1];
   if (previous === undefined) return history;

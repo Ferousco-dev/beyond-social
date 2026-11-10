@@ -1,3 +1,4 @@
+import { speedOf } from "./find.ts";
 import { type CaptionStyle, type Item } from "./types.ts";
 
 export interface SpokenWord {
@@ -27,11 +28,15 @@ export const DEFAULT_CAPTION_STYLE: CaptionStyle = { preset: "karaoke", color: "
  * break at sentence ends, pauses, or when a phrase gets long.
  */
 export function captionsFromWords(words: readonly SpokenWord[], clip: Media, newId: () => string, style: CaptionStyle = DEFAULT_CAPTION_STYLE): CaptionItem[] {
+  // A clip plays `duration * speed` seconds of its source, and a word that far into
+  // the source lands `1 / speed` as far along the timeline.
+  const speed = speedOf(clip);
   const from = clip.trimIn;
-  const to = clip.trimIn + clip.duration;
+  const to = clip.trimIn + clip.duration * speed;
+  const onTimeline = (source: number): number => (source - from) / speed + clip.start;
   const inside = words
     .filter((w) => w.end > from && w.start < to)
-    .map((w) => ({ text: w.text, start: Math.max(w.start, from) - from + clip.start, end: Math.min(w.end, to) - from + clip.start }))
+    .map((w) => ({ text: w.text, start: onTimeline(Math.max(w.start, from)), end: onTimeline(Math.min(w.end, to)) }))
     .filter((w) => w.end > w.start);
 
   const phrases: (typeof inside)[] = [];

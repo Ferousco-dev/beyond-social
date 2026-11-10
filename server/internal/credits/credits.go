@@ -54,6 +54,8 @@ type Store interface {
 	// ErrInsufficient when a negative amount would overdraw the balance.
 	Apply(ctx context.Context, e Entry) (balance int, applied bool, err error)
 	Balance(ctx context.Context, userID string) (int, error)
+	// EntryAmount is the signed amount of the entry recorded under a key, if there is one.
+	EntryAmount(ctx context.Context, key string) (int, bool, error)
 	// Reserved is the amount taken for a job, or 0 if none was.
 	Reserved(ctx context.Context, jobID string) (int, error)
 	Price(ctx context.Context, action string) (Price, bool, error)
@@ -116,6 +118,13 @@ func (s *Service) Purchase(ctx context.Context, userID string, amount int, key, 
 // the user has left, so a refund cannot push a balance below zero, and it says
 // how much it actually took.
 func (s *Service) Clawback(ctx context.Context, userID string, amount int, key, reason string) (int, error) {
+	// A repeat of a clawback that already happened reports what it took the first time, so the caller's
+	// record is right even if it failed to save it then.
+	if prior, found, err := s.store.EntryAmount(ctx, key); err != nil {
+		return 0, err
+	} else if found {
+		return max(-prior, 0), nil
+	}
 	balance, err := s.store.Balance(ctx, userID)
 	if err != nil {
 		return 0, err

@@ -24,6 +24,11 @@ export type FlowState =
   | { readonly phase: "done"; readonly message: string }
   | { readonly phase: "failed"; readonly message: string };
 
+/** What to add to the success message when part of the export could not be included. */
+function noteOf(warnings: readonly string[]): string {
+  return warnings.length > 0 ? ` Heads up: ${warnings.join(" ")}` : "";
+}
+
 function download(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -58,21 +63,21 @@ export function useExportFlow(): { state: FlowState; start: (to: Destination) =>
     abort.current = new AbortController();
     setState({ phase: "rendering", progress: 0 });
     try {
-      const blob = await exportProject(history.present, {
+      const { blob, warnings } = await exportProject(history.present, {
         urls: mediaUrls,
         onProgress: (progress) => setState({ phase: "rendering", progress }),
         signal: abort.current.signal,
       });
       if (to.kind === "download") {
         download(blob, title);
-        return setState({ phase: "done", message: "Saved to your computer." });
+        return setState({ phase: "done", message: `Saved to your computer.${noteOf(warnings)}` });
       }
       setState({ phase: "uploading" });
       const mediaId = await upload(blob, title);
       const posted = await postExport({ mediaId, platform: to.platform, caption: to.caption, at: to.at?.toISOString(), idempotencyKey: key.current });
       if (!posted.ok) return setState({ phase: "failed", message: posted.message });
       key.current = crypto.randomUUID();
-      setState({ phase: "done", message: to.at ? "Scheduled. You can change or cancel it in Schedule." : "Queued to post. You can follow it in Schedule." });
+      setState({ phase: "done", message: `${to.at ? "Scheduled. You can change or cancel it in Schedule." : "Queued to post. You can follow it in Schedule."}${noteOf(warnings)}` });
     } catch (error) {
       if (error instanceof ExportCancelled) return setState({ phase: "idle" });
       setState({ phase: "failed", message: error instanceof Error ? error.message : "The export failed." });

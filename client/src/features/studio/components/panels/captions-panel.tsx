@@ -56,9 +56,12 @@ export function CaptionsPanel() {
     const result = await transcribeVideo(url);
     setBusy(false);
     if (!result.ok) return useStudio.getState().setNotice(result.message, result.code);
-    const captions = captionsFromWords(result.words, clip, makeId, style);
+    // Transcribing takes a while and the person may have moved, trimmed or removed the clip meanwhile.
+    const latest = locate(useStudio.getState().history.present, clip.id)?.item;
+    if (latest?.kind !== "video") return useStudio.getState().setNotice("That clip was removed while listening. Try again.");
+    const captions = captionsFromWords(result.words, latest, makeId, style);
     if (captions.length === 0) return useStudio.getState().setNotice("No speech was found in that clip.");
-    useStudio.getState().edit((p) => replaceCaptions(p, clip.start, endOf(clip), captions));
+    useStudio.getState().edit((p) => replaceCaptions(p, latest.start, endOf(latest), captions));
   };
 
   return (

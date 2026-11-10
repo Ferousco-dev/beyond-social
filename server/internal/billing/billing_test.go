@@ -550,3 +550,32 @@ func TestStripeFormCarriesAutomaticTax(t *testing.T) {
 		t.Fatalf("tax appeared by itself: %v", form)
 	}
 }
+
+func TestAMemberWithAFailedCardCannotStartASecondMembership(t *testing.T) {
+	svc, store, _, _ := setup()
+	store.subs["u1"] = Subscription{UserID: "u1", Status: "past_due", StripeCustomer: "cus_1", StripeSubscription: "sub_1"}
+	if _, err := svc.Subscribe(context.Background(), "u1", ""); !errors.Is(err, ErrAlreadyPro) {
+		t.Fatalf("a second membership while the first is retrying: %v", err)
+	}
+}
+
+func TestTheEndOfAnOldMembershipDoesNotCancelTheNewOne(t *testing.T) {
+	svc, store, _, _ := setup()
+	ctx := context.Background()
+	store.subs["u1"] = Subscription{UserID: "u1", Status: "active", StripeCustomer: "cus_1", StripeSubscription: "sub_new"}
+	old := []byte(`{"type":"customer.subscription.deleted","data":{"object":{"id":"sub_old","customer":"cus_1","status":"canceled","metadata":{"user_id":"u1"}}}}`)
+	if err := svc.Handle(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.subs["u1"]; got.Status != "active" || got.StripeSubscription != "sub_new" {
+		t.Fatalf("the new membership was overwritten: %+v", got)
+	}
+	// The end of the current membership still counts.
+	current := []byte(`{"type":"customer.subscription.deleted","data":{"object":{"id":"sub_new","customer":"cus_1","status":"canceled","metadata":{"user_id":"u1"}}}}`)
+	if err := svc.Handle(ctx, current); err != nil {
+		t.Fatal(err)
+	}
+	if got := store.subs["u1"]; got.Status != "canceled" {
+		t.Fatalf("status = %s", got.Status)
+	}
+}

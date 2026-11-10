@@ -59,7 +59,7 @@ function applyOne(project: Project, op: Operation, newId: () => string): Result<
     case "move_item":
       return moveItem(project, op.item_id, op.start);
     case "set_volume":
-      return updateItem(project, op.item_id, { volume: op.volume });
+      return updateItem(project, op.item_id, { volume: Math.min(1, op.volume) });
     case "seek":
       return { seek: Math.max(0, op.at) };
     case "watch_clip": {

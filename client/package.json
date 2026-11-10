@@ -27,7 +27,7 @@
     "geist": "^1.7.2",
     "lucide-react": "^1.24.0",
     "mediabunny": "^1.61.3",
-    "next": "^15.5.21",
+    "next": "^15.5.29",
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -35,7 +35,7 @@
     "react-resizable-panels": "^4.14.4",
     "simple-icons": "^16.28.0",
     "tailwind-merge": "^3.6.0",
-    "zod": "^3.24.1",
+    "zod": "^3.25.76",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

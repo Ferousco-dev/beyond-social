@@ -47,8 +47,9 @@ export function useUpload(): { upload: (file: File, only: AssetKind) => Promise<
       let duration: number | undefined;
       if (kind !== "image") {
         const local = URL.createObjectURL(file);
-        duration = await probeDuration(local).catch(() => undefined);
+        duration = await probeDuration(local, file).catch(() => undefined);
         URL.revokeObjectURL(local);
+        if (!duration) useStudio.getState().setNotice("This browser could not read that file's length, so it is placed as 3 seconds.");
       }
       const asset: Asset = { src: mediaRef(slot.id), name: file.name.slice(0, 120) || "Upload", kind, ...(duration ? { duration } : {}) };
       useStudio.getState().edit((p) => addAsset(p, asset));

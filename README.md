@@ -25,6 +25,36 @@ API owns authenticated workflows such as discovery, video transformation,
 avatar registration, and job status. Some web features also use Next.js route
 handlers and server actions.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  U[Browser] --> WEB["client/<br/>Next.js on Vercel"]
+  U <-. live job updates .-> API
+  WEB -- "server actions<br/>and API calls" --> API["server/<br/>Go API on Render"]
+  WEB --> SBA["Supabase Auth"]
+  U -- "edit and export video<br/>in the browser" --> ED["Editor<br/>mediabunny + Web Audio"]
+
+  API --> DB[("Supabase Postgres<br/>credits ledger · jobs · projects")]
+  API --> ST[("Supabase Storage<br/>media files")]
+  API --> Q["Job workers<br/>generate · transform · analysis<br/>talking video · speech"]
+  CR["Credit sweeper"] --> DB
+
+  Q --> KIE["kie.ai<br/>Kling video · avatar · voice"]
+  API --> GEM["Gemini<br/>watches videos, captions, chat"]
+  API --> APF["Apify<br/>trend discovery"]
+  API --> PUB["YouTube · TikTok · Instagram<br/>publishing"]
+  API --> MAIL["Resend<br/>email"]
+
+  STR["Stripe<br/>checkout and billing"] -- signed webhooks --> API
+  API -- "checkout and portal links" --> STR
+```
+
+Every credit change is an idempotent ledger entry: a job reserves credits before
+it starts, and settles or refunds them when it ends, so a retry or a repeated
+Stripe message can never charge twice. Provider keys are pasted in the admin
+console and stored encrypted, not in the web app.
+
 ## Requirements
 
 - Node.js 22 or newer

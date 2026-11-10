@@ -13,10 +13,15 @@ import { getSidebarProjects } from "@/lib/dashboard/conversations";
  * The shell loads the active user's plan and credit balance from the Go API.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  // The sidebar's projects do not depend on the account, so both load together;
-  // only Pro usage has to wait to learn the plan.
-  const [user, projects] = await Promise.all([getCurrentUser(), getSidebarProjects()]);
-  const usage = user.plan === "pro" ? await goApi("/api/v1/usage", usageResponse) : null;
+  // The sidebar's projects do not depend on the account, so they load with it.
+  // Pro usage only has to wait to learn the plan, and it starts the moment the
+  // user is known rather than after the sidebar finishes too, so a slow sidebar
+  // never delays it (no extra calls: free accounts still skip it).
+  const userRequest = getCurrentUser();
+  const usageRequest = userRequest.then((account) =>
+    account.plan === "pro" ? goApi("/api/v1/usage", usageResponse) : null,
+  );
+  const [user, projects, usage] = await Promise.all([userRequest, getSidebarProjects(), usageRequest]);
   const bars = usage?.ok
     ? {
         fiveHour: { used: usage.data.data.usage.five_hour_used, limit: usage.data.data.usage.five_hour_limit, resetsAt: usage.data.data.usage.five_hour_resets_at },
