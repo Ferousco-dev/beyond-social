@@ -5,6 +5,6 @@
   "buildCommand": "pnpm --filter @beyond-social/web build",
   "outputDirectory": "client/.next",
   "regions": [
-    "fra1"
+    "sin1"
   ]
 }
