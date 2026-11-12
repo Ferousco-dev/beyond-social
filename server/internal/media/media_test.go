@@ -116,6 +116,20 @@ func TestConfirmNeedsTheObjectInStorageAndWithinTheLimit(t *testing.T) {
 	}
 }
 
+func TestConfirmRefusesAFileStoredUnderADifferentType(t *testing.T) {
+	ctx := context.Background()
+	svc, st := newSvc(storage.Info{Size: 100, ContentType: "text/html"}, nil)
+	slot, _ := svc.RequestUpload(ctx, "u1", "song.mp3", "audio/mpeg", 100)
+	if _, err := svc.Confirm(ctx, "u1", slot.ID); !errors.Is(err, ErrUnsupported) || st.items[slot.ID].Ready {
+		t.Fatalf("a page stored as audio was confirmed: %v", err)
+	}
+	ok, _ := newSvc(storage.Info{Size: 100, ContentType: "audio/x-m4a"}, nil)
+	slot, _ = ok.RequestUpload(ctx, "u1", "song.m4a", "audio/mp4", 100)
+	if _, err := ok.Confirm(ctx, "u1", slot.ID); err != nil {
+		t.Fatalf("an alias of the declared type was refused: %v", err)
+	}
+}
+
 func TestResolveOnlyReturnsYourOwnFinishedFilesOnce(t *testing.T) {
 	ctx := context.Background()
 	svc, _ := newSvc(storage.Info{Size: 10}, nil)
@@ -176,5 +190,26 @@ func TestAdoptVideoCopiesOnceAndOnlyRealVideo(t *testing.T) {
 	notVideo := NewService(&memStore{items: map[string]Item{}}, fakeStorage{}, fakeFetcher{data: []byte("<html>")})
 	if _, err := notVideo.AdoptVideo(ctx, "u1", "job-2", "https://cdn.example/v", "x"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("a non-video was copied: %v", err)
+	}
+}
+
+func TestViewLinksReturnsOnlyYourOwnFinishedFiles(t *testing.T) {
+	ctx := context.Background()
+	svc, _ := newSvc(storage.Info{Size: 10}, nil)
+	mine, _ := svc.RequestUpload(ctx, "u1", "a.png", "image/png", 10)
+	pending, _ := svc.RequestUpload(ctx, "u1", "b.png", "image/png", 10)
+	theirs, _ := svc.RequestUpload(ctx, "u2", "c.png", "image/png", 10)
+	for _, owner := range []struct{ user, id string }{{"u1", mine.ID}, {"u2", theirs.ID}} {
+		if _, err := svc.Confirm(ctx, owner.user, owner.id); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	links := svc.ViewLinks(ctx, "u1", []string{mine.ID, pending.ID, theirs.ID, "not-a-file"})
+	if len(links) != 1 || links[mine.ID].URL == "" {
+		t.Fatalf("links = %+v, want only the one finished file of u1", links)
+	}
+	if !links[mine.ID].ExpiresAt.After(time.Now().Add(25 * time.Minute)) {
+		t.Fatalf("link expires too soon: %v", links[mine.ID].ExpiresAt)
 	}
 }

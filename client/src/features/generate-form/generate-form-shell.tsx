@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { preloadLibrary } from "@/features/asset-library/use-library";
+import { preloadLibrary, useLibrary } from "@/features/asset-library/use-library";
+import { AVATAR_PACK_KEY } from "@/features/new-video/components/avatar-pack-panel";
+import { OptionSheet } from "@/features/new-video/components/option-sheet";
 import { cn } from "@/lib/utils";
 
 import { fromSuggestion, toAudience } from "./audience";
 import { StepAssets } from "./step-assets";
 import { StepFormat } from "./step-format";
-import { StepObjective } from "./step-objective";
+import { StepObjective, objectiveErrors } from "./step-objective";
 import { StepReview } from "./step-review";
 import { StepScript } from "./step-script";
 import { toLength } from "./pacing";
@@ -19,6 +21,7 @@ import type { OwnIdea } from "@/features/new-video/components/own-idea-panel";
 export const DRAFT_KEY = "bs:generate-draft";
 const IDEA_KEY = "bs:own-idea";
 const SCRIPT_KEY = "bs:approved-script";
+const QUICK_KEY = "bs:quick-start";
 
 function readJSON<T>(key: string): T | null {
   try {
@@ -29,14 +32,61 @@ function readJSON<T>(key: string): T | null {
   }
 }
 
-/** The 5-step generation form. Prefills from the New Video flow, autosaves. */
-export function GenerateFormShell({ balance }: { balance: number | null }) {
+/** The 3-step generation form, with the final review in a popup. Prefills from the New Video flow, autosaves. */
+export function GenerateFormShell({ balance, proPrice }: { balance: number | null; proPrice: string | null }) {
   const [step, setStep] = useState(0);
+  const [reviewing, setReviewing] = useState(false);
   const [values, setValues] = useState<GenerateFormValues>(EMPTY_FORM);
 
-  function handleContinue(): void {
-    setStep((current) => Math.min(current + 1, STEPS.length - 1));
+  const [showErrors, setShowErrors] = useState(false);
+
+  /** Moves on only when the objective is filled in; otherwise shows every problem and focuses the first. */
+  function goTo(target: number): boolean {
+    if (target > 0) {
+      const problems = Object.keys(objectiveErrors(values));
+      if (problems.length > 0) {
+        setShowErrors(true);
+        setStep(0);
+        setTimeout(() => document.getElementById(`field-${problems[0]}`)?.focus(), 0);
+        return false;
+      }
+    }
+    setStep(target);
+    return true;
   }
+
+  function handleContinue(): void {
+    goTo(Math.min(step + 1, STEPS.length - 1));
+  }
+
+  const library = useLibrary();
+
+  // A pack chosen on New Video fills the face, voice, product and environment, and opens at the script.
+  // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
+  const pack = useRef<{ face?: string; voice?: string; product?: string; environment?: string } | null | undefined>(undefined);
+  if (pack.current === undefined) pack.current = null;
+  useEffect(() => {
+    pack.current = readJSON<{ face?: string; voice?: string; product?: string; environment?: string }>(AVATAR_PACK_KEY);
+    try {
+      window.sessionStorage.removeItem(AVATAR_PACK_KEY);
+    } catch {
+      // Nothing to clear.
+    }
+  }, []);
+  useEffect(() => {
+    const chosen = pack.current;
+    if (library.status !== "ready" || !chosen) return;
+    pack.current = null;
+    const find = (slot: string | undefined): string => (slot ? (library.assets.find((a) => a.id === slot || a.media_id === slot)?.id ?? "") : "");
+    setValues((current) => ({
+      ...current,
+      faceAssetId: find(chosen.face),
+      voiceAssetId: find(chosen.voice),
+      productAssetId: find(chosen.product),
+      environmentAssetId: find(chosen.environment),
+    }));
+    setStep(2);
+  }, [library]);
 
   // Saved assets are read now, so the Visual assets step opens without waiting.
   useEffect(() => preloadLibrary(), []);
@@ -58,6 +108,19 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
     const idea = readJSON<OwnIdea>(IDEA_KEY);
     const script = readJSON<ApprovedScript>(SCRIPT_KEY);
     if (!idea && !script) return;
+    // The reference video's analysis already settled the topic, audience and
+    // look, so setup opens at the script. A quick start from an idea goes
+    // straight to the final review. Either way Back still reaches the rest.
+    const quick = readJSON<boolean>(QUICK_KEY);
+    try {
+      window.sessionStorage.removeItem(QUICK_KEY);
+    } catch {
+      // Nothing to clear.
+    }
+    if (idea && quick) {
+      setStep(STEPS.length - 1);
+      setReviewing(true);
+    } else if (script) setStep(2);
     setValues((current) => ({
       ...current,
       objective: idea?.objective ?? current.objective,
@@ -95,7 +158,7 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
           <li key={label} className="flex-1">
             <button
               type="button"
-              onClick={() => setStep(index)}
+              onClick={() => goTo(index)}
               aria-current={index === step ? "step" : undefined}
               className="group w-full cursor-pointer py-1 text-left"
             >
@@ -115,11 +178,17 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
 
       <h2 className="text-lg font-semibold text-ink">{STEPS[step]}</h2>
 
-      {step === 0 ? <StepObjective values={values} onChange={patch} /> : null}
+      {step === 0 ? <StepObjective values={values} onChange={patch} showErrors={showErrors} /> : null}
       {step === 1 ? <StepFormat values={values} onChange={patch} /> : null}
-      {step === 2 ? <StepScript values={values} onChange={patch} /> : null}
-      {step === 3 ? <StepAssets values={values} onChange={patch} /> : null}
-      {step === 4 ? <StepReview values={values} balance={balance} onChange={patch} /> : null}
+      {step === 2 ? (
+        <div className="flex flex-col gap-8">
+          <StepScript values={values} onChange={patch} />
+          <section aria-labelledby="assets-heading" className="flex flex-col gap-3 border-t border-hairline pt-6">
+            <h3 id="assets-heading" className="text-base font-semibold text-ink">Visual assets</h3>
+            <StepAssets values={values} onChange={patch} />
+          </section>
+        </div>
+      ) : null}
 
       <div className="flex gap-2">
         {step > 0 ? (
@@ -131,16 +200,23 @@ export function GenerateFormShell({ balance }: { balance: number | null }) {
             Back
           </button>
         ) : null}
-        {step < STEPS.length - 1 ? (
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
-          >
-            Continue
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={step < STEPS.length - 1 ? handleContinue : () => { if (goTo(step)) setReviewing(true); }}
+          className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
+        >
+          {step < STEPS.length - 1 ? "Continue" : "Review and generate"}
+        </button>
       </div>
+
+      <OptionSheet
+        open={reviewing}
+        title="Final review"
+        description="Check the summary and the credit cost, then generate."
+        onClose={() => setReviewing(false)}
+      >
+        <StepReview values={values} balance={balance} proPrice={proPrice} onChange={patch} />
+      </OptionSheet>
     </div>
   );
 }

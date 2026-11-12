@@ -10,10 +10,10 @@ import { clearProviderKey, saveProviderKey } from "../actions";
 import { useAdminAction } from "../use-admin-action";
 
 const LABELS: Readonly<Record<string, string>> = {
-  apify: "Apify (trend discovery)",
-  kie: "KIE (video transformation)",
+  apify: "Apify (finds trending videos)",
+  kie: "KIE (makes and remixes videos)",
   kie_webhook_hmac: "KIE webhook signing key",
-  gemini: "Gemini (planning)",
+  gemini: "Gemini (chat, link analysis, captions)",
   alert_webhook: "Alert webhook (Slack or Discord URL)",
   resend_api_key: "Resend (emails)",
   stripe_secret_key: "Stripe secret key",
@@ -28,7 +28,7 @@ const LABELS: Readonly<Record<string, string>> = {
 
 const SOURCE_TEXT = {
   vault: "Saved here",
-  environment: "From server settings",
+  environment: "From server settings (set date unknown)",
   missing: "Not set",
 } as const;
 
@@ -55,6 +55,7 @@ export function ProviderKeyForm({
         <p className="text-xs text-ink-soft">
           {SOURCE_TEXT[credential.source]}
           {credential.last4 ? ` · ends in ${credential.last4}` : ""}
+          {credential.updatedAt ? ` · set ${new Date(credential.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}` : ""}
         </p>
       </div>
       {writable ? (

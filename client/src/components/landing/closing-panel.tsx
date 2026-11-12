@@ -52,11 +52,10 @@ export function ClosingPanel(): ReactNode {
                     Get started
                   </p>
                   <h2 className="mt-5 text-balance text-3xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-4xl lg:text-5xl">
-                    Your next video is one sentence away.
+                    Make your next video today.
                   </h2>
                   <p className="mt-5 max-w-md text-pretty text-sm leading-relaxed text-ink-soft sm:text-base">
-                    Start free, keep what you make, and let the engine sharpen with every clip you
-                    publish.
+                    Start free and keep everything you make. Pro removes the credit limits.
                   </p>
 
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -126,8 +125,7 @@ export function ClosingPanel(): ReactNode {
                   <Logo />
                 </Link>
                 <p className="mt-4 max-w-xs text-sm leading-relaxed text-ink-soft">
-                  Video that looks directed, not generated. The engine handles the craft, you make
-                  the calls.
+                  Short videos made from a sentence or a photo, then scheduled to your accounts.
                 </p>
               </div>
 

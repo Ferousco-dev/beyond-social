@@ -35,7 +35,7 @@ func withRecover(next http.Handler) http.Handler {
 		defer func() {
 			if rec := recover(); rec != nil {
 				slog.Error("panic in handler", "path", r.URL.Path, "panic", rec)
-				writeError(w, http.StatusInternalServerError, "internal_error", "something went wrong")
+				writeError(w, http.StatusInternalServerError, "internal_error", "something went wrong on our side; try again in a moment")
 			}
 		}()
 		next.ServeHTTP(w, r)

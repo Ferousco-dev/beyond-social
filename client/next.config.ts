@@ -99,11 +99,11 @@ const nextConfig: NextConfig = {
   experimental: {
     /**
      * Next 15 caches dynamic segments on the client for 0 seconds by default, so
-     * going back to a page you were just on refetches the whole thing. Thirty
-     * seconds makes back, forward, and repeat navigation instant without letting
-     * anyone read genuinely stale data for long.
+     * going back to a page you were just on refetches the whole thing. Five
+     * minutes makes back, forward, and repeat navigation instant. Mutations call
+     * router.refresh or revalidatePath, which drop this cache, so edits still show.
      */
-    staleTimes: { dynamic: 30, static: 180 },
+    staleTimes: { dynamic: 300, static: 600 },
   },
   reactStrictMode: true,
   poweredByHeader: false,

@@ -16,8 +16,6 @@ in `../client`.
 - `internal/discovery`: TikTok/Instagram discovery, history and results.
 - `internal/transform`: video-to-video workflow and its background processor.
 - `internal/worker`: leased background polling shared by both.
-- `internal/heygen`: HeyGen v3 client (digital twins, consent, voices, avatar videos, webhook signature).
-- `internal/avatars`, `internal/voices`, `internal/avatarvideo`: avatar registration, voice choice and script-to-video.
 - `internal/storage`: Supabase Storage (signed URLs and deletion for private recordings).
 - `internal/safenet`: SSRF-safe fetching of untrusted media URLs.
 - `internal/http`: routes, handlers, JSON responses.
@@ -51,14 +49,7 @@ Success responses are `{"data": ...}`; errors are
 | `GET /api/v1/discover/{id}/videos?limit=&offset=` | yes | Its videos. |
 | `POST /api/v1/jobs/video-transform` | yes | `{video_id, prompt?}` from a discovered video. 202 with the job, or 200 for a repeated `Idempotency-Key`. |
 | `POST /api/v1/callbacks/kie` | signature | KIE completion webhook; only names a task, the outcome is re-read from KIE. |
-| `POST /api/v1/avatars` | yes | Register an avatar from a recording the user uploaded to the `avatar-footage` bucket. 202, or 200 for a repeated `Idempotency-Key`. |
-| `GET /api/v1/avatars`, `GET /api/v1/avatars/{id}` | yes | The user's avatars. |
-| `POST /api/v1/avatars/{id}/consent` | yes | A fresh HeyGen consent link (links last 24 hours). |
-| `POST /api/v1/avatars/{id}/voice` | yes | Associate a voice (`{voice_id}`) with a ready avatar. |
-| `GET /api/v1/voices?limit=&language=&gender=&token=` | yes | The user's own voices first, then HeyGen's shared library. |
-| `POST /api/v1/videos/avatar` | yes | `{avatar_id, script, voice_id?}`. 202 with a job; `Idempotency-Key` supported. |
 | `GET /api/v1/videos/{id}` | yes | The video job; a completed one carries a fresh file URL. |
-| `POST /api/v1/callbacks/heygen` | signature | HeyGen completion webhook; only names a video, the outcome is re-read from HeyGen. |
 | `GET /ws` | in-band | WebSocket, see below. |
 
 ## Video workflow
@@ -69,15 +60,6 @@ Success responses are `{"data": ...}`; errors are
 
 Work is leased in Postgres (`next_run_at`), so a restart resumes jobs. A job that died between "submitting" and recording KIE's task ID is failed rather than resubmitted, because resubmitting could bill twice.
 
-## Avatar and voice workflow
-
-1. The browser records and uploads to the private `avatar-footage` bucket, then `POST /avatars` with `{storage_path, name?, consent_confirmed: true, consent_version: 1, reroute_url?}`. The path must be inside the caller's own folder, MP4 or WebM, at most 200 MB. Consent must be confirmed; the person also completes HeyGen's hosted webcam consent, which verifies they are the face in the recording.
-2. A worker signs a short-lived URL for the recording, has HeyGen train a digital twin, and keeps polling (5s, then 15s, then 60s, for at most 24 hours). `status` is `training`, `awaiting_consent` (with `consent_url`), `ready` or `failed`. Events: `avatar.updated`.
-3. HeyGen clones the voice from the footage as part of training; it becomes the avatar's voice. The user may choose another voice they are allowed to use: their own, or HeyGen's public library. A voice recorded for another user is refused.
-4. The recording is deleted from storage as soon as the avatar is ready or failed (retried until it succeeds), so it is kept only while HeyGen needs it.
-5. `POST /videos/avatar` creates a job; the worker calls HeyGen with the job ID as the idempotency key, so a retry never starts a second video. A job completes only when HeyGen reports `completed` with a file URL. HeyGen's URLs are presigned and expire, so `GET /videos/{id}` re-reads a fresh one.
-
-Limits: 2 avatars in training and 2 videos in progress per user, 5 avatars in total, scripts up to 3000 characters.
 
 ## Authentication
 

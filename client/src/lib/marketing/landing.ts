@@ -53,61 +53,61 @@ export const FEATURES: readonly Feature[] = [
     icon: Wand2,
     title: "Prompt intelligence",
     description:
-      "Every prompt is grounded in a knowledge base of cinematography, lighting, and retention craft, then rewritten into a director-grade shot description.",
+      "Your prompt is checked against a knowledge base of cinematography, lighting and pacing, then rewritten as a detailed shot description.",
     peek: { src: "/app/compose.png", alt: "" },
   },
   {
     icon: Clapperboard,
-    title: "Generation that understands film",
+    title: "Shots with camera and lighting set",
     description:
-      "Shot size, camera movement, and lighting are specified for you, so clips look directed instead of generated.",
+      "Shot size, camera movement and lighting are filled in for you, so clips look planned.",
   },
   {
     icon: Layers,
-    title: "An editor, not a black box",
+    title: "A real editor",
     description:
-      "Trim clips, restyle captions, swap music, and adjust the grade on a real multi-track timeline whenever the first cut is not quite right.",
+      "Trim clips, restyle captions, swap music and adjust the grade on a multi-track timeline when the first cut needs work.",
   },
   {
     icon: CalendarClock,
-    title: "Schedule once, publish everywhere",
+    title: "Schedule once",
     description:
-      "Queue a week of content and let it publish itself to TikTok, Instagram, YouTube, and Facebook at the right moment.",
+      "Queue a week of posts and they go out to TikTok, Instagram and YouTube at the times you pick.",
     peek: { src: "/app/library.png", alt: "" },
   },
   {
     icon: BarChart3,
-    title: "Performance that feeds back",
+    title: "Results that feed back",
     description:
-      "Views and reach flow back into the engine, so the system learns which creative choices actually earned attention.",
+      "Views and likes come back into the app, so you can see which videos earned attention.",
     peek: { src: "/app/overview.png", alt: "" },
   },
   {
     icon: Sparkles,
-    title: "Gets sharper every week",
+    title: "Learns from what you keep",
     description:
-      "Accepted outputs strengthen the knowledge behind them. The model you use next month is better than the one you used today.",
+      "Outputs you accept, edit or reject update the knowledge behind your next prompts.",
   },
 ];
 
 export const STEPS: readonly Step[] = [
   {
     index: "01",
-    title: "Describe it, or drop a photo",
+    title: "Describe it or drop in a photo",
     description:
-      "Say what you want in plain language, or start from a single product image. No storyboards, no timeline to learn first.",
+      "Say what you want in plain language, or start from one product image.",
   },
   {
     index: "02",
-    title: "The engine directs the shot",
+    title: "The engine plans the shots",
     description:
-      "Your brief is grounded in real directing knowledge and turned into a scripted, shot-listed video with captions and music.",
+      "Your brief becomes a script and a shot list, with captions and music.",
   },
   {
     index: "03",
-    title: "Refine, then publish",
+    title: "Edit, then publish",
     description:
-      "Adjust anything in the editor, then schedule it to every platform in the formats each one rewards.",
+      "Change anything in the editor, then schedule it to your connected accounts in each platform's format.",
   },
 ];
 
@@ -167,26 +167,36 @@ export const LANDING_FAQ: readonly FaqItem[] = [
   {
     question: "Do I need any video editing experience?",
     answer:
-      "No. Describe what you want and the engine handles scripting, shots, captions, and music. The editor is there when you want control, not as a requirement.",
+      "No. Describe what you want and the engine writes the script and picks shots, captions and music. Open the editor when you want to change something.",
   },
   {
-    question: "What makes the output different from other AI video tools?",
+    question: "How is this different from other AI video tools?",
     answer:
-      "Prompts are grounded in a curated knowledge base of cinematography, lighting, pacing, and platform craft before anything is generated, so clips read as directed rather than generic.",
+      "Before anything is generated, your prompt is checked against a knowledge base of cinematography, lighting and pacing. That is what gives clips a planned look.",
   },
   {
     question: "Can I use my own product photos?",
     answer:
-      "Yes. Start from a single image and the engine animates it while preserving your product's shape, colour, and label exactly.",
+      "Yes. Start from one image and the engine animates it, keeping your product's shape, colour and label.",
   },
   {
     question: "Which platforms can I publish to?",
     answer:
-      "TikTok, Instagram, YouTube Shorts, and Facebook, each in the aspect ratio and length that platform rewards. Schedule once and it publishes itself.",
+      "TikTok, Instagram and YouTube. Each post goes out in that platform's format, at the time you schedule.",
   },
   {
-    question: "Does it really improve over time?",
+    question: "What happens when my credits run out?",
     answer:
-      "Yes. Every output you accept, edit, or reject updates the knowledge behind it, so retrieval surfaces the techniques that actually perform for your audience.",
+      "You are told the cost of a video before it starts, and nothing is charged if you do not have enough. Credits do not expire, and they are returned if a video fails to render.",
+  },
+  {
+    question: "Can I cancel Pro whenever I want?",
+    answer:
+      "Yes. Open Billing and choose Manage subscription to cancel or change your card yourself. There is no call or email to send.",
+  },
+  {
+    question: "Does it improve over time?",
+    answer:
+      "Yes. Every output you accept, edit or reject updates the knowledge behind it, so later prompts lean on what worked for you.",
   },
 ];

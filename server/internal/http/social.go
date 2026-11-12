@@ -81,7 +81,7 @@ func (a *App) socialCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	dest := url.Values{"platform": {string(p)}, "status": {outcome}}
-	http.Redirect(w, r, a.deps.AppURL+"/dashboard/connections?"+dest.Encode(), http.StatusFound)
+	http.Redirect(w, r, a.deps.AppURL+"/dashboard/settings/connections?"+dest.Encode(), http.StatusFound)
 }
 
 func (a *App) disconnectSocial(w http.ResponseWriter, r *http.Request) {

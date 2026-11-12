@@ -23,7 +23,7 @@ export default async function AdminBlogPage(): Promise<ReactNode> {
 
       {result.status !== "ok" ? (
         <p role="alert" className="mt-6 text-sm text-destructive">
-          {result.status === "unconfigured" ? "The backend is not connected yet." : result.message}
+          {result.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : result.message}
         </p>
       ) : result.posts.length === 0 ? (
         <p className="mt-6 text-sm text-ink-soft">No posts yet. Create the first one.</p>

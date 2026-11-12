@@ -70,9 +70,19 @@ func (a *App) me(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 		return
 	}
+	// A failed read must not hide the rest of the account, so it reads as "not failing".
+	paymentFailing := false
+	if a.deps.PaymentFailing != nil && plan == credits.PlanPro {
+		var err error
+		if paymentFailing, err = a.deps.PaymentFailing(r.Context(), profile.ID); err != nil {
+			slog.Warn("read payment status", "error", err)
+			paymentFailing = false
+		}
+	}
 	writeData(w, http.StatusOK, map[string]any{
 		"user_id": profile.ID, "email": profile.Email, "name": profile.DisplayName,
 		"role": profile.Role, "industry": profile.Industry, "credits": balance, "plan": plan, "created_at": profile.CreatedAt,
+		"payment_failing": paymentFailing,
 	})
 }
 
@@ -81,7 +91,7 @@ func (a *App) accountError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, accounts.ErrDeleted):
 		writeError(w, http.StatusForbidden, "account_deleted", "this account has been deleted")
 	case errors.Is(err, accounts.ErrSuspended):
-		writeError(w, http.StatusForbidden, "account_suspended", "this account is suspended")
+		writeError(w, http.StatusForbidden, "account_suspended", "this account is suspended; contact support to restore access")
 	default:
 		writeInternal(w, r, err)
 	}

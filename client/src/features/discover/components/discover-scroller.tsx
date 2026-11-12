@@ -139,7 +139,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
           setResults(null);
           setSelectedId(null);
           setNoticeCode(undefined);
-          setNotice("Something went wrong while searching. Please try again.");
+          setNotice("The search failed. Try again.");
         }
       });
     },
@@ -186,7 +186,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
         if (ticket !== latestSearch.current) return;
         setResults(null);
         setSelectedId(null);
-        setNotice("Something went wrong while opening that video. Please try again.");
+        setNotice("That video could not be opened. Try again.");
       }
     });
   }, []);

@@ -1,5 +1,5 @@
-import { SkeletonPage } from "../_skeleton";
+import { SkeletonSettings } from "../_skeleton";
 
 export default function Loading() {
-  return <SkeletonPage />;
+  return <SkeletonSettings />;
 }

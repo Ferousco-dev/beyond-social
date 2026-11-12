@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { deferWithUndo } from "@/components/ui/undo-toast";
 import { uploadGroupFile } from "@/features/asset-groups/upload";
 
 import { consentLibraryAsset, createLibraryAsset, deleteLibraryAsset, relabelLibraryAsset } from "./actions";
@@ -39,7 +40,7 @@ export function useAssetLibrary(initial: readonly LibraryAsset[]) {
       URL.revokeObjectURL(preview);
       if (created.status !== "ok") {
         replace(tempId, null);
-        setError(created.status === "unconfigured" ? "The backend is not connected yet." : created.message);
+        setError(created.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : created.message);
         return false;
       }
       replace(tempId, created.asset);
@@ -73,7 +74,26 @@ export function useAssetLibrary(initial: readonly LibraryAsset[]) {
       optimistic(asset, { ...asset, consent_at: new Date().toISOString() }, () => consentLibraryAsset(asset.id)),
     [optimistic],
   );
-  const remove = useCallback((asset: ShownAsset) => optimistic(asset, null, () => deleteLibraryAsset(asset.id)), [optimistic]);
+  // Gone from the screen at once; deleted for real only after the Undo window passes.
+  const remove = useCallback(
+    (asset: ShownAsset): void => {
+      setError(null);
+      replace(asset.id, null);
+      deferWithUndo({
+        message: `“${asset.label}” deleted`,
+        onUndo: () => setAssets((current) => (current.some((a) => a.id === asset.id) ? current : [asset, ...current])),
+        commit: async () => {
+          const result = await deleteLibraryAsset(asset.id);
+          if (result.status === "ok") {
+            invalidateLibrary();
+            return null;
+          }
+          return `“${asset.label}” could not be deleted, so it was put back. ${result.status === "error" ? result.message : "The service is not available right now."}`;
+        },
+      });
+    },
+    [replace],
+  );
 
   return { assets, error, dismissError: () => setError(null), add, relabel, consent, remove };
 }

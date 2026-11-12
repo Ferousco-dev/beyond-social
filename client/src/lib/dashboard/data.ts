@@ -10,13 +10,15 @@ export interface DashboardUser {
   readonly industry: string;
   /** Whether the admin console link belongs in this person's account menu. */
   readonly isAdmin: boolean;
+  /** A renewal payment failed; the card needs updating. */
+  readonly paymentFailing?: boolean;
 }
 
 export interface SidebarProject {
   readonly id: string;
   readonly title: string;
   readonly href: string;
-  readonly kind: "video" | "chat" | "draft";
+  readonly kind: "video" | "draft";
   readonly updatedAt: string;
 }
 

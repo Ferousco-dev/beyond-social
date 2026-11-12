@@ -1,5 +1,5 @@
-import { SkeletonPage } from "../_skeleton";
+import { SkeletonGrid } from "../_skeleton";
 
 export default function Loading() {
-  return <SkeletonPage rows={4} label="Loading your projects" />;
+  return <SkeletonGrid label="Loading your projects" />;
 }

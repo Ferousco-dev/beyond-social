@@ -194,6 +194,13 @@ func (s *BillingStore) SaveSubscription(ctx context.Context, sub billing.Subscri
 	return tx.Commit(ctx)
 }
 
+// PaymentFailing says whether the member's latest renewal payment failed and Stripe is still retrying.
+func (s *BillingStore) PaymentFailing(ctx context.Context, userID string) (bool, error) {
+	var failing bool
+	err := s.pool.QueryRow(ctx, `select exists (select 1 from public.subscriptions where user_id = $1 and status = 'past_due')`, userID).Scan(&failing)
+	return failing, err
+}
+
 func (s *BillingStore) SubscriptionOf(ctx context.Context, userID string) (billing.Subscription, error) {
 	var sub billing.Subscription
 	err := s.pool.QueryRow(ctx, `

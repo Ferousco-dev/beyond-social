@@ -24,7 +24,7 @@ export default function DashboardError({
     <div className="mx-auto w-full max-w-2xl px-6 py-16">
       <ErrorState
         title="This page did not load"
-        impact="Nothing was lost. Your projects, credits and connected accounts are all stored on our side, and none of them were changed by this. Only this screen failed to render."
+        impact="Your projects, credits and connected accounts were not changed. Only this screen failed to load."
         action={{ label: "Try again", onClick: reset }}
         secondary={{ label: "Back to dashboard", href: "/dashboard" }}
         reference={errorReference(error)}

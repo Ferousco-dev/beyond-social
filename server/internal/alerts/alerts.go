@@ -35,6 +35,8 @@ type Store interface {
 	Record(ctx context.Context, a Alert) (saved Alert, notify bool, err error)
 	List(ctx context.Context, openOnly bool, limit int) ([]Alert, error)
 	Resolve(ctx context.Context, id string) (bool, error)
+	// ResolveProvider closes every open alert for a provider, for when it is working again.
+	ResolveProvider(ctx context.Context, provider string) (int, error)
 }
 
 // Sender delivers an alert out of band (a chat webhook, for example).
@@ -98,6 +100,22 @@ func (s *Service) List(ctx context.Context, openOnly bool, limit int) ([]Alert, 
 
 func (s *Service) Resolve(ctx context.Context, id string) (bool, error) {
 	return s.store.Resolve(ctx, id)
+}
+
+// Clear closes the open alerts for a provider that has just been seen working
+// (a healthy balance, or a key that was accepted). Best effort, like Report.
+func (s *Service) Clear(ctx context.Context, provider string) {
+	if s == nil {
+		return
+	}
+	n, err := s.store.ResolveProvider(context.WithoutCancel(ctx), provider)
+	if err != nil {
+		slog.Warn("clear provider alerts", "provider", provider, "error", err)
+		return
+	}
+	if n > 0 {
+		slog.Info("provider alerts cleared", "provider", provider, "count", n)
+	}
 }
 
 func describe(c provider.Class) string {

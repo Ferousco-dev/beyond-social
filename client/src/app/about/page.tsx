@@ -10,7 +10,7 @@ export default function Page(): ReactNode {
     <PageShell
       eyebrow="Company"
       title="Building Beyond Social"
-      lede="Beyond Social turns an idea into a finished, publishable video. This page explains what it is for and why it is built the way it is."
+      lede="Beyond Social turns an idea into a finished video you can publish."
     >
       <Prose>
         <p>

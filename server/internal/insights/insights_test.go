@@ -122,3 +122,7 @@ func TestRecommendNeedsHistory(t *testing.T) {
 		t.Fatalf("thin history must yield no slots: %+v", slots)
 	}
 }
+
+func (f *fakeRepo) Recent(_ context.Context, _ string, _, _ int) (map[string][]Metrics, error) {
+	return map[string][]Metrics{}, nil
+}

@@ -10,18 +10,18 @@ import { saveSetting } from "../actions";
 import { useAdminAction } from "../use-admin-action";
 
 const LABELS: Readonly<Record<string, string>> = {
-  signup_grant: "Free credits for a new account",
-  daily_user_limit: "Most credits one user can spend per day (0 = no limit)",
-  free_price_multiplier_pct: "Free plan price multiplier, in percent (200 = costs double)",
-  pro_limit_five_hour: "Pro: usage points per five hour session",
-  pro_limit_week: "Pro: usage points per week (refills Monday 00:00 UTC)",
+  signup_grant: "Credits a new account starts with",
+  daily_user_limit: "Most credits one person can spend in a day (0 means no limit)",
+  free_price_multiplier_pct: "Free plan price, as a percent of the normal price (200 means double)",
+  pro_limit_five_hour: "Pro: usage points every five hours",
+  pro_limit_week: "Pro: usage points each week (resets Monday 00:00 UTC)",
   free_searches_per_day: "Free plan: searches per day",
   free_search_results: "Free plan: results per search",
-  pro_price_cents: "Pro price per month, in cents (2000 = $20.00)",
-  stripe_tax_enabled: "Collect sales tax through Stripe (1 = on). Turn on only after setting up Stripe Tax",
-  overage_default_cap: "Suggested monthly cap for extra usage, in credits",
-  alert_kie_credits: "Alert when KIE credits fall below",
-  alert_apify_usd: "Alert when Apify headroom (USD) falls below",
+  pro_price_cents: "Pro price per month, in cents (2000 is $20.00)",
+  stripe_tax_enabled: "Collect sales tax through Stripe (1 is on). Set up Stripe Tax first",
+  overage_default_cap: "Suggested monthly cap on extra credits a Pro user can use",
+  alert_kie_credits: "Warn me when KIE credits drop below",
+  alert_apify_usd: "Warn me when the Apify balance (USD) drops below",
 };
 
 export function SettingForm({ setting }: { readonly setting: SettingRow }): ReactNode {

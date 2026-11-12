@@ -63,9 +63,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return result;
   };
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Verified from the token's signature, not by asking Supabase Auth over the network on every request.
+  const { data: auth } = await supabase.auth.getClaims();
+  const user = auth?.claims ?? null;
 
   const { pathname } = request.nextUrl;
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));

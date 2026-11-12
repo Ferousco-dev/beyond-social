@@ -10,7 +10,7 @@ export type CheckoutResult = { readonly ok: true; readonly url: string } | { rea
 
 /** Starts a Stripe payment for a pack and returns the page to send the person to. */
 export async function startCheckout(packId: string): Promise<CheckoutResult> {
-  if (!z.string().uuid().safeParse(packId).success) return { ok: false, message: "Unknown pack." };
+  if (!z.string().uuid().safeParse(packId).success) return { ok: false, message: "That pack could not be found." };
   const result = await goApi("/api/v1/credits/checkout", checkoutResponse, { method: "POST", body: { pack_id: packId } });
   return result.ok ? { ok: true, url: result.data.data.url } : { ok: false, message: result.message };
 }

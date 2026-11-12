@@ -6,7 +6,7 @@ import { type ReactNode } from "react";
 const HELP: Readonly<Record<string, { readonly href: string; readonly label: string }>> = {
   usage_limit: { href: "/dashboard/usage", label: "See your usage" },
   upgrade_required: { href: "/pricing", label: "Upgrade to Pro" },
-  insufficient_credits: { href: "/dashboard/credits", label: "Get more credits" },
+  insufficient_credits: { href: "/dashboard/settings/billing", label: "Get more credits" },
   daily_limit: { href: "/dashboard/usage", label: "See your usage" },
 };
 

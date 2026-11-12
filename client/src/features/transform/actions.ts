@@ -39,7 +39,7 @@ export async function startVideoTransform(input: z.input<typeof startSchema>): P
 }
 
 export async function getVideoJob(jobId: string): Promise<StartResult> {
-  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "Unknown job." };
+  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "That job could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
 
   const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);

@@ -1,4 +1,4 @@
-import { Brain, CreditCard, Palette, UserRound, type LucideIcon } from "lucide-react";
+import { Brain, CreditCard, Palette, Share2, UserRound, type LucideIcon } from "lucide-react";
 
 /**
  * The settings sections. One list, used by both the hub cards and the section
@@ -33,6 +33,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     label: "Plan and billing",
     description: "Your plan, credits, and purchases.",
     icon: CreditCard,
+  },
+  {
+    href: "/dashboard/settings/connections",
+    label: "Connections",
+    description: "The TikTok, Instagram, and YouTube accounts you publish to.",
+    icon: Share2,
   },
   {
     href: "/dashboard/settings/memory",

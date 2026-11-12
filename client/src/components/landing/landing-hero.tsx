@@ -37,7 +37,7 @@ export function LandingHero(): ReactNode {
               <Sparkles className="size-3" aria-hidden />
               NEW
             </span>
-            <span className="text-ink-soft">Prompt intelligence engine, now live</span>
+            <span className="text-ink-soft">The prompt engine is live</span>
           </span>
 
           {/*
@@ -47,12 +47,12 @@ export function LandingHero(): ReactNode {
             do that which still selects and copies as text.
           */}
           <h1 className="mx-auto mt-8 max-w-4xl text-balance bg-gradient-to-b from-ink via-ink to-[color-mix(in_srgb,var(--ink)_55%,transparent)] bg-clip-text text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.035em] text-transparent sm:text-6xl lg:text-[4.75rem]">
-            Video that looks directed, not generated
+            Make videos that look directed
           </h1>
 
           <p className="mx-auto mt-7 max-w-2xl text-pretty text-base leading-relaxed text-ink-soft sm:text-lg">
-            Describe an idea or drop in a product photo. Beyond Social directs the shot, cuts the
-            video, and publishes it to every platform in the format each one rewards.
+            Describe an idea or drop in a product photo. Beyond Social writes the script, builds the
+            shots, and schedules the video to TikTok, Instagram and YouTube in each platform&apos;s format.
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -80,7 +80,7 @@ export function LandingHero(): ReactNode {
           </div>
 
           <p className="mt-6 text-xs text-ink-soft">
-            No card required. Publishes to {PLATFORMS.slice(0, 3).join(", ")}, and more.
+            No card required. Publishes to {PLATFORMS.join(", ")}.
           </p>
         </div>
       </div>
@@ -88,8 +88,7 @@ export function LandingHero(): ReactNode {
       {/* The orbit is decorative and hidden from assistive tech, so the claim it
           makes is stated here in text instead. */}
       <p className="sr-only">
-        Built on frontier models and infrastructure: Anthropic, Google Gemini, OpenAI, Supabase,
-        Next.js and Vercel.
+        Built with Anthropic, Google Gemini, OpenAI, Supabase, Next.js and Vercel.
       </p>
     </section>
   );

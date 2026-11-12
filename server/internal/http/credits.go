@@ -24,9 +24,9 @@ type CreditAdmin interface {
 	UpdatePrice(ctx context.Context, action string, patch credits.PricePatch, actor string) (credits.PriceRow, error)
 	Settings(ctx context.Context) ([]credits.Setting, error)
 	SetSetting(ctx context.Context, key string, value int, actor string) error
-	FindUsers(ctx context.Context, query string, segment credits.Segment, limit int) ([]credits.UserCredits, error)
+	FindUsers(ctx context.Context, query string, segment credits.Segment, limit, offset int) ([]credits.UserCredits, error)
 	SegmentCounts(ctx context.Context) (credits.SegmentCounts, error)
-	Ledger(ctx context.Context, userID string, limit int) ([]credits.LedgerRow, error)
+	Ledger(ctx context.Context, userID string, limit, offset int) ([]credits.LedgerRow, error)
 	Usage(ctx context.Context, days int) (credits.UsageReport, error)
 }
 
@@ -61,7 +61,7 @@ func (a *App) myCredits(w http.ResponseWriter, r *http.Request) {
 	}
 	history := []credits.LedgerRow{}
 	if a.deps.CreditAdmin != nil {
-		if history, err = a.deps.CreditAdmin.Ledger(r.Context(), identity.UserID, 25); err != nil {
+		if history, err = a.deps.CreditAdmin.Ledger(r.Context(), identity.UserID, 25, 0); err != nil {
 			writeInternal(w, r, err)
 			return
 		}

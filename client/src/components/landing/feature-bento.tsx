@@ -11,8 +11,8 @@ export function FeatureBento(): ReactNode {
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
         <SectionHeading
           eyebrow="Capabilities"
-          title="An engine that understands craft"
-          description="Not a wrapper around a video model. Directing knowledge, a real editor, native publishing, and a feedback loop that compounds."
+          title="Direction, an editor and publishing in one place"
+          description="Prompts are written with cinematography knowledge, the editor is a real timeline, and posts go straight to your accounts."
         />
 
         <Reveal delay={80} className="mt-14">

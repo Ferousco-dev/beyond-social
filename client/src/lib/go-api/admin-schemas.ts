@@ -15,7 +15,7 @@ const userSchema = z.object({
   balance: z.number(),
   suspended: z.boolean(),
 });
-export const adminUsersResponse = z.object({ data: z.array(userSchema) });
+export const adminUsersResponse = z.object({ data: z.array(userSchema), has_more: z.boolean().default(false) });
 
 export const adminUserDetailResponse = z.object({
   data: z.object({
@@ -45,7 +45,7 @@ const ledgerRow = z.object({
   createdAt: z.string(),
 });
 export const userLedgerResponse = z.object({
-  data: z.object({ balance: z.number(), history: z.array(ledgerRow) }),
+  data: z.object({ balance: z.number(), history: z.array(ledgerRow), has_more: z.boolean().default(false) }),
 });
 
 const priceRow = z.object({

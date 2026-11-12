@@ -78,7 +78,7 @@ export function LinkPreview({
         const job = apply(result);
         if (job && job.state !== "completed" && job.state !== "failed") void run(job.id);
       })
-      .catch(() => !cancelled && setError("Something went wrong while fetching the video."));
+      .catch(() => !cancelled && setError("The video could not be fetched."));
 
     return () => {
       cancelled = true;

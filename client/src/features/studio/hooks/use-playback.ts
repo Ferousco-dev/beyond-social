@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { endOf, projectDuration, speedOf } from "../core/find.ts";
 import { type Item, type Project } from "../core/types.ts";
 import { drawFrame, type FrameSources } from "../lib/compose";
+import { FrameDecoder } from "../lib/frame-decoder";
 import { resolveSrc } from "../lib/media-ref";
 import { useStudio } from "../store/editor-store";
 
@@ -49,6 +50,7 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
           if (element instanceof HTMLVideoElement) element.playsInline = true;
           element.addEventListener("loadeddata", redraw);
           element.addEventListener("seeked", redraw);
+          element.addEventListener("error", () => useStudio.getState().setNotice("A clip could not be played. The file may be damaged or in a format this browser cannot show."));
           elements.current.set(item.id, element);
         }
         const url = resolveSrc(item.src, useStudio.getState().mediaUrls);
@@ -87,20 +89,32 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
         const inside = time >= item.start && time < endOf(item);
         if (!inside || !playing) {
           if (!element.paused) element.pause();
-          if (inside && Math.abs(element.currentTime - sourceTime(item, time)) > 0.04) element.currentTime = sourceTime(item, time);
+          if (inside && !element.seeking && Math.abs(element.currentTime - sourceTime(item, time)) > 0.04) element.currentTime = sourceTime(item, time);
           continue;
         }
-        if (Math.abs(element.currentTime - sourceTime(item, time)) > DRIFT_SECONDS) element.currentTime = sourceTime(item, time);
+        // A seek still in flight is left to finish: asking again every frame
+        // restarts it, so a slow source would never arrive and the picture
+        // stayed black. Drift is only corrected once the element has data.
+        if (!element.seeking && element.readyState >= 2 && Math.abs(element.currentTime - sourceTime(item, time)) > DRIFT_SECONDS) {
+          element.currentTime = sourceTime(item, time);
+        }
         if (element.paused) void element.play().catch(() => undefined);
       }
     };
 
+    // Frames decoded from the file fill in wherever the element has no picture of its own.
+    const decoder = new FrameDecoder(redraw);
+    const decoded = (id: string): ReturnType<FrameDecoder["frameNear"]> => {
+      const item = mediaItems(project).find((candidate) => candidate.id === id);
+      return item ? decoder.frameNear(id, sourceTime(item, useStudio.getState().currentTime)) : undefined;
+    };
     const sources: FrameSources = {
       video: (id) => {
         const element = elements.current.get(id);
-        return element instanceof HTMLVideoElement && element.readyState >= 2
-          ? { source: element, width: element.videoWidth, height: element.videoHeight }
-          : undefined;
+        if (element instanceof HTMLVideoElement && element.readyState >= 2 && !element.seeking) {
+          return { source: element, width: element.videoWidth, height: element.videoHeight };
+        }
+        return decoded(id) ?? (element instanceof HTMLVideoElement && element.readyState >= 2 ? { source: element, width: element.videoWidth, height: element.videoHeight } : undefined);
       },
       image: (src) => images.current.get(src),
     };
@@ -113,6 +127,28 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
     sync(project);
     let last = performance.now();
     let frame = 0;
+    /** True while a clip under the playhead has not got enough data to play on. */
+    const waiting = (time: number): boolean =>
+      mediaItems(project).some((item) => {
+        if (time < item.start || time >= endOf(item)) return false;
+        const element = elements.current.get(item.id);
+        return element !== undefined && element.getAttribute("src") !== null && (element.seeking || element.readyState < 3) && !element.error;
+      });
+    /** A video under the playhead that has no picture yet: drawing now would flash black. */
+    const pictureMissing = (time: number): boolean =>
+      mediaItems(project).some((item) => {
+        if (item.kind !== "video" || time < item.start || time >= endOf(item)) return false;
+        const element = elements.current.get(item.id);
+        return (
+          element !== undefined &&
+          element.getAttribute("src") !== null &&
+          !element.error &&
+          (element.seeking || element.readyState < 2) &&
+          decoded(item.id) === undefined
+        );
+      });
+    let waitingSince = 0;
+    let drawn = false;
     const tick = (now: number): void => {
       const state = useStudio.getState();
       if (state.history.present !== project || state.mediaUrls !== urls) {
@@ -120,7 +156,15 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
         urls = state.mediaUrls;
         sync(project);
       }
-      if (state.playing) {
+      // The clock holds while a clip buffers, so picture, sound and playhead
+      // stay together instead of the clock running ahead of the video.
+      // Holding for a slow clip is capped, so a source that never buffers cannot freeze the editor.
+      const hold = state.playing && waiting(state.currentTime);
+      if (!hold) waitingSince = 0;
+      else if (waitingSince === 0) waitingSince = now;
+      if (hold && now - waitingSince < 2500) {
+        dirty.current = true;
+      } else if (state.playing) {
         const next = state.currentTime + (now - last) / 1000;
         if (next >= projectDuration(project)) {
           state.setPlaying(false);
@@ -130,8 +174,18 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
       }
       last = now;
       steer(project, useStudio.getState().currentTime, state.playing);
-      if (dirty.current) {
+      // Where the element is still seeking or buffering, decode the wanted frame directly.
+      const at = useStudio.getState().currentTime;
+      for (const item of mediaItems(project)) {
+        if (item.kind !== "video" || at < item.start || at >= endOf(item)) continue;
+        const element = elements.current.get(item.id);
+        const src = element?.getAttribute("src");
+        if (element && src && !element.error && (element.seeking || element.readyState < 2)) decoder.request(item.id, src, sourceTime(item, at));
+      }
+      // The last good picture stays on screen until the next one is ready, never a black flash.
+      if (dirty.current && !(drawn && pictureMissing(useStudio.getState().currentTime))) {
         dirty.current = false;
+        drawn = true;
         drawFrame(ctx, project, useStudio.getState().currentTime, sources);
       }
       frame = requestAnimationFrame(tick);
@@ -143,6 +197,7 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
     return () => {
       cancelAnimationFrame(frame);
       unsubscribe();
+      decoder.dispose();
       for (const element of playing.values()) element.pause();
       playing.clear();
       pictures.clear();

@@ -4,6 +4,7 @@ node_modules/
 
 # Build output
 .next/
+.next-dev/
 out/
 dist/
 build/
@@ -46,3 +47,10 @@ coverage/
 # Local tooling
 .claude/
 *.local
+
+.dev-logs/
+
+# Exported documents and local data pulls (client cost sheets, usage exports)
+*.pdf
+*.xlsx
+*.docx

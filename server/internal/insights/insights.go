@@ -67,6 +67,7 @@ type Repository interface {
 	Insert(ctx context.Context, userID, postID string, views, likes, comments, shares int64) (Metrics, error)
 	Latest(ctx context.Context, userID, postID string) (Metrics, error)
 	History(ctx context.Context, userID, postID string, limit int) ([]Metrics, error)
+	Recent(ctx context.Context, userID string, posts, perPost int) (map[string][]Metrics, error)
 	Samples(ctx context.Context, userID string, platform social.Platform, days int) ([]Sample, error)
 	DuePublished(ctx context.Context, staleBefore time.Time, limit int) ([]DuePost, error)
 }
@@ -97,6 +98,12 @@ func (s *Service) Latest(ctx context.Context, userID, postID string) (Metrics, e
 
 func (s *Service) History(ctx context.Context, userID, postID string) ([]Metrics, error) {
 	return s.repo.History(ctx, userID, postID, 30)
+}
+
+// Recent reads the snapshots of the newest published posts together, so a page
+// showing many posts asks once instead of once per post.
+func (s *Service) Recent(ctx context.Context, userID string, posts int) (map[string][]Metrics, error) {
+	return s.repo.Recent(ctx, userID, posts, 30)
 }
 
 // Collect refreshes one round of stale YouTube posts. Anything else is

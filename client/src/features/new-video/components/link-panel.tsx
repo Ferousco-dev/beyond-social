@@ -6,7 +6,7 @@ import { AnalysisView } from "./analysis-view";
 import { LinkPreview } from "./link-preview";
 
 const fieldClass =
-  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
+  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20";
 
 interface Approved {
   url: string;

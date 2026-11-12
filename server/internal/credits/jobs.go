@@ -57,8 +57,9 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		if err != nil {
 			return 0, "", err
 		}
-		rate, err := b.svc.Quote(ctx, "video_generate_second")
-		return rate * req.TotalSeconds(), "video_generate_second", err
+		action := VideoAction(req.Sound)
+		rate, err := b.svc.Quote(ctx, action)
+		return rate * req.TotalSeconds(), action, err
 	case kietools.JobTalk:
 		req, err := kietools.ParseTalk(job.Input)
 		if err != nil {

@@ -67,5 +67,6 @@ export const getCurrentUser = cache(async (): Promise<DashboardUser> => {
     plan: me.data.data.plan,
     industry: me.data.data.industry ?? "",
     isAdmin: me.data.data.role === "admin",
+    paymentFailing: me.data.data.payment_failing === true,
   };
 });

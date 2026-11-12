@@ -65,7 +65,14 @@ func (a *App) setProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.changeProvider(w, r, "credential.set", func(actor, name string) error {
-		return a.deps.Vault.Set(r.Context(), name, body.Value, actor)
+		if err := a.deps.Vault.Set(r.Context(), name, body.Value, actor); err != nil {
+			return err
+		}
+		// A new key that passed its check ends any alert about the old one.
+		if a.deps.Probe != nil && a.deps.Alerts != nil {
+			a.deps.Alerts.Clear(r.Context(), name)
+		}
+		return nil
 	})
 }
 

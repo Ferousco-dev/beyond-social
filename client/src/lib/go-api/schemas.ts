@@ -54,7 +54,6 @@ export const jobListItemSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
 });
-export type GoJobListItem = z.infer<typeof jobListItemSchema>;
 export const jobsListResponse = z.object({ data: z.array(jobListItemSchema) });
 
 export const meResponse = z.object({
@@ -66,6 +65,8 @@ export const meResponse = z.object({
     credits: z.number().int(),
     plan: z.enum(["free", "pro"]),
     industry: z.string().optional(),
+    /** True while a renewal payment has failed and Stripe is retrying. */
+    payment_failing: z.boolean().optional(),
   }),
 });
 
@@ -136,41 +137,6 @@ export const assetGroupDetailSchema = assetGroupSchema.extend({
 export type AssetGroupDetail = z.infer<typeof assetGroupDetailSchema>;
 export const assetGroupDetailResponse = z.object({ data: assetGroupDetailSchema });
 
-const workflowStepSchema = z.object({
-  id: z.string(),
-  step_id: z.string(),
-  tool: z.string(),
-  args: z.record(z.string(), z.unknown()),
-  needs: z.array(z.string()),
-  status: z.enum(["pending", "running", "completed", "failed", "skipped"]),
-  attempts: z.number(),
-  output: z.record(z.string(), z.unknown()),
-  error: z.string(),
-});
-export type GoWorkflowStep = z.infer<typeof workflowStepSchema>;
-
-const workflowSchema = z.object({
-  id: z.string(),
-  objective: z.string(),
-  status: z.enum([
-    "draft",
-    "awaiting_clarification",
-    "awaiting_approval",
-    "approved",
-    "running",
-    "completed",
-    "failed",
-    "cancelled",
-  ]),
-  plan: z.record(z.string(), z.unknown()),
-  plan_hash: z.string(),
-  error: z.string(),
-  steps: z.array(workflowStepSchema),
-});
-export type GoWorkflow = z.infer<typeof workflowSchema>;
-
-export const workflowResponse = z.object({ data: workflowSchema });
-
 const attachmentSchema = z.object({
   id: z.string(),
   kind: z.enum(["image", "video", "audio"]),
@@ -194,18 +160,6 @@ export const chatMessageSchema = z.object({
   /** Present when the message proposed a script for the user to approve. */
   script: z.object({ title: z.string(), scenes: z.array(z.object({ seconds: z.number(), visual: z.string() })) }).optional(),
   created_at: z.string(),
-});
-export type ChatMessage = z.infer<typeof chatMessageSchema>;
-
-export const conversationResponse = z.object({ data: z.object({ id: z.string(), title: z.string() }) });
-export const threadResponse = z.object({
-  data: z.object({
-    conversation: z.object({ id: z.string(), title: z.string() }),
-    messages: z.array(chatMessageSchema),
-  }),
-});
-export const exchangeResponse = z.object({
-  data: z.object({ user: chatMessageSchema, assistant: chatMessageSchema }),
 });
 
 export const creditsResponse = z.object({
@@ -267,6 +221,10 @@ export const postMetricsResponse = z.object({
   data: z.object({ latest: metricsSchema.nullable(), history: z.array(metricsSchema) }),
 });
 
+export const recentMetricsResponse = z.object({
+  data: z.record(z.string(), z.object({ latest: metricsSchema.nullable(), history: z.array(metricsSchema) })),
+});
+
 export const slotSchema = z.object({
   weekday: z.number().int().min(0).max(6),
   hour: z.number().int().min(0).max(23),
@@ -283,11 +241,14 @@ const editorProjectSchema = z.object({
   document: z.unknown(),
   version: z.number().int(),
   updated_at: z.string(),
+  // Links for the uploaded files the timeline plays, sent with the project.
+  media_urls: z.record(z.string(), z.object({ url: z.string(), expires_at: z.string() })).optional(),
 });
 export const wordsResponse = z.object({
   data: z.object({ words: z.array(z.object({ text: z.string(), start: z.number(), end: z.number() })) }),
 });
 
+export const mediaLinksResponse = z.object({ data: z.record(z.string(), z.object({ url: z.string(), expires_at: z.string() })) });
 export const editorProjectResponse = z.object({ data: editorProjectSchema });
 
 const usageSnapshotSchema = z.object({
@@ -348,9 +309,11 @@ const libraryItemSchema = z.object({
   id: z.string(),
   type: z.string(),
   prompt: z.string().optional(),
-  video_url: z.string().url(),
+  // Empty on a picture-only list (light=1); a full address otherwise.
+  video_url: z.string(),
   thumbnail_url: z.string().optional(),
   duration_seconds: z.number().optional(),
+  project_id: z.string().optional(),
   created_at: z.string(),
 });
 export type LibraryItem = z.infer<typeof libraryItemSchema>;

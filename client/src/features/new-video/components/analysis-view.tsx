@@ -96,7 +96,7 @@ export function AnalysisView({
         if (!result.job.analysis) void watch(result.job.id);
       })
       .catch(() => {
-        if (!cancelled) setError("Something went wrong while starting the analysis. Go back and try again.");
+        if (!cancelled) setError("The analysis did not start. Go back and try again.");
       });
     return () => {
       cancelled = true;

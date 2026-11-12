@@ -47,7 +47,7 @@ export async function createAssetGroup(name: string): Promise<GroupResult> {
 }
 
 export async function getAssetGroup(id: string): Promise<GroupDetailResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown group." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That group could not be found." };
   const missing = needApi();
   if (missing) return missing;
   const result = await goApi(`/api/v1/asset-groups/${id}`, assetGroupDetailResponse);
@@ -65,7 +65,7 @@ const updateSchema = z.object({
 });
 
 export async function updateAssetGroup(id: string, input: z.input<typeof updateSchema>): Promise<GroupResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown group." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That group could not be found." };
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Check the fields and try again." };
   const missing = needApi();
@@ -78,9 +78,9 @@ export async function updateAssetGroup(id: string, input: z.input<typeof updateS
 }
 
 export async function deleteAssetGroup(id: string): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown group." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That group could not be found." };
   const missing = needApi();
-  if (missing) return { status: "error", message: "The backend is not connected yet." };
+  if (missing) return { status: "error", message: "The service is not available right now. Try again in a few minutes." };
   const result = await goApi(`/api/v1/asset-groups/${id}`, z.null(), { method: "DELETE" });
   return result.ok ? { status: "ok" } : { status: "error", message: result.message };
 }
@@ -89,7 +89,7 @@ export async function consentAssetGroup(
   id: string,
   kind: "face" | "voice",
 ): Promise<GroupResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown group." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That group could not be found." };
   const missing = needApi();
   if (missing) return missing;
   const result = await goApi(`/api/v1/asset-groups/${id}/consent`, assetGroupResponse, {

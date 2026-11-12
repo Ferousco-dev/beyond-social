@@ -18,7 +18,8 @@ import { Field } from "./field";
 const PRESET_LABEL: Record<CaptionPreset, string> = { karaoke: "Karaoke", pill: "Pill", classic: "Classic", box: "Box", minimal: "Minimal" };
 const SIZES = [{ label: "Small", value: 48 }, { label: "Medium", value: 64 }, { label: "Large", value: 84 }] as const;
 const POSITIONS = [{ label: "Top", value: 0.15 }, { label: "Middle", value: 0.5 }, { label: "Bottom", value: 0.8 }] as const;
-const CAPTION_CREDITS = 10;
+// Speech-to-text is switched off until a transcription service is connected, so nothing is generated or charged.
+const CAPTIONS_AVAILABLE = false;
 
 type Video = Extract<Item, { kind: "video" }>;
 
@@ -69,7 +70,7 @@ export function CaptionsPanel() {
       <div className="space-y-2">
         <button
           type="button"
-          disabled={!clip || busy}
+          disabled={!CAPTIONS_AVAILABLE || !clip || busy}
           onClick={() => void generate()}
           className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -77,7 +78,7 @@ export function CaptionsPanel() {
           {busy ? "Listening" : "Generate captions"}
         </button>
         <p className="text-xs text-ink-soft">
-          {clip ? `Listens to the selected clip, or the first one. Costs ${CAPTION_CREDITS} credits.` : "Add a video to the timeline first."}
+          {CAPTIONS_AVAILABLE ? (clip ? "Listens to the selected clip, or the first one." : "Add a video to the timeline first.") : "Automatic captions are not available yet. You can still add your own text from the Text tab."}
         </p>
       </div>
 

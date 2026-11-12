@@ -73,6 +73,12 @@ func (s *AlertStore) Resolve(ctx context.Context, id string) (bool, error) {
 	return tag.RowsAffected() == 1, nil
 }
 
+// ResolveProvider closes every open alert for a provider.
+func (s *AlertStore) ResolveProvider(ctx context.Context, provider string) (int, error) {
+	tag, err := s.pool.Exec(ctx, `update public.admin_alerts set resolved_at = now() where provider = $1 and resolved_at is null`, provider)
+	return int(tag.RowsAffected()), err
+}
+
 // isInvalidUUID reports a malformed id, which reads as "not found".
 func isInvalidUUID(err error) bool {
 	var pgErr *pgconn.PgError

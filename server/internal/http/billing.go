@@ -88,7 +88,7 @@ func (a *App) checkout(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, billing.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "that pack is not for sale")
 	case errors.Is(err, billing.ErrUnavailable):
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "payments are not available right now")
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "payments are not available right now; you were not charged")
 	case err != nil:
 		slog.Error("start checkout", "error", err)
 		writeError(w, http.StatusBadGateway, "provider_failed", "could not start the payment; you were not charged")
@@ -229,7 +229,7 @@ func (a *App) sendToStripe(w http.ResponseWriter, r *http.Request, url string, e
 	case errors.Is(err, billing.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "there is no membership to manage")
 	case errors.Is(err, billing.ErrUnavailable):
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "payments are not available right now")
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "payments are not available right now; you were not charged")
 	case err != nil:
 		slog.Error("open stripe page", "error", err)
 		writeError(w, http.StatusBadGateway, "provider_failed", "could not open the payment page; you were not charged")

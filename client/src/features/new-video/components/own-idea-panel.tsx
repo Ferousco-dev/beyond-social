@@ -17,6 +17,7 @@ export interface OwnIdea {
 }
 
 export const OWN_IDEA_KEY = "bs:own-idea";
+const QUICK_KEY = "bs:quick-start";
 
 /** Option 3: describe the idea in four fields. The main page reads it in M5. */
 export function OwnIdeaPanel() {
@@ -36,21 +37,27 @@ export function OwnIdeaPanel() {
     fields.product.trim() !== "" &&
     fields.style.trim() !== "";
 
+  function go(quick: boolean): void {
+    if (!ready || submitting) return;
+    setSubmitting(true);
+    try {
+      window.sessionStorage.removeItem("bs:generate-draft");
+      window.sessionStorage.removeItem("bs:approved-script");
+      window.sessionStorage.setItem(OWN_IDEA_KEY, JSON.stringify(fields));
+      if (quick) window.sessionStorage.setItem(QUICK_KEY, "true");
+      else window.sessionStorage.removeItem(QUICK_KEY);
+      router.push("/dashboard/videos/new" as Route);
+    } catch {
+      setSubmitting(false);
+      setSubmitError("This browser could not save your idea. Check its storage settings and try again.");
+    }
+  }
+
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (!ready || submitting) return;
-        setSubmitting(true);
-        try {
-          window.sessionStorage.removeItem("bs:generate-draft");
-          window.sessionStorage.removeItem("bs:approved-script");
-          window.sessionStorage.setItem(OWN_IDEA_KEY, JSON.stringify(fields));
-          router.push("/dashboard/videos/new" as Route);
-        } catch {
-          setSubmitting(false);
-          setSubmitError("This browser could not save your idea. Check its storage settings and try again.");
-        }
+        go(false);
       }}
       className="grid gap-3 sm:grid-cols-2"
     >
@@ -72,15 +79,25 @@ export function OwnIdeaPanel() {
       </label>
       <div className="sm:col-span-2">
         {submitError ? <p role="alert" className="mb-2 text-sm text-destructive">{submitError}</p> : null}
-        <button
-          type="submit"
-          disabled={!ready || submitting}
-          aria-busy={submitting}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? <Spinner className="size-4" /> : null}
-          {submitting ? "Opening video setup" : "Continue"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => go(true)}
+            disabled={!ready || submitting}
+            aria-busy={submitting}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? <Spinner className="size-4" /> : null}
+            {submitting ? "Opening" : "Generate now"}
+          </button>
+          <button
+            type="submit"
+            disabled={!ready || submitting}
+            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-hairline px-5 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Customise first
+          </button>
+        </div>
       </div>
     </form>
   );

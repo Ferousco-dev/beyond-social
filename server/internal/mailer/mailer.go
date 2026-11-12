@@ -27,6 +27,7 @@ type Message struct {
 	To      string
 	Subject string
 	Text    string
+	HTML    string
 }
 
 type Sender interface {
@@ -61,7 +62,7 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 	if from == "" {
 		from = DefaultFrom
 	}
-	body, err := json.Marshal(map[string]any{"from": from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text})
+	body, err := json.Marshal(map[string]any{"from": from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text, "html": m.HTML})
 	if err != nil {
 		return err
 	}
@@ -108,7 +109,7 @@ func (n *Notifier) Inline() *Notifier {
 	return n
 }
 
-func (n *Notifier) send(userID string, compose func() (subject, text string)) {
+func (n *Notifier) send(userID string, l letter) {
 	n.wait(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), sendTimeout)
 		defer cancel()
@@ -117,8 +118,8 @@ func (n *Notifier) send(userID string, compose func() (subject, text string)) {
 			slog.Warn("email skipped: no address", "user", userID, "error", err)
 			return
 		}
-		subject, text := compose()
-		if err := n.sender.Send(ctx, Message{To: to, Subject: subject, Text: text}); err != nil {
+		subject := l.subject
+		if err := n.sender.Send(ctx, Message{To: to, Subject: subject, Text: l.text(n.appURL), HTML: l.render(n.appURL)}); err != nil {
 			// A missing key just means the admin has not set email up yet.
 			if provider.Code(err) == provider.CodeNotConfigured {
 				slog.Info("email not sent: no email key is set", "subject", subject)

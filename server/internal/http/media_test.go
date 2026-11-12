@@ -29,6 +29,16 @@ func (fakeMedia) Confirm(_ context.Context, user, id string) (media.Descriptor, 
 func (fakeMedia) AdoptVideo(_ context.Context, user, jobID, _, _ string) (media.Descriptor, error) {
 	return media.Descriptor{ID: jobID, Kind: media.KindVideo}, nil
 }
+func (f fakeMedia) ViewLinks(ctx context.Context, user string, ids []string) map[string]media.Link {
+	out := map[string]media.Link{}
+	for _, id := range ids {
+		if url, err := f.ViewURL(ctx, user, id); err == nil {
+			out[id] = media.Link{URL: url}
+		}
+	}
+	return out
+}
+
 func (fakeMedia) ViewURL(_ context.Context, user, id string) (string, error) {
 	if user != alice {
 		return "", media.ErrNotFound

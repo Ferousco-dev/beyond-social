@@ -67,7 +67,7 @@ func (s *AdminCreditStore) SaveSetting(ctx context.Context, key string, value in
 	return tag.RowsAffected() == 1, err
 }
 
-func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment credits.Segment, limit int) ([]credits.UserCredits, error) {
+func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment credits.Segment, limit, offset int) ([]credits.UserCredits, error) {
 	rows, err := s.pool.Query(ctx, `
 		select p.id::text, p.email, p.display_name, coalesce(b.balance, 0), p.suspended_at is not null
 		from public.profiles p left join public.credit_balances b on b.user_id = p.id
@@ -78,7 +78,7 @@ func (s *AdminCreditStore) FindUsers(ctx context.Context, query string, segment 
 		        when 'paid' then exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'purchase')
 		        when 'active' then exists (select 1 from public.credit_ledger l where l.user_id = p.id and l.kind = 'reserve' and l.created_at >= now() - interval '30 days')
 		        else true end
-		order by p.created_at desc limit $3`, query, string(segment), limit)
+		order by p.created_at desc, p.id limit $3 offset $4`, query, string(segment), limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +121,10 @@ func (s *AdminCreditStore) UserDetail(ctx context.Context, userID string) (credi
 	return detail, err
 }
 
-func (s *AdminCreditStore) Ledger(ctx context.Context, userID string, limit int) ([]credits.LedgerRow, error) {
+func (s *AdminCreditStore) Ledger(ctx context.Context, userID string, limit, offset int) ([]credits.LedgerRow, error) {
 	rows, err := s.pool.Query(ctx, `
 		select kind, amount, balance_after, reason, coalesce(job_id::text, ''), created_at
-		from public.credit_ledger where user_id = $1 order by id desc limit $2`, userID, limit)
+		from public.credit_ledger where user_id = $1 order by id desc limit $2 offset $3`, userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}

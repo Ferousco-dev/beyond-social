@@ -14,9 +14,9 @@ import (
 func writeCreditError(w http.ResponseWriter, err error) bool {
 	switch {
 	case errors.Is(err, credits.ErrInsufficient):
-		writeError(w, http.StatusPaymentRequired, "insufficient_credits", "you do not have enough credits for this")
+		writeError(w, http.StatusPaymentRequired, "insufficient_credits", "you do not have enough credits for this; you were not charged")
 	case errors.Is(err, credits.ErrUnavailable):
-		writeError(w, http.StatusServiceUnavailable, "unavailable", "this is not available right now")
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "this feature is not available right now; try again later")
 	case errors.Is(err, credits.ErrUpgradeRequired):
 		var upgrade *credits.UpgradeError
 		message := "this is part of the Pro plan"
@@ -38,7 +38,7 @@ func writeCreditError(w http.ResponseWriter, err error) bool {
 		}})
 	case errors.Is(err, credits.ErrDailyLimit):
 		w.Header().Set("Retry-After", "3600")
-		writeError(w, http.StatusTooManyRequests, "daily_limit", "you have reached your daily credit limit; try again later")
+		writeError(w, http.StatusTooManyRequests, "daily_limit", "you have reached your daily credit limit; it resets tomorrow")
 	default:
 		return false
 	}

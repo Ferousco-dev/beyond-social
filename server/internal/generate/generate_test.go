@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -113,7 +114,7 @@ func TestASingleSceneIsASingleShotWithAnExplicitRatio(t *testing.T) {
 		t.Fatalf("prepared = %+v err=%v", p, err)
 	}
 	in := p.Input
-	if in["multi_shots"] != false || in["prompt"] != "A runner" || in["duration"] != "8" || in["aspect_ratio"] != "9:16" || in["mode"] != "std" || in["sound"] != false {
+	if in["multi_shots"] != false || !strings.HasPrefix(in["prompt"].(string), "A runner") || in["duration"] != "8" || in["aspect_ratio"] != "9:16" || in["mode"] != "pro" || in["sound"] != false {
 		t.Fatalf("input = %+v", in)
 	}
 	if _, has := in["image_urls"]; has {

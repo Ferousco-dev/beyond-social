@@ -53,7 +53,7 @@ export function SignupForm() {
           router.push(response.redirectTo as Route);
         }
       } catch {
-        setResult({ status: "error", message: "Something went wrong. Please try again." });
+        setResult({ status: "error", message: "That did not work. Try again." });
       }
     });
   }
@@ -82,7 +82,7 @@ export function SignupForm() {
       />
       <TextField
         id="phone"
-        label="Phone number"
+        label="Phone number (optional)"
         type="tel"
         autoComplete="tel"
         placeholder="+65 8123 4567"
@@ -91,7 +91,7 @@ export function SignupForm() {
       />
       <TextField
         id="businessName"
-        label="Business name"
+        label="Business name (optional)"
         autoComplete="organization"
         placeholder="Acme Studio"
         error={errors.businessName?.message}

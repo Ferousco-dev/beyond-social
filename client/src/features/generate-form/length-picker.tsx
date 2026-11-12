@@ -20,7 +20,8 @@ export function LengthPicker({
   spoken: string;
   contentKind: string;
 }) {
-  const quotes = useSceneQuotes();
+  // Spoken words turn sound on, which the provider charges more for, so the price follows it.
+  const quotes = useSceneQuotes(spoken.trim() !== "");
   const recommended = recommendedLength(spoken, contentKind);
 
   return (

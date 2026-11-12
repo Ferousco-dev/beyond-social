@@ -10,7 +10,6 @@ import { useUpload } from "../../hooks/use-upload";
 import { placeAsset } from "../../lib/place-asset";
 import { selectProject, useStudio } from "../../store/editor-store";
 import { AssetRow } from "./asset-row";
-import { SoundLibrary } from "./sound-library";
 
 const COPY = {
   video: { accept: "video/mp4,video/quicktime,video/webm", empty: "Upload a video to cut and edit.", noun: "video" },
@@ -49,7 +48,6 @@ export function AssetsPanel({ kind }: { kind: Asset["kind"] }) {
           ))}
         </ul>
       )}
-      {kind === "audio" ? <SoundLibrary /> : null}
     </div>
   );
 }

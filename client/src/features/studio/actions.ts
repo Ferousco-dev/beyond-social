@@ -20,7 +20,7 @@ const createSchema = z.object({
 const saveSchema = z.object({
   id: idSchema,
   title: z.string().trim().min(1).max(120),
-  document: z.record(z.unknown()),
+  document: z.record(z.string(), z.unknown()),
   expectedVersion: z.number().int().min(1),
 });
 
@@ -48,10 +48,3 @@ export async function createEditorProject(input: z.input<typeof createSchema>): 
   return { ok: true, value: result.data.data.id, version: result.data.data.version };
 }
 
-/** Finds the editor project for a chat, creating it the first time. */
-export async function openEditor(conversationId: string): Promise<StudioResult<string>> {
-  if (!idSchema.safeParse(conversationId).success) return { ok: false, message: "Unknown chat.", conflict: false };
-  const result = await goApi(`/api/v1/conversations/${conversationId}/editor`, editorProjectResponse, { method: "PUT" });
-  if (!result.ok) return { ok: false, message: result.message, conflict: false };
-  return { ok: true, value: result.data.data.id, version: result.data.data.version };
-}

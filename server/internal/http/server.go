@@ -57,11 +57,13 @@ type Deps struct {
 	Watcher             editor.Watcher
 	Billing             BillingService
 	Usage               UsageService
-	BillingAdmin        billing.AdminReader
-	RevenueHistory      RevenueHistoryReader
-	EmailSettings       EmailSettings
-	SignIns             accounts.SignInRemover
-	Purger              interface {
+	// PaymentFailing says whether a member's renewal payment failed. Optional: nil reads as never.
+	PaymentFailing func(ctx context.Context, userID string) (bool, error)
+	BillingAdmin   billing.AdminReader
+	RevenueHistory RevenueHistoryReader
+	EmailSettings  EmailSettings
+	SignIns        accounts.SignInRemover
+	Purger         interface {
 		Purge(ctx context.Context, userID string) error
 	}
 	WatchBiller ResourceBiller
@@ -109,15 +111,15 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/callbacks/kie", a.kieCallback)
 
 	mux.HandleFunc("POST /api/v1/callbacks/stripe", a.stripeCallback)
-	mux.HandleFunc("GET /api/v1/packs", a.listPacks)
-	mux.HandleFunc("GET /api/v1/plans", a.plans)
-	mux.HandleFunc("GET /api/v1/blog", a.listBlogPosts)
-	mux.HandleFunc("GET /api/v1/blog/{slug}", a.getPost)
+	mux.Handle("GET /api/v1/packs", shared(http.HandlerFunc(a.listPacks)))
+	mux.Handle("GET /api/v1/plans", shared(http.HandlerFunc(a.plans)))
+	mux.Handle("GET /api/v1/blog", shared(http.HandlerFunc(a.listBlogPosts)))
+	mux.Handle("GET /api/v1/blog/{slug}", shared(http.HandlerFunc(a.getPost)))
 
 	authenticated := auth.Middleware(a.deps.Verifier, writeUnauthorized)
 	protected := func(h http.Handler) http.Handler { return authenticated(a.limitPerUser(a.requireActiveAccount(h))) }
 	mux.Handle("GET /api/v1/me", protected(http.HandlerFunc(a.me)))
-	mux.Handle("GET /api/v1/jobs", protected(http.HandlerFunc(a.listJobs)))
+	mux.Handle("GET /api/v1/jobs", protected(revalidated(http.HandlerFunc(a.listJobs))))
 	mux.Handle("GET /api/v1/jobs/{id}", protected(http.HandlerFunc(a.getJob)))
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
@@ -128,13 +130,13 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.getAnyPost)))
 	mux.Handle("PUT /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.updatePost)))
 	mux.Handle("DELETE /api/v1/admin/blog/{id}", protected(a.requireAdmin(a.deletePost)))
-	mux.Handle("GET /api/v1/asset-groups", protected(http.HandlerFunc(a.listAssetGroups)))
+	mux.Handle("GET /api/v1/asset-groups", protected(revalidated(http.HandlerFunc(a.listAssetGroups))))
 	mux.Handle("POST /api/v1/asset-groups", protected(http.HandlerFunc(a.createAssetGroup)))
 	mux.Handle("GET /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.getAssetGroup)))
 	mux.Handle("PUT /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.updateAssetGroup)))
 	mux.Handle("DELETE /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.deleteAssetGroup)))
 	mux.Handle("POST /api/v1/asset-groups/{id}/consent", protected(http.HandlerFunc(a.consentAssetGroup)))
-	mux.Handle("GET /api/v1/assets", protected(http.HandlerFunc(a.listLibraryAssets)))
+	mux.Handle("GET /api/v1/assets", protected(revalidated(http.HandlerFunc(a.listLibraryAssets))))
 	mux.Handle("POST /api/v1/assets", protected(http.HandlerFunc(a.createLibraryAsset)))
 	mux.Handle("PATCH /api/v1/assets/{id}", protected(http.HandlerFunc(a.relabelLibraryAsset)))
 	mux.Handle("POST /api/v1/assets/{id}/consent", protected(http.HandlerFunc(a.consentLibraryAsset)))
@@ -149,34 +151,36 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/memory", protected(http.HandlerFunc(a.addMemory)))
 	mux.Handle("DELETE /api/v1/memory/{id}", protected(http.HandlerFunc(a.deleteMemory)))
 	mux.Handle("PUT /api/v1/memory/enabled", protected(http.HandlerFunc(a.setMemoryEnabled)))
-	mux.Handle("GET /api/v1/editor/projects", protected(http.HandlerFunc(a.listEditorProjects)))
+	mux.Handle("GET /api/v1/editor/projects", protected(revalidated(http.HandlerFunc(a.listEditorProjects))))
 	mux.Handle("POST /api/v1/editor/projects", protected(http.HandlerFunc(a.createEditorProject)))
 	mux.Handle("GET /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.getEditorProject)))
 	mux.Handle("PUT /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.saveEditorProject)))
 	mux.Handle("DELETE /api/v1/editor/projects/{id}", protected(http.HandlerFunc(a.deleteEditorProject)))
-	mux.Handle("GET /api/v1/library", protected(http.HandlerFunc(a.listLibrary)))
+	mux.Handle("GET /api/v1/library", protected(revalidated(http.HandlerFunc(a.listLibrary))))
 	mux.Handle("POST /api/v1/library/{id}/adopt", protected(http.HandlerFunc(a.adoptLibraryVideo)))
 	mux.Handle("DELETE /api/v1/library/{id}", protected(http.HandlerFunc(a.deleteLibraryVideo)))
-	mux.Handle("GET /api/v1/posts", protected(http.HandlerFunc(a.listPosts)))
+	mux.Handle("GET /api/v1/posts", protected(revalidated(http.HandlerFunc(a.listPosts))))
 	mux.Handle("POST /api/v1/posts", protected(http.HandlerFunc(a.createPost)))
 	mux.Handle("POST /api/v1/posts/{id}/cancel", protected(http.HandlerFunc(a.cancelPost)))
 	mux.Handle("PUT /api/v1/posts/{id}", protected(http.HandlerFunc(a.reschedulePost)))
+	mux.Handle("GET /api/v1/post-metrics", protected(revalidated(http.HandlerFunc(a.getRecentMetrics))))
 	mux.Handle("GET /api/v1/posts/{id}/metrics", protected(http.HandlerFunc(a.getPostMetrics)))
 	mux.Handle("GET /api/v1/insights/slots", protected(http.HandlerFunc(a.getInsightSlots)))
-	mux.Handle("GET /api/v1/social", protected(http.HandlerFunc(a.listSocial)))
+	mux.Handle("GET /api/v1/social", protected(revalidated(http.HandlerFunc(a.listSocial))))
 	mux.Handle("POST /api/v1/social/{platform}/connect", protected(http.HandlerFunc(a.connectSocial)))
 	mux.Handle("DELETE /api/v1/social/{platform}", protected(http.HandlerFunc(a.disconnectSocial)))
 	mux.Handle("GET /api/v1/social/callback/{platform}", http.HandlerFunc(a.socialCallback))
 	mux.Handle("POST /api/v1/media", protected(http.HandlerFunc(a.requestMediaUpload)))
 	mux.Handle("POST /api/v1/media/{id}/confirm", protected(http.HandlerFunc(a.confirmMedia)))
 	mux.Handle("GET /api/v1/media/{id}/url", protected(http.HandlerFunc(a.mediaViewURL)))
+	mux.Handle("POST /api/v1/media/urls", protected(http.HandlerFunc(a.mediaViewURLs)))
 	mux.Handle("POST /api/v1/conversations", protected(http.HandlerFunc(a.createConversation)))
-	mux.Handle("GET /api/v1/conversations", protected(http.HandlerFunc(a.listConversations)))
+	mux.Handle("GET /api/v1/conversations", protected(revalidated(http.HandlerFunc(a.listConversations))))
 	mux.Handle("GET /api/v1/conversations/{id}", protected(http.HandlerFunc(a.getConversation)))
 	mux.Handle("PATCH /api/v1/conversations/{id}", protected(http.HandlerFunc(a.renameConversation)))
 	mux.Handle("DELETE /api/v1/conversations/{id}", protected(http.HandlerFunc(a.archiveConversation)))
 	mux.Handle("POST /api/v1/conversations/{id}/messages", protected(http.HandlerFunc(a.sendMessage)))
-	mux.Handle("GET /api/v1/credits", protected(http.HandlerFunc(a.myCredits)))
+	mux.Handle("GET /api/v1/credits", protected(revalidated(http.HandlerFunc(a.myCredits))))
 	mux.Handle("GET /api/v1/admin/credits/prices", protected(a.requireAdmin(a.listPrices)))
 	mux.Handle("PUT /api/v1/admin/credits/prices/{action}", protected(a.requireAdmin(a.updatePrice)))
 	mux.Handle("GET /api/v1/admin/credits/settings", protected(a.requireAdmin(a.listCreditSettings)))
@@ -190,12 +194,12 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/admin/users/{id}/credits", protected(a.requireAdmin(a.adjustCredits)))
 	mux.Handle("PATCH /api/v1/me", protected(http.HandlerFunc(a.renameMe)))
 	mux.Handle("DELETE /api/v1/me", protected(http.HandlerFunc(a.deleteMe)))
-	mux.Handle("GET /api/v1/usage", protected(http.HandlerFunc(a.myUsage)))
+	mux.Handle("GET /api/v1/usage", protected(revalidated(http.HandlerFunc(a.myUsage))))
 	mux.Handle("PUT /api/v1/usage/overage", protected(http.HandlerFunc(a.setOverage)))
 	mux.Handle("POST /api/v1/subscription/checkout", protected(http.HandlerFunc(a.subscribe)))
 	mux.Handle("POST /api/v1/subscription/portal", protected(http.HandlerFunc(a.billingPortal)))
 	mux.Handle("POST /api/v1/credits/checkout", protected(http.HandlerFunc(a.checkout)))
-	mux.Handle("GET /api/v1/credits/payments", protected(http.HandlerFunc(a.myPayments)))
+	mux.Handle("GET /api/v1/credits/payments", protected(revalidated(http.HandlerFunc(a.myPayments))))
 	mux.Handle("GET /api/v1/admin/packs", protected(a.requireAdmin(a.adminPacks)))
 	mux.Handle("POST /api/v1/admin/packs", protected(a.requireAdmin(a.savePack)))
 	mux.Handle("PUT /api/v1/admin/packs/{id}", protected(a.requireAdmin(a.savePack)))

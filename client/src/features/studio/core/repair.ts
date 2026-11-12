@@ -15,7 +15,7 @@ const MAX_TRACKS = 24;
 const MAX_ITEMS = 500;
 const MAX_ASSETS = 100;
 
-const record = z.record(z.unknown());
+const record = z.record(z.string(), z.unknown());
 const count = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**

@@ -57,7 +57,7 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
     const result = post ? await updatePost(post.id, input) : await createPost(input);
     if (result.status !== "ok") {
       setBusy(false);
-      setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
+      setError(result.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : result.message);
       return;
     }
     router.push("/dashboard/admin/blog");

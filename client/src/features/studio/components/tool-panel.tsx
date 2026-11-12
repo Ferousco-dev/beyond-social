@@ -1,16 +1,20 @@
 "use client";
 
-import { AudioLines, Captions, Film, Image as ImageIcon, Music, Type, type LucideIcon } from "lucide-react";
+import { Captions, Film, Image as ImageIcon, Music, Type, type LucideIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
 import { useStudio, type ToolTab } from "../store/editor-store";
 import { AssetsPanel } from "./panels/assets-panel";
-import { CaptionsPanel } from "./panels/captions-panel";
 import { MediaPanel } from "./panels/media-panel";
-import { MusicPanel } from "./panels/music-panel";
-import { TextPanel } from "./panels/text-panel";
+
+// Panels other than the first load when their tab opens, which keeps the editor's first download smaller.
+const Fallback = (): ReactNode => <div className="m-3 h-24 animate-pulse rounded-lg bg-cloud" aria-hidden />;
+const CaptionsPanel = dynamic(() => import("./panels/captions-panel").then((m) => m.CaptionsPanel), { loading: Fallback });
+const MusicPanel = dynamic(() => import("./panels/music-panel").then((m) => m.MusicPanel), { loading: Fallback });
+const TextPanel = dynamic(() => import("./panels/text-panel").then((m) => m.TextPanel), { loading: Fallback });
 
 const TOOLS: ReadonlyArray<{ id: ToolTab; label: string; Icon: LucideIcon }> = [
   { id: "media", label: "Media", Icon: Film },
@@ -18,7 +22,6 @@ const TOOLS: ReadonlyArray<{ id: ToolTab; label: string; Icon: LucideIcon }> = [
   { id: "text", label: "Text", Icon: Type },
   { id: "images", label: "Images", Icon: ImageIcon },
   { id: "music", label: "Music", Icon: Music },
-  { id: "audio", label: "Sounds", Icon: AudioLines },
 ];
 
 /** The icon rail and the panel it opens, side by side. */
@@ -64,8 +67,6 @@ function panel(tool: ToolTab): ReactNode {
       return <TextPanel />;
     case "images":
       return <AssetsPanel kind="image" />;
-    case "audio":
-      return <AssetsPanel kind="audio" />;
     case "music":
       return <MusicPanel />;
   }

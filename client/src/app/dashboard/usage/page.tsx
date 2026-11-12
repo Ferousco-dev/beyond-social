@@ -53,7 +53,7 @@ function ProView({ usage, balance }: { usage: UsageSnapshot; balance: number }):
       </div>
       <p className="mt-3 text-sm text-ink-soft">
         Need credits for extra usage?{" "}
-        <Link href={"/dashboard/credits" as Route} className="text-ink underline underline-offset-2">
+        <Link href={"/dashboard/settings/billing" as Route} className="text-ink underline underline-offset-2">
           Buy credits
         </Link>
         .
@@ -99,7 +99,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Promis
             <span className="text-5xl font-semibold tabular-nums text-ink">{credits}</span>
             <span className="text-sm text-ink-soft">credits left</span>
           </p>
-          <p className="text-sm text-ink-soft">On Free, every action uses credits. Pro replaces them with generous session and weekly limits and unlocks everything.</p>
+          <p className="text-sm text-ink-soft">On Free, every action uses credits. Pro replaces them with a session limit and a weekly limit.</p>
           <RedirectButton action={startSubscription} signedOutHref="/login">
             Upgrade to Pro{price ? ` · ${price} a month` : ""}
           </RedirectButton>

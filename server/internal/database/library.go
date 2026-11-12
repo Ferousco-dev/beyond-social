@@ -17,7 +17,10 @@ func NewLibraryStore(pool *pgxpool.Pool) *LibraryStore { return &LibraryStore{po
 const libraryColumns = `j.id::text, j.job_type, coalesce(j.input->>'prompt', ''), j.result->>'video_url',
 	coalesce(j.result->>'thumbnail_url', ''),
 	coalesce(nullif(j.result->>'duration_seconds', '')::float8, 0),
-	coalesce(j.completed_at, j.created_at)`
+	coalesce(j.completed_at, j.created_at),
+	coalesce((select p.id::text from public.editor_projects p
+		where p.user_id = j.user_id and position(j.id::text in p.document::text) > 0
+		order by p.updated_at desc limit 1), '')`
 
 const libraryFinished = `j.user_id = $1 and j.status = 'completed' and j.library_hidden_at is null
 	and j.job_type in ('video_generate', 'video_transform', 'avatar_video', 'talking_photo', 'live_avatar') and j.result ? 'video_url'`
@@ -48,7 +51,7 @@ func (s *LibraryStore) items(ctx context.Context, query string, args ...any) ([]
 	items := []library.Item{}
 	for rows.Next() {
 		var it library.Item
-		if err := rows.Scan(&it.ID, &it.Type, &it.Prompt, &it.VideoURL, &it.ThumbnailURL, &it.DurationSeconds, &it.CreatedAt); err != nil {
+		if err := rows.Scan(&it.ID, &it.Type, &it.Prompt, &it.VideoURL, &it.ThumbnailURL, &it.DurationSeconds, &it.CreatedAt, &it.ProjectID); err != nil {
 			return nil, err
 		}
 		items = append(items, it)

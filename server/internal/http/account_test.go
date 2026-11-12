@@ -139,3 +139,26 @@ func TestAccountRenameAndDelete(t *testing.T) {
 		t.Fatalf("a deleted account was served: %d", res.Code)
 	}
 }
+
+func TestMeReportsAFailingPaymentOnlyForAProMember(t *testing.T) {
+	h := newHarness(t, &fakeRepo{}, fakePinger{})
+	h.deps.PaymentFailing = func(context.Context, string) (bool, error) { return true, nil }
+
+	h.deps.Usage = &fakeUsage{plan: credits.PlanFree}
+	h.rebuild()
+	if res := h.get("/api/v1/me", h.token(t, alice)); !strings.Contains(res.Body.String(), `"payment_failing":false`) {
+		t.Fatalf("a free member has no renewal to fail: %s", res.Body)
+	}
+
+	h.deps.Usage = &fakeUsage{plan: credits.PlanPro}
+	h.rebuild()
+	if res := h.get("/api/v1/me", h.token(t, alice)); !strings.Contains(res.Body.String(), `"payment_failing":true`) {
+		t.Fatalf("a Pro member with a failed renewal should be told: %s", res.Body)
+	}
+
+	h.deps.PaymentFailing = func(context.Context, string) (bool, error) { return false, context.DeadlineExceeded }
+	h.rebuild()
+	if res := h.get("/api/v1/me", h.token(t, alice)); res.Code != http.StatusOK || !strings.Contains(res.Body.String(), `"payment_failing":false`) {
+		t.Fatalf("a failed status read must not break /me: %d %s", res.Code, res.Body)
+	}
+}

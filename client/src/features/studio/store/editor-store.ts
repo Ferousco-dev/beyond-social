@@ -12,7 +12,7 @@ export interface TimeRange {
   readonly end: number;
 }
 
-export type ToolTab = "media" | "captions" | "text" | "images" | "audio" | "music";
+export type ToolTab = "media" | "captions" | "text" | "images" | "music";
 export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 type Edit = (project: Project) => Result<Project>;
 
@@ -55,6 +55,8 @@ interface StudioState {
   endDrag: () => void;
   undo: () => void;
   redo: () => void;
+  /** Puts edits kept on this device back in place; they save like any other change. */
+  restoreDraft: (project: Project, title: string) => void;
   markSaved: (project: Project, version: number) => void;
   setSaveStatus: (status: SaveStatus) => void;
   setTitle: (title: string) => void;
@@ -137,6 +139,9 @@ export const useStudio = create<StudioState>((set, get) => ({
   // Stepping through history ends any run of merged edits, so the next change is its own step.
   undo: () => set((s) => ({ history: undo(s.history), lastEdit: null, saveStatus: "pending" })),
   redo: () => set((s) => ({ history: redo(s.history), lastEdit: null, saveStatus: "pending" })),
+
+  restoreDraft: (project, title) =>
+    set((s) => ({ history: commit(s.history, project), title, lastEdit: null, saveStatus: "pending" })),
 
   markSaved: (project, version) =>
     set((s) => ({ saved: project, version, saveStatus: s.history.present === project ? "saved" : "pending" })),

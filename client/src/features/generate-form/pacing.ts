@@ -52,6 +52,11 @@ export function recommendedLength(text: string, contentKind: string): Length {
  * The words a viewer hears in a clip. The hook describes the opening shot, so
  * only the dialogue and the call to action are spoken.
  */
+/** A clip with spoken words is made with sound, which the provider charges more for. */
+export function hasSound(parts: { dialogue: string; cta: string }): boolean {
+  return spokenText(parts).trim() !== "";
+}
+
 export function spokenText(parts: { dialogue: string; cta: string }): string {
   return [parts.dialogue, parts.cta].map((part) => part.trim()).filter(Boolean).join("\n");
 }

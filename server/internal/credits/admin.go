@@ -128,8 +128,8 @@ type AdminStore interface {
 	SavePrice(ctx context.Context, row PriceRow, actor string) error
 	Settings(ctx context.Context) ([]Setting, error)
 	SaveSetting(ctx context.Context, key string, value int, actor string) (bool, error)
-	FindUsers(ctx context.Context, query string, segment Segment, limit int) ([]UserCredits, error)
-	Ledger(ctx context.Context, userID string, limit int) ([]LedgerRow, error)
+	FindUsers(ctx context.Context, query string, segment Segment, limit, offset int) ([]UserCredits, error)
+	Ledger(ctx context.Context, userID string, limit, offset int) ([]LedgerRow, error)
 	Usage(ctx context.Context, since time.Time) ([]UsageRow, error)
 }
 
@@ -143,19 +143,19 @@ func NewAdmin(store AdminStore) *Admin { return &Admin{store: store} }
 func (a *Admin) Prices(ctx context.Context) ([]PriceRow, error)  { return a.store.Prices(ctx) }
 func (a *Admin) Settings(ctx context.Context) ([]Setting, error) { return a.store.Settings(ctx) }
 
-func (a *Admin) FindUsers(ctx context.Context, query string, segment Segment, limit int) ([]UserCredits, error) {
+func (a *Admin) FindUsers(ctx context.Context, query string, segment Segment, limit, offset int) ([]UserCredits, error) {
 	if !segment.Valid() {
 		return nil, ErrInvalid
 	}
-	return a.store.FindUsers(ctx, query, segment, limit)
+	return a.store.FindUsers(ctx, query, segment, limit, offset)
 }
 
 func (a *Admin) SegmentCounts(ctx context.Context) (SegmentCounts, error) {
 	return a.store.SegmentCounts(ctx)
 }
 
-func (a *Admin) Ledger(ctx context.Context, userID string, limit int) ([]LedgerRow, error) {
-	return a.store.Ledger(ctx, userID, limit)
+func (a *Admin) Ledger(ctx context.Context, userID string, limit, offset int) ([]LedgerRow, error) {
+	return a.store.Ledger(ctx, userID, limit, offset)
 }
 
 func (a *Admin) Usage(ctx context.Context, days int) (UsageReport, error) {

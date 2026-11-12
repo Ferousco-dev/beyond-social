@@ -25,9 +25,13 @@ type Pictures interface {
 type Builder struct {
 	Pictures Pictures
 	Uploader Uploader
+	// Director rewrites each shot's brief into a realistic shot description. Optional:
+	// without it, or when it fails, a fixed realism treatment is applied instead.
+	Director Director
 }
 
-const mode = "std"
+// mode is Kling's higher quality tier. The standard tier is cheaper but looks noticeably more synthetic.
+const mode = "pro"
 
 // Build implements transform.Builder.
 func (b Builder) Build(ctx context.Context, job jobs.Job) (transform.Prepared, error) {
@@ -42,11 +46,11 @@ func (b Builder) Build(ctx context.Context, job jobs.Job) (transform.Prepared, e
 	}
 	if len(req.Scenes) == 1 {
 		input["multi_shots"] = false
-		input["prompt"] = req.Scenes[0].Prompt
+		input["prompt"] = b.directShot(ctx, req.Scenes[0].Prompt, req.Scenes[0].Seconds, req.ImageMediaID != "", MaxSingleRunes)
 	} else {
 		shots := make([]map[string]any, len(req.Scenes))
 		for i, s := range req.Scenes {
-			shots[i] = map[string]any{"prompt": s.Prompt, "duration": s.Seconds}
+			shots[i] = map[string]any{"prompt": b.directShot(ctx, s.Prompt, s.Seconds, req.ImageMediaID != "", MaxShotRunes), "duration": s.Seconds}
 		}
 		input["multi_shots"] = true
 		input["multi_prompt"] = shots

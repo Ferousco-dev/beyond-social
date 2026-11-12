@@ -3,6 +3,7 @@ import { startScene } from "@/features/studio/assist-actions";
 import type { ProjectGeneration } from "@/features/studio/core/types";
 
 import { avatarDirection, buildAvatarScript, buildPrompt } from "./brief";
+import { hasSound } from "./pacing";
 import { cachedSceneQuote } from "./scene-quotes";
 import { isTalking, type GenerateFormValues } from "./types";
 
@@ -33,7 +34,7 @@ export async function quoteGeneration(values: GenerateFormValues): Promise<numbe
     case "talking":
       return quoteLiveAvatar({ voiceAssetIds: [values.voiceAssetId] });
     case "clip":
-      return cachedSceneQuote(values.seconds);
+      return cachedSceneQuote(values.seconds, hasSound(values));
   }
 }
 
@@ -71,7 +72,7 @@ export async function startGeneration(values: GenerateFormValues): Promise<Start
       };
     }
     case "clip": {
-      const sound = values.dialogue.trim() !== "";
+      const sound = hasSound(values);
       const image = values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {};
       const result = await startScene({ prompt: script, seconds: values.seconds, key, aspectRatio: values.aspectRatio, sound, notifyEmail: values.notifyEmail, ...image });
       if (!result.ok) return { ok: false, message: result.message };

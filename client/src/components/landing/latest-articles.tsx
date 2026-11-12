@@ -61,7 +61,7 @@ export async function LatestArticles(): Promise<ReactNode> {
         <SectionHeading
           eyebrow="Notes"
           title="Latest from the Blog"
-          description="Practical notes from the team building Beyond Social."
+          description="Notes from the team building Beyond Social."
         />
 
         <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">

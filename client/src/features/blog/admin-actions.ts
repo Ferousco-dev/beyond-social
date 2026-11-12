@@ -41,7 +41,7 @@ export async function listAllPosts(): Promise<
 }
 
 export async function getAnyPost(id: string): Promise<BlogAdminResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown post." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That post could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
   const result = await goApi(`/api/v1/admin/blog/${id}`, blogResponse);
   return result.ok ? { status: "ok", post: result.data.data } : { status: "error", message: result.message };
@@ -56,7 +56,7 @@ export async function createPost(input: z.input<typeof postSchema>): Promise<Blo
 }
 
 export async function updatePost(id: string, input: z.input<typeof postSchema>): Promise<BlogAdminResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown post." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That post could not be found." };
   const parsed = postSchema.safeParse(input);
   if (!parsed.success) return { status: "error", message: "Check the fields and try again." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
@@ -65,8 +65,8 @@ export async function updatePost(id: string, input: z.input<typeof postSchema>):
 }
 
 export async function deletePost(id: string): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown post." };
-  if (!isGoApiConfigured()) return { status: "error", message: "The backend is not connected yet." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That post could not be found." };
+  if (!isGoApiConfigured()) return { status: "error", message: "The service is not available right now. Try again in a few minutes." };
   const result = await goApi(`/api/v1/admin/blog/${id}`, z.null(), { method: "DELETE" });
   return result.ok ? { status: "ok" } : { status: "error", message: result.message };
 }

@@ -58,6 +58,9 @@ export default async function EditorPage({
       document={isBlank ? emptyProject() : document}
       backHref="/dashboard/new"
       generation={generation}
+      mediaLinks={Object.fromEntries(
+        Object.entries(project.data.data.media_urls ?? {}).map(([mediaId, link]) => [mediaId, { url: link.url, expiresAt: Date.parse(link.expires_at) }]),
+      )}
     />
   );
 }

@@ -78,7 +78,7 @@ func TestTheCallbackNeedsNoSessionAndAlwaysRedirectsIntoTheApp(t *testing.T) {
 	h.rebuild()
 
 	res := browserGet(h, "/api/v1/social/callback/youtube?code=c1&state=s1")
-	if res.Code != http.StatusFound || res.Header().Get("Location") != "https://app.example/dashboard/connections?platform=youtube&status=connected" {
+	if res.Code != http.StatusFound || res.Header().Get("Location") != "https://app.example/dashboard/settings/connections?platform=youtube&status=connected" {
 		t.Fatalf("connected: %d %q", res.Code, res.Header().Get("Location"))
 	}
 	if len(fake.completed) != 1 || fake.completed[0] != "youtube|c1|s1" {

@@ -9,7 +9,7 @@ import { LandingPricing } from "@/components/landing/landing-pricing";
 export const metadata: Metadata = {
   title: "Pricing",
   description:
-    "No plans. Start with free credits and buy more when you need them.",
+    "Start free with credits to try everything. Upgrade to Pro for usage limits that refill, and cancel any time.",
 };
 
 /**
