@@ -4,25 +4,27 @@ import { notFound } from "next/navigation";
 import { type ReactNode } from "react";
 import { z } from "zod";
 
+import { ADMIN_PAGE_SIZE, Pager, pageNumber, pageOffset } from "@/features/admin/components/pager";
 import { AdjustCreditsForm } from "@/features/admin-console/components/adjust-credits-form";
 import { adminUserDetailResponse, userLedgerResponse } from "@/lib/go-api/admin-schemas";
 import { goApi } from "@/lib/go-api/client";
 
 export const metadata: Metadata = { title: "Admin · User" };
 
-export default async function AdminUserPage({ params }: { params: Promise<{ id: string }> }): Promise<ReactNode> {
+export default async function AdminUserPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ page?: string }> }): Promise<ReactNode> {
   const { id } = await params;
+  const page = pageNumber((await searchParams).page);
   if (!z.string().uuid().safeParse(id).success) notFound();
   const [accountResult, ledgerResult] = await Promise.all([
     goApi(`/api/v1/admin/users/${id}`, adminUserDetailResponse),
-    goApi(`/api/v1/admin/users/${id}/credits`, userLedgerResponse),
+    goApi(`/api/v1/admin/users/${id}/credits?limit=${ADMIN_PAGE_SIZE}&offset=${pageOffset(page)}`, userLedgerResponse),
   ]);
   if (!accountResult.ok || !ledgerResult.ok) {
     const message = !accountResult.ok ? accountResult.message : !ledgerResult.ok ? ledgerResult.message : "Could not load user details.";
     return <p role="alert" className="text-sm text-destructive">{message}</p>;
   }
   const account = accountResult.data.data;
-  const { balance, history } = ledgerResult.data.data;
+  const { balance, history, has_more: hasMore } = ledgerResult.data.data;
   const periodEnd = account.currentPeriodEnd
     ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(account.currentPeriodEnd))
     : "No renewal date recorded";
@@ -67,7 +69,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
       <section className="mt-8">
         <h2 className="text-sm font-semibold text-ink">History</h2>
         {history.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-soft">Nothing yet.</p>
+          <p className="mt-2 text-sm text-ink-soft">{page > 1 ? "No more entries." : "Nothing yet."}</p>
         ) : (
           <ul className="mt-2 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
             {history.map((row, index) => (
@@ -85,6 +87,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
             ))}
           </ul>
         )}
+        <Pager path={`/dashboard/admin/users/${id}`} page={page} hasMore={hasMore === true} />
       </section>
     </div>
   );

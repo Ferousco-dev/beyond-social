@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 
+import { PlatformLogo } from "@/components/brand/platform-logo";
 import { Button } from "@/components/ui/button";
 import { type SocialStatus } from "@/lib/go-api/schemas";
 
@@ -39,14 +40,19 @@ export function ConnectionRow({ status }: { readonly status: SocialStatus }): Re
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 p-4">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-ink">{status.label}</p>
-        <p className="truncate text-xs text-ink-soft">{blurb}</p>
-        {error ? (
-          <p role="alert" className="mt-1 text-xs text-destructive">
-            {error}
-          </p>
-        ) : null}
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-cloud">
+          <PlatformLogo platform={status.platform} colour={status.platform !== "tiktok"} className={status.platform === "tiktok" ? "text-ink" : undefined} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-ink">{status.label}</p>
+          <p className="truncate text-xs text-ink-soft">{blurb}</p>
+          {error ? (
+            <p role="alert" className="mt-1 text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
       </div>
       <div className="flex gap-2">
         {connected && !status.needs_reconnect ? null : (

@@ -90,7 +90,7 @@ func TestEmailsNameTheRightPlaceAndNeverFailTheCaller(t *testing.T) {
 		t.Fatalf("sent %d, want 7", len(mail.sent))
 	}
 	for _, m := range mail.sent {
-		if m.To != "a@example.com" || m.Subject == "" || !strings.Contains(m.Text, "https://app.example/") {
+		if m.To != "a@example.com" || m.Subject == "" || !strings.Contains(m.Text, "https://app.example/") || !strings.Contains(m.HTML, "https://app.example/brand/email-logo.png") || strings.Contains(m.Text+m.HTML, "\u2014") {
 			t.Errorf("bad message: %+v", m)
 		}
 	}

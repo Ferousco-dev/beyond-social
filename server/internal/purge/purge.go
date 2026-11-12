@@ -1,5 +1,4 @@
-// Package purge erases what a deleted account made: its files, its avatars at
-// HeyGen, and every row of its content. Payments, invoices, subscriptions, the
+// Package purge erases what a deleted account made: its files and every row of its content. Payments, invoices, subscriptions, the
 // credit ledger and the admin audit log are kept, because they are financial
 // and legal records, and the profile stays as an anonymous stub they point to.
 package purge

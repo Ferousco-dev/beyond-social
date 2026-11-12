@@ -1,10 +1,8 @@
 "use client";
 
 import { ErrorHelp } from "@/components/billing/error-help";
-import { Compass } from "lucide-react";
 import { type ReactNode } from "react";
 
-import { EmptyState } from "@/components/ui/empty-state";
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
 import { countryName, PLATFORM_NAME } from "../lib/platforms";
@@ -20,6 +18,30 @@ import { countryName, PLATFORM_NAME } from "../lib/platforms";
  * in, which is what keeps the container above from being a six-hundred-line
  * component again.
  */
+function DiscoverArt(): ReactNode {
+  const card = (x: number, y: number, tilt: number, tone: number) => (
+    <g transform={`rotate(${tilt} ${x + 30} ${y + 52})`}>
+      <rect x={x} y={y} width="60" height="104" rx="10" fill="var(--paper)" stroke="var(--hairline)" strokeWidth="2" />
+      <rect x={x + 6} y={y + 6} width="48" height="70" rx="6" fill="var(--primary)" opacity={tone} />
+      <path d={`M${x + 24} ${y + 30}l14 11l-14 11z`} fill="var(--paper)" />
+      <rect x={x + 6} y={y + 84} width="34" height="5" rx="2.5" fill="var(--cloud)" />
+      <rect x={x + 6} y={y + 93} width="22" height="4" rx="2" fill="var(--cloud)" />
+    </g>
+  );
+  return (
+    <svg viewBox="0 0 320 200" className="w-full max-w-xs" role="img" aria-label="Video cards and a magnifying glass">
+      {card(36, 40, -9, 0.22)}
+      {card(130, 28, 0, 0.35)}
+      {card(224, 44, 9, 0.22)}
+      <g transform="translate(206 136)">
+        <circle r="30" fill="var(--paper)" stroke="var(--primary)" strokeWidth="5" />
+        <circle r="30" fill="var(--primary)" opacity="0.08" />
+        <path d="M22 22l24 24" stroke="var(--primary)" strokeWidth="8" strokeLinecap="round" />
+      </g>
+    </svg>
+  );
+}
+
 export function ResultsGrid({
   children,
   detail,
@@ -84,11 +106,13 @@ export function ResultsGrid({
   if (count === 0) {
     return (
       <div className="min-h-0 flex-1 py-10">
-        <EmptyState
-          icon={Compass}
-          title={notice ?? "Find what is working"}
-          body="Search a topic and watch what is already landing on it. Open one to study how it opens, then make your own version of it."
-        />
+        <div className="mx-auto flex max-w-md flex-col items-center text-center">
+          <DiscoverArt />
+          <h2 className="mt-6 text-xl font-semibold tracking-tight text-ink">{notice ?? "Find what is working"}</h2>
+          <p className="mt-2 text-sm text-ink-soft">
+            Search a topic and watch what is already landing on it. Open one to study how it opens, then make your own version of it.
+          </p>
+        </div>
         {noticeCode ? (
           <p className="mt-4 text-center">
             <ErrorHelp code={noticeCode} />

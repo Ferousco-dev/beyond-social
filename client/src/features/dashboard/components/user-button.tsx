@@ -49,7 +49,7 @@ function Avatar({ initials, src }: { initials: string; src: string | null }): Re
   );
 }
 
-export function UserButton({ user, compact = false }: { user: DashboardUser; compact?: boolean }) {
+export function UserButton({ user, compact = false, bare = false }: { user: DashboardUser; compact?: boolean; bare?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -77,7 +77,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
   }
 
   return (
-    <div className={compact ? "" : "border-t border-hairline p-2"}>
+    <div className={compact || bare ? "" : "border-t border-hairline p-2"}>
       {dialog}
       <DropdownMenu.Root open={menuOpen} onOpenChange={setMenuOpen}>
         {/* Named explicitly: the visible text is the account name, which does
@@ -135,7 +135,7 @@ export function UserButton({ user, compact = false }: { user: DashboardUser; com
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item asChild>
-                <Link href={"/dashboard/credits" as Route} className={ROW}>
+                <Link href={"/dashboard/settings/billing" as Route} className={ROW}>
                   Credits
                   <span className="text-xs text-ink-soft">{user.credits ?? "—"}</span>
                 </Link>

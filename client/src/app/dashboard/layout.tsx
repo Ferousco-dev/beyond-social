@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
 
+import { ConnectionBanner } from "@/components/connection-banner";
+import { PaymentBanner } from "@/features/billing/payment-banner";
 import { UsageBanner } from "@/features/billing/usage-banner";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
 import { goApi } from "@/lib/go-api/client";
@@ -21,7 +23,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const usageRequest = userRequest.then((account) =>
     account.plan === "pro" ? goApi("/api/v1/usage", usageResponse) : null,
   );
-  const [user, projects, usage] = await Promise.all([userRequest, getSidebarProjects(), usageRequest]);
+  // Started now but not awaited: the sidebar list streams in after the page.
+  const projects = getSidebarProjects();
+  const [user, usage] = await Promise.all([userRequest, usageRequest]);
   const bars = usage?.ok
     ? {
         fiveHour: { used: usage.data.data.usage.five_hour_used, limit: usage.data.data.usage.five_hour_limit, resetsAt: usage.data.data.usage.five_hour_resets_at },
@@ -32,6 +36,8 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <DashboardShell user={user} credits={summary} projects={projects}>
+      <ConnectionBanner />
+      <PaymentBanner failing={user.paymentFailing === true} />
       <UsageBanner credits={summary} />
       {children}
     </DashboardShell>

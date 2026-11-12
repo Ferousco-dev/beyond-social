@@ -180,7 +180,7 @@ export function useAssistant(): Assistant {
         alive: () => alive.current,
       });
       if (status === null) {
-        if (alive.current) patchScene(id, { state: "failed", message: "This is taking longer than expected. It will appear in your Library when it finishes." });
+        if (alive.current) patchScene(id, { state: "failed", message: "This is taking longer than usual. It will appear in Projects when it finishes." });
         return;
       }
       if (status.state === "failed" || status.state === "error") return patchScene(id, { state: "failed", message: status.message });

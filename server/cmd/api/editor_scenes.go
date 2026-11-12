@@ -18,7 +18,7 @@ func (e editorScenes) Submit(ctx context.Context, userID string, r generate.Requ
 	return e.generate.Submit(ctx, userID, r, key)
 }
 
-func (e editorScenes) Quote(ctx context.Context, seconds int) (int, error) {
-	rate, err := e.credits.Quote(ctx, "video_generate_second")
+func (e editorScenes) Quote(ctx context.Context, seconds int, sound bool) (int, error) {
+	rate, err := e.credits.Quote(ctx, credits.VideoAction(sound))
 	return rate * seconds, err
 }

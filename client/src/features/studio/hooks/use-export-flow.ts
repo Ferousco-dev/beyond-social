@@ -8,7 +8,6 @@ import { env } from "@/lib/env";
 
 import { projectDuration } from "../core/find.ts";
 import { postExport } from "../export-actions";
-import { ExportCancelled, exportProject } from "../lib/export";
 import { useStudio } from "../store/editor-store";
 
 export type Platform = "youtube" | "tiktok" | "instagram";
@@ -62,6 +61,8 @@ export function useExportFlow(): { state: FlowState; start: (to: Destination) =>
     setPlaying(false);
     abort.current = new AbortController();
     setState({ phase: "rendering", progress: 0 });
+    // The export engine is large, so it loads when someone actually exports.
+    const { ExportCancelled, exportProject } = await import("../lib/export");
     try {
       const { blob, warnings } = await exportProject(history.present, {
         urls: mediaUrls,

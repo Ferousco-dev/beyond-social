@@ -66,8 +66,9 @@ export async function watchClip(url: string): Promise<WatchResult> {
 
 const quoteResponse = z.object({ data: z.object({ credits: z.number() }) });
 
-export async function quoteScene(seconds: number): Promise<number | null> {
-  const result = await goApi(`/api/v1/editor/scenes/quote?seconds=${Math.round(seconds)}`, quoteResponse);
+/** The credits a clip costs. A clip with sound is priced higher, so say when it has one. */
+export async function quoteScene(seconds: number, sound = false): Promise<number | null> {
+  const result = await goApi(`/api/v1/editor/scenes/quote?seconds=${Math.round(seconds)}${sound ? "&sound=1" : ""}`, quoteResponse);
   return result.ok ? result.data.data.credits : null;
 }
 
@@ -109,7 +110,7 @@ export type SceneStatus =
   | { readonly state: "error"; readonly message: string };
 
 export async function sceneStatus(jobId: string): Promise<SceneStatus> {
-  if (!z.string().uuid().safeParse(jobId).success) return { state: "failed", message: "Unknown scene." };
+  if (!z.string().uuid().safeParse(jobId).success) return { state: "failed", message: "That scene could not be found." };
   const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);
   if (!result.ok) return { state: "error", message: result.message };
   const job = result.data.data;
@@ -130,7 +131,7 @@ export type AdoptResult = { readonly ok: true; readonly mediaId: string } | { re
  * and export it. Providers' links expire and are not meant for other sites.
  */
 export async function adoptVideo(jobId: string): Promise<AdoptResult> {
-  if (!z.string().uuid().safeParse(jobId).success) return { ok: false, message: "Unknown video." };
+  if (!z.string().uuid().safeParse(jobId).success) return { ok: false, message: "That video could not be found." };
   const result = await goApi(`/api/v1/library/${jobId}/adopt`, adoptResponse, { method: "POST", timeoutMs: 180_000 });
   return result.ok ? { ok: true, mediaId: result.data.data.id } : { ok: false, message: result.message, code: result.code };
 }

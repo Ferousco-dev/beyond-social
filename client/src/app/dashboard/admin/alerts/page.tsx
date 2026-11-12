@@ -14,7 +14,7 @@ export default async function AdminAlertsPage(): Promise<ReactNode> {
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">Alerts</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Problems only you can fix, such as a provider running out of credit or a key being refused.
+        Problems only you can fix, such as a provider running out of credit or a key being refused. An alert closes by itself when the provider reads healthy again or you save a working key. You can also close one by hand.
       </p>
 
       {!result.ok ? (
@@ -30,7 +30,7 @@ export default async function AdminAlertsPage(): Promise<ReactNode> {
                   {alert.provider} · {alert.kind === "quota" ? "out of credit" : "key problem"}
                 </p>
                 <p className="text-xs text-ink-soft">
-                  {alert.message} · seen {alert.count} {alert.count === 1 ? "time" : "times"}
+                  {alert.message} · seen {alert.count} {alert.count === 1 ? "time" : "times"}, last {new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(alert.last_seen))}
                 </p>
               </div>
               <ResolveAlertButton id={alert.id} />

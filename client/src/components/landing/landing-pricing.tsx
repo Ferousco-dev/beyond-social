@@ -45,7 +45,7 @@ export async function LandingPricing(): Promise<ReactNode> {
   return (
     <section id="pricing" className="scroll-mt-20 border-t border-hairline py-24 sm:py-32">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
-        <SectionHeading eyebrow="Pricing" title="Start free, upgrade when you are ready" description="Try everything on Free. Pro removes the credit counting and the limits that hold Free back." />
+        <SectionHeading eyebrow="Pricing" title="Start free, upgrade when you are ready" description="Free gives you credits to try everything. Pro swaps credits for usage limits that refill." />
 
         <div className="mx-auto mt-14 grid max-w-4xl gap-6 md:grid-cols-2">
           <div className="flex flex-col rounded-2xl border border-hairline bg-paper p-7">
@@ -68,8 +68,8 @@ export async function LandingPricing(): Promise<ReactNode> {
               <span className="text-base font-normal text-ink-soft"> a month</span>
             </p>
             <ul className="mt-6 flex-1 space-y-3">
-              <Feature>Everything unlocked, with no credits to count</Feature>
-              <Feature>A usage limit that refills every five hours, and a weekly limit</Feature>
+              <Feature>No credits to count</Feature>
+              <Feature>A usage limit that refills every five hours, plus a weekly limit</Feature>
               <Feature>No daily search limits</Feature>
               <Feature>Buy credits to keep going when a limit is full</Feature>
             </ul>
@@ -77,6 +77,7 @@ export async function LandingPricing(): Promise<ReactNode> {
               <RedirectButton action={startSubscription} signedOutHref="/signup" className="w-full">
                 Upgrade to Pro
               </RedirectButton>
+              <p className="mt-2 text-center text-xs text-ink-soft">Cancel any time from your billing page.</p>
             </div>
           </div>
         </div>

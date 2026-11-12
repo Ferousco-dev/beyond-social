@@ -55,7 +55,7 @@ function FreeCredits({ balance }: { balance: number }): ReactNode {
       <Link href={"/pricing" as Route} className="mt-3 flex h-9 items-center justify-center rounded-xl bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         Upgrade to Pro
       </Link>
-      <Link href={"/dashboard/credits" as Route} className={LINK}>
+      <Link href={"/dashboard/settings/billing" as Route} className={LINK}>
         Credit history
         <ChevronRight className="size-4 text-ink-soft" aria-hidden />
       </Link>

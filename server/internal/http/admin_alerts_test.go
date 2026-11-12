@@ -23,6 +23,8 @@ func (f *fakeAlertStore) Resolve(_ context.Context, id string) (bool, error) {
 	return id == "40000000-0000-4000-8000-000000000001", nil
 }
 
+func (f *fakeAlertStore) ResolveProvider(context.Context, string) (int, error) { return 0, nil }
+
 func TestAdminAlertsAreForAdminsOnly(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
 	store := &fakeAlertStore{rows: []alerts.Alert{{ID: "x", Kind: "quota", Provider: "gemini", Message: "out of credit"}}}

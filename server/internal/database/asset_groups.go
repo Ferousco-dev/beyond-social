@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/assets"
 	"github.com/jackc/pgx/v5"
@@ -21,7 +22,46 @@ type AssetStore struct {
 
 func NewAssetStore(pool *pgxpool.Pool) *AssetStore { return &AssetStore{pool: pool} }
 
+// EmptyGroupTTL is how long a group may sit with nothing in it before it is
+// removed. updated_at moves on every upload, so a group someone is filling is
+// never touched.
+const EmptyGroupTTL = 4 * time.Minute
+
+// PruneEmpty deletes groups that hold no face, voice, product, environment or
+// extra and have not changed for EmptyGroupTTL. An empty group owns no stored
+// media, so removing the row is the whole cleanup. An empty userID prunes every
+// user, which is what the background sweep uses.
+func (s *AssetStore) PruneEmpty(ctx context.Context, userID string) (int64, error) {
+	result, err := s.pool.Exec(ctx, `
+		delete from public.asset_groups
+		where ($1 = '' or user_id::text = $1)
+		  and face_id = '' and voice_id = '' and product_id = '' and environment_id = ''
+		  and extras = '[]'::jsonb
+		  and updated_at < now() - make_interval(secs => $2)`, userID, EmptyGroupTTL.Seconds())
+	if err != nil {
+		return 0, mapError(err)
+	}
+	return result.RowsAffected(), nil
+}
+
+// RunPruner sweeps empty groups every interval until ctx ends.
+func (s *AssetStore) RunPruner(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, _ = s.PruneEmpty(ctx, "")
+		}
+	}
+}
+
 func (s *AssetStore) List(ctx context.Context, userID string) ([]assets.Group, error) {
+	// Pruned on read too, so a stale empty group never appears in the list
+	// while it waits for the next sweep. A failure here must not hide the list.
+	_, _ = s.PruneEmpty(ctx, userID)
 	rows, err := s.pool.Query(ctx, `
 		select `+assetColumns+` from public.asset_groups
 		where user_id = $1 order by created_at, id`, userID)

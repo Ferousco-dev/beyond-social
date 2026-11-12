@@ -76,7 +76,7 @@ func (a *App) deleteMe(w http.ResponseWriter, r *http.Request) {
 }
 
 // erase starts removing what the account made. It runs on its own so the person
-// is not kept waiting on HeyGen and storage; if it fails, the purge job retries.
+// is not kept waiting on storage; if it fails, the purge job retries.
 func (a *App) erase(userID string) {
 	if a.deps.Purger == nil {
 		return

@@ -13,6 +13,15 @@ const (
 	ActionChatMessage    = "chat_message"
 )
 
+// VideoAction is the priced action for a generated clip: speech and ambience cost the
+// provider more per second, so a clip with sound has its own price.
+func VideoAction(sound bool) string {
+	if sound {
+		return "video_generate_sound_second"
+	}
+	return "video_generate_second"
+}
+
 // ActionBiller charges a flat price for a resource that has its own table
 // (a search, an avatar). It implements the Biller interface those packages
 // define: reserve when it is accepted, settle when it delivers, refund when not.

@@ -21,8 +21,7 @@ export default function Offline(): ReactNode {
       <Logo />
       <h1 className="text-lg font-semibold text-ink">You are offline</h1>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-soft">
-        Beyond Social needs a connection to write and render video. Your saved work is on the
-        server, so nothing is lost. This page will work again as soon as you are back.
+        Beyond Social needs an internet connection to write and render video. Your saved work is stored online, so nothing is lost. Reconnect and reload this page.
       </p>
     </main>
   );

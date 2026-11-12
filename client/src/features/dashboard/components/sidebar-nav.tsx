@@ -6,7 +6,6 @@ import {
   Film,
   LineChart,
   PenSquare,
-  Share2,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -19,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 /** Shared shape so the search trigger sits flush with the real links. */
 const ITEM =
-  "group flex w-full cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+  "group flex h-9 w-full cursor-pointer items-center rounded-[10px] text-[15px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
 /**
  * Each icon moves the way its own metaphor suggests, which keeps the motion
@@ -47,9 +46,9 @@ const LINKS: readonly NavLink[] = [
   },
   {
     href: "/dashboard/assets" as Route,
-    label: "Avatar",
+    label: "Assets",
     icon: CircleUser,
-    // The avatar coming into focus as you reach for it.
+    // Faces, voices, products and places: the page is called Assets, so the link says so.
     motion: "group-hover:scale-110",
   },
   {
@@ -72,12 +71,6 @@ const LINKS: readonly NavLink[] = [
     motion: "group-hover:scale-110",
   },
   {
-    href: "/dashboard/connections" as Route,
-    label: "Connections",
-    icon: Share2,
-    motion: "group-hover:scale-110",
-  },
-  {
     href: "/dashboard/trends" as Route,
     label: "Discover",
     icon: TrendingUp,
@@ -85,44 +78,45 @@ const LINKS: readonly NavLink[] = [
   },
 ];
 
-/**
- * The sidebar lists destinations. Search is an action, not a place, so it lives
- * in the top bar with the other actions rather than being offered twice with
- * two different labels.
- */
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+/** The sidebar's destinations. Search sits above them, in the sidebar itself. */
+export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () => void; collapsed?: boolean }) {
   const pathname = usePathname();
 
+  // Setting up a video is a step of New Video, so that item stays marked while the form is open.
   const isActive = (link: NavLink): boolean =>
-    link.exact ? pathname === link.href : pathname.startsWith(link.href);
+    link.exact ? pathname === link.href || pathname.startsWith("/dashboard/videos") : pathname.startsWith(link.href);
 
   return (
-    <div className="flex flex-col gap-0.5 px-2">
+    <nav aria-label="Primary" className="flex flex-col gap-0.5 px-2.5">
       {LINKS.map((link) => {
         const active = isActive(link);
         return (
           <Fragment key={link.href}>
             <Link
               href={link.href}
+              // Fetched in full ahead of the click, so the page is already here.
+              prefetch
               onClick={onNavigate}
               data-tip-anchor={`nav-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
               aria-current={active ? "page" : undefined}
+              title={collapsed ? link.label : undefined}
               className={cn(
                 ITEM,
-                active ? "bg-cloud font-medium text-ink" : "text-ink hover:bg-cloud",
-                link.exact && "font-medium",
+                collapsed ? "justify-center" : "gap-2.5 px-2",
+                active ? "bg-primary/10 font-semibold text-ink" : "text-ink hover:bg-cloud",
               )}
             >
               <link.icon
-                className={cn("size-4 shrink-0", MOTION, link.motion)}
+                className={cn("shrink-0", MOTION, link.motion, active && "text-primary")}
+                size={17}
                 aria-hidden
-                strokeWidth={active ? 2.25 : 2}
+                strokeWidth={1.5}
               />
-              {link.label}
+              {collapsed ? <span className="sr-only">{link.label}</span> : <span className="truncate">{link.label}</span>}
             </Link>
           </Fragment>
         );
       })}
-    </div>
+    </nav>
   );
 }

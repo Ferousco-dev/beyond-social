@@ -2,12 +2,13 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Clock, FileVideo, MessageCircle, MoreHorizontal } from "lucide-react";
+import { Clock, FileVideo, MoreHorizontal } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 
+import { deferWithUndo } from "@/components/ui/undo-toast";
 import { type SidebarProject } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,6 @@ export function SidebarProjectRow({
   const router = useRouter();
   const pathname = usePathname();
   const [renameOpen, setRenameOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [title, setTitle] = useState(item.title);
   // What the row shows: the new name or the removal appear at once and are
   // undone if the server refuses them.
@@ -31,7 +31,7 @@ export function SidebarProjectRow({
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const descriptionId = useId();
-  const Icon = item.kind === "video" ? FileVideo : item.kind === "chat" ? MessageCircle : Clock;
+  const Icon = item.kind === "video" ? FileVideo : Clock;
 
   async function rename(event: FormEvent<HTMLFormElement>): Promise<void> {
     if (item.kind === "draft") return;
@@ -40,7 +40,7 @@ export function SidebarProjectRow({
     setError(null);
     setShownTitle(title.trim());
     setRenameOpen(false);
-    const result = await renameProject(item.kind, item.id, title);
+    const result = await renameProject(item.id, title);
     if (!result.ok) {
       setShownTitle(previous);
       setError(result.message);
@@ -50,20 +50,23 @@ export function SidebarProjectRow({
     router.refresh();
   }
 
-  async function remove(): Promise<void> {
+  /** Hides the project at once and deletes it for real once Undo has had its window. */
+  function remove(): void {
     if (item.kind === "draft") return;
     setError(null);
     setRemoved(true);
-    setDeleteOpen(false);
-    const result = await deleteProject(item.kind, item.id);
-    if (!result.ok) {
-      setRemoved(false);
-      setError(result.message);
-      setDeleteOpen(true);
-      return;
-    }
+    // The open project is going away, so leave it now rather than sit on a page that will not load.
     if (pathname === item.href) router.push("/dashboard/new");
-    router.refresh();
+    deferWithUndo({
+      message: `“${shownTitle}” deleted`,
+      onUndo: () => setRemoved(false),
+      commit: async () => {
+        const result = await deleteProject(item.id);
+        if (!result.ok) return `“${shownTitle}” could not be deleted, so it was put back. ${result.message}`;
+        router.refresh();
+        return null;
+      },
+    });
   }
 
   if (removed) return null;
@@ -93,7 +96,7 @@ export function SidebarProjectRow({
           <DropdownMenu.Portal>
             <DropdownMenu.Content align="end" sideOffset={4} className="z-50 min-w-36 rounded-lg border border-hairline bg-paper p-1 text-ink shadow-card">
               <DropdownMenu.Item onSelect={() => { setTitle(shownTitle); setError(null); setRenameOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud">Rename</DropdownMenu.Item>
-              <DropdownMenu.Item onSelect={() => { setError(null); setDeleteOpen(true); }} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-cloud">Delete</DropdownMenu.Item>
+              <DropdownMenu.Item onSelect={() => remove()} className="cursor-pointer rounded-md px-2.5 py-2 text-sm text-destructive outline-none data-[highlighted]:bg-cloud">Delete</DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
@@ -118,23 +121,6 @@ export function SidebarProjectRow({
                 </button>
               </div>
             </form>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      <Dialog.Root open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
-          <Dialog.Content aria-describedby={`${descriptionId}-delete`} className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-hairline bg-paper p-5 shadow-card">
-            <Dialog.Title className="text-base font-semibold text-ink">Delete “{shownTitle}”?</Dialog.Title>
-            <Dialog.Description id={`${descriptionId}-delete`} className="mt-1 text-sm text-ink-soft">{item.kind === "chat" ? "This conversation will be removed from your work list." : "This project and its timeline will be deleted."}</Dialog.Description>
-            {error ? <p role="alert" className="mt-3 text-sm text-destructive">{error}</p> : null}
-            <div className="mt-5 flex justify-end gap-2">
-              <Dialog.Close asChild><button type="button" className="min-h-10 rounded-md px-3 text-sm text-ink hover:bg-cloud">Cancel</button></Dialog.Close>
-              <button type="button" onClick={() => void remove()} className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-destructive px-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50">
-                Delete
-              </button>
-            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

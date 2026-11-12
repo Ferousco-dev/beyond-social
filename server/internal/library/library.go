@@ -12,13 +12,16 @@ var ErrNotFound = errors.New("library: video not found")
 // Item is one finished video. The ID is the job that made it, which is also
 // what a post refers to.
 type Item struct {
-	ID              string    `json:"id"`
-	Type            string    `json:"type"`
-	Prompt          string    `json:"prompt,omitempty"`
-	VideoURL        string    `json:"video_url"`
-	ThumbnailURL    string    `json:"thumbnail_url,omitempty"`
-	DurationSeconds float64   `json:"duration_seconds,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID              string  `json:"id"`
+	Type            string  `json:"type"`
+	Prompt          string  `json:"prompt,omitempty"`
+	VideoURL        string  `json:"video_url"`
+	ThumbnailURL    string  `json:"thumbnail_url,omitempty"`
+	DurationSeconds float64 `json:"duration_seconds,omitempty"`
+	// ProjectID is the editor project whose timeline holds this video, when
+	// there is one, so a list can link straight to the editor.
+	ProjectID string    `json:"project_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Store interface {

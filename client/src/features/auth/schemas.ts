@@ -27,13 +27,13 @@ export const signupSchema = z
   .object({
     fullName: z.string().min(1, "Name is required").max(80),
     email,
+    // Optional: left empty it is stored as an empty string.
     phone: z
       .string()
       .trim()
-      .min(7, "Enter a valid phone number")
       .max(20, "Enter a valid phone number")
-      .regex(/^[+\d][\d\s\-().]*$/, "Enter a valid phone number"),
-    businessName: z.string().trim().min(1, "Business name is required").max(120),
+      .refine((value) => value === "" || (value.length >= 7 && /^[+\d][\d\s\-().]*$/.test(value)), "Enter a valid phone number"),
+    businessName: z.string().trim().max(120),
     industry: z.string().min(1, "Choose an industry").refine(
       (value) => (INDUSTRIES as readonly string[]).includes(value),
       { message: "Choose an industry" },

@@ -4,11 +4,13 @@ import { type Route } from "next";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useOnline } from "@/hooks/use-online";
 import { createEditorProject } from "@/features/studio/actions";
 
 import { buildAvatarScript } from "./brief";
+import { CreditShortfallDialog } from "./credit-shortfall-dialog";
 import { PacingNote } from "./length-picker";
-import { fits, spokenText } from "./pacing";
+import { fits, hasSound, spokenText } from "./pacing";
 import { ReviewSummary } from "./review-summary";
 import { quoteGeneration, scriptOf, startGeneration, videoKind } from "./start-generation";
 import { turnsReady, type GenerateFormValues } from "./types";
@@ -17,15 +19,19 @@ import { turnsReady, type GenerateFormValues } from "./types";
 export function StepReview({
   values,
   balance,
+  proPrice,
   onChange,
 }: {
   values: GenerateFormValues;
   balance: number | null;
+  /** The monthly Pro price, for a Free member only; null hides the offer. */
+  proPrice: string | null;
   onChange: (patch: Partial<GenerateFormValues>) => void;
 }) {
   const router = useRouter();
   const [credits, setCredits] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [shortOpen, setShortOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -39,7 +45,12 @@ export function StepReview({
   const missingWords =
     kind === "conversation" ? !turnsReady(values.turns) : kind === "talking" && avatarScript.trim() === "";
   // Re-quote only when something that changes the price changes.
-  const quoteKey = kind === "clip" ? `clip:${values.seconds}` : prompt;
+  // Spoken words switch sound on, which is priced higher, so they belong in the key.
+  const quoteKey = kind === "clip" ? `clip:${values.seconds}:${hasSound(values)}` : prompt;
+
+  const online = useOnline();
+  // Said at the value moment, before a click that could only fail: the cost is known and so is the balance.
+  const short = balance !== null && credits !== null && credits > balance;
 
   useEffect(() => {
     let cancelled = false;
@@ -83,7 +94,7 @@ export function StepReview({
       }
       router.push(`/editor/${project.value}?job=${generation.jobId}&script=${encodeURIComponent(prompt)}` as Route);
     } catch {
-      setError("Something went wrong while starting generation. Your project is still safe; please try again.");
+      setError("Generation did not start. Your project is saved. Try again.");
     } finally {
       setStarting(false);
     }
@@ -123,7 +134,7 @@ export function StepReview({
             <button
               type="button"
               onClick={() => void generate()}
-              disabled={starting}
+              disabled={starting || !online}
               className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             >
               {starting ? "Opening editor…" : "Confirm and generate"}
@@ -147,22 +158,30 @@ export function StepReview({
               setError(kind === "conversation" ? "Give every turn a face, a voice and its words before generating." : "Add the words your voice recording says before generating.");
               return;
             }
+            if (short) {
+              setShortOpen(true);
+              return;
+            }
             if (promptLength > 2500) {
               setError("This prompt is over 2,500 characters. Shorten the script before generating.");
               return;
             }
             setConfirming(true);
           }}
-          disabled={credits === null || quoteError !== null || rushed}
+          disabled={!online || credits === null || quoteError !== null || rushed}
           className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Review and generate
         </button>
       )}
+      {!online ? <p className="text-sm text-ink-soft">You are offline. Your answers are saved on this device. Reconnect to generate.</p> : null}
       {error ? (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
+      ) : null}
+      {short && credits !== null && balance !== null ? (
+        <CreditShortfallDialog open={shortOpen} onClose={() => setShortOpen(false)} cost={credits} balance={balance} proPrice={proPrice} />
       ) : null}
     </div>
   );

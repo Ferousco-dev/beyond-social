@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { z } from "zod";
 
 import { goApi } from "@/lib/go-api/client";
@@ -7,9 +8,6 @@ import { jobsListResponse } from "@/lib/go-api/schemas";
 
 import { type SidebarProject } from "./data";
 
-const conversationsResponse = z.object({
-  data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string() })),
-});
 const projectsResponse = z.object({
   data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string() })),
 });
@@ -36,22 +34,12 @@ function draftStage(type: string): "preview" | "analysis" | null {
   return null;
 }
 
-/** Recent video projects, chats and in-progress "New Video" drafts for the sidebar. */
-export async function getSidebarProjects(): Promise<readonly SidebarProject[]> {
-  const [conversations, projects, jobs] = await Promise.all([
-    goApi("/api/v1/conversations?limit=100", conversationsResponse),
-    goApi("/api/v1/editor/projects", projectsResponse),
+/** Recent video projects and in-progress "New Video" drafts for the sidebar. */
+export const getSidebarProjects = cache(async (): Promise<readonly SidebarProject[]> => {
+  const [projects, jobs] = await Promise.all([
+    goApi("/api/v1/editor/projects?limit=40", projectsResponse),
     goApi("/api/v1/jobs?limit=25", jobsListResponse),
   ]);
-  const chats = conversations.ok
-    ? conversations.data.data.map((item) => ({
-        id: item.id,
-        title: item.title || "New project",
-        href: `/dashboard/c/${item.id}`,
-        kind: "chat" as const,
-        updatedAt: item.updated_at,
-      }))
-    : [];
   const videos = projects.ok
     ? projects.data.data.map((item) => ({
         id: item.id,
@@ -77,5 +65,5 @@ export async function getSidebarProjects(): Promise<readonly SidebarProject[]> {
           };
         })
     : [];
-  return [...chats, ...videos, ...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-}
+  return [...videos, ...drafts].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+});

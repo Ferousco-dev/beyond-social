@@ -16,16 +16,16 @@ export type ConnectResult =
 /** Where to send the browser to sign in to the platform. */
 export async function startConnect(input: string): Promise<ConnectResult> {
   const parsed = platform.safeParse(input);
-  if (!parsed.success) return { status: "error", message: "Unknown platform." };
+  if (!parsed.success) return { status: "error", message: "That platform is not supported." };
   const result = await goApi(`/api/v1/social/${parsed.data}/connect`, connectUrlResponse, { method: "POST" });
   return result.ok ? { status: "ok", url: result.data.data.url } : { status: "error", message: result.message };
 }
 
 export async function disconnect(input: string): Promise<{ readonly ok: boolean; readonly message?: string }> {
   const parsed = platform.safeParse(input);
-  if (!parsed.success) return { ok: false, message: "Unknown platform." };
+  if (!parsed.success) return { ok: false, message: "That platform is not supported." };
   const result = await goApi(`/api/v1/social/${parsed.data}`, emptyResponse, { method: "DELETE" });
   if (!result.ok) return { ok: false, message: result.message };
-  revalidatePath("/dashboard/connections");
+  revalidatePath("/dashboard/settings/connections");
   return { ok: true };
 }

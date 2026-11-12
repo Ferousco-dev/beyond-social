@@ -69,7 +69,7 @@ func (a *App) limitPerUser(next http.Handler) http.Handler {
 		if identity, ok := auth.IdentityFromContext(r.Context()); ok {
 			if allowed, wait := a.limits.allow(identity.UserID); !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
-				writeError(w, http.StatusTooManyRequests, "too_many_requests", "you are going too fast; try again in a moment")
+				writeError(w, http.StatusTooManyRequests, "too_many_requests", "you are sending requests too quickly; wait a moment and try again")
 				return
 			}
 		}

@@ -2,8 +2,7 @@ import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
 import { listAssetGroups } from "@/features/asset-groups/actions";
-import { GroupList } from "@/features/asset-groups/components/group-list";
-import { NewGroupButton } from "@/features/asset-groups/components/new-group-button";
+import { AvatarGroups } from "@/features/asset-groups/components/avatar-groups";
 import { listLibraryAssets } from "@/features/asset-library/actions";
 import { AssetLibrary } from "@/features/asset-library/components/asset-library";
 
@@ -29,7 +28,7 @@ export default async function AssetsPage(): Promise<ReactNode> {
 
       {library.status !== "ok" ? (
         <p role="alert" className="mt-6 text-sm text-destructive">
-          {library.status === "unconfigured" ? "The backend is not connected yet." : library.message}
+          {library.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : library.message}
         </p>
       ) : (
         <AssetLibrary initial={library.assets} />
@@ -44,10 +43,7 @@ export default async function AssetsPage(): Promise<ReactNode> {
             Optional. Live avatar videos still read a face and voice from a group for now; files in groups you made
             before are already in your library above.
           </p>
-          <GroupList groups={groups.groups} />
-          <div className="mt-4">
-            <NewGroupButton />
-          </div>
+          <AvatarGroups initial={groups.groups} />
         </section>
       ) : null}
     </div>

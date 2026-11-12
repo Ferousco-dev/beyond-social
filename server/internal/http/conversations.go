@@ -173,7 +173,7 @@ func (a *App) chatError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "a message is 1 to 2000 characters of plain text")
 	case errors.Is(err, chat.ErrDailyLimit):
 		w.Header().Set("Retry-After", "3600")
-		writeError(w, http.StatusTooManyRequests, "daily_limit", "you have reached the daily message limit; try again later")
+		writeError(w, http.StatusTooManyRequests, "daily_limit", "you have reached the daily message limit; it resets tomorrow")
 	case errors.Is(err, chat.ErrBusy):
 		w.Header().Set("Retry-After", "30")
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have too many active workflows; wait for one to finish")

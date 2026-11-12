@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { repairProject } from "../core/repair.ts";
 import { parseProject } from "../core/validate.ts";
 import { useAutosave } from "../hooks/use-autosave";
-import { useMediaUrls } from "../hooks/use-media-urls";
+import { clearBackup, readBackup } from "../hooks/draft-backup";
+import { rememberLinks, useMediaUrls } from "../hooks/use-media-urls";
 import { useShortcuts } from "../hooks/use-shortcuts";
 import { STUDIO_PANELS } from "../config";
 import { useMediaQuery } from "../hooks/use-media-query";
@@ -28,9 +29,11 @@ interface StudioScreenProps {
   document: unknown;
   backHref: string;
   generation?: ProjectGeneration;
+  /** Links for the files the timeline plays, sent with the project so no separate request is needed. */
+  mediaLinks?: Readonly<Record<string, { url: string; expiresAt: number }>>;
 }
 
-export function StudioScreen({ id, title, version, document, backHref, generation }: StudioScreenProps) {
+export function StudioScreen({ id, title, version, document, backHref, generation, mediaLinks }: StudioScreenProps) {
   // A project that fails the strict check is repaired on screen rather than refused. Nothing is
   // written back until the person makes a change, so the stored copy is untouched until then.
   const opened = useMemo(() => {
@@ -47,8 +50,21 @@ export function StudioScreen({ id, title, version, document, backHref, generatio
   // The screen shows nothing until the store holds this project, so no panel ever reads a stale one.
   const project = opened.project;
   useEffect(() => {
-    if (project && useStudio.getState().projectId !== id) useStudio.getState().load(id, title, version, project);
-  }, [id, title, version, project]);
+    if (mediaLinks) rememberLinks(mediaLinks);
+    if (project && useStudio.getState().projectId !== id) {
+      useStudio.getState().load(id, title, version, project);
+      // Edits kept on this device that never reached the server: bring them back, but only when
+      // nobody has saved since (same version), so another tab's work is never overwritten.
+      const backup = readBackup(id);
+      if (backup && backup.version === version) {
+        const kept = parseProject(backup.document);
+        if (kept.ok && JSON.stringify(kept.value) !== JSON.stringify(project)) {
+          useStudio.getState().restoreDraft(kept.value, backup.title.trim() || title);
+          useStudio.getState().setNotice("Restored your unsaved changes from this device.");
+        } else clearBackup(id);
+      } else if (backup) clearBackup(id);
+    }
+  }, [id, title, version, project, mediaLinks]);
   useEffect(() => () => useStudio.getState().setPlaying(false), []);
   useAutosave();
   useMediaUrls();

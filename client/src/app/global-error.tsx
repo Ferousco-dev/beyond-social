@@ -17,10 +17,10 @@ export default function GlobalError({
         >
           <p className="text-sm font-semibold text-destructive">Something went wrong</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            The app hit an unexpected error
+            The app stopped working
           </h1>
           <p className="mt-3 max-w-md text-muted-foreground">
-            Reload to continue. If the problem persists, try again shortly.
+            Reload to continue. If it happens again, wait a few minutes.
           </p>
           <button
             type="button"

@@ -19,11 +19,11 @@ function load(): Promise<LibraryState> {
     .then((result): LibraryState => {
       if (result.status === "ok") return { status: "ready", assets: result.assets };
       pending = null;
-      return { status: "error", message: result.status === "unconfigured" ? "The backend is not connected yet." : result.message };
+      return { status: "error", message: result.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : result.message };
     })
     .catch((): LibraryState => {
       pending = null;
-      return { status: "error", message: "Your library could not be loaded. Try again." };
+      return { status: "error", message: "Your videos could not be loaded. Try again." };
     });
   return pending;
 }

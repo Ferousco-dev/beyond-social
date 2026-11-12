@@ -21,11 +21,25 @@ type Outcome =
   | { readonly status: "error"; readonly message: string };
 
 /** One group: fill slots by upload, consent face and voice, rename. */
-export function GroupDetailView({ initial }: { initial: AssetGroupDetail }) {
+export function GroupDetailView({
+  initial,
+  pending = false,
+  onChange,
+  onDelete,
+}: {
+  initial: AssetGroupDetail;
+  /** The group is still being created: show it, but hold every control. */
+  pending?: boolean;
+  /** Called with the fresh group after each change, so a parent can keep its copy current. */
+  onChange?: (group: AssetGroupDetail) => void;
+  /** Takes over deleting, so a popup can close at once instead of after the server answers. */
+  onDelete?: (group: AssetGroupDetail) => void;
+}) {
   const { confirm, dialog } = useConfirm();
   const router = useRouter();
   const [group, setGroup] = useState(initial);
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  const busy = working || pending;
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(initial.name);
 
@@ -35,12 +49,15 @@ export function GroupDetailView({ initial }: { initial: AssetGroupDetail }) {
     try {
       const result = await task();
       if (result.status !== "ok") {
-        setError(result.status === "unconfigured" ? "The backend is not connected yet." : result.message);
+        setError(result.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : result.message);
         return;
       }
       const refreshed = await getAssetGroup(group.id);
-      if (refreshed.status === "ok") setGroup(refreshed.group);
-      router.refresh();
+      if (refreshed.status === "ok") {
+        setGroup(refreshed.group);
+        onChange?.(refreshed.group);
+      }
+      if (!onChange) router.refresh();
     } finally {
       setBusy(false);
     }
@@ -67,7 +84,22 @@ export function GroupDetailView({ initial }: { initial: AssetGroupDetail }) {
         <button
           type="button"
           disabled={busy || name.trim() === "" || name === group.name}
-          onClick={() => void run(async () => updateAssetGroup(group.id, { name: name.trim() }))}
+          onClick={() => {
+            // The new name shows at once and goes back if the server refuses it.
+            const previous = group;
+            const next = { ...group, name: name.trim() };
+            setGroup(next);
+            onChange?.(next);
+            void run(async () => {
+              const result = await updateAssetGroup(group.id, { name: next.name });
+              if (result.status !== "ok") {
+                setGroup(previous);
+                setName(previous.name);
+                onChange?.(previous);
+              }
+              return result;
+            });
+          }}
           className="inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:opacity-40"
         >
           Rename
@@ -89,7 +121,7 @@ export function GroupDetailView({ initial }: { initial: AssetGroupDetail }) {
 
       {busy ? (
         <p className="text-sm text-ink-soft" aria-live="polite">
-          Working…
+          {pending ? "Setting up your group…" : "Working…"}
         </p>
       ) : null}
       {error ? (
@@ -110,6 +142,10 @@ export function GroupDetailView({ initial }: { initial: AssetGroupDetail }) {
               tone: "destructive",
             });
             if (!ok) return;
+            if (onDelete) {
+              onDelete(group);
+              return;
+            }
             void run(async () => {
               const result = await deleteAssetGroup(group.id);
               if (result.status === "ok") router.push("/dashboard/assets");

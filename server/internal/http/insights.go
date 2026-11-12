@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/insights"
@@ -15,6 +16,7 @@ import (
 type InsightsService interface {
 	Latest(ctx context.Context, userID, postID string) (insights.Metrics, error)
 	History(ctx context.Context, userID, postID string) ([]insights.Metrics, error)
+	Recent(ctx context.Context, userID string, posts int) (map[string][]insights.Metrics, error)
 	Recommend(ctx context.Context, userID string, platform social.Platform) ([]insights.Slot, error)
 }
 
@@ -47,6 +49,30 @@ func (a *App) getPostMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeData(w, http.StatusOK, map[string]any{"latest": latest, "history": history})
+}
+
+// getRecentMetrics returns latest and history for the newest published posts in
+// one response, keyed by post id.
+func (a *App) getRecentMetrics(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	posts := 20
+	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 && n <= 50 {
+		posts = n
+	}
+	byPost, err := a.deps.Insights.Recent(r.Context(), identity.UserID, posts)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	out := make(map[string]map[string]any, len(byPost))
+	for id, history := range byPost {
+		out[id] = map[string]any{"latest": history[0], "history": history}
+	}
+	writeData(w, http.StatusOK, out)
 }
 
 // getInsightSlots recommends posting times learned from the account's own

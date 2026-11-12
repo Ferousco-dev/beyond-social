@@ -191,7 +191,9 @@ func (f *fakeScenes) Submit(_ context.Context, _ string, r generate.Request, _ s
 	f.last = r
 	return jobs.Job{ID: postID, Type: generate.JobType}, true, f.err
 }
-func (f *fakeScenes) Quote(_ context.Context, seconds int) (int, error) { return seconds * 4, nil }
+func (f *fakeScenes) Quote(_ context.Context, seconds int, _ bool) (int, error) {
+	return seconds * 4, nil
+}
 
 func TestEditorWatchAndScenes(t *testing.T) {
 	h := newHarness(t, &fakeRepo{}, fakePinger{})
@@ -231,5 +233,17 @@ func TestEditorWatchAndScenes(t *testing.T) {
 	}
 	if res := send(h, http.MethodGet, "/api/v1/editor/scenes/quote?seconds=99", a, ""); res.Code != http.StatusBadRequest {
 		t.Fatalf("quote range: %d", res.Code)
+	}
+}
+
+func TestProjectLinksFindsOnlyMediaReferences(t *testing.T) {
+	app := &App{deps: Deps{Media: fakeMedia{}}}
+	doc := []byte(`{"tracks":[{"items":[{"src":"media:123e4567-e89b-42d3-a456-426614174000"},{"src":"https://x.test/a.mp4"},{"src":"lib:beep"},{"src":"media:123E4567-E89B-42D3-A456-426614174000"}]}]}`)
+	links := app.projectLinks(context.Background(), "u1", doc)
+	if len(links) > 1 {
+		t.Fatalf("a repeated reference was signed twice: %+v", links)
+	}
+	if got := app.projectLinks(context.Background(), "u1", []byte(`{"tracks":[]}`)); got != nil {
+		t.Fatalf("a document with no files produced links: %+v", got)
 	}
 }

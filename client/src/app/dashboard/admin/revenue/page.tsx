@@ -6,11 +6,14 @@ import { SubscriptionActivity } from "@/features/admin-console/components/subscr
 import { billingOverviewResponse, revenueHistoryResponse, usageResponse } from "@/lib/go-api/admin-schemas";
 import { goApi } from "@/lib/go-api/client";
 import { Select } from "@/components/ui/select";
+import { Pager, pageNumber } from "@/features/admin/components/pager";
+import { actionName } from "@/features/admin-console/action-names";
 
 export const metadata: Metadata = { title: "Admin · Revenue" };
 export const dynamic = "force-dynamic";
 
 const WINDOWS = [7, 30, 90] as const;
+const ROWS = 10;
 type RevenuePoint = z.infer<typeof revenueHistoryResponse>["data"][number];
 
 function currency(cents: number, code: string): string {
@@ -62,9 +65,11 @@ function RevenueTrend({ points, code, days }: { readonly points: readonly Revenu
 export default async function AdminRevenuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string; currency?: string }>;
+  searchParams: Promise<{ days?: string; currency?: string; page?: string; sub?: string }>;
 }): Promise<ReactNode> {
   const params = await searchParams;
+  const dayPage = pageNumber(params.page);
+  const subPage = pageNumber(params.sub);
   const days = WINDOWS.find((window) => window === Number(params.days)) ?? 30;
   const [overviewResult, historyResult, usageResult] = await Promise.all([
     goApi("/api/v1/admin/billing", billingOverviewResponse),
@@ -85,6 +90,12 @@ export default async function AdminRevenuePage({
     packs: sum.packs + point.packCents,
     refunds: sum.refunds + point.refundCents,
   }), { subscriptions: 0, packs: 0, refunds: 0 });
+  const dailyRows = [...points].reverse().slice((dayPage - 1) * ROWS, dayPage * ROWS);
+  const dailyMore = points.length > dayPage * ROWS;
+  const subscribers = overview.subscribers.slice((subPage - 1) * ROWS, subPage * ROWS);
+  const subscribersMore = overview.subscribers.length > subPage * ROWS;
+  const query = { days: String(days), currency: code };
+  const actual = usageResult.data.data.providers;
   const creditValue = usageResult.data.data.actions.reduce((sum, row) => sum + row.revenueUsd, 0);
   const estimatedCost = usageResult.data.data.actions.reduce((sum, row) => sum + row.estimatedCostUsd, 0);
 
@@ -122,20 +133,42 @@ export default async function AdminRevenuePage({
             <table className="w-full min-w-[520px] text-left text-sm">
               <caption className="sr-only">Daily {code.toUpperCase()} receipts and refunds</caption>
               <thead className="border-b border-hairline text-xs text-ink-soft"><tr><th className="py-2 pr-3 font-medium">Date</th><th className="px-3 py-2 text-right font-medium">Subscriptions</th><th className="px-3 py-2 text-right font-medium">Packs</th><th className="px-3 py-2 text-right font-medium">Refunds</th><th className="py-2 pl-3 text-right font-medium">Net</th></tr></thead>
-              <tbody className="divide-y divide-hairline">{points.map((point) => <tr key={`${point.date}-${point.currency}`}><th scope="row" className="py-2 pr-3 font-medium text-ink">{point.date}</th><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.subscriptionCents, code)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.packCents, code)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.refundCents, code)}</td><td className="py-2 pl-3 text-right tabular-nums text-ink">{currency(netCents(point), code)}</td></tr>)}</tbody>
+              <tbody className="divide-y divide-hairline">{dailyRows.map((point) => <tr key={`${point.date}-${point.currency}`}><th scope="row" className="py-2 pr-3 font-medium text-ink">{point.date}</th><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.subscriptionCents, code)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.packCents, code)}</td><td className="px-3 py-2 text-right tabular-nums text-ink-soft">{currency(point.refundCents, code)}</td><td className="py-2 pl-3 text-right tabular-nums text-ink">{currency(netCents(point), code)}</td></tr>)}</tbody>
             </table>
           </div>
         ) : null}
+        <Pager path="/dashboard/admin/revenue" params={{ ...query, sub: subPage > 1 ? String(subPage) : "" }} page={dayPage} hasMore={dailyMore} />
       </section>
 
       <section className="mt-8" aria-labelledby="cost-heading">
-        <h2 id="cost-heading" className="text-sm font-semibold text-ink">Estimated generation contribution</h2>
-        <p className="mt-1 text-sm text-ink-soft">A modeled USD equivalent from credit usage, not cash profit. Provider balance decreases are shown on Pricing and are not added here.</p>
-        <dl className="mt-3 grid divide-y divide-hairline border-y border-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-          <div className="py-3 sm:px-4 sm:first:pl-0"><dt className="text-xs text-ink-soft">Credit value</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(creditValue)}</dd></div>
-          <div className="py-3 sm:px-4"><dt className="text-xs text-ink-soft">Estimated action costs</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(estimatedCost)}</dd></div>
-          <div className="py-3 sm:px-4 sm:last:pr-0"><dt className="text-xs text-ink-soft">Modeled contribution</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(creditValue - estimatedCost)}</dd></div>
+        <h2 id="cost-heading" className="text-sm font-semibold text-ink">What generation cost</h2>
+        <p className="mt-1 text-sm text-ink-soft">The first list is real: it is how far each provider balance fell, read every 15 minutes. It is the number to trust. The second is a guess from the price table.</p>
+        <h3 className="mt-4 text-xs font-medium text-ink-soft">Real provider spend, last {days} days</h3>
+        {actual.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-soft">No balance readings yet. Add the KIE and Apify keys and spend shows up here after the next check.</p>
+        ) : (
+          <dl className="mt-2 grid divide-y divide-hairline border-y border-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            {actual.map((row) => (
+              <div key={row.provider} className="py-3 sm:px-4 sm:first:pl-0"><dt className="text-xs capitalize text-ink-soft">{row.provider}</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{row.unit === "usd" ? dollars(row.spent) : `${row.spent.toLocaleString("en-US")} credits`}{row.provider === "kie" ? <span className="ml-1.5 text-xs font-normal text-ink-soft">about {dollars(row.spent * 0.005)} at $0.005 a credit</span> : null}</dd></div>
+            ))}
+          </dl>
+        )}
+        <h3 className="mt-6 text-xs font-medium text-ink-soft">Estimate from the price table</h3>
+        <dl className="mt-2 grid divide-y divide-hairline border-y border-hairline sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          <div className="py-3 sm:px-4 sm:first:pl-0"><dt className="text-xs text-ink-soft">Credits used, worth</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(creditValue)}</dd></div>
+          <div className="py-3 sm:px-4"><dt className="text-xs text-ink-soft">Estimated provider cost</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(estimatedCost)}</dd></div>
+          <div className="py-3 sm:px-4 sm:last:pr-0"><dt className="text-xs text-ink-soft">Estimated left over</dt><dd className="mt-1 font-semibold tabular-nums text-ink">{dollars(creditValue - estimatedCost)}</dd></div>
         </dl>
+        {usageResult.data.data.actions.length > 0 ? (
+          <ul className="mt-3 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
+            {usageResult.data.data.actions.map((row) => (
+              <li key={row.action} className="flex flex-wrap justify-between gap-2 px-4 py-3 text-sm">
+                <span className="text-ink">{actionName(row.action)}</span>
+                <span className="tabular-nums text-ink-soft">{row.count} runs · {dollars(row.revenueUsd)} charged · about {dollars(row.estimatedCostUsd)} cost</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section className="mt-8" aria-labelledby="members-heading">
@@ -153,7 +186,7 @@ export default async function AdminRevenuePage({
         <p className="mt-2 text-sm text-ink-soft">No Pro members yet.</p>
       ) : (
         <ul className="mt-2 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
-          {overview.subscribers.map((s) => (
+          {subscribers.map((s) => (
             <li key={s.email} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
               <span className="min-w-0 truncate text-ink">{s.email}</span>
               <span className="shrink-0 text-xs text-ink-soft">
@@ -164,6 +197,7 @@ export default async function AdminRevenuePage({
           ))}
         </ul>
       )}
+      <Pager path="/dashboard/admin/revenue" params={{ ...query, page: dayPage > 1 ? String(dayPage) : "" }} page={subPage} hasMore={subscribersMore} param="sub" />
       <SubscriptionActivity events={overview.activity} />
     </div>
   );

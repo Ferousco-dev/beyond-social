@@ -78,9 +78,8 @@ export const EMPTY_FORM: GenerateFormValues = {
   notifyEmail: false,
 };
 
-export const STEPS = ["Objective", "Format", "Script & speech", "Visual assets", "Final review"] as const;
+export const STEPS = ["Objective", "Format", "Script & assets"] as const;
 
-export const PURPOSES = ["Promotion", "Brand awareness", "Education", "Product demonstration", "Other"] as const;
 export const PLATFORMS = ["TikTok", "Instagram Reels"] as const;
 export const RATIOS = ["9:16", "16:9", "1:1"] as const;
 export const CONTENT_KINDS = ["Human-led", "Product-focused", "Mixed"] as const;

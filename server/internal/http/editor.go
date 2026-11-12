@@ -1,12 +1,16 @@
 package httpserver
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
+	"github.com/Ferousco-dev/beyond-social/server/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -40,7 +44,7 @@ func (a *App) editorError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, editor.ErrStale):
 		writeError(w, http.StatusConflict, "stale_project", "this project was changed somewhere else; reload it")
 	case errors.Is(err, editor.ErrLimit):
-		writeError(w, http.StatusConflict, "project_limit", "you have reached the project limit")
+		writeError(w, http.StatusConflict, "project_limit", "you have reached the project limit; delete a project to make room")
 	default:
 		writeInternal(w, r, err)
 	}
@@ -51,7 +55,12 @@ func (a *App) listEditorProjects(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := a.deps.Editor.List(r.Context(), userID, editor.MaxProjects)
+	limit, err := intParam(r, "limit", editor.MaxProjects, 1, editor.MaxProjects)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	items, err := a.deps.Editor.List(r.Context(), userID, limit)
 	if err != nil {
 		a.editorError(w, r, err)
 		return
@@ -107,7 +116,38 @@ func (a *App) getEditorProject(w http.ResponseWriter, r *http.Request) {
 		a.editorError(w, r, err)
 		return
 	}
-	writeData(w, http.StatusOK, project)
+	// The files the timeline plays come with it, so the page does not make a
+	// second round of requests before the first frame.
+	writeData(w, http.StatusOK, editorProjectView{Project: project, MediaURLs: a.projectLinks(r.Context(), userID, project.Document)})
+}
+
+// editorProjectView is a project plus the links for the files its timeline uses.
+type editorProjectView struct {
+	editor.Project
+	MediaURLs map[string]media.Link `json:"media_urls,omitempty"`
+}
+
+var mediaRefPattern = regexp.MustCompile(`media:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
+
+// projectLinks signs every uploaded file a document refers to. Ownership is
+// checked per file, so a document naming someone else's file gets nothing for it.
+func (a *App) projectLinks(ctx context.Context, userID string, document []byte) map[string]media.Link {
+	if a.deps.Media == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var ids []string
+	for _, match := range mediaRefPattern.FindAllSubmatch(document, -1) {
+		id := strings.ToLower(string(match[1]))
+		if !seen[id] && len(ids) < media.MaxLinks {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	return a.deps.Media.ViewLinks(ctx, userID, ids)
 }
 
 func (a *App) saveEditorProject(w http.ResponseWriter, r *http.Request) {

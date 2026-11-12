@@ -11,7 +11,7 @@ function isOption(value: string | undefined): value is NewVideoOptionId {
   return NEW_VIDEO_OPTIONS.some((option) => option.id === value);
 }
 
-/** New Video entry: three starting points, no chat. */
+/** New Video entry: four starting points, no chat. */
 export default async function NewVideoPage({
   searchParams,
 }: {

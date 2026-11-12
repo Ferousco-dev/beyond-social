@@ -35,10 +35,10 @@ func (f *fakeCreditAdmin) SetSetting(_ context.Context, key string, _ int, _ str
 func (f *fakeCreditAdmin) SegmentCounts(context.Context) (credits.SegmentCounts, error) {
 	return credits.SegmentCounts{Total: 3, New: 1}, nil
 }
-func (f *fakeCreditAdmin) FindUsers(context.Context, string, credits.Segment, int) ([]credits.UserCredits, error) {
+func (f *fakeCreditAdmin) FindUsers(context.Context, string, credits.Segment, int, int) ([]credits.UserCredits, error) {
 	return []credits.UserCredits{{ID: alice, Email: "a@x.co", Balance: 7}}, nil
 }
-func (f *fakeCreditAdmin) Ledger(context.Context, string, int) ([]credits.LedgerRow, error) {
+func (f *fakeCreditAdmin) Ledger(context.Context, string, int, int) ([]credits.LedgerRow, error) {
 	return []credits.LedgerRow{{Kind: credits.KindGrant, Amount: 25}}, nil
 }
 func (f *fakeCreditAdmin) Usage(context.Context, int) (credits.UsageReport, error) {

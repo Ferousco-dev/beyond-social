@@ -62,7 +62,7 @@ export function TrendingPanel({ signupIndustry, plan }: { signupIndustry: string
       setPosts(result.posts);
       setSelectedPost(result.posts[0] ?? null);
     } catch {
-      setError("Something went wrong while searching. Please try again.");
+      setError("The search failed. Try again.");
     } finally {
       setBusy(false);
     }

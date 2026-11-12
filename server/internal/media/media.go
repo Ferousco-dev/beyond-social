@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -73,7 +74,9 @@ var (
 // MaxPerMessage is how many attachments one message may carry.
 const MaxPerMessage = 4
 
-const viewTTL = 10 * time.Minute
+// viewTTL is how long a link for showing a file lasts. Thirty minutes covers a
+// normal editing stretch, so the editor renews links rarely instead of often.
+const viewTTL = 30 * time.Minute
 
 type Item struct {
 	ID        string
@@ -185,6 +188,13 @@ func (s *Service) Confirm(ctx context.Context, userID, id string) (Descriptor, e
 	if info.Size > maxBytes[item.Kind] {
 		return Descriptor{}, ErrTooLarge
 	}
+	// The browser chooses the Content-Type it uploads with, and storage serves
+	// the file back under that type. A page declared as audio/mpeg but stored as
+	// text/html would be served as a page, so what was stored must be what was
+	// asked for. The file is left unconfirmed, and so unusable.
+	if info.ContentType != "" && canonicalMIME(info.ContentType) != canonicalMIME(item.MIME) {
+		return Descriptor{}, ErrUnsupported
+	}
 	if info.Size > 0 {
 		item.Size = info.Size
 	}
@@ -230,6 +240,51 @@ func (s *Service) ViewURL(ctx context.Context, userID, id string) (string, error
 		return "", ErrNotUploaded
 	}
 	return s.storage.SignedURL(ctx, Bucket, item.Path, viewTTL)
+}
+
+// Link is a short-lived address for one file, with when it stops working.
+type Link struct {
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// maxLinks bounds one batch, and linkWorkers how many are signed at once.
+const (
+	MaxLinks    = 100
+	linkWorkers = 8
+)
+
+// ViewLinks returns links for the user's own finished files, signed together.
+// A file that is not theirs, not finished or cannot be signed is left out, the
+// same answer a single request would give, so a caller can ask for a whole
+// timeline's files in one go.
+func (s *Service) ViewLinks(ctx context.Context, userID string, ids []string) map[string]Link {
+	if len(ids) > MaxLinks {
+		ids = ids[:MaxLinks]
+	}
+	var (
+		mu    sync.Mutex
+		wg    sync.WaitGroup
+		links = make(map[string]Link, len(ids))
+		slots = make(chan struct{}, linkWorkers)
+	)
+	for _, id := range ids {
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer func() { <-slots; wg.Done() }()
+			expires := time.Now().Add(viewTTL)
+			url, err := s.ViewURL(ctx, userID, id)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			links[id] = Link{URL: url, ExpiresAt: expires}
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	return links
 }
 
 func cleanName(raw string) string {

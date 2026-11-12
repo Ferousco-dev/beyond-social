@@ -39,7 +39,7 @@ export async function requestAttachmentUpload(input: z.input<typeof requestSchem
 
 /** Tells the server the upload finished, so the file becomes usable. */
 export async function confirmAttachment(id: string): Promise<ConfirmResult> {
-  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "Unknown file." };
+  if (!z.string().uuid().safeParse(id).success) return { status: "error", message: "That file could not be found." };
   const result = await goApi(`/api/v1/media/${id}/confirm`, attachmentResponse, { method: "POST" });
   return result.ok
     ? { status: "ok", attachment: result.data.data }

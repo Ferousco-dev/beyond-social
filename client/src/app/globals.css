@@ -409,3 +409,12 @@
     animation-duration: 3s;
   }
 }
+
+/* The editor's opening bar: it eases toward the end and waits there, so it
+   never claims to be finished before the page has actually arrived. */
+@keyframes editor-load {
+  0% { width: 4%; }
+  35% { width: 58%; }
+  70% { width: 82%; }
+  100% { width: 94%; }
+}

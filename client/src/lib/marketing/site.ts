@@ -7,7 +7,7 @@ export const NAV_LINKS: readonly NavLink[] = [
   { label: "FAQ", href: "/#faq" },
 ];
 
-export const PLATFORMS: readonly string[] = ["TikTok", "Instagram", "YouTube Shorts", "Facebook"];
+export const PLATFORMS: readonly string[] = ["TikTok", "Instagram", "YouTube"];
 
 export const FOOTER_COLUMNS: readonly FooterColumn[] = [
   {

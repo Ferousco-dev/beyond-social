@@ -26,6 +26,8 @@ type Monitor struct {
 	Key       func(name string) provider.KeyFunc
 	Threshold func(ctx context.Context, setting string) (int, bool, error)
 	Alerts    alerts.Reporter
+	// Clear closes a provider's open alerts once it reads healthy again. Optional.
+	Clear func(ctx context.Context, provider string)
 	// Snapshot records each reading so real spend can be worked out later.
 	Snapshot func(ctx context.Context, provider string, amount float64, unit string) error
 	Interval time.Duration
@@ -71,7 +73,14 @@ func (m *Monitor) Once(ctx context.Context) []Balance {
 			}
 		}
 		limit, ok, err := m.Threshold(ctx, setting)
-		if err != nil || !ok || balance.Amount >= float64(limit) {
+		if err != nil || !ok {
+			continue
+		}
+		if balance.Amount >= float64(limit) {
+			// The key worked and the balance is fine, so earlier problems are over.
+			if m.Clear != nil {
+				m.Clear(ctx, name)
+			}
 			continue
 		}
 		alerts.Report(ctx, m.Alerts, &provider.Error{

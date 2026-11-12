@@ -24,8 +24,8 @@ export function Showcase(): ReactNode {
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
         <SectionHeading
           eyebrow="Built for the feed"
-          title="Native vertical, never cropped"
-          description="Every clip is composed for the frame it will be watched in, with captions placed clear of the platform interface."
+          title="Made for vertical video"
+          description="Each clip is composed for the 9:16 frame, with captions kept clear of the platform's buttons."
         />
 
         <div className="mt-14 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

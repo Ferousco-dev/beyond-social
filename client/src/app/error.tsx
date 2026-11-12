@@ -19,10 +19,10 @@ export default function Error({
       <Logo />
       <p className="mt-10 text-sm font-semibold text-destructive">Something went wrong</p>
       <h1 className="mt-2 text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-        We hit an unexpected error
+        Something broke on our side
       </h1>
       <p className="mt-3 max-w-md text-pretty text-muted-foreground">
-        Your work is safe. Try again, and if it keeps happening, come back in a moment.
+        Your saved work is not affected. Try again, and if it keeps failing, wait a few minutes.
       </p>
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
         <Button size="lg" onClick={reset}>

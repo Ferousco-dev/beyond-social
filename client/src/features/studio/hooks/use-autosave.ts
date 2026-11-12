@@ -5,6 +5,10 @@ import { useEffect, useRef } from "react";
 import { saveProject } from "../actions";
 import { STUDIO_SAVE } from "../config";
 import { useStudio } from "../store/editor-store";
+import { clearBackup, saveBackup } from "./draft-backup";
+
+/** Asks the editor to try saving again now, for the Retry button. */
+export const RETRY_SAVE_EVENT = "bs:retry-save";
 
 /** What a project is called when its name was cleared; the server refuses an empty one. */
 export const FALLBACK_TITLE = "Untitled project";
@@ -46,12 +50,18 @@ export function useAutosave(): void {
       const title = state.title.trim() || FALLBACK_TITLE;
       inFlight.current = true;
       state.setSaveStatus("saving");
-      const result = await saveProject({ id: projectId, title, document: snapshot, expectedVersion: state.version });
+      // Keep a copy on this device before anything can go wrong on the way to the server.
+      saveBackup(projectId, { version: state.version, title, document: snapshot });
+      // A dropped connection rejects instead of answering; it counts as a failed save like any other.
+      const result = await saveProject({ id: projectId, title, document: snapshot, expectedVersion: state.version }).catch(
+        () => ({ ok: false as const, message: "offline", conflict: false }),
+      );
       inFlight.current = false;
       const now = useStudio.getState();
       if (result.ok) {
         failures.current = 0;
         now.markSaved(snapshot, result.version);
+        if (now.history.present === snapshot && (now.title.trim() || FALLBACK_TITLE) === title) clearBackup(projectId);
         // Something changed while the save was in the air, the project or only its name.
         if (now.history.present !== snapshot || (now.title.trim() || FALLBACK_TITLE) !== title) {
           now.setSaveStatus("pending");
@@ -78,6 +88,13 @@ export function useAutosave(): void {
     });
 
     const leave = (): void => void flush();
+    // Back online, or the person pressed Retry: try again at once instead of waiting out the delay.
+    const retryNow = (): void => {
+      failures.current = 0;
+      void flush();
+    };
+    window.addEventListener("online", retryNow);
+    window.addEventListener(RETRY_SAVE_EVENT, retryNow);
     const onHide = (): void => {
       if (document.visibilityState === "hidden") leave();
     };
@@ -99,6 +116,8 @@ export function useAutosave(): void {
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("pagehide", leave);
       window.removeEventListener("beforeunload", onUnload);
+      window.removeEventListener("online", retryNow);
+      window.removeEventListener(RETRY_SAVE_EVENT, retryNow);
       // Leaving the editor in the app: send what is pending instead of dropping it.
       leave();
       clear();

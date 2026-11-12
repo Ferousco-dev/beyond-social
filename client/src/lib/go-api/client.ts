@@ -93,6 +93,14 @@ function apiBase(): string {
   return env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
 }
 
+/** The API writes lower-case messages without a full stop; people read them as sentences. */
+function sentence(message: string): string {
+  const text = message.trim();
+  if (text === "") return text;
+  const capital = text.charAt(0).toUpperCase() + text.slice(1);
+  return /[.!?]$/.test(capital) ? capital : `${capital}.`;
+}
+
 function failure(status: number, code: string, message: string): GoApiResult<never> {
-  return { ok: false, status, code, message };
+  return { ok: false, status, code, message: sentence(message) };
 }

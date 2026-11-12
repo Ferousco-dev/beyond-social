@@ -162,7 +162,7 @@ export function LiveAvatarJob({ generation }: { generation: ProjectGeneration })
               ? { groupId: generation.groupId }
               : { voiceAssetIds: generation.voiceAssetId ? [generation.voiceAssetId] : [] },
           )
-        : await quoteScene(generation.seconds ?? estimateSeconds(script));
+        : await quoteScene(generation.seconds ?? estimateSeconds(script), generation.sound === true);
       if (cost === null) {
         setRetryError("Could not check the retry cost. Try again in a moment.");
         return;

@@ -39,6 +39,13 @@ func (a *App) listLibrary(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 		return
 	}
+	// light=1 is for a list that draws pictures only: the video file's address
+	// is the largest field in each row and is not needed until one is opened.
+	if r.URL.Query().Get("light") == "1" {
+		for i := range items {
+			items[i].VideoURL = ""
+		}
+	}
 	writeData(w, http.StatusOK, items)
 }
 

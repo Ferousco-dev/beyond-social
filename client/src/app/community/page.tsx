@@ -10,7 +10,7 @@ export default function Page(): ReactNode {
     <PageShell
       eyebrow="Resources"
       title="Community"
-      lede="There is no community space yet. This page says where to reach us in the meantime, and it will link one the day it exists."
+      lede="There is no community space yet. Email us in the meantime. We will link a space here the day one exists."
     >
       <Prose>
         <p>

@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Music2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Music2, Upload, X } from "lucide-react";
 
-import { useLibrary } from "@/features/asset-library/use-library";
+import { uploadGroupFile } from "@/features/asset-groups/upload";
+import { createLibraryAsset } from "@/features/asset-library/actions";
+import { invalidateLibrary, useLibrary } from "@/features/asset-library/use-library";
 import { cn } from "@/lib/utils";
 
 import { contentLength, currentMusic, DEFAULT_MUSIC_VOLUME, setBackgroundMusic } from "../../core/music.ts";
@@ -34,6 +36,8 @@ function lengthOf(url: string): Promise<number> {
     audio.preload = "metadata";
     audio.onloadedmetadata = () => (Number.isFinite(audio.duration) ? resolve(audio.duration) : reject(new Error("unknown length")));
     audio.onerror = () => reject(new Error("unreadable"));
+    // A stalled link must not leave the panel waiting for ever.
+    window.setTimeout(() => reject(new Error("timed out")), 10_000);
     audio.src = url;
   });
 }
@@ -43,6 +47,8 @@ export function MusicPanel() {
   const project = useStudio(selectProject);
   const library = useLibrary();
   const [busy, setBusy] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
   const music = currentMusic(project);
   const length = contentLength(project);
   const own: Track[] =
@@ -79,8 +85,44 @@ export function MusicPanel() {
     }
   }
 
+  /** Saves a track to the library, so it is there next time, and puts it under this video. */
+  async function upload(file: File | undefined): Promise<void> {
+    if (!file) return;
+    if (length <= 0) return useStudio.getState().setNotice("Add a clip first, so the music has a video to sit under.");
+    if (!file.type.startsWith("audio/")) return useStudio.getState().setNotice("Pick an audio file.");
+    setUploading(true);
+    try {
+      const url = URL.createObjectURL(file);
+      const seconds = await lengthOf(url).catch(() => 0);
+      URL.revokeObjectURL(url);
+      if (seconds <= 0) return useStudio.getState().setNotice("That file could not be read as audio.");
+      const stored = await uploadGroupFile(file);
+      if (stored.status !== "ok") return useStudio.getState().setNotice(stored.message);
+      const label = file.name.replace(/\.[^.]+$/, "").trim().slice(0, 60) || "Music";
+      const created = await createLibraryAsset({ kind: "music", label, mediaId: stored.mediaId });
+      if (created.status !== "ok") return useStudio.getState().setNotice(created.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : created.message);
+      invalidateLibrary();
+      useStudio.getState().setMediaUrls({ [stored.mediaId]: created.asset.url });
+      apply({ src: mediaRef(stored.mediaId), seconds, volume: music?.volume ?? DEFAULT_MUSIC_VOLUME });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="space-y-5 p-3">
+      <input ref={picker} type="file" accept="audio/mpeg,audio/mp4,audio/wav,audio/ogg" hidden onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }} />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => picker.current?.click()}
+        className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-hairline text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-wait disabled:opacity-60"
+      >
+        <Upload className="size-4" aria-hidden />
+        {uploading ? "Uploading…" : "Upload music"}
+      </button>
+      <p className="-mt-3 text-xs text-ink-soft">MP3, M4A, WAV or OGG, up to 25 MB. Only upload music you have the rights to use.</p>
+
       {music ? (
         <section aria-label="Background music" className="space-y-3 rounded-lg border border-hairline p-3">
           <div className="flex items-center justify-between gap-2">

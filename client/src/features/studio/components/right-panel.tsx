@@ -1,12 +1,15 @@
 "use client";
 
 import { Sparkles, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
 import { AiPanel } from "./panels/ai-panel";
-import { InspectorPanel } from "./panels/inspector-panel";
+const InspectorPanel = dynamic(() => import("./panels/inspector-panel").then((m) => m.InspectorPanel), {
+  loading: () => <div className="m-3 h-32 animate-pulse rounded-lg bg-cloud" aria-hidden />,
+});
 
 type Tab = "inspector" | "ai";
 

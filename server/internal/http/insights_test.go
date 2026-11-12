@@ -100,3 +100,7 @@ func TestInsightSlots(t *testing.T) {
 		t.Fatalf("thin history: expected 200 with empty slots, got %d", res.Code)
 	}
 }
+
+func (f *fakeInsights) Recent(_ context.Context, _ string, _ int) (map[string][]insights.Metrics, error) {
+	return map[string][]insights.Metrics{}, nil
+}

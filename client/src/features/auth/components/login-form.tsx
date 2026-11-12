@@ -53,7 +53,7 @@ export function LoginForm() {
           router.push(safeRedirect(requested, response.redirectTo) as Route);
         }
       } catch {
-        setResult({ status: "error", message: "Something went wrong. Please try again." });
+        setResult({ status: "error", message: "That did not work. Try again." });
       }
     });
   }

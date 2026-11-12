@@ -13,7 +13,7 @@ import (
 // SceneService makes one new AI video clip for the editor and says what it costs.
 type SceneService interface {
 	Submit(ctx context.Context, userID string, r generate.Request, key string) (jobs.Job, bool, error)
-	Quote(ctx context.Context, seconds int) (int, error)
+	Quote(ctx context.Context, seconds int, sound bool) (int, error)
 }
 
 func (a *App) createScene(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +66,7 @@ func (a *App) sceneQuote(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	credits, err := a.deps.Scenes.Quote(r.Context(), seconds)
+	credits, err := a.deps.Scenes.Quote(r.Context(), seconds, r.URL.Query().Get("sound") == "1")
 	if err != nil {
 		if !writeCreditError(w, err) {
 			writeInternal(w, r, err)

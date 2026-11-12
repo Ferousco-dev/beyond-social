@@ -15,8 +15,8 @@ export function HowItWorks(): ReactNode {
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6">
         <SectionHeading
           eyebrow="How it works"
-          title="Idea to published in three moves"
-          description="No storyboards, no timeline to learn first. The craft happens between your sentence and the finished cut."
+          title="From idea to published in three steps"
+          description="Describe it, review the cut, post it. There is no storyboard and no timeline to learn first."
         />
 
         <ol className="relative mt-16 grid gap-10 sm:grid-cols-3 sm:gap-8">

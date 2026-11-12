@@ -98,7 +98,7 @@ export async function startAnalysis(input: z.input<typeof startSchema>): Promise
 }
 
 export async function readAnalysis(jobId: string): Promise<AnalysisResult> {
-  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "Unknown analysis." };
+  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "That analysis could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
   const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);
   if (!result.ok) return { status: "error", message: result.message };
@@ -156,7 +156,7 @@ export async function startLinkPreview(input: { url: string; idempotencyKey: str
 }
 
 export async function readLinkPreview(jobId: string): Promise<LinkPreviewResult> {
-  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "Unknown preview." };
+  if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "That preview could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
   const result = await goApi(`/api/v1/jobs/${jobId}`, jobResponse);
   if (!result.ok) return { status: "error", message: result.message };

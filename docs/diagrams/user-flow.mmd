@@ -1,0 +1,111 @@
+flowchart TD
+    %% ---------- Entry ----------
+    V([Visitor lands on the site]) --> LP[Landing page<br/>pricing, blog, help, status]
+    LP --> SU[Sign up]
+    LP --> LI[Log in]
+    SU --> VER[Verify email]
+    VER --> ONB[Registration details<br/>industry and country]
+    LI --> FP{Forgot password?}
+    FP -- yes --> RP[Reset password email] --> LI
+    FP -- no --> DASH
+    ONB --> GRANT[Welcome credits granted once]
+    GRANT --> DASH
+
+    %% ---------- Home ----------
+    DASH[[Dashboard opens on New Video]]
+    DASH --> NV{New Video<br/>choose a starting point}
+    DASH --> NAV[Sidebar]
+    NAV --> PRJ[Projects]
+    NAV --> LIB[Library and Assets]
+    NAV --> TR[Trends]
+    NAV --> SCH[Schedule]
+    NAV --> CON[Connections]
+    NAV --> ANA[Analytics]
+    NAV --> CRD[Credits and Usage]
+    NAV --> SET[Settings]
+
+    %% ---------- Start a video ----------
+    NV --> A1[Find trending videos]
+    NV --> A2[Use an existing video link]
+    NV --> A3[Start with my own idea]
+    NV --> A4[Use a saved avatar]
+
+    A1 --> SRCH[Search TikTok and Instagram via Apify]
+    SRCH --> QUOTA{Free search left today?}
+    QUOTA -- no --> UPG[Upgrade prompt]
+    QUOTA -- yes --> PREV[Preview results] --> PICK[Pick a reference video]
+    PICK --> AN
+    A2 --> LINK[Paste a link] --> AN
+    AN[Gemini watches and analyses the video] --> SCR
+    A3 --> IDEA[Describe the video in four fields] --> SCR
+    SCR[Script editor<br/>review and approve the script]
+    A4 --> AVF[Pick avatar and record your voice]
+    AVF --> AVJ[Talking video job<br/>lip-synced by KIE]
+
+    %% ---------- Configure ----------
+    SCR --> CFG[Configure video<br/>5-step form, answers save as you go]
+    CFG --> REV[Review and generate<br/>cost shown in credits]
+    REV --> BAL{Enough credits or<br/>Pro window left?}
+    BAL -- no --> BUY[Buy a pack or upgrade to Pro] --> REV
+    BAL -- yes --> RES[Reserve credits]
+    RES --> PROJ[Create editor project]
+
+    %% ---------- Generation ----------
+    PROJ --> JOB[Generation job<br/>Kling via KIE]
+    AVJ --> JOB
+    JOB --> LIVE[Live progress over WebSocket]
+    LIVE --> OK{Video delivered?}
+    OK -- no --> REF[Credits refunded automatically] --> RETRY[Try again] --> REV
+    OK -- yes --> SETL[Charge kept]
+
+    %% ---------- Editor ----------
+    SETL --> ED[[Editor]]
+    PRJ --> ED
+    ED --> TABS[Chat and Editor tabs]
+    ED --> TL[Timeline: trim, split, speed, volume]
+    ED --> TXT[Text and captions<br/>auto-captions via Gemini]
+    ED --> ASSIST[AI assist]
+    ED --> SAVE[Autosave on every change]
+    TL --> EXP[Export in the browser]
+    TXT --> EXP
+    EXP --> WARN{Audio problems?}
+    WARN -- yes --> NOTE[Warning shown, export still saved]
+    WARN -- no --> FILE[Finished video]
+    NOTE --> FILE
+    FILE --> LIB
+
+    %% ---------- Publish ----------
+    FILE --> PUB{Publish?}
+    PUB -- now --> CONN{Account connected?}
+    CONN -- no --> CON
+    CONN -- yes --> POST[Post to YouTube, TikTok or Instagram]
+    PUB -- later --> SCH
+    SCH --> POST
+    POST --> ANA
+
+    %% ---------- Money ----------
+    CRD --> FREEPRO{Plan}
+    FREEPRO -- Free --> UPG
+    UPG --> STRIPE[Stripe checkout page]
+    BUY --> STRIPE
+    STRIPE --> WH[Signed Stripe webhook]
+    WH --> WEL[Welcome page<br/>Activating Pro, then ready]
+    WEL --> DASH
+    FREEPRO -- Pro --> POR[Billing portal<br/>change card or cancel]
+    POR --> STRIPE
+
+    %% ---------- Settings ----------
+    SET --> ACC[Account and danger zone]
+    SET --> BILL[Billing]
+    SET --> MEM[Assistant memory]
+    SET --> APP[Appearance]
+    BILL --> POR
+
+    classDef page fill:#eef2ff,stroke:#4f46e5,color:#1e1b4b;
+    classDef decision fill:#fff7ed,stroke:#ea580c,color:#431407;
+    classDef money fill:#ecfdf5,stroke:#059669,color:#022c22;
+    classDef ai fill:#faf5ff,stroke:#9333ea,color:#3b0764;
+    class DASH,ED page;
+    class NV,QUOTA,BAL,OK,WARN,PUB,CONN,FP,FREEPRO decision;
+    class STRIPE,WH,WEL,BUY,UPG,RES,SETL,REF,GRANT money;
+    class AN,JOB,AVJ,SRCH,ASSIST ai;

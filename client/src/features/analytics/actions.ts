@@ -3,8 +3,8 @@
 import { z } from "zod";
 
 import { goApi, isGoApiConfigured } from "@/lib/go-api/client";
-import { postMetricsResponse, slotsResponse } from "@/lib/go-api/schemas";
-import type { InsightSlot, PostMetrics } from "@/lib/go-api/schemas";
+import { postMetricsResponse, recentMetricsResponse } from "@/lib/go-api/schemas";
+import type { PostMetrics } from "@/lib/go-api/schemas";
 
 export type MetricsPoint = { readonly collectedAt: string; readonly views: number; readonly likes: number; readonly comments: number };
 
@@ -15,7 +15,7 @@ export type MetricsResult =
 
 /** Latest snapshot plus history depth for one post. */
 export async function getPostMetrics(postId: string): Promise<MetricsResult> {
-  if (!z.string().uuid().safeParse(postId).success) return { status: "error", message: "Unknown post." };
+  if (!z.string().uuid().safeParse(postId).success) return { status: "error", message: "That post could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };
   const result = await goApi(`/api/v1/posts/${postId}/metrics`, postMetricsResponse);
   if (!result.ok) return { status: "error", message: result.message };
@@ -31,18 +31,20 @@ export async function getPostMetrics(postId: string): Promise<MetricsResult> {
   };
 }
 
-export type SlotsResult =
-  | { readonly status: "ok"; readonly slots: readonly InsightSlot[] }
-  | { readonly status: "unconfigured" }
-  | { readonly status: "error"; readonly message: string };
-
-const platformSchema = z.enum(["youtube", "tiktok", "instagram"]);
-
-/** Posting times learned from the account's own history. Empty is normal early. */
-export async function getInsightSlots(platform: string): Promise<SlotsResult> {
-  const parsed = platformSchema.safeParse(platform);
-  if (!parsed.success) return { status: "error", message: "Unknown platform." };
-  if (!isGoApiConfigured()) return { status: "unconfigured" };
-  const result = await goApi(`/api/v1/insights/slots?platform=${parsed.data}`, slotsResponse);
-  return result.ok ? { status: "ok", slots: result.data.data.slots } : { status: "error", message: result.message };
+/** Metrics for the newest published posts in one request; null when the API has no batch endpoint yet. */
+export async function getRecentMetrics(limit: number): Promise<ReadonlyMap<string, MetricsResult> | null> {
+  if (!isGoApiConfigured()) return null;
+  const result = await goApi(`/api/v1/post-metrics?limit=${Math.min(50, Math.max(1, Math.trunc(limit)))}`, recentMetricsResponse);
+  if (!result.ok) return null;
+  return new Map(
+    Object.entries(result.data.data).map(([id, value]): [string, MetricsResult] => [
+      id,
+      {
+        status: "ok",
+        latest: value.latest,
+        history: value.history.map((point) => ({ collectedAt: point.collected_at, views: point.views, likes: point.likes, comments: point.comments })),
+      },
+    ]),
+  );
 }
+

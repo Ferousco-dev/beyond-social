@@ -89,17 +89,21 @@ func (a *App) updateCreditSetting(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) findCreditUsers(w http.ResponseWriter, r *http.Request) {
-	limit, err := intParam(r, "limit", 20, 1, 100)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+	limit, offset, ok := pageParams(w, r)
+	if !ok {
 		return
 	}
-	users, err := a.deps.CreditAdmin.FindUsers(r.Context(), r.URL.Query().Get("q"), credits.Segment(r.URL.Query().Get("segment")), limit)
+	// One extra row tells the page whether there is a next one without a count query.
+	users, err := a.deps.CreditAdmin.FindUsers(r.Context(), r.URL.Query().Get("q"), credits.Segment(r.URL.Query().Get("segment")), limit+1, offset)
 	if err != nil {
 		a.adminError(w, r, err)
 		return
 	}
-	writeData(w, http.StatusOK, users)
+	more := len(users) > limit
+	if more {
+		users = users[:limit]
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": users, "has_more": more})
 }
 
 func (a *App) adminUserDetail(w http.ResponseWriter, r *http.Request) {
@@ -127,12 +131,20 @@ func (a *App) userLedger(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 		return
 	}
-	rows, err := a.deps.CreditAdmin.Ledger(r.Context(), id, 100)
+	limit, offset, ok := pageParams(w, r)
+	if !ok {
+		return
+	}
+	rows, err := a.deps.CreditAdmin.Ledger(r.Context(), id, limit+1, offset)
 	if err != nil {
 		writeInternal(w, r, err)
 		return
 	}
-	writeData(w, http.StatusOK, map[string]any{"balance": balance, "history": rows})
+	more := len(rows) > limit
+	if more {
+		rows = rows[:limit]
+	}
+	writeData(w, http.StatusOK, map[string]any{"balance": balance, "history": rows, "has_more": more})
 }
 
 func (a *App) adjustCredits(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +165,7 @@ func (a *App) adjustCredits(w http.ResponseWriter, r *http.Request) {
 	balance, err := a.deps.CreditLedger.Adjust(r.Context(), id, body.Amount, "adjust:"+uuid.NewString(), body.Reason, identity.UserID)
 	switch {
 	case errors.Is(err, credits.ErrInsufficient):
-		writeError(w, http.StatusConflict, "insufficient_credits", "that would take the balance below zero")
+		writeError(w, http.StatusConflict, "insufficient_credits", "that would take the balance below zero, so it was not applied")
 	case err != nil && body.Reason == "" || err != nil && body.Amount == 0:
 		writeError(w, http.StatusBadRequest, "invalid_request", "an amount and a reason are required")
 	case err != nil:

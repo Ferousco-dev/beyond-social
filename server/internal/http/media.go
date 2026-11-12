@@ -15,6 +15,7 @@ type MediaService interface {
 	RequestUpload(ctx context.Context, userID, name, mime string, size int64) (media.Slot, error)
 	Confirm(ctx context.Context, userID, id string) (media.Descriptor, error)
 	ViewURL(ctx context.Context, userID, id string) (string, error)
+	ViewLinks(ctx context.Context, userID string, ids []string) map[string]media.Link
 	AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name string) (media.Descriptor, error)
 }
 
@@ -92,4 +93,31 @@ func (a *App) mediaError(w http.ResponseWriter, r *http.Request, err error) {
 	default:
 		writeInternal(w, r, err)
 	}
+}
+
+// mediaViewURLs is the batch form of mediaViewURL: one request for every file a
+// page needs, so opening a timeline does not cost a request per clip.
+func (a *App) mediaViewURLs(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.IDs) == 0 || len(req.IDs) > media.MaxLinks {
+		writeError(w, http.StatusBadRequest, "invalid_request", "ids must hold between 1 and 100 files")
+		return
+	}
+	for _, id := range req.IDs {
+		if _, err := uuid.Parse(id); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_request", "ids must be UUIDs")
+			return
+		}
+	}
+	writeData(w, http.StatusOK, a.deps.Media.ViewLinks(r.Context(), identity.UserID, req.IDs))
 }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { AudioLines, Check, ShieldCheck, Trash2 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
-import { useConfirm } from "@/components/ui/use-confirm";
 import { cn } from "@/lib/utils";
 
 import { KIND_META, needsConsent } from "../types";
@@ -24,7 +23,6 @@ export function AssetTile({
   onConsent: () => void;
   onRemove: () => void;
 }) {
-  const { confirm, dialog } = useConfirm();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(asset.label);
   const meta = KIND_META[asset.kind];
@@ -49,15 +47,12 @@ export function AssetTile({
           <button
             type="button"
             aria-label={`Delete ${asset.label}`}
-            onClick={async () => {
-              if (await confirm({ title: `Delete “${asset.label}”?`, description: "Videos already made keep it. It will no longer be offered when you make a video.", confirmLabel: "Delete", tone: "destructive" })) onRemove();
-            }}
+            onClick={onRemove}
             className="absolute right-2 top-2 inline-flex size-8 cursor-pointer items-center justify-center rounded-lg bg-paper/90 text-ink-soft opacity-0 shadow-sm transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary group-hover:opacity-100 [@media(hover:none)]:opacity-100"
           >
             <Trash2 className="size-4" aria-hidden />
           </button>
         )}
-        {dialog}
       </div>
 
       <div className="flex flex-col gap-1.5 p-3">

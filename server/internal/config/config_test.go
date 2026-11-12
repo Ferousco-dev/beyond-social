@@ -8,7 +8,7 @@ func setEnv(t *testing.T, values map[string]string) {
 	if _, skip := values["NO_PROVIDER_KEYS"]; !skip {
 		values = withProviderKeys(values)
 	}
-	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "HEYGEN_API_KEY", "HEYGEN_WEBHOOK_SECRET", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL"} {
+	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL"} {
 		t.Setenv(key, values[key])
 	}
 }
@@ -69,7 +69,7 @@ func TestLoadFromEnvParsesOrigins(t *testing.T) {
 }
 
 func withProviderKeys(values map[string]string) map[string]string {
-	out := map[string]string{"APIFY_API_TOKEN": "apify-test", "KIE_API_KEY": "kie-test", "HEYGEN_API_KEY": "heygen-test", "SUPABASE_SERVICE_ROLE_KEY": "service-test", "GEMINI_API_KEY": "gemini-test"}
+	out := map[string]string{"APIFY_API_TOKEN": "apify-test", "KIE_API_KEY": "kie-test", "SUPABASE_SERVICE_ROLE_KEY": "service-test", "GEMINI_API_KEY": "gemini-test"}
 	for k, v := range values {
 		out[k] = v
 	}

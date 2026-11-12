@@ -1,7 +1,9 @@
 import { type Metadata } from "next";
 import Link from "next/link";
+import { type Route } from "next";
 import { type ReactNode } from "react";
 
+import { ADMIN_PAGE_SIZE, Pager, pageNumber, pageOffset } from "@/features/admin/components/pager";
 import { UserSuspensionButton } from "@/features/admin-console/components/user-suspension-button";
 import { adminUsersResponse, segmentCountsResponse } from "@/lib/go-api/admin-schemas";
 import { goApi } from "@/lib/go-api/client";
@@ -19,11 +21,12 @@ type Segment = (typeof TABS)[number]["key"];
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ segment?: string; q?: string }>;
+  searchParams: Promise<{ segment?: string; q?: string; page?: string }>;
 }): Promise<ReactNode> {
-  const { segment, q = "" } = await searchParams;
+  const { segment, q = "", page: rawPage } = await searchParams;
+  const page = pageNumber(rawPage);
   const active: Segment = TABS.some((tab) => tab.key === segment) ? (segment as Segment) : "new";
-  const query = new URLSearchParams({ segment: active, q, limit: "50" });
+  const query = new URLSearchParams({ segment: active, q, limit: String(ADMIN_PAGE_SIZE), offset: String(pageOffset(page)) });
 
   const [counts, users] = await Promise.all([
     goApi("/api/v1/admin/users/segments", segmentCountsResponse),
@@ -68,7 +71,16 @@ export default async function AdminUsersPage({
       {!users.ok ? (
         <p role="alert" className="mt-6 text-sm text-destructive">{users.message}</p>
       ) : users.data.data.length === 0 ? (
-        <p className="mt-6 text-sm text-ink-soft">No users here yet.</p>
+        q ? (
+          <p className="mt-6 text-sm text-ink-soft">
+            No users match &ldquo;{q}&rdquo;.{" "}
+            <Link href={`/dashboard/admin/users?segment=${active}` as Route} className="font-medium text-primary underline-offset-2 hover:underline">
+              Clear search
+            </Link>
+          </p>
+        ) : (
+          <p className="mt-6 text-sm text-ink-soft">No users here yet.</p>
+        )
       ) : (
         <ul className="mt-4 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
           {users.data.data.map((user) => (
@@ -91,6 +103,7 @@ export default async function AdminUsersPage({
           ))}
         </ul>
       )}
+      {users.ok ? <Pager path="/dashboard/admin/users" params={{ segment: active, q }} page={page} hasMore={users.data.has_more === true} /> : null}
     </div>
   );
 }

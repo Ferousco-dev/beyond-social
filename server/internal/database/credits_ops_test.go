@@ -129,7 +129,7 @@ func TestAdminPriceEditsSettingsAndDailyLimit(t *testing.T) {
 	if err != nil || len(usage) != 1 || usage[0].Action != credits.ActionDiscoverySearch || usage[0].Charged != 10 {
 		t.Fatalf("usage = %+v err=%v", usage, err)
 	}
-	users, err := admin.FindUsers(ctx, "a@example", credits.SegmentActive, 5)
+	users, err := admin.FindUsers(ctx, "a@example", credits.SegmentActive, 5, 0)
 	if err != nil || len(users) != 1 || users[0].Balance != 90 {
 		t.Fatalf("users = %+v err=%v", users, err)
 	}
@@ -167,7 +167,7 @@ func TestSegmentsAndProviderSpend(t *testing.T) {
 	if err != nil || counts.Total != 3 || counts.New != 1 || counts.Paid != 1 || counts.Active != 1 {
 		t.Fatalf("counts = %+v err=%v", counts, err)
 	}
-	paid, err := admin.FindUsers(ctx, "", credits.SegmentPaid, 10)
+	paid, err := admin.FindUsers(ctx, "", credits.SegmentPaid, 10, 0)
 	if err != nil || len(paid) != 1 || paid[0].ID != payer || !paid[0].Suspended {
 		t.Fatalf("paid = %+v err=%v", paid, err)
 	}
@@ -175,7 +175,7 @@ func TestSegmentsAndProviderSpend(t *testing.T) {
 	if err != nil || detail.Email != payer[:8]+"@example.com" || detail.Plan != "Free" || detail.AccountStatus != "suspended" || detail.SubscriptionStatus != "none" {
 		t.Fatalf("user detail = %+v err=%v", detail, err)
 	}
-	if _, err := admin.FindUsers(ctx, "", credits.Segment("vip"), 10); !errors.Is(err, credits.ErrInvalid) {
+	if _, err := admin.FindUsers(ctx, "", credits.Segment("vip"), 10, 0); !errors.Is(err, credits.ErrInvalid) {
 		t.Fatalf("unknown segment err = %v", err)
 	}
 

@@ -58,6 +58,37 @@ func (s *MetricsStore) History(ctx context.Context, userID, postID string, limit
 	return out, rows.Err()
 }
 
+// Recent returns the snapshots of the user's newest published posts in one
+// query, newest snapshot first within each post, at most perPost each.
+func (s *MetricsStore) Recent(ctx context.Context, userID string, posts, perPost int) (map[string][]insights.Metrics, error) {
+	rows, err := s.pool.Query(ctx, `
+		with recent as (
+			select id from public.scheduled_posts
+			where user_id = $1 and status = 'published'
+			order by scheduled_at desc limit $2
+		), ranked as (
+			select m.post_id::text as post_id, m.views, m.likes, m.comments, m.shares, m.collected_at,
+				row_number() over (partition by m.post_id order by m.collected_at desc) as rn
+			from public.post_metrics m join recent r on r.id = m.post_id
+			where m.user_id = $1
+		)
+		select post_id, views, likes, comments, shares, collected_at from ranked
+		where rn <= $3 order by post_id, collected_at desc`, userID, posts, perPost)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	defer rows.Close()
+	out := make(map[string][]insights.Metrics)
+	for rows.Next() {
+		metrics, err := scanMetrics(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[metrics.PostID] = append(out[metrics.PostID], metrics)
+	}
+	return out, rows.Err()
+}
+
 // Samples pairs each published post's send time with its newest standing, for
 // the recommender. Posts without snapshots contribute nothing.
 func (s *MetricsStore) Samples(ctx context.Context, userID string, platform social.Platform, days int) ([]insights.Sample, error) {

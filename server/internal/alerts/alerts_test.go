@@ -18,8 +18,9 @@ func (m *memStore) Record(_ context.Context, a Alert) (Alert, bool, error) {
 	a.Count = len(m.records)
 	return a, m.notify, nil
 }
-func (m *memStore) List(context.Context, bool, int) ([]Alert, error) { return m.records, nil }
-func (m *memStore) Resolve(context.Context, string) (bool, error)    { return true, nil }
+func (m *memStore) List(context.Context, bool, int) ([]Alert, error)     { return m.records, nil }
+func (m *memStore) Resolve(context.Context, string) (bool, error)        { return true, nil }
+func (m *memStore) ResolveProvider(context.Context, string) (int, error) { return 0, nil }
 
 type memSender struct {
 	sent []Alert

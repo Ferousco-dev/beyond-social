@@ -32,7 +32,7 @@ const NOT_CONFIGURED: AuthResult = {
 
 // Deliberately generic so responses never reveal whether an account exists.
 const INVALID_CREDENTIALS = "Invalid email or password. Please try again.";
-const GENERIC_ERROR = "Something went wrong. Please try again.";
+const GENERIC_ERROR = "That did not work. Try again.";
 const RATE_LIMITED = "Too many attempts. Please wait a minute and try again.";
 
 /*

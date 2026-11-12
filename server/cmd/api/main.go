@@ -125,10 +125,10 @@ func run() error {
 	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	generateService := generate.NewService(jobService)
 	mediaBuilders := kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}.Builders()
-	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient}.Build
 	transformProcessor.Builders = mediaBuilders
 	transformProcessor.ResultKeys = kietools.ResultKeys
-	assetService := assets.NewService(database.NewAssetStore(pool), mediaService)
+	assetStore := database.NewAssetStore(pool)
+	assetService := assets.NewService(assetStore, mediaService)
 	assetLibrary := assetlib.NewService(database.NewAssetLibraryStore(pool), mediaService)
 	liveAvatarService := kietools.NewLiveAvatarService(jobService, assetService, assetLibrary, mediaService)
 	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}}.BuildLiveAvatar
@@ -137,6 +137,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient, Director: generate.GeminiDirector{Client: geminiClient}}.Build
 	profileStore := database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)
 	settingsStore := database.NewSettingsStore(pool)
 	emails := mailer.NewNotifier(mailer.NewResend(vault.Key(secrets.NameResend), func(ctx context.Context) string {
@@ -238,6 +239,7 @@ func run() error {
 		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
 		Billing:             billingService,
 		Usage:               creditService,
+		PaymentFailing:      billingStore.PaymentFailing,
 		BillingAdmin:        billingStore,
 		RevenueHistory:      billingStore,
 		EmailSettings:       settingsStore,
@@ -277,11 +279,13 @@ func run() error {
 	monitor := &providers.Monitor{
 		Checker: providers.NewChecker(), Key: vault.Key, Alerts: alertService,
 		Snapshot:  creditStore.SaveSnapshot,
+		Clear:     alertService.Clear,
 		Threshold: func(ctx context.Context, key string) (int, bool, error) { return creditStore.Setting(ctx, key) },
 	}
 	go sweeper.Run(ctx)
 	go chatService.RunReconciler(ctx, time.Minute)
 	go purger.Run(ctx, 10*time.Minute)
+	go assetStore.RunPruner(ctx, time.Minute)
 	go monitor.Run(ctx)
 
 	workers := make(chan struct{})
