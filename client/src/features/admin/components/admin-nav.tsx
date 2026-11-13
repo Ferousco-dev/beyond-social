@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, AlertTriangle, BookOpen, Coins, CreditCard, LineChart, KeyRound, ListChecks, Newspaper, Users } from "lucide-react";
+import { Activity, AlertTriangle, BookOpen, Coins, Cpu, CreditCard, LineChart, KeyRound, ListChecks, Newspaper, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { type Route } from "next";
@@ -10,6 +10,7 @@ const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/pricing" as Route, label: "Pricing", icon: Coins },
   { href: "/dashboard/admin/revenue" as Route, label: "Revenue", icon: LineChart },
+  { href: "/dashboard/admin/spend" as Route, label: "AI spend", icon: Cpu },
   { href: "/dashboard/admin/packs" as Route, label: "Credit packs", icon: CreditCard },
   { href: "/dashboard/admin/providers" as Route, label: "Provider keys", icon: KeyRound },
   { href: "/dashboard/admin/alerts" as Route, label: "Alerts", icon: AlertTriangle },

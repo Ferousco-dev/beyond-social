@@ -46,37 +46,33 @@ func (b *JobBiller) Finish(ctx context.Context, job jobs.Job) error {
 	return b.svc.Keep(ctx, job.UserID, job.ID)
 }
 
-func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, error) {
+// quantity says what a job is priced by: the price-table action and how many of
+// its unit the job uses. Charging and spend recording both read it, so the two
+// can never disagree about what a job was. Unpriced job types return no action.
+func (b *JobBiller) quantity(job jobs.Job) (action string, units int, err error) {
 	switch job.Type {
 	case jobTransform:
-		action := fmt.Sprintf("%s:%v:%v", jobTransform, job.Input["duration"], job.Input["resolution"])
-		credits, err := b.svc.Quote(ctx, action)
-		return credits, action, err
+		return fmt.Sprintf("%s:%v:%v", jobTransform, job.Input["duration"], job.Input["resolution"]), 1, nil
 	case jobGenerate:
 		req, err := generate.ParseArgs(job.Input)
 		if err != nil {
-			return 0, "", err
+			return "", 0, err
 		}
-		action := VideoAction(req.Sound)
-		rate, err := b.svc.Quote(ctx, action)
-		return rate * req.TotalSeconds(), action, err
+		return VideoAction(req.Sound), req.TotalSeconds(), nil
 	case kietools.JobTalk:
 		req, err := kietools.ParseTalk(job.Input)
 		if err != nil {
-			return 0, "", err
+			return "", 0, err
 		}
-		rate, err := b.svc.Quote(ctx, ActionTalkingSecond)
-		return rate * req.Seconds, ActionTalkingSecond, err
+		return ActionTalkingSecond, req.Seconds, nil
 	case kietools.JobSpeech:
 		req, err := kietools.ParseSpeech(job.Input)
 		if err != nil {
-			return 0, "", err
+			return "", 0, err
 		}
-		rate, err := b.svc.Quote(ctx, "speech_thousand_chars")
-		return rate * ((len([]rune(req.Text)) + 999) / 1000), "speech_thousand_chars", err
+		return "speech_thousand_chars", (len([]rune(req.Text)) + 999) / 1000, nil
 	case jobAnalysis:
-		credits, err := b.svc.Quote(ctx, jobAnalysis)
-		return credits, jobAnalysis, err
+		return jobAnalysis, 1, nil
 	case kietools.JobLiveAvatar:
 		// A lip-synced video lasts as long as its voice recording, which was
 		// measured when the job was submitted.
@@ -84,8 +80,16 @@ func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, er
 		if !ok || seconds < 1 {
 			seconds = kietools.MaxRecordingSeconds
 		}
-		rate, err := b.svc.Quote(ctx, ActionTalkingSecond)
-		return rate * int(math.Ceil(seconds)), ActionTalkingSecond, err
+		return ActionTalkingSecond, int(math.Ceil(seconds)), nil
 	}
-	return 0, "", nil
+	return "", 0, nil
+}
+
+func (b *JobBiller) estimate(ctx context.Context, job jobs.Job) (int, string, error) {
+	action, units, err := b.quantity(job)
+	if err != nil || action == "" {
+		return 0, "", err
+	}
+	rate, err := b.svc.Quote(ctx, action)
+	return rate * units, action, err
 }

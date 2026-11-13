@@ -190,6 +190,25 @@ func (a *App) creditUsage(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, rows)
 }
 
+// SpendReader reports estimated provider spend and AI token use.
+type SpendReader interface {
+	Report(ctx context.Context, days int) (credits.SpendReport, error)
+}
+
+func (a *App) adminSpend(w http.ResponseWriter, r *http.Request) {
+	days, err := intParam(r, "days", 30, 1, 90)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	report, err := a.deps.Spend.Report(r.Context(), days)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, report)
+}
+
 // audit records an admin action. The change has already happened, so a failure
 // to record it is logged rather than undone.
 func (a *App) audit(r *http.Request, actor, action, target string, detail map[string]any) {
