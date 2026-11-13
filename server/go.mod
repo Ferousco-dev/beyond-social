@@ -9,7 +9,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.9.2
-	google.golang.org/genai v1.73.0
+	google.golang.org/genai v1.77.0
 )
 
 require (
