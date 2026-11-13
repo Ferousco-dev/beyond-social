@@ -1,8 +1,10 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { NextConfig } from "next";
 
+const require = createRequire(import.meta.url);
 const monorepoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -132,6 +134,16 @@ const nextConfig: NextConfig = {
       { source: "/dashboard/settings/brand", destination: "/dashboard/assets", permanent: true },
       { source: "/dashboard/settings/voice", destination: "/dashboard/assets", permanent: true },
     ];
+  },
+  /*
+   * @hookform/resolvers/zod imports "zod/v4/core" but declares no zod peer, and
+   * pnpm's strict layout does not hoist our direct zod dependency to it, so
+   * `next build` fails with "Can't resolve 'zod/v4/core'". Pointing that one
+   * specifier at the zod this app already depends on fixes it without a second copy.
+   */
+  webpack(config) {
+    config.resolve.alias = { ...config.resolve.alias, "zod/v4/core": require.resolve("zod/v4/core") };
+    return config;
   },
   // Pin file tracing to the monorepo root; otherwise Next can infer the wrong
   // root when other lockfiles exist elsewhere on the machine.

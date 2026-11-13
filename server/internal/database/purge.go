@@ -20,7 +20,7 @@ var (
 	ErasedTables = []string{
 		"post_metrics", "scheduled_posts", "editor_projects", "messages", "conversation_summaries", "conversations", "user_memories", "workflow_steps", "workflows",
 		"discovery_videos", "discoveries", "jobs", "avatar_handoffs", "avatars", "social_oauth_states", "asset_groups", "library_assets", "cloned_voices",
-		"social_connections", "media", "usage_events", "usage_state",
+		"social_connections", "media", "usage_events", "usage_state", "ai_usage",
 	}
 	KeptTables = []string{"admin_audit_log", "credit_balances", "credit_ledger", "invoices", "payments", "subscriptions", "subscription_events"}
 )
