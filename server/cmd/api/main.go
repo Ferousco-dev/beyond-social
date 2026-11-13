@@ -133,7 +133,14 @@ func run() error {
 	liveAvatarService := kietools.NewLiveAvatarService(jobService, assetService, assetLibrary, mediaService)
 	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}}.BuildLiveAvatar
 
-	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel})
+	aiUsage := database.NewAIUsageStore(pool)
+	aiUsage.UserFallback = func(ctx context.Context) string {
+		if id, ok := auth.IdentityFromContext(ctx); ok {
+			return id.UserID
+		}
+		return ""
+	}
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, Recorder: aiUsage})
 	if err != nil {
 		return err
 	}

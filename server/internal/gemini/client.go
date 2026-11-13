@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Ferousco-dev/beyond-social/server/internal/provider"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -35,6 +36,8 @@ type Config struct {
 	Timeout time.Duration
 	// Nil selects the default client. Tests inject a stub transport here.
 	HTTPClient *http.Client
+	// Optional. Receives one record per successful call.
+	Recorder Recorder
 }
 
 type Client struct {
@@ -42,6 +45,7 @@ type Client struct {
 	httpClient *http.Client
 	model      string
 	timeout    time.Duration
+	recorder   Recorder
 
 	mu     sync.Mutex
 	key    string
@@ -71,7 +75,7 @@ func NewClient(cfg Config) (*Client, error) {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
-	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, timeout: timeout}, nil
+	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, timeout: timeout, recorder: cfg.Recorder}, nil
 }
 
 // sdk returns the SDK client for the current key, rebuilding it only when the
@@ -192,6 +196,15 @@ func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config 
 			TotalTokens:      resp.UsageMetadata.TotalTokenCount,
 		}
 	}
+	// The only record of what a call cost the provider. Counts only: no prompt
+	// or response text, and no user id (the request log carries that).
+	if c.recorder != nil {
+		scope := ScopeFrom(ctx)
+		c.recorder.RecordUsage(ctx, Record{Provider: "gemini", Model: c.model, Purpose: scope.Purpose,
+			UserID: scope.UserID, JobID: scope.JobID, Usage: usage})
+	}
+	slog.Info("gemini usage", "model", c.model, "prompt_tokens", usage.PromptTokens,
+		"output_tokens", usage.CandidatesTokens, "total_tokens", usage.TotalTokens)
 	return []byte(text), usage, nil
 }
 
