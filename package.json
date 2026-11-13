@@ -19,7 +19,7 @@
     "verify": "turbo run build && turbo run lint typecheck"
   },
   "devDependencies": {
-    "prettier": "^3.4.2",
+    "prettier": "^3.9.10",
     "turbo": "^2.3.3"
   }
 }
