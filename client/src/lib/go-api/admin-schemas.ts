@@ -128,6 +128,17 @@ export const revenueHistoryResponse = z.object({
   })),
 });
 
+export const spendResponse = z.object({
+  data: z.object({
+    days: z.number(),
+    providers: z.array(z.object({ provider: z.string(), jobs: z.number(), estimatedCostUsd: z.number() })),
+    actions: z.array(z.object({ provider: z.string(), action: z.string(), jobs: z.number(), units: z.number(), estimatedCostUsd: z.number() })),
+    users: z.array(z.object({ email: z.string(), jobs: z.number(), estimatedCostUsd: z.number() })),
+    daily: z.array(z.object({ date: z.string(), estimatedCostUsd: z.number(), tokens: z.number() })),
+    models: z.array(z.object({ provider: z.string(), model: z.string(), calls: z.number(), inputTokens: z.number(), outputTokens: z.number() })),
+  }),
+});
+
 export const emailFromResponse = z.object({ data: z.object({ from: z.string(), default: z.string() }) });
 
 const setupCheck = z.object({

@@ -212,6 +212,8 @@ func run() error {
 		return creditStore.Setting(ctx, "daily_chat_limit")
 	})
 	jobService.WithObserver(chatService)
+	spendStore := database.NewSpendStore(pool)
+	jobService.WithObserver(credits.NewSpendRecorder(jobBiller, spendStore))
 
 	app := httpserver.NewApp(httpserver.Deps{
 		Chat:                chatService,
@@ -249,6 +251,7 @@ func run() error {
 		PaymentFailing:      billingStore.PaymentFailing,
 		BillingAdmin:        billingStore,
 		RevenueHistory:      billingStore,
+		Spend:               spendStore,
 		EmailSettings:       settingsStore,
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		Purger:              purger,

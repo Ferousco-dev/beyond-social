@@ -29,3 +29,11 @@ Moving auth schemas to `zod/mini` kept all 30 parity cases identical but saved o
 - The Go API sets no compression itself; confirm Render's edge compresses JSON responses.
 - `jobs_status_idx (status)` is low-selectivity and may cost more on writes than it saves; check with `pg_stat_user_indexes` on production before dropping.
 - Only the files in the brief's list that had content are written; the other ten deliverable files were not created to avoid empty placeholders.
+
+## Corrections and follow-up (13 Nov 2026)
+
+Two earlier statements in this audit were wrong and are corrected here.
+- "Jobs have no automatic retries": wrong. Transform, analysis, discovery and publish processors already retry with exponential backoff (10s doubling, 3 attempts; discovery 4), poll for at most 30 minutes, and deliberately do NOT retry an ambiguous KIE submit because it could bill twice. No retry code was added.
+- "kie.ai spend is untracked": partly wrong. Real KIE/Apify spend is already read from provider balance snapshots every 15 minutes and shown on the admin Revenue page. The per-action estimate there only counts credit-ledger reservations, so Pro members' jobs (which spend usage points, not credits) were missing from it.
+
+Added: migration 047 `provider_spend` (one row per completed job, all plans, estimated from `action_prices`), a recorder hooked into job completion that shares one pricing function with charging, and an admin page `/dashboard/admin/spend` (cost by provider, action and top-ten people, plus Gemini token use by model and by day). Costs on that page are estimates; the Revenue page remains the real bill. Recording starts with this release; earlier jobs are not backfilled.
