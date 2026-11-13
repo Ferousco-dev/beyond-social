@@ -54,3 +54,7 @@ coverage/
 *.pdf
 *.xlsx
 *.docx
+Beyond-Social-running-costs.pdf
+audit/
+# Local editor investigation notes
+editor-audit/

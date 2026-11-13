@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { endOf, projectDuration, speedOf } from "../core/find.ts";
 import { type Item, type Project } from "../core/types.ts";
 import { drawFrame, type FrameSources } from "../lib/compose";
 import { FrameDecoder } from "../lib/frame-decoder";
+import { retryWithoutCors } from "../lib/cors-retry";
 import { resolveSrc } from "../lib/media-ref";
 import { useStudio } from "../store/editor-store";
 
@@ -14,6 +15,18 @@ const DRIFT_SECONDS = 0.25;
 
 type Media = Extract<Item, { kind: "video" | "audio" }>;
 
+/** What went wrong with a clip, from the browser's own error code. */
+function clipProblem(element: HTMLMediaElement): string {
+  switch (element.error?.code) {
+    case MediaError.MEDIA_ERR_NETWORK:
+      return "A clip could not be loaded. Check your connection and try again.";
+    case MediaError.MEDIA_ERR_DECODE:
+      return "A clip could not be decoded. The file may be damaged.";
+    default:
+      return "A clip could not be played. The file may be damaged or in a format this browser cannot show.";
+  }
+}
+
 const mediaItems = (project: Project): Media[] =>
   project.tracks.flatMap((track) => track.items.filter((i): i is Media => i.kind === "video" || i.kind === "audio"));
 
@@ -21,11 +34,26 @@ function sourceTime(item: Media, time: number): number {
   return item.trimIn + (time - item.start) * speedOf(item);
 }
 
+/** A seek this far from the one already in flight replaces it; closer ones are left to finish. */
+const RESEEK_SECONDS = 0.5;
+
+/**
+ * Where in the file to ask the element to go. A project can record a source
+ * longer than the file really is, and a seek past the end of a streamed file
+ * can sit unfinished for as long as the file takes to arrive, so it is kept
+ * just inside what the element reports.
+ */
+function seekTarget(element: HTMLMediaElement, wanted: number): number {
+  return Number.isFinite(element.duration) ? Math.min(wanted, Math.max(0, element.duration - 0.05)) : wanted;
+}
+
 /**
  * Plays the project into a canvas. One clock drives everything: the store's
  * `currentTime` is the truth, and each media element is steered to match it.
  */
-export function usePlayback(canvas: HTMLCanvasElement | null): void {
+/** Returns true while a video under the playhead has no picture yet, so the panel can say it is loading. */
+export function usePlayback(canvas: HTMLCanvasElement | null): boolean {
+  const [loading, setLoading] = useState(false);
   const elements = useRef(new Map<string, HTMLVideoElement | HTMLAudioElement>());
   const images = useRef(new Map<string, HTMLImageElement>());
   const dirty = useRef(true);
@@ -50,7 +78,11 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
           if (element instanceof HTMLVideoElement) element.playsInline = true;
           element.addEventListener("loadeddata", redraw);
           element.addEventListener("seeked", redraw);
-          element.addEventListener("error", () => useStudio.getState().setNotice("A clip could not be played. The file may be damaged or in a format this browser cannot show."));
+          const failed = element;
+          element.addEventListener("error", () => {
+            if (retryWithoutCors(failed, () => failed.load())) return;
+            useStudio.getState().setNotice(clipProblem(failed));
+          });
           elements.current.set(item.id, element);
         }
         const url = resolveSrc(item.src, useStudio.getState().mediaUrls);
@@ -75,6 +107,12 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
           const image = known ?? new Image();
           image.crossOrigin = "anonymous";
           image.onload = redraw;
+          image.onerror = () => {
+            retryWithoutCors(image, () => {
+              const wanted = image.getAttribute("src");
+              if (wanted) image.src = wanted;
+            });
+          };
           if (url) image.src = url;
           images.current.set(item.src, image);
         }
@@ -82,21 +120,32 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
       redraw();
     };
 
+    /** The time each element was last asked to go to, so a seek that is still running can be told apart from a stale one. */
+    const asked = new WeakMap<HTMLMediaElement, number>();
+    const seekTo = (element: HTMLMediaElement, wanted: number): void => {
+      const target = seekTarget(element, wanted);
+      asked.set(element, target);
+      element.currentTime = target;
+    };
+    // A seek in flight is left to finish unless the playhead has since moved well away from where it
+    // was headed: asking again every frame restarts it, so a slow source would never arrive, but a
+    // seek to a time nobody wants any more would otherwise hold the element until it completes.
+    const stale = (element: HTMLMediaElement, wanted: number): boolean =>
+      element.seeking && Math.abs((asked.get(element) ?? element.currentTime) - seekTarget(element, wanted)) > RESEEK_SECONDS;
+
     const steer = (project: Project, time: number, playing: boolean): void => {
       for (const item of mediaItems(project)) {
         const element = elements.current.get(item.id);
         if (!element) continue;
         const inside = time >= item.start && time < endOf(item);
+        const wanted = sourceTime(item, time);
         if (!inside || !playing) {
           if (!element.paused) element.pause();
-          if (inside && !element.seeking && Math.abs(element.currentTime - sourceTime(item, time)) > 0.04) element.currentTime = sourceTime(item, time);
+          if (inside && (stale(element, wanted) || (!element.seeking && Math.abs(element.currentTime - seekTarget(element, wanted)) > 0.04))) seekTo(element, wanted);
           continue;
         }
-        // A seek still in flight is left to finish: asking again every frame
-        // restarts it, so a slow source would never arrive and the picture
-        // stayed black. Drift is only corrected once the element has data.
-        if (!element.seeking && element.readyState >= 2 && Math.abs(element.currentTime - sourceTime(item, time)) > DRIFT_SECONDS) {
-          element.currentTime = sourceTime(item, time);
+        if (stale(element, wanted) || (!element.seeking && element.readyState >= 2 && Math.abs(element.currentTime - seekTarget(element, wanted)) > DRIFT_SECONDS)) {
+          seekTo(element, wanted);
         }
         if (element.paused) void element.play().catch(() => undefined);
       }
@@ -148,6 +197,7 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
         );
       });
     let waitingSince = 0;
+    let shownLoading = false;
     let drawn = false;
     const tick = (now: number): void => {
       const state = useStudio.getState();
@@ -182,6 +232,11 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
         const src = element?.getAttribute("src");
         if (element && src && !element.error && (element.seeking || element.readyState < 2)) decoder.request(item.id, src, sourceTime(item, at));
       }
+      const missing = pictureMissing(useStudio.getState().currentTime);
+      if (missing !== shownLoading) {
+        shownLoading = missing;
+        setLoading(missing);
+      }
       // The last good picture stays on screen until the next one is ready, never a black flash.
       if (dirty.current && !(drawn && pictureMissing(useStudio.getState().currentTime))) {
         dirty.current = false;
@@ -203,4 +258,5 @@ export function usePlayback(canvas: HTMLCanvasElement | null): void {
       pictures.clear();
     };
   }, [canvas]);
+  return loading;
 }

@@ -81,7 +81,9 @@ export function useExportFlow(): { state: FlowState; start: (to: Destination) =>
       setState({ phase: "done", message: `${to.at ? "Scheduled. You can change or cancel it in Schedule." : "Queued to post. You can follow it in Schedule."}${noteOf(warnings)}` });
     } catch (error) {
       if (error instanceof ExportCancelled) return setState({ phase: "idle" });
-      setState({ phase: "failed", message: error instanceof Error ? error.message : "The export failed." });
+      // A refused file request (no CORS headers, or offline) surfaces as a bare TypeError from fetch.
+      const message = error instanceof TypeError ? "A file could not be fetched for the export. Check your connection and try again." : error instanceof Error ? error.message : "The export failed.";
+      setState({ phase: "failed", message });
     } finally {
       abort.current = null;
     }

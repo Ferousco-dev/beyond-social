@@ -18,7 +18,7 @@ export function PreviewPanel() {
   const playing = useStudio((s) => s.playing);
   const frame = useRef<HTMLDivElement>(null);
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
-  usePlayback(canvas);
+  const loading = usePlayback(canvas);
   useCanvasDrag(canvas);
 
   const duration = projectDuration(project);
@@ -36,6 +36,11 @@ export function PreviewPanel() {
           className="max-h-full max-w-full rounded-sm bg-black object-contain"
           style={{ aspectRatio: `${project.width} / ${project.height}` }}
         />
+        {loading ? (
+          <p role="status" className="pointer-events-none absolute rounded-full bg-paper/80 px-3 py-1 text-xs text-ink-soft">
+            Loading video…
+          </p>
+        ) : null}
       </div>
       <div className="flex h-11 shrink-0 items-center justify-between border-t border-hairline px-3 font-mono text-xs">
         <span>
