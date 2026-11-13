@@ -1,8 +1,12 @@
 # Checks every push and pull request. A push to main that passes is deployed:
-# the API to Render (by deploy hook, naming the exact commit) and the web app to Vercel.
+# the API to Render (by deploy hook, naming the exact commit), then the web app to Vercel.
+# The web app goes second so it never ships against an API that does not have its endpoints yet.
 #
 # Repository secrets (Settings > Secrets and variables > Actions):
 #   RENDER_DEPLOY_HOOK_URL, API_URL, VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID
+#
+# Third-party actions are pinned to a commit, and the Vercel CLI to a version, so a moved tag
+# or a new release cannot change what runs in a deploy. Dependabot proposes the bumps.
 name: Check and deploy
 
 on:
@@ -12,33 +16,56 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
+  # A newer push to a branch replaces its running checks. Main is never cancelled mid-deploy.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
 
+env:
+  VERCEL_CLI_VERSION: "65.15.0"
+  GOVULNCHECK_VERSION: "v1.8.0"
+
 jobs:
   server:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      - name: Dependencies match go.sum
+        run: go mod verify
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
       - run: go build ./...
       - run: go vet ./...
-      - run: go test ./...
+      - run: go test -race ./...
+      - name: Known vulnerabilities that the code can reach
+        run: go run golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION} ./...
 
   client:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -46,46 +73,76 @@ jobs:
       - run: pnpm --filter @beyond-social/web typecheck
       - run: pnpm --filter @beyond-social/web lint
       - run: pnpm --filter @beyond-social/web test
+      - name: Production dependencies with a high or critical advisory
+        run: pnpm audit --prod --audit-level=high
 
   deploy-api:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [server, client]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Trigger the Render deploy for this commit
         env:
           HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: curl --fail --silent --show-error -X POST "${HOOK}&ref=${GITHUB_SHA}"
+        run: |
+          if [ -z "$HOOK" ]; then echo "RENDER_DEPLOY_HOOK_URL is not set" >&2; exit 1; fi
+          curl --fail --silent --show-error --max-time 30 --retry 3 --retry-delay 5 -X POST "${HOOK}&ref=${GITHUB_SHA}"
       - name: Wait until the API reports this commit
         env:
           API_URL: ${{ secrets.API_URL }}
         run: |
+          if [ -z "$API_URL" ]; then echo "API_URL is not set" >&2; exit 1; fi
           for i in $(seq 1 40); do
             body=$(curl --silent --max-time 20 "${API_URL%/}/ready" || true)
             echo "attempt $i: $body"
-            if echo "$body" | grep -q "\"version\":\"${GITHUB_SHA}\""; then
-              echo "The API is running ${GITHUB_SHA}"
+            if echo "$body" | grep -q "\"version\":\"${GITHUB_SHA}\"" && echo "$body" | grep -q '"status":"ready"'; then
+              echo "The API is running ${GITHUB_SHA} and reports ready"
               exit 0
             fi
             sleep 15
           done
-          echo "The API did not report ${GITHUB_SHA} in time" >&2
+          echo "The API did not report ${GITHUB_SHA} as ready in time" >&2
           exit 1
+      - name: Smoke test the new API
+        env:
+          API_URL: ${{ secrets.API_URL }}
+        run: |
+          base="${API_URL%/}"
+          check() {
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 "$base$1" || echo 000)
+            echo "$1 -> $code (expected $2)"
+            [ "$code" = "$2" ] || { echo "Smoke test failed for $1" >&2; exit 1; }
+          }
+          check /health 200
+          check /ready 200
+          # Protected routes must refuse an anonymous caller, not error or disappear.
+          check /api/v1/credits 401
+          check /api/v1/editor/projects 401
 
   deploy-web:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [server, client]
+    needs: [server, client, deploy-api]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Required secrets are present
+        run: |
+          for name in VERCEL_ORG_ID VERCEL_PROJECT_ID VERCEL_TOKEN; do
+            if [ -z "${!name}" ]; then echo "$name is not set" >&2; exit 1; fi
+          done
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: npx --yes vercel@latest pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-      - run: npx --yes vercel@latest build --prod --token=${{ secrets.VERCEL_TOKEN }}
-      - run: npx --yes vercel@latest deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - run: npx --yes vercel@${VERCEL_CLI_VERSION} pull --yes --environment=production --token="$VERCEL_TOKEN"
+      - run: npx --yes vercel@${VERCEL_CLI_VERSION} build --prod --token="$VERCEL_TOKEN"
+      - run: npx --yes vercel@${VERCEL_CLI_VERSION} deploy --prebuilt --prod --token="$VERCEL_TOKEN"
