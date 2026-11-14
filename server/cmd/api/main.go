@@ -140,7 +140,7 @@ func run() error {
 		}
 		return ""
 	}
-	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, Recorder: aiUsage})
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, FallbackModel: cfg.GeminiFallbackModel, Recorder: aiUsage})
 	if err != nil {
 		return err
 	}

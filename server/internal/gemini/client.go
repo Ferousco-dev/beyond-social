@@ -18,6 +18,10 @@ import (
 // capacity-restricted to past users, so new integrations must not default to it.
 const DefaultModel = "gemini-3.8-flash"
 
+// DefaultFallbackModel answers when the main model keeps failing with a busy or
+// unavailable error. Overload is per model, so a second model often still works.
+const DefaultFallbackModel = "gemini-3.5-flash"
+
 // DefaultTimeout bounds a single planning call. Retries share the caller's
 // context, so a cancelled request stops waiting between attempts too.
 const DefaultTimeout = 60 * time.Second
@@ -32,6 +36,9 @@ type Config struct {
 	KeyFunc provider.KeyFunc
 	// Empty selects DefaultModel.
 	Model string
+	// Tried once the main model has used up its retries on a transient failure.
+	// Empty selects DefaultFallbackModel; the same name as Model turns it off.
+	FallbackModel string
 	// Empty selects DefaultTimeout. Applies per attempt.
 	Timeout time.Duration
 	// Nil selects the default client. Tests inject a stub transport here.
@@ -44,6 +51,7 @@ type Client struct {
 	keyFn      provider.KeyFunc
 	httpClient *http.Client
 	model      string
+	fallback   string
 	timeout    time.Duration
 	recorder   Recorder
 
@@ -71,11 +79,15 @@ func NewClient(cfg Config) (*Client, error) {
 	if model == "" {
 		model = DefaultModel
 	}
+	fallback := cfg.FallbackModel
+	if fallback == "" {
+		fallback = DefaultFallbackModel
+	}
 	timeout := cfg.Timeout
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
-	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, timeout: timeout, recorder: cfg.Recorder}, nil
+	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, fallback: fallback, timeout: timeout, recorder: cfg.Recorder}, nil
 }
 
 // sdk returns the SDK client for the current key, rebuilding it only when the
@@ -152,27 +164,40 @@ func (c *Client) generate(ctx context.Context, system, user string, media []Medi
 	parts = append(parts, genai.NewPartFromText(user))
 	contents := []*genai.Content{genai.NewContentFromParts(parts, "user")}
 
+	models := []string{c.model}
+	if c.fallback != "" && c.fallback != c.model {
+		models = append(models, c.fallback)
+	}
 	var lastErr error
-	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		data, usage, err := c.attempt(ctx, contents, config, timeout)
-		if err == nil {
-			return data, usage, nil
+	for i, model := range models {
+		for attempt := 1; attempt <= maxAttempts; attempt++ {
+			data, usage, err := c.attempt(ctx, model, contents, config, timeout)
+			if err == nil {
+				return data, usage, nil
+			}
+			lastErr = err
+			if !retryable(err) || attempt == maxAttempts {
+				break
+			}
+			backoff := time.Duration(attempt) * time.Second
+			select {
+			case <-ctx.Done():
+				return nil, Usage{}, fmt.Errorf("gemini: cancelled while backing off: %w", ctx.Err())
+			case <-time.After(backoff):
+			}
 		}
-		lastErr = err
-		if !retryable(err) || attempt == maxAttempts {
+		// Only a busy or unavailable model is worth swapping; a bad request would fail the same way.
+		if !retryable(lastErr) {
 			break
 		}
-		backoff := time.Duration(attempt) * time.Second
-		select {
-		case <-ctx.Done():
-			return nil, Usage{}, fmt.Errorf("gemini: cancelled while backing off: %w", ctx.Err())
-		case <-time.After(backoff):
+		if i+1 < len(models) {
+			slog.Warn("gemini model unavailable, trying the fallback", "model", model, "fallback", models[i+1])
 		}
 	}
 	return nil, Usage{}, lastErr
 }
 
-func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config *genai.GenerateContentConfig, timeout time.Duration) ([]byte, Usage, error) {
+func (c *Client) attempt(ctx context.Context, model string, contents []*genai.Content, config *genai.GenerateContentConfig, timeout time.Duration) ([]byte, Usage, error) {
 	attemptCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -180,7 +205,7 @@ func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config 
 	if err != nil {
 		return nil, Usage{}, err
 	}
-	resp, err := sdk.Models.GenerateContent(attemptCtx, c.model, contents, config)
+	resp, err := sdk.Models.GenerateContent(attemptCtx, model, contents, config)
 	if err != nil {
 		return nil, Usage{}, wrapError(err)
 	}
@@ -200,10 +225,10 @@ func (c *Client) attempt(ctx context.Context, contents []*genai.Content, config 
 	// or response text, and no user id (the request log carries that).
 	if c.recorder != nil {
 		scope := ScopeFrom(ctx)
-		c.recorder.RecordUsage(ctx, Record{Provider: "gemini", Model: c.model, Purpose: scope.Purpose,
+		c.recorder.RecordUsage(ctx, Record{Provider: "gemini", Model: model, Purpose: scope.Purpose,
 			UserID: scope.UserID, JobID: scope.JobID, Usage: usage})
 	}
-	slog.Info("gemini usage", "model", c.model, "prompt_tokens", usage.PromptTokens,
+	slog.Info("gemini usage", "model", model, "prompt_tokens", usage.PromptTokens,
 		"output_tokens", usage.CandidatesTokens, "total_tokens", usage.TotalTokens)
 	return []byte(text), usage, nil
 }
