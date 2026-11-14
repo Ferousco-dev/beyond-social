@@ -184,3 +184,44 @@ func TestGenerateJSONFromMediaSendsBytesAndLinksBeforeThePrompt(t *testing.T) {
 		t.Fatal("the media must come before the prompt text")
 	}
 }
+
+func TestGenerateJSONFallsBackWhenTheMainModelStaysUnavailable(t *testing.T) {
+	var calls int32
+	var models []string
+	client, _ := NewClient(Config{
+		APIKey: "test-key", Model: "main-model", FallbackModel: "backup-model",
+		HTTPClient: &http.Client{Transport: stubTransport{
+			calls: &calls,
+			handler: func(_ int32, req *http.Request) *http.Response {
+				if strings.Contains(req.URL.Path, "main-model") {
+					models = append(models, "main")
+					return jsonResponse(http.StatusServiceUnavailable, `{"error":{"code":503,"message":"overloaded","status":"UNAVAILABLE"}}`)
+				}
+				models = append(models, "backup")
+				return jsonResponse(http.StatusOK, planBody)
+			},
+		}},
+	})
+	if _, _, err := client.GenerateJSON(context.Background(), "system", "user", testSchema()); err != nil {
+		t.Fatalf("generate with fallback: %v", err)
+	}
+	if got := strings.Join(models, ","); got != "main,main,main,backup" {
+		t.Fatalf("calls = %s", got)
+	}
+}
+
+func TestGenerateJSONDoesNotFallBackOnABadRequest(t *testing.T) {
+	var calls int32
+	client, _ := NewClient(Config{
+		APIKey: "test-key", Model: "main-model", FallbackModel: "backup-model",
+		HTTPClient: &http.Client{Transport: stubTransport{
+			calls: &calls,
+			handler: func(_ int32, _ *http.Request) *http.Response {
+				return jsonResponse(http.StatusBadRequest, `{"error":{"code":400,"message":"bad"}}`)
+			},
+		}},
+	})
+	if _, _, err := client.GenerateJSON(context.Background(), "system", "user", testSchema()); err == nil || calls != 1 {
+		t.Fatalf("err = %v, calls = %d", err, calls)
+	}
+}

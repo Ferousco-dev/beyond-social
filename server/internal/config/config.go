@@ -60,6 +60,8 @@ type Config struct {
 	SocialApps map[string]string
 	// GeminiModel overrides the default planning model.
 	GeminiModel string
+	// GeminiFallbackModel answers when the main model is busy or unavailable.
+	GeminiFallbackModel string
 
 	// AdminEmails are promoted to admin when they sign in, so the first admin
 	// never needs database access. Everything else is set in the admin console.
@@ -134,7 +136,8 @@ func LoadFromEnv() (Config, error) {
 			"meta_app_id":           strings.TrimSpace(os.Getenv("META_APP_ID")),
 			"meta_app_secret":       strings.TrimSpace(os.Getenv("META_APP_SECRET")),
 		},
-		GeminiModel: strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		GeminiModel:         strings.TrimSpace(os.Getenv("GEMINI_MODEL")),
+		GeminiFallbackModel: strings.TrimSpace(os.Getenv("GEMINI_FALLBACK_MODEL")),
 	}
 
 	if cfg.Environment != EnvDevelopment && cfg.Environment != EnvProduction {
