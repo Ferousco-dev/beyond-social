@@ -80,6 +80,7 @@ const sceneSchema = z.object({
   sound: z.boolean().default(false),
   notifyEmail: z.boolean().default(false),
   imageMediaId: z.string().uuid().optional(),
+  endImageMediaId: z.string().uuid().optional(),
 });
 
 export type SceneStart = { readonly ok: true; readonly jobId: string } | { readonly ok: false; readonly message: string; readonly code?: string };
@@ -88,7 +89,7 @@ export type SceneStart = { readonly ok: true; readonly jobId: string } | { reado
 export async function startScene(input: z.input<typeof sceneSchema>): Promise<SceneStart> {
   const parsed = sceneSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Describe the scene in a sentence or two." };
-  const { key, aspectRatio, sound, notifyEmail, imageMediaId, ...body } = parsed.data;
+  const { key, aspectRatio, sound, notifyEmail, imageMediaId, endImageMediaId, ...body } = parsed.data;
   const result = await goApi("/api/v1/editor/scenes", jobResponse, {
     method: "POST",
     headers: { "Idempotency-Key": key },
@@ -98,6 +99,7 @@ export async function startScene(input: z.input<typeof sceneSchema>): Promise<Sc
       sound,
       notify_email: notifyEmail,
       ...(imageMediaId ? { image_media_id: imageMediaId } : {}),
+      ...(imageMediaId && endImageMediaId ? { end_image_media_id: endImageMediaId } : {}),
     },
   });
   return result.ok ? { ok: true, jobId: result.data.data.id } : { ok: false, message: result.message, code: result.code };

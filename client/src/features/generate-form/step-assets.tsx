@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChoiceChips } from "@/components/ui/choice-chips";
 import { useLibrary } from "@/features/asset-library/use-library";
 
-import { unusedAssetNotes } from "./asset-use";
+import { framePlan, unusedAssetNotes } from "./asset-use";
 import { ConversationTurns } from "./conversation-turns";
 import { LibraryPicker } from "./library-picker";
 import { MIN_TURNS, isTalking, newTurn, type GenerateFormValues } from "./types";
@@ -54,17 +54,14 @@ export function StepAssets({
   const assets = library.assets;
   const hasFace = assets.some((asset) => asset.kind === "face");
 
-  // The clip starts from the face when there is one and it is not talking,
-  // otherwise from the product, then the environment.
+  // A clip starts on one picture and ends on a second: the face, then the product, then the environment.
   function pick(patch: Partial<GenerateFormValues>): void {
-    const next = { ...values, ...patch };
-    const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]
-      .map((id) => assets.find((asset) => asset.id === id))
-      .find((asset) => asset?.file_kind === "image");
-    onChange({ ...patch, firstFrameId: frame?.media_id ?? "" });
+    const { start, end } = framePlan({ ...values, ...patch }, assets);
+    onChange({ ...patch, firstFrameId: start?.media_id ?? "", endFrameId: end?.media_id ?? "" });
   }
 
   const notes = unusedAssetNotes(values, assets);
+  const frames = isTalking(values) || values.speakerMode === "conversation" ? null : framePlan(values, assets);
 
   return (
     <div className="flex flex-col gap-6">
@@ -135,6 +132,12 @@ export function StepAssets({
         value={values.environmentAssetId}
         onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}
       />
+
+      {frames?.start && frames.end ? (
+        <p role="status" className="rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
+          The clip starts on &ldquo;{frames.start.label}&rdquo; and ends on &ldquo;{frames.end.label}&rdquo;.
+        </p>
+      ) : null}
 
       {notes.length > 0 ? (
         <div role="status" className="flex flex-col gap-1 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">

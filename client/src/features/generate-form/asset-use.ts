@@ -3,6 +3,7 @@ export interface UsableAsset {
   readonly id: string;
   readonly label: string;
   readonly file_kind: string;
+  readonly media_id: string;
 }
 
 export interface AssetChoices {
@@ -11,6 +12,14 @@ export interface AssetChoices {
   readonly voiceAssetId: string;
   readonly productAssetId: string;
   readonly environmentAssetId: string;
+}
+
+/** The pictures a clip starts and ends on: the face, then the product, then the environment. */
+export function framePlan(choices: AssetChoices, assets: readonly UsableAsset[]): { start: UsableAsset | undefined; end: UsableAsset | undefined; extra: UsableAsset[] } {
+  const [start, end, ...extra] = [choices.faceAssetId, choices.productAssetId, choices.environmentAssetId]
+    .map((id) => (id === "" ? undefined : assets.find((asset) => asset.id === id)))
+    .filter((asset): asset is UsableAsset => asset !== undefined && asset.file_kind === "image");
+  return { start, end, extra };
 }
 
 /**
@@ -34,16 +43,14 @@ export function unusedAssetNotes(choices: AssetChoices, assets: readonly UsableA
     return notes;
   }
 
-  // A clip starts from one picture: the face, then the product, then the environment.
+  // A clip starts on one picture and may end on a second; a third has no place.
   const picked = [face, product, environment].filter((asset): asset is UsableAsset => asset !== undefined);
-  const pictures = picked.filter((asset) => asset.file_kind === "image");
   for (const asset of picked) {
     if (asset.file_kind !== "image") notes.push(`"${asset.label}" is a ${asset.file_kind}, and only pictures can be used. It will not appear in the video.`);
   }
-  const [first, ...rest] = pictures;
-  if (first && rest.length > 0) {
-    const others = rest.map((asset) => `"${asset.label}"`).join(" and ");
-    notes.push(`Only one picture can start a clip. "${first.label}" will be used, and ${others} will not appear.`);
+  const { extra } = framePlan(choices, assets);
+  if (extra.length > 0) {
+    notes.push(`A clip can start on one picture and end on another. ${extra.map((asset) => `"${asset.label}"`).join(" and ")} will not appear.`);
   }
   return notes;
 }

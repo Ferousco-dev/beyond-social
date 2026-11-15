@@ -210,6 +210,7 @@ export function LiveAvatarJob({ generation }: { generation: ProjectGeneration })
           sound: generation.sound ?? false,
           notifyEmail: generation.notifyEmail ?? false,
           ...(generation.imageMediaId ? { imageMediaId: generation.imageMediaId } : {}),
+          ...(generation.endImageMediaId ? { endImageMediaId: generation.endImageMediaId } : {}),
         });
         if (!result.ok) {
           setRetryError(result.message);

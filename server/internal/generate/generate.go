@@ -49,6 +49,9 @@ type Request struct {
 	Scenes []Scene
 	// ImageMediaID is a picture the user attached, used as the first frame.
 	ImageMediaID string
+	// EndImageMediaID is a second picture the clip ends on. It needs a first
+	// picture and a single scene, which is all the model allows.
+	EndImageMediaID string
 	// AspectRatio is ignored when there is a picture: the clip follows it.
 	AspectRatio string
 	// Sound asks the model for speech, effects and ambience, which costs more.
@@ -96,6 +99,14 @@ func (r Request) Validate() error {
 			return fmt.Errorf("%w: unknown picture", ErrInvalid)
 		}
 	}
+	if r.EndImageMediaID != "" {
+		if _, err := uuid.Parse(r.EndImageMediaID); err != nil {
+			return fmt.Errorf("%w: unknown ending picture", ErrInvalid)
+		}
+		if r.ImageMediaID == "" || len(r.Scenes) != 1 {
+			return fmt.Errorf("%w: an ending picture needs a starting picture and one scene", ErrInvalid)
+		}
+	}
 	return nil
 }
 
@@ -105,7 +116,7 @@ func ParseArgs(args map[string]any) (Request, error) {
 	var r Request
 	for name := range args {
 		switch name {
-		case "scenes", "image_media_id", "aspect_ratio", "sound", "notify_email":
+		case "scenes", "image_media_id", "end_image_media_id", "aspect_ratio", "sound", "notify_email":
 		default:
 			return Request{}, fmt.Errorf("%w: unknown argument %q", ErrInvalid, name)
 		}
@@ -129,6 +140,7 @@ func ParseArgs(args map[string]any) (Request, error) {
 		r.Scenes = append(r.Scenes, Scene{Prompt: strings.TrimSpace(prompt), Seconds: seconds})
 	}
 	r.ImageMediaID, _ = args["image_media_id"].(string)
+	r.EndImageMediaID, _ = args["end_image_media_id"].(string)
 	r.AspectRatio, _ = args["aspect_ratio"].(string)
 	r.Sound, _ = args["sound"].(bool)
 	r.NotifyEmail, _ = args["notify_email"].(bool)
@@ -156,6 +168,9 @@ func (r Request) Args() map[string]any {
 	args := map[string]any{"scenes": scenes}
 	if r.ImageMediaID != "" {
 		args["image_media_id"] = r.ImageMediaID
+	}
+	if r.EndImageMediaID != "" {
+		args["end_image_media_id"] = r.EndImageMediaID
 	}
 	if r.AspectRatio != "" {
 		args["aspect_ratio"] = r.AspectRatio

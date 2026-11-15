@@ -73,7 +73,11 @@ export async function startGeneration(values: GenerateFormValues): Promise<Start
     }
     case "clip": {
       const sound = hasSound(values);
-      const image = values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {};
+      const image = {
+        ...(values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {}),
+        // An ending picture only makes sense after a starting one.
+        ...(values.firstFrameId !== "" && values.endFrameId !== "" ? { endImageMediaId: values.endFrameId } : {}),
+      };
       const result = await startScene({ prompt: script, seconds: values.seconds, key, aspectRatio: values.aspectRatio, sound, notifyEmail: values.notifyEmail, ...image });
       if (!result.ok) return { ok: false, message: result.message };
       return {

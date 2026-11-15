@@ -64,7 +64,18 @@ func (b Builder) Build(ctx context.Context, job jobs.Job) (transform.Prepared, e
 			return transform.Prepared{}, err
 		}
 		// With a picture the clip follows its shape, so no aspect ratio is sent.
-		input["image_urls"] = []string{url}
+		urls := []string{url}
+		if req.EndImageMediaID != "" {
+			end, err := b.uploadPicture(ctx, job.UserID, req.EndImageMediaID)
+			if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) {
+				return transform.Prepared{}, &transform.UserError{Message: "That ending picture could not be used. Pick it again."}
+			}
+			if err != nil {
+				return transform.Prepared{}, err
+			}
+			urls = append(urls, end)
+		}
+		input["image_urls"] = urls
 	} else {
 		ratio := req.AspectRatio
 		if ratio == "" {

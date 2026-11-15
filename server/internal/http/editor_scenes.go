@@ -23,22 +23,24 @@ func (a *App) createScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Prompt       string `json:"prompt"`
-		Seconds      int    `json:"seconds"`
-		AspectRatio  string `json:"aspect_ratio"`
-		Sound        bool   `json:"sound"`
-		NotifyEmail  bool   `json:"notify_email"`
-		ImageMediaID string `json:"image_media_id"`
+		Prompt          string `json:"prompt"`
+		Seconds         int    `json:"seconds"`
+		AspectRatio     string `json:"aspect_ratio"`
+		Sound           bool   `json:"sound"`
+		NotifyEmail     bool   `json:"notify_email"`
+		ImageMediaID    string `json:"image_media_id"`
+		EndImageMediaID string `json:"end_image_media_id"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
 	job, isNew, err := a.deps.Scenes.Submit(r.Context(), identity.UserID, generate.Request{
-		Scenes:       []generate.Scene{{Prompt: req.Prompt, Seconds: req.Seconds}},
-		AspectRatio:  req.AspectRatio,
-		Sound:        req.Sound,
-		NotifyEmail:  req.NotifyEmail,
-		ImageMediaID: req.ImageMediaID,
+		Scenes:          []generate.Scene{{Prompt: req.Prompt, Seconds: req.Seconds}},
+		AspectRatio:     req.AspectRatio,
+		Sound:           req.Sound,
+		NotifyEmail:     req.NotifyEmail,
+		ImageMediaID:    req.ImageMediaID,
+		EndImageMediaID: req.EndImageMediaID,
 	}, r.Header.Get("Idempotency-Key"))
 	switch {
 	case errors.Is(err, generate.ErrInvalid):

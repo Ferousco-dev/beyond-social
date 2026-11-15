@@ -145,6 +145,7 @@ export const projectGenerationSchema = z.object({
   sound: z.boolean().optional(),
   notifyEmail: z.boolean().optional(),
   imageMediaId: z.string().uuid().optional(),
+  endImageMediaId: z.string().uuid().optional(),
 });
 export type ProjectGeneration = z.infer<typeof projectGenerationSchema>;
 

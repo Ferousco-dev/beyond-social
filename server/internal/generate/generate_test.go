@@ -180,3 +180,31 @@ func TestSubmitValidatesAndCapsClipsInProgress(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+const endPicture = "22222222-2222-4222-8222-222222222222"
+
+func TestAnEndingPictureIsSentAfterTheFirstAndNeedsOneScene(t *testing.T) {
+	pics, up := &fakePictures{data: []byte("png")}, &fakeUploader{}
+	r := Request{Scenes: []Scene{{Prompt: "x", Seconds: 5}}, ImageMediaID: picture, EndImageMediaID: endPicture}
+	p, err := Builder{Pictures: pics, Uploader: up}.Build(context.Background(), job(t, r))
+	if err != nil {
+		t.Fatal(err)
+	}
+	urls, _ := p.Input["image_urls"].([]string)
+	if len(urls) != 2 || !strings.HasSuffix(urls[0], picture+".png") || !strings.HasSuffix(urls[1], endPicture+".png") {
+		t.Fatalf("image_urls = %v", urls)
+	}
+	back, err := ParseArgs(r.Args())
+	if err != nil || back.EndImageMediaID != endPicture {
+		t.Fatalf("round trip: %+v err=%v", back, err)
+	}
+	for name, bad := range map[string]Request{
+		"no first picture": {Scenes: r.Scenes, EndImageMediaID: endPicture},
+		"several scenes":   {Scenes: twoScenes().Scenes, ImageMediaID: picture, EndImageMediaID: endPicture},
+		"not an id":        {Scenes: r.Scenes, ImageMediaID: picture, EndImageMediaID: "nope"},
+	} {
+		if err := bad.Validate(); err == nil {
+			t.Errorf("%s: want an error", name)
+		}
+	}
+}

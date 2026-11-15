@@ -38,6 +38,8 @@ export interface GenerateFormValues {
   music: string;
   /** The media the clip starts from: the chosen face, product or environment picture. */
   firstFrameId: string;
+  /** The picture the clip ends on, when a second picture was chosen. */
+  endFrameId: string;
   faceAssetId: string;
   voiceAssetId: string;
   productAssetId: string;
@@ -69,6 +71,7 @@ export const EMPTY_FORM: GenerateFormValues = {
   cta: "",
   music: "",
   firstFrameId: "",
+  endFrameId: "",
   faceAssetId: "",
   voiceAssetId: "",
   productAssetId: "",

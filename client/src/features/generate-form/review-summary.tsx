@@ -59,7 +59,9 @@ export function ReviewSummary({
         : isTalking(values)
           ? "Face and voice from your library"
           : values.firstFrameId !== ""
-            ? "Starting picture from your library"
+            ? values.endFrameId !== ""
+              ? "Starting and ending pictures from your library"
+              : "Starting picture from your library"
             : "None",
     ],
   ];
