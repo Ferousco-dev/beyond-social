@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChoiceChips } from "@/components/ui/choice-chips";
 import { useLibrary } from "@/features/asset-library/use-library";
 
+import { unusedAssetNotes } from "./asset-use";
 import { ConversationTurns } from "./conversation-turns";
 import { LibraryPicker } from "./library-picker";
 import { MIN_TURNS, isTalking, newTurn, type GenerateFormValues } from "./types";
@@ -62,6 +63,8 @@ export function StepAssets({
       .find((asset) => asset?.file_kind === "image");
     onChange({ ...patch, firstFrameId: frame?.media_id ?? "" });
   }
+
+  const notes = unusedAssetNotes(values, assets);
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,6 +135,14 @@ export function StepAssets({
         value={values.environmentAssetId}
         onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}
       />
+
+      {notes.length > 0 ? (
+        <div role="status" className="flex flex-col gap-1 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
+          {notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
