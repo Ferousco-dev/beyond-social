@@ -22,10 +22,11 @@ const (
 	JobLiveAvatar = "live_avatar"
 )
 
-// KIE models. The talking photo is Kling's
-// avatar model, and speech is ElevenLabs with its ready-made voices.
+// KIE models. The talking photo is Kling's Pro avatar model (1080p; the
+// Standard tier is 720p and looks more synthetic), and speech is ElevenLabs
+// with its ready-made voices.
 const (
-	ModelTalk   = "kling/ai-avatar-standard"
+	ModelTalk   = "kling/ai-avatar-pro"
 	ModelSpeech = "elevenlabs/text-to-speech-multilingual-v2"
 )
 
