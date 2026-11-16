@@ -48,8 +48,6 @@ var (
 	ErrTooManyBusy = errors.New("too many media jobs in progress")
 )
 
-var aspectRatios = map[string]bool{"auto": true, "16:9": true, "9:16": true, "1:1": true, "4:3": true, "3:4": true}
-
 // DefaultVoice is James, one of KIE's ready-made voices. Voices are never cloned.
 const DefaultVoice = "EkK5I93UQWFDigLMpZcX"
 

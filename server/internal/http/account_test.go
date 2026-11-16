@@ -71,18 +71,6 @@ func TestSuspendedAndDeletedAccountsAreRefusedEverywhere(t *testing.T) {
 	}
 }
 
-func between(s, start, end string) string {
-	i := strings.Index(s, start)
-	if i < 0 {
-		return ""
-	}
-	s = s[i+len(start):]
-	if j := strings.Index(s, end); j >= 0 {
-		return s[:j]
-	}
-	return s
-}
-
 type fakePurger struct{ done chan string }
 
 func (f fakePurger) Purge(_ context.Context, userID string) error {
