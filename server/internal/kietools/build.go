@@ -91,7 +91,7 @@ func (b Builder) BuildTalk(ctx context.Context, job jobs.Job) (transform.Prepare
 	if err != nil {
 		return transform.Prepared{}, err
 	}
-	return transform.Prepared{Model: ModelTalk, Input: map[string]any{"image_url": image, "audio_url": audio, "prompt": req.Prompt}}, nil
+	return transform.Prepared{Model: ModelTalk, Input: map[string]any{"image_url": image, "audio_url": audio, "prompt": talkPrompt(req.Prompt)}}, nil
 }
 
 // BuildSpeech implements transform.Builder for spoken text.

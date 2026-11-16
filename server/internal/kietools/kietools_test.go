@@ -3,7 +3,9 @@ package kietools
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -122,5 +124,17 @@ func TestCheckerAcceptsOnlyAWellFormedReview(t *testing.T) {
 		if _, err := NewChecker(model{out}).Check(context.Background(), "x"); err == nil {
 			t.Errorf("%s was accepted", out)
 		}
+	}
+}
+
+func TestTalkPromptKeepsThePersonsWordsFirstAndAddsTheRealLook(t *testing.T) {
+	if got := talkPrompt("  Smile warmly.  "); !strings.HasPrefix(got, "Smile warmly. ") || !strings.HasSuffix(got, realLook) {
+		t.Fatalf("got %q", got)
+	}
+	if got := talkPrompt(""); got != realLook {
+		t.Fatalf("empty direction: %q", got)
+	}
+	if n := utf8.RuneCountInString(talkPrompt(strings.Repeat("x", MaxPromptRunes))); n > 5000 {
+		t.Fatalf("prompt is %d characters, the model takes 5000", n)
 	}
 }

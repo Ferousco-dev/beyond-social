@@ -30,6 +30,21 @@ const (
 	ModelSpeech = "elevenlabs/text-to-speech-multilingual-v2"
 )
 
+// realLook is added to every talking-photo direction. The avatar model drifts
+// toward a stiff, over-animated face when it is given nothing; this keeps the
+// person looking like someone filmed, and the person's own direction comes first.
+const realLook = "Keep the person exactly as in the photo: same face, skin, hair and clothes. Natural, restrained delivery like a real video call or phone clip: relaxed shoulders, small head movements, blinks at an irregular pace, brief glances away, eyebrows and mouth moving only as much as the words need. Real skin texture with pores and slight shine, no smoothing. Ordinary available light and the original background unchanged. No exaggerated expressions, no dramatic gestures, no text or logos."
+
+// talkPrompt is the direction sent to the avatar model: the person's words,
+// then the look of real footage.
+func talkPrompt(direction string) string {
+	direction = strings.TrimSpace(direction)
+	if direction == "" {
+		return realLook
+	}
+	return direction + " " + realLook
+}
+
 // ResultKeys names where each job type's finished file is stored in its result.
 var ResultKeys = map[string]string{JobTalk: "video_url", JobSpeech: "audio_url"}
 

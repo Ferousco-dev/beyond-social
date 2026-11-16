@@ -112,7 +112,7 @@ func (s *LiveAvatarService) input(ctx context.Context, userID string, chosen pai
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"face_media_id": chosen.face, "voice_media_id": chosen.voice, "seconds": seconds, "script": script, "prompt": prompt}, nil
+	return map[string]any{"face_media_id": chosen.face, "voice_media_id": chosen.voice, "seconds": seconds, "script": script, "prompt": talkPrompt(prompt)}, nil
 }
 
 func (s *LiveAvatarService) create(ctx context.Context, userID string, input map[string]any, key string) (jobs.Job, bool, error) {
@@ -154,7 +154,7 @@ func (b LiveAvatarBuilder) BuildLiveAvatar(ctx context.Context, job jobs.Job) (t
 	if err != nil {
 		return transform.Prepared{}, err
 	}
-	return transform.Prepared{Model: ModelTalk, Input: map[string]any{"image_url": image, "audio_url": audioURL, "prompt": prompt}}, nil
+	return transform.Prepared{Model: ModelTalk, Input: map[string]any{"image_url": image, "audio_url": audioURL, "prompt": talkPrompt(prompt)}}, nil
 }
 
 func str(input map[string]any, key string) string { value, _ := input[key].(string); return value }
