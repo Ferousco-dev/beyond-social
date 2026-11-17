@@ -8,6 +8,7 @@ import { useOnline } from "@/hooks/use-online";
 import { createEditorProject } from "@/features/studio/actions";
 
 import { buildAvatarScript } from "./brief";
+import { clearDraft } from "./draft";
 import { CreditShortfallDialog } from "./credit-shortfall-dialog";
 import { PacingNote } from "./length-picker";
 import { fits, hasSound, spokenText } from "./pacing";
@@ -92,6 +93,7 @@ export function StepReview({
         setError(project.message);
         return;
       }
+      clearDraft();
       router.push(`/editor/${project.value}?job=${generation.jobId}&script=${encodeURIComponent(prompt)}` as Route);
     } catch {
       setError("Generation did not start. Your project is saved. Try again.");

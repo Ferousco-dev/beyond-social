@@ -8,6 +8,7 @@ import { OptionSheet } from "@/features/new-video/components/option-sheet";
 import { cn } from "@/lib/utils";
 
 import { fromSuggestion, toAudience } from "./audience";
+import { DRAFT_KEY, STEP_KEY, readDraft } from "./draft";
 import { StepAssets } from "./step-assets";
 import { StepFormat } from "./step-format";
 import { StepObjective, objectiveErrors } from "./step-objective";
@@ -18,7 +19,6 @@ import { CONTENT_KINDS, EMPTY_FORM, MAX_TURNS, STEPS, newTurn, type GenerateForm
 import type { ApprovedScript } from "@/features/new-video/approved-script";
 import type { OwnIdea } from "@/features/new-video/components/own-idea-panel";
 
-export const DRAFT_KEY = "bs:generate-draft";
 const IDEA_KEY = "bs:own-idea";
 const SCRIPT_KEY = "bs:approved-script";
 const QUICK_KEY = "bs:quick-start";
@@ -93,7 +93,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
 
   // Prefill once: the own-idea brief, then the approved analysis script.
   useEffect(() => {
-    const saved = readJSON<GenerateFormValues>(DRAFT_KEY);
+    const saved = readDraft<GenerateFormValues>(DRAFT_KEY) ?? readJSON<GenerateFormValues>(DRAFT_KEY);
     if (saved) {
       setValues({
         ...EMPTY_FORM,
@@ -103,6 +103,8 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         seconds: toLength(saved.seconds),
         contentKind: CONTENT_KINDS.find((kind) => kind.toLowerCase() === saved.contentKind?.toLowerCase()) ?? EMPTY_FORM.contentKind,
       });
+      const savedStep = readDraft<number>(STEP_KEY);
+      if (typeof savedStep === "number" && Number.isInteger(savedStep) && savedStep > 0 && savedStep < STEPS.length) setStep(savedStep);
       return;
     }
     const idea = readJSON<OwnIdea>(IDEA_KEY);
@@ -141,11 +143,20 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   // Autosave every change; the job itself persists server-side.
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify(values));
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
     } catch {
       // Private browsing: the form still works for this session.
     }
   }, [values]);
+
+  // Remember which step the person was on, so coming back from Assets lands where they left.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STEP_KEY, JSON.stringify(step));
+    } catch {
+      // Private browsing: the form still works for this session.
+    }
+  }, [step]);
 
   function patch(next: Partial<GenerateFormValues>): void {
     setValues((current) => ({ ...current, ...next }));
