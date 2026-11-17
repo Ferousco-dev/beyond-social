@@ -47,16 +47,16 @@ export const KIND_META: Readonly<Record<AssetKind, KindMeta>> = {
   product: {
     plural: "Products",
     singular: "product",
-    accept: "image/*,video/*",
-    formats: "Image or video",
+    accept: "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm",
+    formats: "JPG, PNG, WebP, MP4, MOV or WebM",
     example: "Glow serum, 50ml bottle",
     hint: "The product on its own, well lit.",
   },
   environment: {
     plural: "Environments",
     singular: "environment",
-    accept: "image/*,video/*",
-    formats: "Image or video",
+    accept: "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm",
+    formats: "JPG, PNG, WebP, MP4, MOV or WebM",
     example: "Kitchen, morning light",
     hint: "The place the video is set in.",
   },
@@ -71,8 +71,8 @@ export const KIND_META: Readonly<Record<AssetKind, KindMeta>> = {
   other: {
     plural: "Others",
     singular: "asset",
-    accept: "image/*,video/*,audio/*",
-    formats: "Image, video or audio",
+    accept: "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/ogg,audio/webm,.mp3,.wav,.m4a,.ogg",
+    formats: "JPG, PNG, WebP · MP4, MOV, WebM · MP3, WAV, M4A, OGG",
     example: "Logo, white on transparent",
     hint: "Logos, b-roll, sound effects, anything else.",
   },
@@ -88,9 +88,30 @@ const LIP_SYNC_TYPES: Partial<Record<AssetKind, readonly string[]>> = {
   voice: ["audio/mpeg", "audio/wav", "audio/mp4", "audio/ogg"],
 };
 
+// Every type the server's media package accepts. Keeps the client and server in
+// sync so a user is told before uploading, not after.
+const SERVER_ACCEPTED_TYPES: readonly string[] = [
+  "image/jpeg", "image/png", "image/webp",
+  "video/mp4", "video/quicktime", "video/webm",
+  "audio/mpeg", "audio/mp4", "audio/wav", "audio/webm", "audio/ogg",
+];
+
 /** Why a file cannot be saved as this kind, or null when it can. */
 export function fileProblem(kind: AssetKind, file: File): string | null {
-  const allowed = LIP_SYNC_TYPES[kind];
-  if (!allowed || allowed.includes(standardType(file.type))) return null;
-  return `A ${KIND_META[kind].singular} must be ${KIND_META[kind].formats}, so it lip-syncs correctly. This file is ${file.type || "an unknown type"}.`;
+  const type = standardType(file.type);
+
+  // Faces and voices have tighter lip-sync constraints.
+  const lipSyncAllowed = LIP_SYNC_TYPES[kind];
+  if (lipSyncAllowed) {
+    if (!lipSyncAllowed.includes(type)) {
+      return `A ${KIND_META[kind].singular} must be ${KIND_META[kind].formats}, so it lip-syncs correctly. This file is ${file.type || "an unknown type"}.`;
+    }
+    return null;
+  }
+
+  // All other kinds must still be a type the server accepts.
+  if (!SERVER_ACCEPTED_TYPES.includes(type)) {
+    return `That file type is not supported; use a JPEG, PNG or WebP picture, an MP4, MOV or WebM video, or MP3, M4A, WAV, WebM or OGG audio. This file is ${file.type || "an unknown type"}.`;
+  }
+  return null;
 }
