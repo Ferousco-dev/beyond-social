@@ -20,3 +20,17 @@ test("a file is relabelled only when its type has another standard name", () => 
   const mp3 = new File([new Uint8Array([1])], "voice.mp3", { type: "audio/mpeg" });
   assert.equal(withStandardType(mp3), mp3);
 });
+
+test("a file with no type, or an odd one, is read from its extension", () => {
+  assert.equal(standardType("", "logo.PNG"), "image/png");
+  assert.equal(standardType("", "photo.jpeg"), "image/jpeg");
+  assert.equal(standardType("image/x-png", "a.png"), "image/png");
+  assert.equal(standardType("", "notes.txt"), "");
+  assert.equal(standardType("", "noextension"), "");
+  assert.equal(standardType("image/png", "wrong.jpg"), "image/png");
+});
+
+test("a PNG the browser left untyped is uploaded as image/png", () => {
+  const untyped = new File([new Uint8Array([1])], "product.png", { type: "" });
+  assert.equal(withStandardType(untyped).type, "image/png");
+});

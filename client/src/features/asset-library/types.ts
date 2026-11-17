@@ -98,7 +98,7 @@ const SERVER_ACCEPTED_TYPES: readonly string[] = [
 
 /** Why a file cannot be saved as this kind, or null when it can. */
 export function fileProblem(kind: AssetKind, file: File): string | null {
-  const type = standardType(file.type);
+  const type = standardType(file.type, file.name);
 
   // Faces and voices have tighter lip-sync constraints.
   const lipSyncAllowed = LIP_SYNC_TYPES[kind];

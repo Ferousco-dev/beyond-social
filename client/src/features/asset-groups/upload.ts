@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 export async function uploadGroupFile(
   file: File,
 ): Promise<{ readonly status: "ok"; readonly mediaId: string } | { readonly status: "error"; readonly message: string }> {
-  const type = standardType(file.type);
+  const type = standardType(file.type, file.name);
   const slot = await requestAttachmentUpload({ name: file.name, mimeType: type, size: file.size });
   if (slot.status !== "ok") return { status: "error", message: slot.message };
   const supabase = createClient();

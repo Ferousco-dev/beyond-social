@@ -31,15 +31,15 @@ export function useUpload(): { upload: (file: File, only: AssetKind) => Promise<
       useStudio.getState().setNotice(message);
       return null;
     };
-    const kind = kindOf(standardType(file.type));
+    const kind = kindOf(standardType(file.type, file.name));
     if (kind !== only) return notice(`Pick a ${only} file.`);
     setBusy(true);
     try {
-      const slot = await requestAttachmentUpload({ name: file.name || "upload", mimeType: standardType(file.type), size: file.size });
+      const slot = await requestAttachmentUpload({ name: file.name || "upload", mimeType: standardType(file.type, file.name), size: file.size });
       if (slot.status !== "ok") return notice(slot.message);
 
       const storage = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-      const { error } = await storage.storage.from("user-media").uploadToSignedUrl(slot.path, slot.token, withStandardType(file), { contentType: standardType(file.type) });
+      const { error } = await storage.storage.from("user-media").uploadToSignedUrl(slot.path, slot.token, withStandardType(file), { contentType: standardType(file.type, file.name) });
       if (error) return notice("The upload did not finish. Try again.");
       const confirmed = await confirmAttachment(slot.id);
       if (confirmed.status !== "ok") return notice(confirmed.message);
