@@ -14,7 +14,7 @@ import { StepFormat } from "./step-format";
 import { StepObjective, objectiveErrors } from "./step-objective";
 import { StepReview } from "./step-review";
 import { StepScript } from "./step-script";
-import { toLength } from "./pacing";
+import { toVideoLength } from "./pacing";
 import { CONTENT_KINDS, EMPTY_FORM, MAX_TURNS, STEPS, newTurn, type GenerateFormValues } from "./types";
 import type { ApprovedScript } from "@/features/new-video/approved-script";
 import type { OwnIdea } from "@/features/new-video/components/own-idea-panel";
@@ -100,7 +100,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         ...saved,
         purpose: saved.purpose || EMPTY_FORM.purpose,
         audience: toAudience(saved.audience),
-        seconds: toLength(saved.seconds),
+        seconds: toVideoLength(saved.seconds),
         contentKind: CONTENT_KINDS.find((kind) => kind.toLowerCase() === saved.contentKind?.toLowerCase()) ?? EMPTY_FORM.contentKind,
       });
       const savedStep = readDraft<number>(STEP_KEY);

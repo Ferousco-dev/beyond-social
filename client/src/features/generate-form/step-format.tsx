@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { Select } from "@/components/ui/select";
 
 import { LengthPicker } from "./length-picker";
-import { spokenText, toLength } from "./pacing";
+import { spokenText, toVideoLength } from "./pacing";
 import { VisualLookPicker } from "./visual-look-picker";
 import { CONTENT_KINDS, PLATFORMS, RATIOS, type GenerateFormValues } from "./types";
 
@@ -68,7 +68,7 @@ export function StepFormat({
         </div>
       </div>
       <LengthPicker
-        value={toLength(values.seconds)}
+        value={toVideoLength(values.seconds)}
         onChange={(seconds) => onChange({ seconds })}
         spoken={spokenText(values)}
         contentKind={values.contentKind}

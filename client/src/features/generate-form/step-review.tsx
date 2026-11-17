@@ -11,7 +11,7 @@ import { buildAvatarScript } from "./brief";
 import { clearDraft } from "./draft";
 import { CreditShortfallDialog } from "./credit-shortfall-dialog";
 import { PacingNote } from "./length-picker";
-import { fits, hasSound, spokenText } from "./pacing";
+import { fits, hasSound, isLong, spokenText } from "./pacing";
 import { ReviewSummary } from "./review-summary";
 import { quoteGeneration, scriptOf, startGeneration, videoKind } from "./start-generation";
 import { turnsReady, type GenerateFormValues } from "./types";
@@ -164,7 +164,7 @@ export function StepReview({
               setShortOpen(true);
               return;
             }
-            if (promptLength > 2500) {
+            if (promptLength > 2500 && !isLong(values.seconds)) {
               setError("This prompt is over 2,500 characters. Shorten the script before generating.");
               return;
             }

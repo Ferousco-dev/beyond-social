@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { ChoiceChips } from "@/components/ui/choice-chips";
 import { LengthPicker } from "@/features/generate-form/length-picker";
 import { CTA_OPTIONS } from "@/features/generate-form/options";
-import { recommendedLength, spokenText, type Length } from "@/features/generate-form/pacing";
+import { recommendedLength, spokenText, toLength, type Length } from "@/features/generate-form/pacing";
 
 import type { AnalysisContent } from "../actions";
 import type { ApprovedScript } from "../approved-script";
@@ -114,7 +114,7 @@ export function ScriptEditor({
           onChange={setCta}
           customPlaceholder="Write your own call to action"
         />
-        <LengthPicker value={seconds} onChange={setSeconds} spoken={spoken} contentKind="" />
+        <LengthPicker value={seconds} onChange={(length) => setSeconds(toLength(length))} spoken={spoken} contentKind="" withLong={false} />
       </div>
 
       {approved ? (

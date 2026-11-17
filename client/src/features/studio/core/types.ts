@@ -127,6 +127,20 @@ export const conversationTurnSchema = z.object({
 });
 export type ConversationTurnJob = z.infer<typeof conversationTurnSchema>;
 
+/** One clip of a long video. It is submitted when a slot is free, so jobId is absent until then. */
+export const longPartSchema = z.object({
+  /** Makes a re-sent submission the same request, so a reload cannot pay for a clip twice. */
+  key: z.string().uuid(),
+  prompt: z.string().max(2500),
+  seconds: z.number().int().min(3).max(15),
+  state: z.enum(["pending", "running", "completed", "failed"]),
+  jobId: z.string().uuid().optional(),
+  /** The finished clip, kept so a reload does not copy it again. */
+  mediaId: z.string().uuid().optional(),
+  message: z.string().max(300).optional(),
+});
+export type LongPart = z.infer<typeof longPartSchema>;
+
 export const projectGenerationSchema = z.object({
   jobId: z.string().uuid(),
   script: z.string().max(5000),
@@ -134,8 +148,10 @@ export const projectGenerationSchema = z.object({
   message: z.string().max(500).optional(),
   // "avatar" only appears in projects saved before trained avatars were
   // removed; it is read so those projects still open, never generated.
-  generator: z.enum(["kie", "avatar", "live-avatar", "conversation"]).optional(),
+  generator: z.enum(["kie", "avatar", "live-avatar", "conversation", "long"]).optional(),
   turns: z.array(conversationTurnSchema).max(6).optional(),
+  /** The clips of a long video, in the order they play. */
+  parts: z.array(longPartSchema).max(12).optional(),
   groupId: z.string().uuid().optional(),
   faceAssetId: z.string().uuid().optional(),
   voiceAssetId: z.string().uuid().optional(),

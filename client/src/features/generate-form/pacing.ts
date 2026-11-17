@@ -11,6 +11,18 @@ export const LENGTHS = [5, 8, 10, 15] as const;
 export type Length = (typeof LENGTHS)[number];
 export const MAX_LENGTH: Length = 15;
 
+/**
+ * Lengths past one clip. The model renders at most 15 seconds at a time, so a
+ * long video is made as several clips, one after another, and joined on the timeline.
+ */
+export const LONG_LENGTHS = [30, 60, 90, 120, 180] as const;
+export type LongLength = (typeof LONG_LENGTHS)[number];
+export const MAX_VIDEO_SECONDS: LongLength = 180;
+
+export function isLong(seconds: number): boolean {
+  return seconds > MAX_LENGTH;
+}
+
 export function wordCount(text: string): number {
   return text.trim() === "" ? 0 : text.trim().split(/\s+/u).length;
 }
@@ -33,9 +45,20 @@ export function shortestFit(text: string): Length | null {
   return LENGTHS.find((length) => fits(text, length)) ?? null;
 }
 
+/** The shortest length, clip or long, that fits the words, or null when even three minutes is too short. */
+export function shortestVideoFit(text: string): Length | LongLength | null {
+  return [...LENGTHS, ...LONG_LENGTHS].find((length) => fits(text, length)) ?? null;
+}
+
 /** Snaps any stored length (older drafts allowed 3 to 15) to an offered one. */
 export function toLength(seconds: number): Length {
   return LENGTHS.find((length) => length >= seconds) ?? MAX_LENGTH;
+}
+
+/** Like toLength, but keeps a long length: snaps up to an offered clip or long length, never above 3 minutes. */
+export function toVideoLength(seconds: number): Length | LongLength {
+  if (!isLong(seconds)) return toLength(seconds);
+  return LONG_LENGTHS.find((length) => length >= seconds) ?? MAX_VIDEO_SECONDS;
 }
 
 /**
