@@ -112,6 +112,9 @@ func run() error {
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
 	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
 	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
+	// Hosting a file at KIE sends it out of this server, which Render meters. The same
+	// picture or recording is sent once a day, not once per clip.
+	kieUploads := kie.NewUploadCache(kieClient, 24*time.Hour, 200)
 	transformProcessor := &transform.Processor{
 		Alerts:      alertService,
 		Jobs:        jobService,
@@ -124,14 +127,14 @@ func run() error {
 	footage := storage.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	mediaService := media.NewService(database.NewMediaStore(pool), footage, transformProcessor.Fetcher)
 	generateService := generate.NewService(jobService)
-	mediaBuilders := kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}.Builders()
+	mediaBuilders := kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieUploads}.Builders()
 	transformProcessor.Builders = mediaBuilders
 	transformProcessor.ResultKeys = kietools.ResultKeys
 	assetStore := database.NewAssetStore(pool)
 	assetService := assets.NewService(assetStore, mediaService)
 	assetLibrary := assetlib.NewService(database.NewAssetLibraryStore(pool), mediaService)
 	liveAvatarService := kietools.NewLiveAvatarService(jobService, assetService, assetLibrary, mediaService)
-	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieClient}}.BuildLiveAvatar
+	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieUploads}}.BuildLiveAvatar
 
 	aiUsage := database.NewAIUsageStore(pool)
 	aiUsage.UserFallback = func(ctx context.Context) string {
