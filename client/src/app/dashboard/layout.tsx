@@ -1,6 +1,7 @@
 import { type ReactNode } from "react";
 
 import { ConnectionBanner } from "@/components/connection-banner";
+import { ServiceBanner } from "@/components/service-banner";
 import { PaymentBanner } from "@/features/billing/payment-banner";
 import { UsageBanner } from "@/features/billing/usage-banner";
 import { DashboardShell } from "@/features/dashboard/components/dashboard-shell";
@@ -36,6 +37,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <DashboardShell user={user} credits={summary} projects={projects}>
+      <ServiceBanner />
       <ConnectionBanner />
       <PaymentBanner failing={user.paymentFailing === true} />
       <UsageBanner credits={summary} />

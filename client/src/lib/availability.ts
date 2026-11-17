@@ -18,7 +18,7 @@ const ENABLED_DASHBOARD = new Set(["/dashboard", "/dashboard/trends", "/dashboar
 const ADMIN_PREFIX = "/dashboard/admin";
 
 /** API routes still served by the web app. All the others carried credentials. */
-const ENABLED_API = new Set(["/api/health", "/api/ready"]);
+const ENABLED_API = new Set(["/api/health", "/api/ready", "/api/service-status"]);
 
 export const UNAVAILABLE_PATH = "/dashboard/unavailable";
 
