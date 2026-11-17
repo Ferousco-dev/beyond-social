@@ -89,7 +89,7 @@ func (c *Client) Stat(ctx context.Context, bucket, path string) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.base+"/object/info/"+p, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.base+"/object/info/authenticated/"+p, nil)
 	if err != nil {
 		return Info{}, err
 	}
