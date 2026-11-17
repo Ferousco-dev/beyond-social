@@ -83,13 +83,16 @@ func (c *Client) SignedURL(ctx context.Context, bucket, path string, ttl time.Du
 	return signed, nil
 }
 
-// Stat reports the size and type of an object, or ErrNotFound.
+// Stat reports the size and type of an object, or ErrNotFound. It asks for the
+// object's own headers (HEAD on the authenticated object route), so the type is
+// the one the file is stored and served under. The "info" routes answer GET only,
+// with a JSON description, and would report a type that is not the file's.
 func (c *Client) Stat(ctx context.Context, bucket, path string) (Info, error) {
 	p, err := objectPath(bucket, path)
 	if err != nil {
 		return Info{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.base+"/object/info/authenticated/"+p, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, c.base+"/object/authenticated/"+p, nil)
 	if err != nil {
 		return Info{}, err
 	}

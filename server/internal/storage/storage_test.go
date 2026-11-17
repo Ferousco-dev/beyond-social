@@ -50,6 +50,9 @@ func TestStat(t *testing.T) {
 		if r.Method != http.MethodHead {
 			t.Errorf("stat must use HEAD, got %s", r.Method)
 		}
+		if !strings.HasPrefix(r.URL.Path, "/storage/v1/object/authenticated/avatar-footage/") && !strings.HasPrefix(r.URL.Path, "/object/authenticated/avatar-footage/") {
+			t.Errorf("stat must read the object's own headers, got %s", r.URL.Path)
+		}
 		if strings.HasSuffix(r.URL.Path, "missing.mp4") {
 			w.WriteHeader(http.StatusNotFound)
 			return
