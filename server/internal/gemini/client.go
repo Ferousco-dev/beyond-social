@@ -28,6 +28,11 @@ const DefaultTimeout = 60 * time.Second
 
 const maxAttempts = 3
 
+// bigPayload is the size above which a request is not repeated on the same model.
+// Every try sends the whole video again from the API server, which Render meters,
+// so a large request moves on to the fallback model instead of retrying.
+const bigPayload = 4 << 20
+
 type Config struct {
 	// APIKey is a fixed key. Ignored when KeyFunc is set.
 	APIKey string
@@ -168,15 +173,19 @@ func (c *Client) generate(ctx context.Context, system, user string, media []Medi
 	if c.fallback != "" && c.fallback != c.model {
 		models = append(models, c.fallback)
 	}
+	tries := maxAttempts
+	if inlineBytes(media) > bigPayload {
+		tries = 1
+	}
 	var lastErr error
 	for i, model := range models {
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
+		for attempt := 1; attempt <= tries; attempt++ {
 			data, usage, err := c.attempt(ctx, model, contents, config, timeout)
 			if err == nil {
 				return data, usage, nil
 			}
 			lastErr = err
-			if !retryable(err) || attempt == maxAttempts {
+			if !retryable(err) || attempt == tries {
 				break
 			}
 			backoff := time.Duration(attempt) * time.Second
@@ -262,4 +271,15 @@ func retryableStatus(code int) bool {
 		return true
 	}
 	return false
+}
+
+// inlineBytes is how much media this request sends as bytes rather than by link.
+func inlineBytes(media []Media) int {
+	n := 0
+	for _, m := range media {
+		if m.URI == "" {
+			n += len(m.Data)
+		}
+	}
+	return n
 }

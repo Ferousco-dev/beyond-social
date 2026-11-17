@@ -17,6 +17,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/safenet"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
 	"github.com/google/uuid"
+	"golang.org/x/sync/singleflight"
 )
 
 // Bucket is the private bucket attachments live in.
@@ -131,6 +132,9 @@ type Service struct {
 	store   Store
 	storage Storage
 	fetcher Fetcher
+	// adopting makes two requests for the same clip share one download and one
+	// upload, so a double click or a second tab does not send the video twice.
+	adopting singleflight.Group
 }
 
 func NewService(store Store, st Storage, f Fetcher) *Service {
@@ -332,6 +336,19 @@ func (s *Service) Load(ctx context.Context, userID, id string, max int64) ([]byt
 // storage, so it keeps working after the provider's link expires and the editor
 // can read it. Copying the same job twice returns the first copy.
 func (s *Service) AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name string) (Descriptor, error) {
+	v, err, _ := s.adopting.Do(userID+"/"+jobID, func() (any, error) {
+		// One caller leaving must not fail the others waiting on the same copy.
+		shared, cancel := context.WithTimeout(context.WithoutCancel(ctx), 4*time.Minute)
+		defer cancel()
+		return s.adopt(shared, userID, jobID, sourceURL, name)
+	})
+	if err != nil {
+		return Descriptor{}, err
+	}
+	return v.(Descriptor), nil
+}
+
+func (s *Service) adopt(ctx context.Context, userID, jobID, sourceURL, name string) (Descriptor, error) {
 	if existing, found, err := s.store.FindByJob(ctx, userID, jobID); err != nil {
 		return Descriptor{}, err
 	} else if found {

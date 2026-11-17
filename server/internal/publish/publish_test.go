@@ -434,3 +434,65 @@ func TestAPostScheduledForTheFutureWaitsForItsTime(t *testing.T) {
 		t.Fatalf("a post was sent before its time: %+v calls=%d", got, r.pub.calls)
 	}
 }
+
+type copyVault struct {
+	*fakeVault
+	copied map[string]string
+	err    error
+}
+
+func (c *copyVault) OwnObject(link string) (string, string, bool) {
+	rest, ok := strings.CutPrefix(link, "https://own.example/")
+	if !ok {
+		return "", "", false
+	}
+	return Bucket, rest, true
+}
+
+func (c *copyVault) Copy(_ context.Context, _, from, to string) error {
+	if c.err != nil {
+		return c.err
+	}
+	c.copied[to] = from
+	return nil
+}
+
+func TestAVideoAlreadyInOurStorageIsCopiedThereNotDownloaded(t *testing.T) {
+	r := newRig(t, fakeTokens{})
+	cv := &copyVault{fakeVault: r.vault, copied: map[string]string{}}
+	r.proc.Vault = cv
+	p := r.post()
+	p.SourceURL = "https://own.example/u1/clip.mov"
+	r.store.posts[r.postID] = &p
+	r.step()
+	got := r.post()
+	if got.Status != StatusScheduled || got.StoragePath != "u1/posts/"+r.postID+".mov" || cv.copied[got.StoragePath] != "u1/clip.mov" {
+		t.Fatalf("post = %+v copied=%v", got, cv.copied)
+	}
+	if r.fetch.calls != 0 || len(r.vault.uploaded) != 0 {
+		t.Fatalf("the video was downloaded (%d) or uploaded (%v)", r.fetch.calls, r.vault.uploaded)
+	}
+}
+
+func TestAnotherUsersFileOrAFailedCopyFallsBackToDownloading(t *testing.T) {
+	for name, tc := range map[string]struct {
+		source string
+		err    error
+	}{
+		"someone else's file": {source: "https://own.example/u2/clip.mp4"},
+		"copy fails":          {source: "https://own.example/u1/clip.mp4", err: errors.New("boom")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := newRig(t, fakeTokens{})
+			cv := &copyVault{fakeVault: r.vault, copied: map[string]string{}, err: tc.err}
+			r.proc.Vault = cv
+			p := r.post()
+			p.SourceURL = tc.source
+			r.store.posts[r.postID] = &p
+			r.step()
+			if len(cv.copied) != 0 || r.fetch.calls != 1 || r.post().Status != StatusScheduled {
+				t.Fatalf("copied=%v fetches=%d post=%+v", cv.copied, r.fetch.calls, r.post())
+			}
+		})
+	}
+}

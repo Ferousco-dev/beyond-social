@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -211,5 +213,45 @@ func TestViewLinksReturnsOnlyYourOwnFinishedFiles(t *testing.T) {
 	}
 	if !links[mine.ID].ExpiresAt.After(time.Now().Add(25 * time.Minute)) {
 		t.Fatalf("link expires too soon: %v", links[mine.ID].ExpiresAt)
+	}
+}
+
+type slowFetcher struct {
+	data  []byte
+	calls *atomic.Int32
+}
+
+func (f slowFetcher) Fetch(context.Context, string, int64) ([]byte, error) {
+	f.calls.Add(1)
+	time.Sleep(50 * time.Millisecond)
+	return f.data, nil
+}
+
+func TestTwoRequestsForTheSameClipDownloadItOnce(t *testing.T) {
+	mp4 := append([]byte{0, 0, 0, 24}, []byte("ftypmp42xxxxxxxxxxxxxxxx")...)
+	var calls atomic.Int32
+	st := &memStore{items: map[string]Item{}}
+	svc := NewService(st, fakeStorage{}, slowFetcher{data: mp4, calls: &calls})
+	var wg sync.WaitGroup
+	ids := make([]string, 4)
+	for i := range ids {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			d, err := svc.AdoptVideo(context.Background(), "u1", "job-1", "https://cdn.example/v.mp4", "x")
+			if err != nil {
+				t.Error(err)
+			}
+			ids[i] = d.ID
+		}()
+	}
+	wg.Wait()
+	if calls.Load() != 1 || len(st.items) != 1 {
+		t.Fatalf("downloads=%d items=%d", calls.Load(), len(st.items))
+	}
+	for _, id := range ids {
+		if id != ids[0] {
+			t.Fatalf("callers got different copies: %v", ids)
+		}
 	}
 }

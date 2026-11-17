@@ -142,6 +142,47 @@ func (c *Client) Upload(ctx context.Context, bucket, path, contentType string, d
 	return nil
 }
 
+// Copy duplicates an object inside the storage service. The bytes never leave
+// Supabase, so the API server sends and receives almost nothing. A copy that
+// already exists at the destination counts as done, so a retry is safe.
+func (c *Client) Copy(ctx context.Context, bucket, from, to string) error {
+	if _, err := objectPath(bucket, from); err != nil {
+		return err
+	}
+	if _, err := objectPath(bucket, to); err != nil {
+		return err
+	}
+	body, _ := json.Marshal(map[string]string{"bucketId": bucket, "sourceKey": from, "destinationKey": to})
+	err := c.do(ctx, http.MethodPost, "/object/copy", body, &struct{}{})
+	var pe *provider.Error
+	if errors.As(err, &pe) && pe.Status == http.StatusConflict {
+		return nil
+	}
+	return err
+}
+
+// OwnObject says which object a link points at when it is a signed link on this
+// storage service, and false for any other address.
+func (c *Client) OwnObject(link string) (bucket, path string, ok bool) {
+	u, err := url.Parse(link)
+	base, berr := url.Parse(c.base)
+	if err != nil || berr != nil || u.Host != base.Host || u.Scheme != base.Scheme {
+		return "", "", false
+	}
+	rest, found := strings.CutPrefix(u.Path, base.Path+"/object/sign/")
+	if !found {
+		return "", "", false
+	}
+	bucket, path, found = strings.Cut(rest, "/")
+	if !found || bucket == "" || path == "" {
+		return "", "", false
+	}
+	if _, err := objectPath(bucket, path); err != nil {
+		return "", "", false
+	}
+	return bucket, path, true
+}
+
 // Delete removes an object. One that is already gone is not an error.
 func (c *Client) Delete(ctx context.Context, bucket, path string) error {
 	p, err := objectPath(bucket, path)

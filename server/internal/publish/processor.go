@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/alerts"
@@ -37,6 +39,13 @@ type Fetcher interface {
 type Vault interface {
 	Upload(ctx context.Context, bucket, path, contentType string, data []byte) error
 	SignedURL(ctx context.Context, bucket, path string, ttl time.Duration) (string, error)
+}
+
+// Copier is a Vault that can copy and recognise its own files. When the video is
+// already in our storage, copying it there sends nothing through the API server.
+type Copier interface {
+	Copy(ctx context.Context, bucket, from, to string) error
+	OwnObject(link string) (bucket, path string, ok bool)
 }
 
 // Tokens hands out a usable sign-in, renewing it when needed.
@@ -73,6 +82,9 @@ func (p *Processor) Handle(ctx context.Context, post Post) {
 
 // prepare copies the video somewhere that will still exist at posting time.
 func (p *Processor) prepare(ctx context.Context, post Post) {
+	if p.copyInStorage(ctx, post) {
+		return
+	}
 	data, err := p.Fetcher.Fetch(ctx, post.SourceURL, maxVideoSize)
 	var mime string
 	if err == nil {
@@ -87,6 +99,31 @@ func (p *Processor) prepare(ctx context.Context, post Post) {
 		p.prepareFailed(ctx, post, err)
 		return
 	}
+	p.schedule(ctx, post, path)
+}
+
+// copyInStorage handles a video the user already stores with us (an upload or an
+// editor export) by copying it inside storage. It reports false when the video
+// lives elsewhere or the copy did not work, and the caller then downloads it.
+func (p *Processor) copyInStorage(ctx context.Context, post Post) bool {
+	c, ok := p.Vault.(Copier)
+	if !ok {
+		return false
+	}
+	bucket, from, ok := c.OwnObject(post.SourceURL)
+	if !ok || bucket != Bucket || !strings.HasPrefix(from, post.UserID+"/") {
+		return false
+	}
+	path := fmt.Sprintf("%s/posts/%s%s", post.UserID, post.ID, filepath.Ext(from))
+	if err := c.Copy(ctx, bucket, from, path); err != nil {
+		slog.Warn("copy post video in storage failed, downloading instead", "post_id", post.ID, "error", err)
+		return false
+	}
+	p.schedule(ctx, post, path)
+	return true
+}
+
+func (p *Processor) schedule(ctx context.Context, post Post, path string) {
 	due := post.ScheduledAt
 	if now := p.now(); due.Before(now) {
 		due = now

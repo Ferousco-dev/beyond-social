@@ -114,3 +114,22 @@ func TestSignedUploadToken(t *testing.T) {
 		t.Errorf("bad path: %v", err)
 	}
 }
+
+func TestOwnObjectRecognisesOnlySignedLinksOnItsOwnHost(t *testing.T) {
+	c := NewClient("https://abc.supabase.co", "k")
+	bucket, path, ok := c.OwnObject("https://abc.supabase.co/storage/v1/object/sign/user-media/u1/a.mp4?token=x")
+	if !ok || bucket != "user-media" || path != "u1/a.mp4" {
+		t.Fatalf("got %q %q %v", bucket, path, ok)
+	}
+	for _, link := range []string{
+		"https://evil.example/storage/v1/object/sign/user-media/u1/a.mp4",
+		"https://abc.supabase.co/storage/v1/object/public/user-media/u1/a.mp4",
+		"https://abc.supabase.co/storage/v1/object/sign/user-media/../x.mp4",
+		"https://abc.supabase.co/storage/v1/object/sign/user-media",
+		"http://abc.supabase.co/storage/v1/object/sign/user-media/u1/a.mp4",
+	} {
+		if _, _, ok := c.OwnObject(link); ok {
+			t.Errorf("%s was accepted", link)
+		}
+	}
+}

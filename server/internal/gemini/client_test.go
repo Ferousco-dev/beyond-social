@@ -225,3 +225,10 @@ func TestGenerateJSONDoesNotFallBackOnABadRequest(t *testing.T) {
 		t.Fatalf("err = %v, calls = %d", err, calls)
 	}
 }
+
+func TestInlineBytesCountsOnlyMediaSentAsBytes(t *testing.T) {
+	got := inlineBytes([]Media{{Data: make([]byte, 10)}, {URI: "https://x/y", Data: make([]byte, 99)}, {Data: make([]byte, 5)}})
+	if got != 15 {
+		t.Fatalf("inlineBytes = %d, want 15", got)
+	}
+}
