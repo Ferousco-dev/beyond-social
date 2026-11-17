@@ -19,25 +19,36 @@ export function SlotCard({
   slot,
   group,
   busy,
+  loading = false,
   onUpload,
   onConsent,
 }: {
   slot: (typeof SLOTS)[number];
   group: AssetGroupDetail;
   busy: boolean;
+  /** The preview is still being fetched. */
+  loading?: boolean;
   onUpload: (slot: SlotId, file: File) => void;
   onConsent: (slot: SlotId) => void;
 }) {
   const stored = group[slot.view];
   // A voice slot only ever holds a recording, so it always gets a player.
   const view = stored && slot.id === "voice" ? { ...stored, kind: "audio" } : stored;
+  // Filled in the list but not fetched yet: say it is loading rather than empty.
+  const waiting = loading && !stored && group.slots[slot.id] !== "";
   const consented =
     slot.id === "face" ? group.face_consent_at !== null : slot.id === "voice" ? group.voice_consent_at !== null : true;
 
   return (
     <li className="rounded-2xl border border-hairline bg-paper p-4">
       <p className="text-sm font-semibold text-ink">{slot.label}</p>
-      {view ? (
+      {waiting ? (
+        <span
+          role="status"
+          aria-label={`Loading ${slot.label.toLowerCase()}`}
+          className={`mt-2 block animate-pulse rounded-lg bg-cloud ${slot.id === "voice" ? "h-10" : "aspect-video w-full"}`}
+        />
+      ) : view ? (
         view.kind === "audio" ? (
           <span className="mt-2 block">
             <Preview view={view} />
@@ -48,7 +59,9 @@ export function SlotCard({
           </span>
         )
       ) : null}
-      {view ? (
+      {waiting ? (
+        <p className="mt-1 text-xs text-ink-soft">Loading…</p>
+      ) : view ? (
         <p className="mt-1 truncate text-xs text-ink-soft">{view.name !== "" ? view.name : "Attached"}</p>
       ) : (
         <p className="mt-1 text-xs text-ink-soft">Empty</p>

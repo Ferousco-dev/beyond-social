@@ -32,6 +32,8 @@ export function AvatarGroups({ initial }: { initial: readonly AssetGroup[] }): R
   const [groups, setGroups] = useState<readonly AssetGroup[]>(initial);
   const [open, setOpen] = useState<AssetGroupDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // True while a group opened from the list is still fetching its previews.
+  const [loading, setLoading] = useState(false);
   const openId = useRef<string | null>(null);
 
   function show(group: AssetGroupDetail): void {
@@ -41,11 +43,18 @@ export function AvatarGroups({ initial }: { initial: readonly AssetGroup[] }): R
 
   function select(group: AssetGroup): void {
     setError(null);
-    show(cachedGroup(group.id) ?? asDetail(group));
+    const remembered = cachedGroup(group.id);
+    setLoading(remembered === undefined && !group.id.startsWith(TEMP));
+    show(remembered ?? asDetail(group));
     void getAssetGroup(group.id).then((result) => {
-      if (result.status !== "ok") return;
+      if (openId.current !== group.id) return;
+      setLoading(false);
+      if (result.status !== "ok") {
+        setError("Could not load this group's files. Close it and try again.");
+        return;
+      }
       rememberGroup(result.group);
-      if (openId.current === group.id) setOpen(result.group);
+      setOpen(result.group);
     });
   }
 
@@ -87,6 +96,7 @@ export function AvatarGroups({ initial }: { initial: readonly AssetGroup[] }): R
 
   function close(): void {
     openId.current = null;
+    setLoading(false);
     setOpen(null);
   }
 
@@ -156,6 +166,7 @@ export function AvatarGroups({ initial }: { initial: readonly AssetGroup[] }): R
             key={open.id}
             initial={open}
             pending={open.id.startsWith(TEMP)}
+            loading={loading}
             onChange={changed}
             onDelete={remove}
           />

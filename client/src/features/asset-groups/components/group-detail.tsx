@@ -24,12 +24,15 @@ type Outcome =
 export function GroupDetailView({
   initial,
   pending = false,
+  loading = false,
   onChange,
   onDelete,
 }: {
   initial: AssetGroupDetail;
   /** The group is still being created: show it, but hold every control. */
   pending?: boolean;
+  /** The group's previews are still on their way: filled slots show a placeholder, not "Empty". */
+  loading?: boolean;
   /** Called with the fresh group after each change, so a parent can keep its copy current. */
   onChange?: (group: AssetGroupDetail) => void;
   /** Takes over deleting, so a popup can close at once instead of after the server answers. */
@@ -42,6 +45,15 @@ export function GroupDetailView({
   const busy = working || pending;
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState(initial.name);
+
+  // The fuller copy of the group arrives after the popup opens. Take it in, unless
+  // the person is partway through changing the name.
+  const [seen, setSeen] = useState(initial);
+  if (initial !== seen) {
+    setSeen(initial);
+    setGroup(initial);
+    if (name === group.name) setName(initial.name);
+  }
 
   async function run(task: () => Promise<Outcome>): Promise<void> {
     setBusy(true);
@@ -112,7 +124,8 @@ export function GroupDetailView({
             key={slot.id}
             slot={slot}
             group={group}
-            busy={busy}
+            busy={busy || loading}
+            loading={loading}
             onUpload={(id, file) => void fillSlot(id, file)}
             onConsent={(id) => void run(async () => consentAssetGroup(group.id, id as "face" | "voice"))}
           />
