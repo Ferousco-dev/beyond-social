@@ -77,7 +77,7 @@ export function HeaderAuthActions({
 
   if (state === "signed-in") {
     return (
-      <Link href={"/dashboard" as Route} onClick={onNavigate} className={primary}>
+      <Link href={"/dashboard/new" as Route} onClick={onNavigate} className={primary}>
         Open dashboard
       </Link>
     );

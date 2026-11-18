@@ -131,6 +131,9 @@ const nextConfig: NextConfig = {
    */
   async redirects() {
     return [
+      // /dashboard is only a doorway to New Video. Answering here, before anything renders,
+      // saves a whole server render of the dashboard frame and its API calls.
+      { source: "/dashboard", destination: "/dashboard/new", permanent: false },
       { source: "/dashboard/settings/brand", destination: "/dashboard/assets", permanent: true },
       { source: "/dashboard/settings/voice", destination: "/dashboard/assets", permanent: true },
     ];
