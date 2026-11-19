@@ -118,14 +118,18 @@ func (n *Notifier) send(userID string, l letter) {
 			slog.Warn("email skipped: no address", "user", userID, "error", err)
 			return
 		}
-		subject := l.subject
-		if err := n.sender.Send(ctx, Message{To: to, Subject: subject, Text: l.text(n.appURL), HTML: l.render(n.appURL)}); err != nil {
-			// A missing key just means the admin has not set email up yet.
-			if provider.Code(err) == provider.CodeNotConfigured {
-				slog.Info("email not sent: no email key is set", "subject", subject)
-				return
-			}
-			slog.Error("send email", "subject", subject, "error", err)
-		}
+		n.deliver(ctx, to, l)
 	})
+}
+
+// deliver sends one letter. A missing key just means the admin has not set email up yet.
+func (n *Notifier) deliver(ctx context.Context, to string, l letter) {
+	subject := l.subject
+	if err := n.sender.Send(ctx, Message{To: to, Subject: subject, Text: l.text(n.appURL), HTML: l.render(n.appURL)}); err != nil {
+		if provider.Code(err) == provider.CodeNotConfigured {
+			slog.Info("email not sent: no email key is set", "subject", subject)
+			return
+		}
+		slog.Error("send email", "subject", subject, "error", err)
+	}
 }

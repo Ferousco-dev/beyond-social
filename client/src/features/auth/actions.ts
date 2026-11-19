@@ -2,7 +2,9 @@
 
 import { headers } from "next/headers";
 
-import { env, isSupabaseConfigured } from "@/lib/env";
+import { isSupabaseConfigured } from "@/lib/env";
+import { goApi } from "@/lib/go-api/client";
+import { resetAcceptedResponse } from "@/lib/go-api/schemas";
 import { logger } from "@/lib/logger";
 import { rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
@@ -121,12 +123,19 @@ export async function requestPasswordResetAction(input: ForgotPasswordInput): Pr
   const limited = await throttle("reset", 5);
   if (limited) return limited;
 
-  // Always report success so the response does not disclose account existence.
+  // Our own API makes the one-time link and emails it (through Resend), so the
+  // email does not depend on Supabase's built-in sender. It answers the same
+  // whether or not the address has an account, so this never discloses that.
   if (isSupabaseConfigured) {
-    const supabase = await createClient();
-    await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${env.NEXT_PUBLIC_APP_URL}/reset-password`,
+    const result = await goApi("/api/v1/auth/password-reset", resetAcceptedResponse, {
+      method: "POST",
+      body: { email: parsed.data.email },
+      anonymous: true,
     });
+    if (!result.ok && result.status !== 400) {
+      logger.warn("password reset request failed", { status: result.status, code: result.code });
+      return { status: "error", message: "We could not send the email just now. Please try again in a few minutes." };
+    }
   }
 
   return {
@@ -135,18 +144,28 @@ export async function requestPasswordResetAction(input: ForgotPasswordInput): Pr
   };
 }
 
-export async function resetPasswordAction(input: ResetPasswordInput): Promise<AuthResult> {
+export async function resetPasswordAction(input: ResetPasswordInput & { tokenHash: string }): Promise<AuthResult> {
   const parsed = resetPasswordSchema.safeParse(input);
-  if (!parsed.success) return { status: "error", message: GENERIC_ERROR };
+  if (!parsed.success || input.tokenHash.trim() === "") return { status: "error", message: GENERIC_ERROR };
   const limited = await throttle("password-set", 10);
   if (limited) return limited;
   if (!isSupabaseConfigured) return NOT_CONFIGURED;
 
   const supabase = await createClient();
+  // The emailed token is spent here, when the password is sent, not when the page
+  // opens, so a mail scanner that fetches the link cannot use it up.
+  const verified = await supabase.auth.verifyOtp({ type: "recovery", token_hash: input.tokenHash });
+  if (verified.error) {
+    return { status: "error", message: "This reset link has expired or was already used. Request a new one." };
+  }
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
-
-  if (error) return { status: "error", message: GENERIC_ERROR };
-  return { status: "success", redirectTo: "/login" };
+  if (error) {
+    logger.warn("password reset failed", { code: error.code, status: error.status });
+    return { status: "error", message: error.code === "same_password" ? "Choose a password you have not used before." : GENERIC_ERROR };
+  }
+  // The link signed them in only to set a password. They sign in again with the new one.
+  await supabase.auth.signOut();
+  return { status: "success", redirectTo: "/login?reset=done" };
 }
 
 export async function verifyOtpAction(input: OtpInput & { email: string }): Promise<AuthResult> {

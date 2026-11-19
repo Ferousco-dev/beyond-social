@@ -257,6 +257,8 @@ func run() error {
 		Spend:               spendStore,
 		EmailSettings:       settingsStore,
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
+		Recovery:            supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
+		ResetMail:           emails,
 		Purger:              purger,
 		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
 		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),

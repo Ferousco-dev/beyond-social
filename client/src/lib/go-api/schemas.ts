@@ -326,3 +326,5 @@ export const memoryResponse = z.object({
     facts: z.array(z.object({ id: z.string(), content: z.string() })),
   }),
 });
+
+export const resetAcceptedResponse = z.object({ data: z.object({ accepted: z.boolean() }) });

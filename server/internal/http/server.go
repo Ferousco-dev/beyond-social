@@ -64,7 +64,10 @@ type Deps struct {
 	Spend          SpendReader
 	EmailSettings  EmailSettings
 	SignIns        accounts.SignInRemover
-	Purger         interface {
+	// Recovery and ResetMail send the password reset email, from our own sender.
+	Recovery  RecoveryTokens
+	ResetMail ResetMailer
+	Purger    interface {
 		Purge(ctx context.Context, userID string) error
 	}
 	WatchBiller ResourceBiller
@@ -92,9 +95,10 @@ type Deps struct {
 type App struct {
 	deps   Deps
 	limits *limiter
+	resets *resetGate
 }
 
-func NewApp(deps Deps) *App { return &App{deps: deps, limits: newLimiter()} }
+func NewApp(deps Deps) *App { return &App{deps: deps, limits: newLimiter(), resets: newResetGate()} }
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -112,6 +116,8 @@ func (a *App) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/callbacks/kie", a.kieCallback)
 
 	mux.HandleFunc("POST /api/v1/callbacks/stripe", a.stripeCallback)
+	// Unauthenticated by nature: the person asking has forgotten their password.
+	mux.HandleFunc("POST /api/v1/auth/password-reset", a.requestPasswordReset)
 	mux.Handle("GET /api/v1/packs", shared(http.HandlerFunc(a.listPacks)))
 	mux.Handle("GET /api/v1/plans", shared(http.HandlerFunc(a.plans)))
 	mux.Handle("GET /api/v1/blog", shared(http.HandlerFunc(a.listBlogPosts)))

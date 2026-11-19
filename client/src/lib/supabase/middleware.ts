@@ -4,11 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { env, isSupabaseConfigured } from "@/lib/env";
 
 const PROTECTED_PREFIXES = ["/dashboard", "/settings", "/editor"] as const;
+// /reset-password is not here: it works from the emailed token and needs no session,
+// and someone who is signed in must still be able to use a reset link.
 const AUTH_PREFIXES = [
   "/login",
   "/signup",
   "/forgot-password",
-  "/reset-password",
   "/verify",
 ] as const;
 

@@ -1,7 +1,9 @@
 package mailer
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -82,5 +84,20 @@ func (n *Notifier) LimitReached(userID, window string, resetsAt time.Time) {
 		},
 		button: "See your usage",
 		path:   "/dashboard/usage",
+	})
+}
+
+// PasswordReset emails a person the link that lets them choose a new password.
+// The token is single use; the web page exchanges it when the new password is sent.
+func (n *Notifier) PasswordReset(ctx context.Context, to, token string) {
+	n.deliver(ctx, to, letter{
+		subject: "Reset your Beyond Social password",
+		heading: "Reset your password",
+		body: []string{
+			"We got a request to change the password on your Beyond Social account. Tap the button below to pick a new one.",
+			"The link can be used once and stops working after an hour. If you did not ask for this, you can ignore this email and your password will not change.",
+		},
+		button: "Choose a new password",
+		path:   "/reset-password?token_hash=" + url.QueryEscape(token),
 	})
 }

@@ -111,3 +111,16 @@ func TestEmailsNameTheRightPlaceAndNeverFailTheCaller(t *testing.T) {
 		t.Fatalf("a failed send was counted: %d", len(mail.sent))
 	}
 }
+
+func TestPasswordResetEmailsTheLinkWithTheTokenEscaped(t *testing.T) {
+	mail := &sentMail{}
+	n := NewNotifier(mail, fixedEmail{}, "https://app.example").Inline()
+	n.PasswordReset(context.Background(), "a@example.com", "tok en&x")
+	if len(mail.sent) != 1 {
+		t.Fatalf("sent %d, want 1", len(mail.sent))
+	}
+	m := mail.sent[0]
+	if m.To != "a@example.com" || !strings.Contains(m.Text, "https://app.example/reset-password?token_hash=tok+en%26x") || !strings.Contains(m.HTML, "reset-password?token_hash=tok+en%26x") {
+		t.Fatalf("bad reset email: %+v", m)
+	}
+}

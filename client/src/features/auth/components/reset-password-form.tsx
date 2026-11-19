@@ -12,7 +12,7 @@ import { FormStatus } from "./form-status";
 import { PasswordField } from "./password-field";
 import { SubmitButton } from "./submit-button";
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ tokenHash }: { tokenHash: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<AuthResult | null>(null);
@@ -30,7 +30,7 @@ export function ResetPasswordForm() {
   function onSubmit(values: ResetPasswordInput) {
     setResult(null);
     startTransition(async () => {
-      const response = await resetPasswordAction(values);
+      const response = await resetPasswordAction({ ...values, tokenHash });
       setResult(response);
       if (response.status === "success" && response.redirectTo) {
         router.push(response.redirectTo as Route);
