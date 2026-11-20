@@ -64,7 +64,7 @@ function applyOne(project: Project, op: Operation, newId: () => string): Result<
       return { seek: Math.max(0, op.at) };
     case "watch_clip": {
       const found = locate(project, op.item_id);
-      return found && (found.item.kind === "video" || found.item.kind === "audio") ? { request: { kind: "watch", itemId: op.item_id } } : { ok: false, error: "That is not a clip I can watch." };
+      return found && found.item.kind === "video" ? { request: { kind: "watch", itemId: op.item_id } } : { ok: false, error: "That is not a clip I can watch." };
     }
     case "set_speed":
       return setSpeed(project, op.item_id, op.speed);

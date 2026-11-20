@@ -34,7 +34,7 @@ export const KIND_META: Readonly<Record<AssetKind, KindMeta>> = {
     accept: "image/jpeg,image/png",
     formats: "JPG or PNG",
     example: "Ada, front, smiling",
-    hint: "A clear, front-facing photo of one person.",
+    hint: "A clear, front-facing photo of one person, wearing what you want them to wear in your videos.",
   },
   voice: {
     plural: "Voices",

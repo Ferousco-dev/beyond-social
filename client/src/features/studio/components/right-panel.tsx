@@ -19,7 +19,7 @@ const TABS: ReadonlyArray<{ id: Tab; label: string; Icon: LucideIcon }> = [
 ];
 
 export function RightPanel() {
-  const [tab, setTab] = useState<Tab>("inspector");
+  const [tab, setTab] = useState<Tab>("ai");
   return (
     <section aria-label="Chat and editor" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
       <div role="tablist" className="flex h-11 shrink-0 items-center gap-1 border-b border-hairline px-2">

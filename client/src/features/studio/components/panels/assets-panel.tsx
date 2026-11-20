@@ -12,9 +12,9 @@ import { selectProject, useStudio } from "../../store/editor-store";
 import { AssetRow } from "./asset-row";
 
 const COPY = {
-  video: { accept: "video/mp4,video/quicktime,video/webm", empty: "Upload a video to cut and edit.", noun: "video" },
-  audio: { accept: "audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg", empty: "Upload a song or a sound to place on the timeline.", noun: "sound" },
-  image: { accept: "image/jpeg,image/png,image/webp", empty: "Upload a picture to place over the video.", noun: "picture" },
+  video: { accept: "video/mp4,video/quicktime,video/webm", noun: "video" },
+  audio: { accept: "audio/mpeg,audio/mp4,audio/wav,audio/webm,audio/ogg", noun: "sound" },
+  image: { accept: "image/jpeg,image/png,image/webp", noun: "picture" },
 } as const;
 
 /** The files of one kind in this project, with an upload button and a way to put each on the timeline. */
@@ -38,16 +38,13 @@ export function AssetsPanel({ kind }: { kind: Asset["kind"] }) {
         <Upload aria-hidden />
         {busy ? "Uploading" : `Upload ${copy.noun}`}
       </Button>
-      {kind === "video" ? <p className="text-xs text-ink-soft">Uploaded videos go straight to the timeline. They are not sent to the AI unless you ask it to watch one.</p> : null}
-      {assets.length === 0 ? (
-        <p className="text-xs text-ink-soft">{copy.empty}</p>
-      ) : (
+      {assets.length > 0 ? (
         <ul className="space-y-1.5">
           {assets.map((asset) => (
             <AssetRow key={asset.src} asset={asset} />
           ))}
         </ul>
-      )}
+      ) : null}
     </div>
   );
 }

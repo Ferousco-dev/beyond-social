@@ -2,11 +2,13 @@
 
 import { Chip } from "@/components/ui/choice-chips";
 
+import { partSeconds } from "./long-video";
 import {
   LENGTHS,
   LONG_LENGTHS,
   MAX_VIDEO_SECONDS,
   fits,
+  isLong,
   maxWords,
   recommendedLength,
   shortestVideoFit,
@@ -17,9 +19,12 @@ import {
 } from "./pacing";
 import { useSceneQuotes } from "./scene-quotes";
 
+const label = (length: number): string => (length >= 60 ? `${length / 60} min` : `${length}s`);
+
 /**
- * The clip length, its credit cost, the suggested length for this kind of
- * video, and whether the spoken words fit without being rushed.
+ * One row of lengths, short to long. The model renders 15 seconds at most, so
+ * anything longer is joined from clips automatically; the person only picks a
+ * length. What it costs, and how it is made, is said once for the chosen one.
  */
 export function LengthPicker({
   value,
@@ -38,74 +43,25 @@ export function LengthPicker({
   // Spoken words turn sound on, which the provider charges more for, so the price follows it.
   const quotes = useSceneQuotes(spoken.trim() !== "");
   const recommended = recommendedLength(spoken, contentKind);
+  const options: readonly (Length | LongLength)[] = withLong ? [...LENGTHS, ...LONG_LENGTHS] : LENGTHS;
+  const credits = quotes[value];
+  const clips = isLong(value) ? partSeconds(value).length : 1;
 
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Video length">
       <span className="text-sm font-medium text-ink">Video length</span>
       <div className="flex flex-wrap gap-2">
-        {LENGTHS.map((length) => {
-          const credits = quotes[length];
-          return (
-            <Chip
-              key={length}
-              selected={value === length}
-              onClick={() => onChange(length)}
-            >
-              <span className="tabular-nums">{length}s</span>
-              <span className="ml-1.5 text-xs opacity-70 tabular-nums">
-                {credits === undefined
-                  ? "…"
-                  : credits === null
-                    ? ""
-                    : `${credits} credits`}
-              </span>
-              {length === recommended ? (
-                <span className="ml-1.5 text-xs font-medium">
-                  · Recommended
-                </span>
-              ) : null}
-            </Chip>
-          );
-        })}
+        {options.map((length) => (
+          <Chip key={length} selected={value === length} onClick={() => onChange(length)}>
+            <span className="tabular-nums">{label(length)}</span>
+            {length === recommended ? <span className="ml-1.5 text-[11px] opacity-70">Best fit</span> : null}
+          </Chip>
+        ))}
       </div>
-      {withLong ? (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink-soft">
-            Long video, made as several clips joined in order
-          </span>
-          <div className="flex flex-wrap gap-2">
-            {LONG_LENGTHS.map((length) => {
-              const credits = quotes[length];
-              return (
-                <Chip
-                  key={length}
-                  selected={value === length}
-                  onClick={() => onChange(length)}
-                >
-                  <span className="tabular-nums">
-                    {length >= 60 ? `${length / 60} min` : `${length}s`}
-                  </span>
-                  <span className="ml-1.5 text-xs opacity-70 tabular-nums">
-                    {credits === undefined
-                      ? "…"
-                      : credits === null
-                        ? ""
-                        : `${credits} credits`}
-                  </span>
-                </Chip>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-      <p className="text-xs text-ink-soft">
-        Longer videos cost more credits. {recommended}s suits{" "}
-        {contentKind === ""
-          ? "this video"
-          : `a ${contentKind.toLowerCase()} video`}
-        {wordCount(spoken) > 0
-          ? " and fits your script at a natural pace."
-          : "."}
+      <p className="text-xs text-ink-soft" role="status">
+        {label(value)}
+        {credits === undefined ? " · …" : credits === null ? "" : ` · ${credits} credits`}
+        {clips > 1 ? ` · made as ${clips} clips and joined for you` : ""}
       </p>
       <PacingNote spoken={spoken} seconds={value} onPick={onChange} />
     </div>

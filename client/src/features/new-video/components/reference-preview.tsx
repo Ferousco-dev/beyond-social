@@ -11,10 +11,10 @@ import { PLATFORM_NAME, formatViews } from "@/features/discover/lib/platforms";
 
 export function ReferencePreview({
   post,
-  onAnalyze,
+  onUse,
 }: {
   post: DiscoverPost;
-  onAnalyze: (url: string) => void;
+  onUse: (url: string) => void;
 }) {
   const platformName = PLATFORM_NAME[post.platform];
   const embedUrl = post.platform === "instagram"
@@ -34,16 +34,13 @@ export function ReferencePreview({
           postUrl={post.url}
         />
       </div>
-      <p className="text-xs text-ink-soft">
-        Analyze creates a summary and fresh script; it does not reuse or modify the source clip.
-      </p>
       <button
         type="button"
-        onClick={() => onAnalyze(post.url)}
+        onClick={() => onUse(post.url)}
         className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <Sparkles className="size-4" aria-hidden />
-        Analyze video
+        Use this video
       </button>
       {post.viewCount !== null ? <p className="text-xs text-ink-soft">{formatViews(post.viewCount)} views</p> : null}
       <a href={post.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-ink-soft underline underline-offset-2 hover:text-ink">

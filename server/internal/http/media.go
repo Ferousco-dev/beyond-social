@@ -17,6 +17,7 @@ type MediaService interface {
 	ViewURL(ctx context.Context, userID, id string) (string, error)
 	ViewLinks(ctx context.Context, userID string, ids []string) map[string]media.Link
 	AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name string) (media.Descriptor, error)
+	AdoptAudio(ctx context.Context, userID, jobID, sourceURL, name string) (media.Descriptor, error)
 }
 
 func (a *App) requestMediaUpload(w http.ResponseWriter, r *http.Request) {

@@ -7,7 +7,6 @@ import { setSpeed, updateItem } from "../../core/ops.ts";
 import { type Item } from "../../core/types.ts";
 import { formatTimecode } from "../../lib/format";
 import { selectProject, useStudio } from "../../store/editor-store";
-import { AnimationFields } from "./animation-fields";
 import { INPUT } from "./field";
 import { Section, SliderRow } from "./slider-row";
 import { SpeedField } from "./speed-field";
@@ -85,7 +84,6 @@ export function InspectorPanel() {
         {formatTimecode(item.start)} · {item.duration.toFixed(1)}s
       </p>
       <Fields item={item} />
-      {item.kind === "video" || item.kind === "image" || item.kind === "text" ? <AnimationFields item={item} /> : null}
     </div>
   );
 }

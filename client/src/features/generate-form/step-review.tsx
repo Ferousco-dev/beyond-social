@@ -11,9 +11,10 @@ import { buildAvatarScript } from "./brief";
 import { clearDraft } from "./draft";
 import { CreditShortfallDialog } from "./credit-shortfall-dialog";
 import { PacingNote } from "./length-picker";
-import { fits, hasSound, isLong, spokenText } from "./pacing";
+import { fits, isLong, spokenText, wordCount } from "./pacing";
 import { ReviewSummary } from "./review-summary";
-import { quoteGeneration, scriptOf, startGeneration, videoKind } from "./start-generation";
+import { clipSound, longStory, quoteGeneration, scriptOf, startGeneration, videoKind } from "./start-generation";
+import { isReady, isStale, voiceoverFit, voiceoverMatches, voiceoverOf } from "./storyboard";
 import { turnsReady, type GenerateFormValues } from "./types";
 
 /** Step E: review, credit estimate, confirm, progress, done. */
@@ -43,11 +44,25 @@ export function StepReview({
   const promptLength = Array.from(prompt).length;
   // A clip has a fixed length, so speech that does not fit would be rushed.
   const rushed = kind === "clip" && !fits(spokenText(values), values.seconds);
+  // A long video is rendered from its storyboard, so the plan must exist, run exactly the chosen length and not be out of date.
+  const board = kind === "clip" && isLong(values.seconds) ? values.storyboard : null;
+  const needsBoard = kind === "clip" && isLong(values.seconds);
+  const boardProblem = !needsBoard
+    ? null
+    : !board
+      ? "Write the storyboard first: go back to Script & assets and press Write the storyboard."
+      : isStale(board, { seconds: values.seconds, script: longStory(values) })
+        ? "The length or the script changed after the storyboard was written. Go back to Script & assets and press Rewrite, or change them back."
+        : !isReady(board, values.seconds)
+          ? "The storyboard does not add up to the chosen length yet. Go back to Script & assets and adjust the shots."
+          : values.voiceover && voiceoverMatches(board, values.voiceover) && voiceoverFit(values.voiceover.seconds, values.seconds, wordCount(voiceoverOf(board))).kind === "long"
+            ? "The voiceover is longer than the video and would be cut off. Go back to Script & assets, trim the words and record it again, or choose a longer video."
+            : null;
   const missingWords =
     kind === "conversation" ? !turnsReady(values.turns) : kind === "talking" && avatarScript.trim() === "";
   // Re-quote only when something that changes the price changes.
   // Spoken words switch sound on, which is priced higher, so they belong in the key.
-  const quoteKey = kind === "clip" ? `clip:${values.seconds}:${hasSound(values)}` : prompt;
+  const quoteKey = kind === "clip" ? `clip:${values.seconds}:${clipSound(values)}` : prompt;
 
   const online = useOnline();
   // Said at the value moment, before a click that could only fail: the cost is known and so is the balance.
@@ -125,6 +140,11 @@ export function StepReview({
       ) : null}
 
       {rushed ? <PacingNote spoken={spokenText(values)} seconds={values.seconds} onPick={(seconds) => onChange({ seconds })} /> : null}
+      {boardProblem ? (
+        <p role="alert" className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-ink">
+          {boardProblem}
+        </p>
+      ) : null}
 
       {confirming ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-primary bg-paper p-4" role="alertdialog" aria-label="Confirm generation">
@@ -170,7 +190,7 @@ export function StepReview({
             }
             setConfirming(true);
           }}
-          disabled={!online || credits === null || quoteError !== null || rushed}
+          disabled={!online || credits === null || quoteError !== null || rushed || boardProblem !== null}
           className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Review and generate

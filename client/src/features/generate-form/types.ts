@@ -1,4 +1,6 @@
-import { EMPTY_AUDIENCE, type AudienceChoice } from "./audience";
+import { EMPTY_AUDIENCE, type AudienceChoice } from "./audience.ts";
+import type { Storyboard, Voiceover } from "./storyboard.ts";
+import { DEFAULT_VOICE } from "./voices.ts";
 
 /** One line of a conversation: who says it, in which saved voice, and the words. */
 export interface ConversationTurn {
@@ -35,7 +37,6 @@ export interface GenerateFormValues {
   dialogue: string;
   tone: string;
   cta: string;
-  music: string;
   /** The media the clip starts from: the chosen face, product or environment picture. */
   firstFrameId: string;
   faceAssetId: string;
@@ -46,6 +47,12 @@ export interface GenerateFormValues {
   speakerMode: "single" | "conversation";
   turns: ConversationTurn[];
   notifyEmail: boolean;
+  /** The plan for a long video, written for the chosen length and editable before rendering. */
+  storyboard: Storyboard | null;
+  /** The one recording read over a long video's silent shots. */
+  voiceover: Voiceover | null;
+  /** The voice that reads a long video's voiceover. */
+  voice: string;
 }
 
 export const EMPTY_FORM: GenerateFormValues = {
@@ -67,7 +74,6 @@ export const EMPTY_FORM: GenerateFormValues = {
   dialogue: "",
   tone: "Natural",
   cta: "",
-  music: "",
   firstFrameId: "",
   faceAssetId: "",
   voiceAssetId: "",
@@ -76,9 +82,12 @@ export const EMPTY_FORM: GenerateFormValues = {
   speakerMode: "single",
   turns: [],
   notifyEmail: false,
+  storyboard: null,
+  voiceover: null,
+  voice: DEFAULT_VOICE,
 };
 
-export const STEPS = ["Objective", "Format", "Script & assets"] as const;
+export const STEPS = ["Basics", "Script", "People & sound"] as const;
 
 export const PLATFORMS = ["TikTok", "Instagram Reels"] as const;
 export const RATIOS = ["9:16", "16:9", "1:1"] as const;

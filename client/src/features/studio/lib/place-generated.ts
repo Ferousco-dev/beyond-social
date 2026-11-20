@@ -31,3 +31,19 @@ export function placeGeneratedVideo(mediaId: string, seconds: number, name: stri
   store.select(clipId);
   return { error: null };
 }
+
+/** Lays the voiceover on the audio track from the start, once. A second call for the same recording changes nothing. */
+export function placeVoiceover(mediaId: string, seconds: number): Placed {
+  const store = useStudio.getState();
+  const src = mediaRef(mediaId);
+  const track = store.history.present.tracks.find((t) => t.kind === "audio");
+  if (track?.items.some((item) => item.kind === "audio" && item.src === src)) return { error: null };
+  const length = Math.max(1, seconds);
+  const error = store.edit((p) => {
+    const withAsset = addAsset(p, { src, name: "Voiceover", kind: "audio", duration: length });
+    return withAsset.ok
+      ? addItem(withAsset.value, track?.id ?? "audio", { kind: "audio", id: makeId(), start: 0, duration: length, src, trimIn: 0, sourceDuration: length, volume: 1 })
+      : withAsset;
+  });
+  return { error };
+}

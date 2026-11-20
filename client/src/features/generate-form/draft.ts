@@ -21,3 +21,44 @@ export function clearDraft(): void {
     // Nothing to clear.
   }
 }
+
+export interface DraftSummary {
+  /** The first words of what the video is for, or empty when only later steps were filled in. */
+  title: string;
+  /** One-based step the person was on. */
+  step: number;
+}
+
+let cached: { raw: string | null; summary: DraftSummary | null } = { raw: null, summary: null };
+
+/**
+ * A short description of the unfinished video, or null when there is none.
+ * Returns the same object while the saved text is unchanged, so it is safe
+ * to hand to useSyncExternalStore.
+ */
+export function draftSummary(): DraftSummary | null {
+  let raw: string | null = null;
+  let stepRaw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(DRAFT_KEY);
+    stepRaw = window.localStorage.getItem(STEP_KEY);
+  } catch {
+    return null;
+  }
+  const key = `${raw ?? ""}|${stepRaw ?? ""}`;
+  if (cached.raw === key) return cached.summary;
+  let summary: DraftSummary | null = null;
+  try {
+    const values = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    const text = (name: string): string => (typeof values?.[name] === "string" ? (values[name] as string).trim() : "");
+    const filled = text("objective") || text("hook") || text("scenes") || text("dialogue");
+    if (values && filled) {
+      const step = Number(stepRaw);
+      summary = { title: text("objective").slice(0, 80), step: Number.isInteger(step) && step >= 0 ? step + 1 : 1 };
+    }
+  } catch {
+    summary = null;
+  }
+  cached = { raw: key, summary };
+  return summary;
+}

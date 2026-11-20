@@ -11,13 +11,12 @@ import { clamp, snapTo } from "../../lib/format";
 import { projectDuration } from "../../core/find.ts";
 import { soundFor, soundId } from "../../lib/sounds";
 import { useUpload } from "../../hooks/use-upload";
-import { ASSET_DRAG_TYPE, placeAsset, placeJobVideo, readDraggedAsset } from "../../lib/place-asset";
+import { ASSET_DRAG_TYPE, placeAsset, readDraggedAsset } from "../../lib/place-asset";
 import { selectProject, useStudio } from "../../store/editor-store";
 import { TimelineItem, type DragMode } from "./timeline-item";
 import { TimelineRuler } from "./timeline-ruler";
 import { TimelineToolbar } from "./timeline-toolbar";
 import { TransitionJoints } from "./transition-joints";
-import { useRangeMark } from "./use-range-mark";
 import { cn } from "@/lib/utils";
 
 const TRACK_LOOK: Record<TrackKind, { label: string; Icon: LucideIcon; colour: string }> = {
@@ -49,7 +48,6 @@ export function Timeline() {
   const zoom = useStudio((s) => s.zoom);
   const selection = useStudio((s) => s.selection);
   const currentTime = useStudio((s) => s.currentTime);
-  const range = useStudio((s) => s.range);
   const content = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
   const { upload } = useUpload();
@@ -67,8 +65,6 @@ export function Timeline() {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop);
   }, []);
-
-  const mark = useRangeMark(content);
 
   const drag = (live: Item, mode: DragMode, seconds: number): void => {
     const state = useStudio.getState();
@@ -98,7 +94,7 @@ export function Timeline() {
     if (!box) return;
     const at = Math.max(0, (event.clientX - box.left) / useStudio.getState().zoom);
     const dragged = readDraggedAsset(event.dataTransfer);
-    if (dragged) return dragged.job ? placeJobVideo(dragged.job, dragged.asset.name, dragged.asset.duration, at) : placeAsset(dragged.asset, at);
+    if (dragged) return placeAsset(dragged, at);
     let cursor = at;
     for (const file of Array.from(event.dataTransfer.files)) {
       const kind = file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : file.type.startsWith("image/") ? "image" : null;
@@ -137,7 +133,7 @@ export function Timeline() {
             </div>
           </div>
           <div ref={content} className="relative flex flex-col" style={{ width: Math.max(span * zoom, 1) }}>
-            <TimelineRuler zoom={zoom} span={span} onScrub={scrub} onMark={mark} />
+            <TimelineRuler zoom={zoom} span={span} onScrub={scrub} />
             <div
               className={cn("relative flex flex-1 flex-col py-1.5 transition-colors", over && "bg-primary/10")}
               style={{ gap: STUDIO_TIMELINE.TRACK_GAP }}
@@ -157,13 +153,6 @@ export function Timeline() {
                 <TrackRow key={track.id} track={track} project={project} zoom={zoom} selection={selection} onDrag={drag} />
               ))}
             </div>
-            {range ? (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 z-10 border-x border-primary bg-primary/10"
-                style={{ left: range.start * zoom, width: (range.end - range.start) * zoom }}
-              />
-            ) : null}
             <div className="pointer-events-none absolute inset-y-0 z-20 w-px bg-primary" style={{ left: currentTime * zoom }}>
               <span className="absolute -left-[5px] top-0 size-[11px] rounded-b-sm bg-primary" />
             </div>

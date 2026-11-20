@@ -24,7 +24,6 @@ export function TextPanel() {
 
   return (
     <div className="space-y-3 p-3">
-      <p className="text-xs text-ink-soft">Adds text at the playhead. Select it to change the words, colour and size, then drag it in the preview to place it.</p>
       <button
         type="button"
         onClick={add}

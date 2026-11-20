@@ -1,61 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { type Route } from "next";
+import { useEffect, useRef, useState } from "react";
 
-import { AnalysisView } from "./analysis-view";
-import { LinkPreview } from "./link-preview";
+import { clearDraft } from "@/features/generate-form/draft";
+import { REFERENCE_KEY } from "@/features/generate-form/reference-script";
 
 const fieldClass =
   "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:border-primary focus:outline-none focus:ring-[3px] focus:ring-primary/20";
 
-interface Approved {
-  url: string;
-  mediaId?: string;
-}
-
-/** Option 2: paste a link, watch the video, then explicitly ask for an analysis. */
+/**
+ * Paste a link, press one button. The form opens at once and writes the script
+ * from the video in the background, so there is no preview, no waiting screen and
+ * no approval step in between.
+ */
 export function LinkPanel({
   initialUrl = "",
   resumeJobId,
   resumeStage,
 }: {
   initialUrl?: string;
-  /** A draft reopened from the sidebar: an in-progress preview or analysis job to pick back up. */
+  /** A draft reopened from the sidebar: an analysis already running to pick back up. */
   resumeJobId?: string;
   resumeStage?: "preview" | "analysis";
 }) {
+  const router = useRouter();
   const [url, setUrl] = useState(initialUrl);
-  const [submitted, setSubmitted] = useState<string | null>(resumeStage === "preview" ? "" : null);
-  const [approved, setApproved] = useState<Approved | null>(resumeStage === "analysis" ? { url: "" } : null);
+  const [error, setError] = useState<string | null>(null);
+  const resumed = useRef(false);
 
-  if (approved) {
-    return (
-      <AnalysisView
-        url={approved.url}
-        mediaId={approved.mediaId}
-        context="Pasted link"
-        resumeJobId={resumeStage === "analysis" ? resumeJobId : undefined}
-        onBack={() => setApproved(null)}
-      />
-    );
+  function open(request: { url: string; key: string } | { jobId: string }): void {
+    try {
+      clearDraft();
+      for (const key of ["bs:generate-draft", "bs:approved-script", "bs:own-idea", "bs:quick-start"]) window.sessionStorage.removeItem(key);
+      window.sessionStorage.setItem(REFERENCE_KEY, JSON.stringify(request));
+    } catch {
+      setError("This browser could not save your choice. Check its storage settings and try again.");
+      return;
+    }
+    router.push("/dashboard/videos/new" as Route);
   }
 
-  if (submitted !== null) {
-    return (
-      <LinkPreview
-        url={submitted}
-        resumeJobId={resumeStage === "preview" ? resumeJobId : undefined}
-        onApprove={setApproved}
-        onBack={() => setSubmitted(null)}
-      />
-    );
-  }
+  // An analysis that was already running carries on in the form.
+  useEffect(() => {
+    if (resumed.current || resumeStage !== "analysis" || !resumeJobId) return;
+    resumed.current = true;
+    open({ jobId: resumeJobId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeJobId, resumeStage]);
 
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        if (url.trim() !== "") setSubmitted(url.trim());
+        if (url.trim() !== "") open({ url: url.trim(), key: crypto.randomUUID() });
       }}
       className="flex flex-col gap-3"
     >
@@ -75,13 +74,17 @@ export function LinkPanel({
             disabled={url.trim() === ""}
             className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            Preview video
+            Use this video
           </button>
         </span>
       </label>
-      <p className="text-xs text-ink-soft">
-        You will see the video first. Analysis creates a summary and fresh script; it does not generate or transform a video.
-      </p>
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : (
+        <p className="text-xs text-ink-soft">We write you a fresh script from it. The video itself is never copied or changed.</p>
+      )}
     </form>
   );
 }

@@ -1,4 +1,4 @@
-import { AGE_RANGES, GENDER_OPTIONS } from "./options";
+import { AGE_RANGES, GENDER_OPTIONS } from "./options.ts";
 
 export type AudienceGender = "any" | "female" | "male";
 

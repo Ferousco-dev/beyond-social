@@ -151,7 +151,7 @@ export const projectGenerationSchema = z.object({
   generator: z.enum(["kie", "avatar", "live-avatar", "conversation", "long"]).optional(),
   turns: z.array(conversationTurnSchema).max(6).optional(),
   /** The clips of a long video, in the order they play. */
-  parts: z.array(longPartSchema).max(12).optional(),
+  parts: z.array(longPartSchema).max(24).optional(),
   groupId: z.string().uuid().optional(),
   faceAssetId: z.string().uuid().optional(),
   voiceAssetId: z.string().uuid().optional(),
@@ -161,6 +161,9 @@ export const projectGenerationSchema = z.object({
   sound: z.boolean().optional(),
   notifyEmail: z.boolean().optional(),
   imageMediaId: z.string().uuid().optional(),
+  /** The one voiceover laid over a long video's silent clips, placed once they are all in. */
+  voiceoverMediaId: z.string().uuid().optional(),
+  voiceoverSeconds: z.number().min(0).max(600).optional(),
 });
 export type ProjectGeneration = z.infer<typeof projectGenerationSchema>;
 

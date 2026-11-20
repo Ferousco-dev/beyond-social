@@ -16,12 +16,17 @@ export function LibraryPicker({
   value,
   onChange,
   required,
+  title,
+  hint,
 }: {
   kind: AssetKind;
   assets: readonly LibraryAsset[];
   value: string;
   onChange: (asset: LibraryAsset | null) => void;
   required?: boolean;
+  /** What the person calls it, when that is plainer than the library's own word. */
+  title?: string;
+  hint?: string;
 }) {
   const meta = KIND_META[kind];
   const mine = assets.filter((asset) => asset.kind === kind);
@@ -30,20 +35,21 @@ export function LibraryPicker({
     <div className="flex flex-col gap-2" role="group" aria-label={meta.plural}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm font-medium text-ink">
-          {meta.singular.charAt(0).toUpperCase() + meta.singular.slice(1)}
+          {title ?? meta.singular.charAt(0).toUpperCase() + meta.singular.slice(1)}
           {required ? null : <span className="font-normal text-ink-soft"> (optional)</span>}
         </span>
         <Link href="/dashboard/assets" className="text-xs text-primary underline-offset-2 hover:underline">
-          {mine.length === 0 ? `Create a ${meta.singular}` : "Manage"}
+          {mine.length === 0 ? "Add one" : "Manage"}
         </Link>
       </div>
+      {hint ? <p className="-mt-1 text-xs text-ink-soft">{hint}</p> : null}
       {mine.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-hairline px-3 py-4 text-sm text-ink-soft">
-          No {meta.plural.toLowerCase()} saved yet.{" "}
+        <p className="rounded-xl border border-dashed border-hairline px-3 py-3 text-sm text-ink-soft">
+          Nothing saved yet. Add one in{" "}
           <Link href="/dashboard/assets" className="font-medium text-primary underline underline-offset-2">
-            Create one in Assets
-          </Link>{" "}
-          and label it clearly, then come back here.
+            Assets
+          </Link>
+          ; what you have filled in here stays saved.
         </p>
       ) : (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-5">

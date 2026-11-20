@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { listAssetGroups } from "@/features/asset-groups/actions";
 import { AvatarGroups } from "@/features/asset-groups/components/avatar-groups";
 import { listLibraryAssets } from "@/features/asset-library/actions";
+import { ContinueDraft } from "@/features/generate-form/continue-draft";
 import { AssetLibrary } from "@/features/asset-library/components/asset-library";
 
 export const metadata: Metadata = { title: "Assets" };
@@ -25,6 +26,7 @@ export default async function AssetsPage(): Promise<ReactNode> {
           make a video.
         </p>
       </header>
+      <ContinueDraft variant="assets" />
 
       {library.status !== "ok" ? (
         <p role="alert" className="mt-6 text-sm text-destructive">

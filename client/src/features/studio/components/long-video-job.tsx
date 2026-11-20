@@ -9,7 +9,7 @@ import { useJobSocket } from "@/lib/go-api/use-job-socket";
 import { adoptVideo, sceneStatus, startScene } from "../assist-actions";
 import { type LongPart, type ProjectGeneration } from "../core/types.ts";
 import { allReady, partsToStart, stalled } from "../lib/long-schedule.ts";
-import { placeGeneratedVideo } from "../lib/place-generated";
+import { placeGeneratedVideo, placeVoiceover } from "../lib/place-generated";
 import { useStudio } from "../store/editor-store";
 import { GenerationProgress } from "./generation-progress";
 
@@ -85,8 +85,10 @@ export function LongVideoJob() {
       if (error || !part.mediaId) return;
       error = placeGeneratedVideo(part.mediaId, part.seconds, `Part ${index + 1}`).error;
     });
+    // The one recording goes under the finished clips, so the voice is the same all the way through.
+    if (!error && generation?.voiceoverMediaId) error = placeVoiceover(generation.voiceoverMediaId, generation.voiceoverSeconds ?? parts.reduce((sum, part) => sum + part.seconds, 0)).error;
     saveParts((current) => current, error ? "failed" : "completed", error ?? "Every part is on your timeline, in order.");
-  }, [ready, running, parts]);
+  }, [ready, running, parts, generation?.voiceoverMediaId, generation?.voiceoverSeconds]);
 
   if (!generation || parts.length === 0) return null;
   const done = parts.filter((part) => part.mediaId !== undefined).length;

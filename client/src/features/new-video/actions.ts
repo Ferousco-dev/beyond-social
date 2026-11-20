@@ -141,20 +141,6 @@ const previewResultSchema = z.object({
   media_id: z.string().uuid().optional(),
 });
 
-/** Starts downloading a pasted link so it can be watched before it is analysed. */
-export async function startLinkPreview(input: { url: string; idempotencyKey: string }): Promise<LinkPreviewResult> {
-  const parsed = startSchema.safeParse(input);
-  if (!parsed.success) return { status: "error", message: "Paste a video link first." };
-  if (!isGoApiConfigured()) return { status: "unconfigured" };
-  const created = await goApi("/api/v1/analyses/previews", jobResponse, {
-    method: "POST",
-    body: { url: parsed.data.url },
-    headers: { "Idempotency-Key": parsed.data.idempotencyKey },
-  });
-  if (!created.ok) return { status: "error", message: created.message };
-  return readLinkPreview(created.data.data.id);
-}
-
 export async function readLinkPreview(jobId: string): Promise<LinkPreviewResult> {
   if (!z.string().uuid().safeParse(jobId).success) return { status: "error", message: "That preview could not be found." };
   if (!isGoApiConfigured()) return { status: "unconfigured" };

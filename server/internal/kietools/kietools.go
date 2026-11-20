@@ -63,8 +63,31 @@ var (
 	ErrTooManyBusy = errors.New("too many media jobs in progress")
 )
 
-// DefaultVoice is James, one of KIE's ready-made voices. Voices are never cloned.
-const DefaultVoice = "EkK5I93UQWFDigLMpZcX"
+// DefaultVoice is Daniel, one of KIE's ready-made voices, confirmed with a live
+// request on 19 Nov 2026. Voices are never cloned. The earlier default (James,
+// EkK5I93UQWFDigLMpZcX) is rejected by KIE on this account.
+const DefaultVoice = "onwK4e9ZLuTAKqWW03F9"
+
+// Voices are the ready-made voices confirmed to work with a live request. KIE
+// takes ids from a list of 83, so a voice is added here only after a real test,
+// never guessed. The client picker (generate-form/voices.ts) lists the same ids.
+var Voices = []string{
+	DefaultVoice,
+	"EXAVITQu4vr4xnSDxMaL", // Sarah
+	"JBFqnCBsd6RMkjVDRZzb", // George
+	"cgSgspJ2msm6clMCkdW9", // Jessica
+	"TX3LPaxmHKxFdv7VOQHJ", // Liam
+}
+
+// KnownVoice reports whether a voice id has been confirmed to work.
+func KnownVoice(id string) bool {
+	for _, v := range Voices {
+		if v == id {
+			return true
+		}
+	}
+	return false
+}
 
 func invalid(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))

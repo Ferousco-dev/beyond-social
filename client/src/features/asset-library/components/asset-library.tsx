@@ -66,7 +66,9 @@ export function AssetLibrary({ initial }: { initial: readonly LibraryAsset[] }) 
 
       {adding ? (
         <AddAssetPanel
+          key={tab}
           initialKind={tab === "all" ? "face" : tab}
+          lockKind={tab !== "all"}
           onClose={() => setAdding(false)}
           onAdd={(kind, label, file) => {
             setAdding(false);

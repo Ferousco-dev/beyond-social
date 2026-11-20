@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { type Route } from "next";
 import { useState } from "react";
 
+import { clearDraft } from "@/features/generate-form/draft";
 import { Spinner } from "@/components/ui/spinner";
 
 const fieldClass =
@@ -11,18 +12,15 @@ const fieldClass =
 
 export interface OwnIdea {
   objective: string;
-  audience: string;
-  product: string;
-  style: string;
 }
 
 export const OWN_IDEA_KEY = "bs:own-idea";
 const QUICK_KEY = "bs:quick-start";
 
-/** Option 3: describe the idea in four fields. The main page reads it in M5. */
+/** Option 3: one question, what the video is for. Length, look and the rest are chosen on the next page. */
 export function OwnIdeaPanel() {
   const router = useRouter();
-  const [fields, setFields] = useState<OwnIdea>({ objective: "", audience: "", product: "", style: "" });
+  const [fields, setFields] = useState<OwnIdea>({ objective: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -31,16 +29,13 @@ export function OwnIdeaPanel() {
     setFields((current) => ({ ...current, [key]: value }));
   }
 
-  const ready =
-    fields.objective.trim() !== "" &&
-    fields.audience.trim() !== "" &&
-    fields.product.trim() !== "" &&
-    fields.style.trim() !== "";
+  const ready = fields.objective.trim() !== "";
 
   function go(quick: boolean): void {
     if (!ready || submitting) return;
     setSubmitting(true);
     try {
+      clearDraft();
       window.sessionStorage.removeItem("bs:generate-draft");
       window.sessionStorage.removeItem("bs:approved-script");
       window.sessionStorage.setItem(OWN_IDEA_KEY, JSON.stringify(fields));
@@ -62,20 +57,8 @@ export function OwnIdeaPanel() {
       className="grid gap-3 sm:grid-cols-2"
     >
       <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
-        Objective
-        <input value={fields.objective} maxLength={120} onChange={(event) => set("objective", event.target.value)} placeholder="Promote my new serum" aria-label="Objective" className={fieldClass} />
-      </label>
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
-        Target audience
-        <input value={fields.audience} maxLength={120} onChange={(event) => set("audience", event.target.value)} placeholder="Women 25–34" aria-label="Target audience" className={fieldClass} />
-      </label>
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink">
-        Product or service
-        <input value={fields.product} maxLength={120} onChange={(event) => set("product", event.target.value)} placeholder="Glow serum" aria-label="Product or service" className={fieldClass} />
-      </label>
-      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
-        Preferred style
-        <input value={fields.style} maxLength={120} onChange={(event) => set("style", event.target.value)} placeholder="Bright, fast-cut UGC" aria-label="Preferred style" className={fieldClass} />
+        What is the video for?
+        <input value={fields.objective} maxLength={120} onChange={(event) => set("objective", event.target.value)} placeholder="Promote my new serum" aria-label="What is the video for?" className={fieldClass} />
       </label>
       <div className="sm:col-span-2">
         {submitError ? <p role="alert" className="mb-2 text-sm text-destructive">{submitError}</p> : null}
@@ -95,7 +78,7 @@ export function OwnIdeaPanel() {
             disabled={!ready || submitting}
             className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-hairline px-5 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Customise first
+            Continue
           </button>
         </div>
       </div>

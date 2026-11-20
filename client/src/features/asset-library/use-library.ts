@@ -13,6 +13,8 @@ type LibraryState =
 // One read per visit: every step that offers saved assets shares it, so moving
 // between steps never waits on the library again.
 let pending: Promise<LibraryState> | null = null;
+let version = 0;
+const listeners = new Set<() => void>();
 
 function load(): Promise<LibraryState> {
   pending ??= listLibraryAssets()
@@ -38,11 +40,17 @@ export function useLibrary(): LibraryState {
   const [state, setState] = useState<LibraryState>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    void load().then((next) => {
-      if (active) setState(next);
-    });
+    const refresh = (): void => {
+      const current = version;
+      void load().then((next) => {
+        if (active && current === version) setState(next);
+      });
+    };
+    listeners.add(refresh);
+    refresh();
     return () => {
       active = false;
+      listeners.delete(refresh);
     };
   }, []);
   return state;
@@ -50,5 +58,7 @@ export function useLibrary(): LibraryState {
 
 /** Forgets the shared read after the library changes, so the next step sees it. */
 export function invalidateLibrary(): void {
+  version += 1;
   pending = null;
+  for (const listener of listeners) listener();
 }

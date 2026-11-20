@@ -45,6 +45,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/shortlink"
 	"github.com/Ferousco-dev/beyond-social/server/internal/social"
 	"github.com/Ferousco-dev/beyond-social/server/internal/storage"
+	"github.com/Ferousco-dev/beyond-social/server/internal/storyboard"
 	"github.com/Ferousco-dev/beyond-social/server/internal/supabaseauth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 	"github.com/Ferousco-dev/beyond-social/server/internal/worker"
@@ -249,6 +250,9 @@ func run() error {
 		AssistBiller:        credits.NewActionBiller(creditService, credits.ActionEditorAssist),
 		Transcriber:         editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
 		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
+		Storyboards:         storyboard.NewModelWriter(geminiClient),
+		Voiceover:           kietools.NewService(jobService),
+		StoryboardBiller:    credits.NewActionBiller(creditService, credits.ActionStoryboard),
 		Billing:             billingService,
 		Usage:               creditService,
 		PaymentFailing:      billingStore.PaymentFailing,
@@ -286,7 +290,7 @@ func run() error {
 		Addr:              ":" + cfg.HTTPPort,
 		Handler:           app.Handler(),
 		ReadHeaderTimeout: 3 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      180 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

@@ -5,22 +5,22 @@ import { useEffect, useRef, useState } from "react";
 import { preloadLibrary, useLibrary } from "@/features/asset-library/use-library";
 import { AVATAR_PACK_KEY } from "@/features/new-video/components/avatar-pack-panel";
 import { OptionSheet } from "@/features/new-video/components/option-sheet";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
-import { fromSuggestion, toAudience } from "./audience";
+import { toAudience } from "./audience";
 import { DRAFT_KEY, STEP_KEY, readDraft } from "./draft";
-import { StepAssets } from "./step-assets";
-import { StepFormat } from "./step-format";
+import { valuesFromAnalysis } from "./analysis-values";
+import { useReferenceScript } from "./reference-script";
+import { StepCast } from "./step-cast";
 import { StepObjective, objectiveErrors } from "./step-objective";
 import { StepReview } from "./step-review";
 import { StepScript } from "./step-script";
 import { toVideoLength } from "./pacing";
-import { CONTENT_KINDS, EMPTY_FORM, MAX_TURNS, STEPS, newTurn, type GenerateFormValues } from "./types";
-import type { ApprovedScript } from "@/features/new-video/approved-script";
+import { CONTENT_KINDS, EMPTY_FORM, STEPS, type GenerateFormValues } from "./types";
 import type { OwnIdea } from "@/features/new-video/components/own-idea-panel";
 
 const IDEA_KEY = "bs:own-idea";
-const SCRIPT_KEY = "bs:approved-script";
 const QUICK_KEY = "bs:quick-start";
 
 function readJSON<T>(key: string): T | null {
@@ -37,6 +37,8 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   const [step, setStep] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [values, setValues] = useState<GenerateFormValues>(EMPTY_FORM);
+  // Nothing is saved until the earlier draft, idea or script has been read, or the empty form would overwrite them.
+  const [hydrated, setHydrated] = useState(false);
 
   const [showErrors, setShowErrors] = useState(false);
 
@@ -61,7 +63,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
 
   const library = useLibrary();
 
-  // A pack chosen on New Video fills the face, voice, product and environment, and opens at the script.
+  // A pack chosen on New Video fills the face, voice, product and environment, and opens at the first step, ready for what the video is about.
   // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
   const pack = useRef<{ face?: string; voice?: string; product?: string; environment?: string } | null | undefined>(undefined);
   if (pack.current === undefined) pack.current = null;
@@ -85,14 +87,15 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       productAssetId: find(chosen.product),
       environmentAssetId: find(chosen.environment),
     }));
-    setStep(2);
+    setStep(0);
   }, [library]);
 
   // Saved assets are read now, so the Visual assets step opens without waiting.
   useEffect(() => preloadLibrary(), []);
 
-  // Prefill once: the own-idea brief, then the approved analysis script.
+  // Prefill once: an earlier draft, or the idea written on New Video.
   useEffect(() => {
+    setHydrated(true);
     const saved = readDraft<GenerateFormValues>(DRAFT_KEY) ?? readJSON<GenerateFormValues>(DRAFT_KEY);
     if (saved) {
       setValues({
@@ -108,62 +111,86 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       return;
     }
     const idea = readJSON<OwnIdea>(IDEA_KEY);
-    const script = readJSON<ApprovedScript>(SCRIPT_KEY);
-    if (!idea && !script) return;
-    // The reference video's analysis already settled the topic, audience and
-    // look, so setup opens at the script. A quick start from an idea goes
-    // straight to the final review. Either way Back still reaches the rest.
+    if (!idea) return;
+    // A quick start from an idea goes straight to the final review. Back still reaches the rest.
     const quick = readJSON<boolean>(QUICK_KEY);
     try {
       window.sessionStorage.removeItem(QUICK_KEY);
     } catch {
       // Nothing to clear.
     }
-    if (idea && quick) {
+    if (quick) {
       setStep(STEPS.length - 1);
       setReviewing(true);
-    } else if (script) setStep(2);
-    setValues((current) => ({
-      ...current,
-      objective: idea?.objective ?? current.objective,
-      audience: script?.audience ? fromSuggestion(script.audience) : idea ? toAudience(idea.audience) : current.audience,
-      product: idea?.product ?? current.product,
-      visualStyle: idea?.style ?? script?.style ?? current.visualStyle,
-      hook: script?.hook ?? current.hook,
-      scenes: script?.main ?? current.scenes,
-      dialogue: script?.dialogue ?? current.dialogue,
-      cta: script?.cta ?? current.cta,
-      seconds: script?.seconds ?? current.seconds,
-      ...(script?.speakers !== undefined && script.speakers > 1
-        ? { speakerMode: "conversation" as const, turns: Array.from({ length: Math.min(script.speakers, MAX_TURNS) }, newTurn) }
-        : {}),
-    }));
+    }
+    setValues((current) => ({ ...current, objective: idea.objective }));
   }, []);
 
   // Autosave every change; the job itself persists server-side.
   useEffect(() => {
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
     } catch {
       // Private browsing: the form still works for this session.
     }
-  }, [values]);
+  }, [values, hydrated]);
 
   // Remember which step the person was on, so coming back from Assets lands where they left.
   useEffect(() => {
+    if (!hydrated) return;
     try {
       window.localStorage.setItem(STEP_KEY, JSON.stringify(step));
     } catch {
       // Private browsing: the form still works for this session.
     }
-  }, [step]);
+  }, [step, hydrated]);
 
   function patch(next: Partial<GenerateFormValues>): void {
     setValues((current) => ({ ...current, ...next }));
   }
 
+  // A reference video chosen on New Video: its script is written here in the background, and lands in the form.
+  const script = useReferenceScript((analysis) => setValues((current) => ({ ...current, ...valuesFromAnalysis(current, analysis) })));
+  const writing = script.state.phase === "working";
+
   return (
     <div className="flex flex-col gap-5">
+      {script.state.phase !== "idle" ? (
+        <div role="status" aria-live="polite" className="flex flex-col gap-2 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
+          {script.state.phase === "working" ? (
+            <>
+              <span className="flex items-center gap-2">
+                <Spinner className="size-4 text-primary" />
+                Writing your script from the video. Carry on, it will appear in the Script step.
+              </span>
+              <span className="block h-1.5 w-full overflow-hidden rounded-full bg-cloud" role="progressbar" aria-label="Script progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={script.state.progress}>
+                <span className="block h-full bg-primary transition-[width]" style={{ width: `${script.state.progress}%` }} />
+              </span>
+            </>
+          ) : script.state.phase === "ready" ? (
+            <span className="flex flex-wrap items-center gap-3">
+              Your script is ready.
+              <button type="button" onClick={() => setStep(1)} className="cursor-pointer font-medium text-primary underline underline-offset-2">
+                See it
+              </button>
+              <button type="button" onClick={script.dismiss} className="cursor-pointer text-ink-soft underline underline-offset-2">
+                Dismiss
+              </button>
+            </span>
+          ) : (
+            <span className="flex flex-wrap items-center gap-3 text-destructive" role="alert">
+              {script.state.message}
+              <button type="button" onClick={script.retry} className="cursor-pointer font-medium text-primary underline underline-offset-2">
+                Try again
+              </button>
+              <button type="button" onClick={script.dismiss} className="cursor-pointer text-ink-soft underline underline-offset-2">
+                Write it myself
+              </button>
+            </span>
+          )}
+        </div>
+      ) : null}
       <ol aria-label="Progress" className="flex gap-1.5">
         {STEPS.map((label, index) => (
           <li key={label} className="flex-1">
@@ -190,16 +217,8 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       <h2 className="text-lg font-semibold text-ink">{STEPS[step]}</h2>
 
       {step === 0 ? <StepObjective values={values} onChange={patch} showErrors={showErrors} /> : null}
-      {step === 1 ? <StepFormat values={values} onChange={patch} /> : null}
-      {step === 2 ? (
-        <div className="flex flex-col gap-8">
-          <StepScript values={values} onChange={patch} />
-          <section aria-labelledby="assets-heading" className="flex flex-col gap-3 border-t border-hairline pt-6">
-            <h3 id="assets-heading" className="text-base font-semibold text-ink">Visual assets</h3>
-            <StepAssets values={values} onChange={patch} />
-          </section>
-        </div>
-      ) : null}
+      {step === 1 ? <StepScript values={values} onChange={patch} /> : null}
+      {step === 2 ? <StepCast values={values} onChange={patch} /> : null}
 
       <div className="flex gap-2">
         {step > 0 ? (
@@ -214,9 +233,10 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         <button
           type="button"
           onClick={step < STEPS.length - 1 ? handleContinue : () => { if (goTo(step)) setReviewing(true); }}
+          disabled={writing && step === STEPS.length - 1}
           className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
         >
-          {step < STEPS.length - 1 ? "Continue" : "Review and generate"}
+          {step < STEPS.length - 1 ? "Continue" : writing ? "Writing your script…" : "Review and generate"}
         </button>
       </div>
 

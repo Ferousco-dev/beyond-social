@@ -22,8 +22,7 @@ export default async function EditorPage({
   const { job, script } = await searchParams;
   if (!z.string().uuid().safeParse(id).success) notFound();
 
-  // Only the project is waited for; the API checks the account on this same
-  // request, and the Media tab loads the video library after the editor opens.
+  // Only the project is waited for; the API checks the account on this same request.
   const project = await goApi(`/api/v1/editor/projects/${id}`, editorProjectResponse);
   if (!project.ok) {
     if (project.status === 404) notFound();

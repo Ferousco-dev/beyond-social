@@ -27,7 +27,7 @@ export default async function VideosNewPage(): Promise<ReactNode> {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
-      <Link href={"/dashboard/new" as Route} className="text-sm text-ink-soft underline-offset-2 hover:text-ink hover:underline">
+      <Link href={"/dashboard/new" as Route} prefetch className="text-sm text-ink-soft underline-offset-2 hover:text-ink hover:underline">
         Back to New Video
       </Link>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">Configure video</h1>

@@ -11,8 +11,9 @@ import { describeProject } from "../core/describe.ts";
 import { locate } from "../core/find.ts";
 import { type Project } from "../core/types.ts";
 import { makeId } from "../lib/format";
-import { resolveSrc } from "../lib/media-ref";
+import { mediaId, resolveSrc } from "../lib/media-ref";
 import { placeGeneratedVideo } from "../lib/place-generated";
+import { resolveMediaUrls } from "../media-actions";
 import { useStudio } from "../store/editor-store";
 
 export interface SceneProposal {
@@ -99,12 +100,19 @@ export function useAssistant(): Assistant {
     async (itemId: string): Promise<void> => {
       const { history, mediaUrls, setClipNote } = useStudio.getState();
       const item = locate(history.present, itemId)?.item;
-      const url = item && "src" in item ? resolveSrc(item.src, mediaUrls) : "";
+      let url = item && "src" in item ? resolveSrc(item.src, mediaUrls) : "";
+      if (!url.startsWith("https://") && item && "src" in item) {
+        const id = mediaId(item.src);
+        if (id) {
+          const links = await resolveMediaUrls([id]);
+          url = links[id]?.url ?? "";
+        }
+      }
       if (!url.startsWith("https://")) return void add({ role: "assistant", content: "That clip is not ready to watch yet. Try again in a moment." });
       const result = await watchClip(url);
       if (!result.ok) return void add({ role: "assistant", content: result.message });
       setClipNote(itemId, result.notes.slice(0, 1200));
-      add({ role: "assistant", content: `I watched it (5 credits):\n${result.notes}` });
+      add({ role: "assistant", content: `I watched it:\n${result.notes}` });
     },
     [add],
   );
@@ -132,10 +140,10 @@ export function useAssistant(): Assistant {
       const history = messages
         .filter((m) => m.content)
         .slice(-HISTORY_TURNS)
-        .map((m) => ({ role: m.role, content: m.content }));
+        .map((m) => ({ role: m.role, content: m.content.slice(0, 1000) }));
       add({ role: "user", content: message });
-      const { history: h, currentTime, clipNotes, range } = useStudio.getState();
-      const result = await askAssistant({ message, history, state: describeProject(h.present, currentTime, clipNotes, range), projectId: useStudio.getState().projectId ?? undefined });
+      const { history: h, currentTime, clipNotes } = useStudio.getState();
+      const result = await askAssistant({ message, history, state: describeProject(h.present, currentTime, clipNotes), projectId: useStudio.getState().projectId ?? undefined });
       if (!result.ok) {
         setBusy(false);
         setErrorCode(result.code);

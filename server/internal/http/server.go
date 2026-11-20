@@ -16,6 +16,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
 	"github.com/Ferousco-dev/beyond-social/server/internal/library"
 	"github.com/Ferousco-dev/beyond-social/server/internal/realtime"
+	"github.com/Ferousco-dev/beyond-social/server/internal/storyboard"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 )
 
@@ -55,6 +56,9 @@ type Deps struct {
 	Transcriber         editor.Transcriber
 	CaptionBiller       ResourceBiller
 	Watcher             editor.Watcher
+	Storyboards         storyboard.Writer
+	Voiceover           VoiceoverSubmitter
+	StoryboardBiller    ResourceBiller
 	Billing             BillingService
 	Usage               UsageService
 	// PaymentFailing says whether a member's renewal payment failed. Optional: nil reads as never.
@@ -154,6 +158,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/editor/scenes/quote", protected(http.HandlerFunc(a.sceneQuote)))
 	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
 	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
+	mux.Handle("POST /api/v1/storyboard", protected(http.HandlerFunc(a.storyboardWrite)))
+	mux.Handle("POST /api/v1/voiceover", protected(http.HandlerFunc(a.createVoiceover)))
+	mux.Handle("POST /api/v1/voiceover/{id}/adopt", protected(http.HandlerFunc(a.adoptVoiceover)))
 	mux.Handle("GET /api/v1/memory", protected(http.HandlerFunc(a.memorySettings)))
 	mux.Handle("POST /api/v1/memory", protected(http.HandlerFunc(a.addMemory)))
 	mux.Handle("DELETE /api/v1/memory/{id}", protected(http.HandlerFunc(a.deleteMemory)))

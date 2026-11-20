@@ -6,12 +6,6 @@ import { type Project, type Result } from "../core/types.ts";
 import { STUDIO_ZOOM } from "../config";
 import { clamp } from "../lib/format";
 
-/** A stretch of the timeline, in seconds. */
-export interface TimeRange {
-  readonly start: number;
-  readonly end: number;
-}
-
 export type ToolTab = "media" | "captions" | "text" | "images" | "music";
 export type SaveStatus = "saved" | "pending" | "saving" | "error" | "conflict";
 type Edit = (project: Project) => Result<Project>;
@@ -40,8 +34,6 @@ interface StudioState {
   /** The server's reason for the notice, when a plan limit caused it. */
   noticeCode: string | undefined;
   currentTime: number;
-  /** A stretch of the video the person marked, so the assistant changes only that part. */
-  range: TimeRange | null;
   playing: boolean;
   zoom: number;
   snapping: boolean;
@@ -65,8 +57,6 @@ interface StudioState {
   setClipNote: (itemId: string, note: string) => void;
   setNotice: (notice: string | null, code?: string) => void;
   seek: (time: number) => void;
-  /** Marks a stretch of the video; anything shorter than a tenth of a second clears it. */
-  setRange: (range: TimeRange | null) => void;
   setPlaying: (playing: boolean) => void;
   /** Plays or pauses; playing from the very end starts again from the beginning. */
   togglePlay: () => void;
@@ -92,7 +82,6 @@ export const useStudio = create<StudioState>((set, get) => ({
   notice: null,
   noticeCode: undefined,
   currentTime: 0,
-  range: null,
   playing: false,
   zoom: STUDIO_ZOOM.DEFAULT,
   snapping: true,
@@ -101,7 +90,7 @@ export const useStudio = create<StudioState>((set, get) => ({
   load: (id, title, version, project) =>
     set({
       projectId: id, title, version, history: createHistory(project), saved: project, saveStatus: "saved", clipNotes: {},
-      gestureBase: null, lastEdit: null, selection: null, currentTime: 0, range: null, playing: false,
+      gestureBase: null, lastEdit: null, selection: null, currentTime: 0, playing: false,
     }),
 
   edit: (edit, key) => {
@@ -153,7 +142,6 @@ export const useStudio = create<StudioState>((set, get) => ({
   setMediaUrls: (urls) => set((s) => ({ mediaUrls: { ...s.mediaUrls, ...urls } })),
   setNotice: (notice, noticeCode) => set({ notice, noticeCode }),
   seek: (time) => set({ currentTime: clamp(time, 0, projectDuration(get().history.present) + 30) }),
-  setRange: (range) => set({ range: range && range.end - range.start >= 0.1 ? range : null }),
   setPlaying: (playing) => set({ playing }),
   togglePlay: () => {
     const { playing, currentTime, history } = get();

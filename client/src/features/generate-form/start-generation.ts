@@ -4,8 +4,9 @@ import type { ProjectGeneration } from "@/features/studio/core/types";
 
 import { avatarDirection, buildAvatarScript, buildPrompt } from "./brief";
 import { planLongVideo } from "./long-video";
-import { hasSound, isLong } from "./pacing";
+import { hasSound, isLong, wordCount } from "./pacing";
 import { cachedLongQuote, cachedSceneQuote } from "./scene-quotes";
+import { clipsFromStoryboard, isReady, isStale, voiceoverFit, voiceoverMatches, voiceoverOf, type Voiceover } from "./storyboard";
 import { isTalking, type GenerateFormValues } from "./types";
 
 export type VideoKind = "clip" | "talking" | "conversation";
@@ -27,6 +28,21 @@ export function scriptOf(values: GenerateFormValues): string {
   }
 }
 
+/**
+ * The voiceover read over a long video, when there is one made from the words the
+ * storyboard says now and it is not longer than the video (it would be cut off).
+ */
+export function narration(values: GenerateFormValues): Voiceover | null {
+  const { storyboard, voiceover } = values;
+  if (!isLong(values.seconds) || !storyboard || !voiceover || !voiceoverMatches(storyboard, voiceover)) return null;
+  return voiceoverFit(voiceover.seconds, values.seconds, wordCount(voiceoverOf(storyboard))).kind === "long" ? null : voiceover;
+}
+
+/** Whether the clips are made with sound. With a voiceover they are silent, so the voice cannot change between parts. */
+export function clipSound(values: GenerateFormValues): boolean {
+  return hasSound(values) && narration(values) === null;
+}
+
 /** The credit cost: one clip, one talking video, or one talking video per turn. */
 export async function quoteGeneration(values: GenerateFormValues): Promise<number | null> {
   switch (videoKind(values)) {
@@ -35,7 +51,7 @@ export async function quoteGeneration(values: GenerateFormValues): Promise<numbe
     case "talking":
       return quoteLiveAvatar({ voiceAssetIds: [values.voiceAssetId] });
     case "clip":
-      return isLong(values.seconds) ? cachedLongQuote(values.seconds, hasSound(values)) : cachedSceneQuote(values.seconds, hasSound(values));
+      return isLong(values.seconds) ? cachedLongQuote(values.seconds, clipSound(values)) : cachedSceneQuote(values.seconds, clipSound(values));
   }
 }
 
@@ -94,9 +110,13 @@ export async function startGeneration(values: GenerateFormValues): Promise<Start
       };
     }
     case "clip": {
-      const sound = hasSound(values);
+      const sound = clipSound(values);
+      const voice = narration(values);
       if (isLong(values.seconds)) {
-        const plan = planLongVideo({ setting: longSetting(values), story: longStory(values), totalSeconds: values.seconds });
+        // The approved storyboard is what is rendered. The even split of the script is only the fallback for a form that has none.
+        const board = values.storyboard;
+        const approved = board !== null && isReady(board, values.seconds) && !isStale(board, { seconds: values.seconds, script: longStory(values) });
+        const plan = approved ? clipsFromStoryboard(board, longSetting(values), voice !== null) : planLongVideo({ setting: longSetting(values), story: longStory(values), totalSeconds: values.seconds });
         const keys = plan.map(() => crypto.randomUUID());
         const firstPart = plan[0];
         const firstKey = keys[0];
@@ -121,6 +141,7 @@ export async function startGeneration(values: GenerateFormValues): Promise<Start
             generator: "long",
             aspectRatio: values.aspectRatio,
             sound,
+            ...(voice ? { voiceoverMediaId: voice.mediaId, voiceoverSeconds: voice.seconds } : {}),
             ...(values.firstFrameId !== "" ? { imageMediaId: values.firstFrameId } : {}),
             parts: plan.map((part, index) => ({
               key: keys[index] ?? crypto.randomUUID(),

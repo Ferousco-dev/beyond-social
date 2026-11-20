@@ -14,11 +14,6 @@ export const CTA_OPTIONS = same([
   "Send me a DM",
 ]);
 
-export const MUSIC_OPTIONS: readonly Option[] = [
-  { value: "", label: "No music" },
-  ...same(["Upbeat pop", "Lo-fi chill", "Cinematic", "Corporate", "Acoustic", "Hip-hop", "Ambient"]),
-];
-
 export const STYLE_OPTIONS = same([
   "Bright and clean",
   "Cinematic",

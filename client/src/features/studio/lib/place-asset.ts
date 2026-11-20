@@ -1,26 +1,19 @@
 import { endOf } from "../core/find.ts";
-import { adoptVideo } from "../assist-actions";
-import { addAsset, addItem } from "../core/ops.ts";
+import { addItem } from "../core/ops.ts";
 import { assetSchema, type Asset } from "../core/types.ts";
 import { useStudio } from "../store/editor-store";
 import { makeId } from "./format";
-import { mediaRef } from "./media-ref";
 
 export const ASSET_DRAG_TYPE = "application/x-studio-asset";
 const IMAGE_SECONDS = 3;
 
-export type Dragged = { readonly asset: Asset; readonly job?: string };
-
-/** Reads a dragged file back from a drop, refusing anything that is not one. `job` is set for videos made in this app. */
-export function readDraggedAsset(data: DataTransfer): Dragged | null {
+/** Reads a dragged file back from a drop, refusing anything that is not one. */
+export function readDraggedAsset(data: DataTransfer): Asset | null {
   const raw = data.getData(ASSET_DRAG_TYPE);
   if (!raw) return null;
   try {
-    const json: unknown = JSON.parse(raw);
-    const parsed = assetSchema.safeParse(json);
-    if (!parsed.success) return null;
-    const job = typeof json === "object" && json !== null && "job" in json && typeof json.job === "string" ? json.job : undefined;
-    return job ? { asset: parsed.data, job } : { asset: parsed.data };
+    const parsed = assetSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -52,20 +45,4 @@ export function placeAsset(asset: Asset, at?: number): void {
     ),
   );
   if (!error) store.select(id);
-}
-
-/**
- * Puts a finished video from the library on the timeline. It is first copied
- * into the user's own storage: the provider's link expires and cannot be read
- * by the editor when exporting.
- */
-export async function placeJobVideo(jobId: string, name: string, duration: number | undefined, at?: number): Promise<void> {
-  const store = useStudio.getState();
-  store.setNotice("Preparing the video…");
-  const copied = await adoptVideo(jobId);
-  if (!copied.ok) return useStudio.getState().setNotice(copied.message, copied.code);
-  useStudio.getState().setNotice(null);
-  const asset: Asset = { src: mediaRef(copied.mediaId), name: name.slice(0, 120) || "Video", kind: "video", ...(duration ? { duration } : {}) };
-  useStudio.getState().edit((p) => addAsset(p, asset));
-  placeAsset(asset, at);
 }

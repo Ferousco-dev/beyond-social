@@ -10,6 +10,7 @@ const (
 	ActionEditorAssist   = "editor_assist"
 	ActionEditorCaptions = "editor_captions"
 	ActionEditorWatch    = "editor_watch"
+	ActionStoryboard     = "storyboard"
 	ActionChatMessage    = "chat_message"
 )
 

@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-
 import { ChoiceChips } from "@/components/ui/choice-chips";
 import { useLibrary } from "@/features/asset-library/use-library";
 
@@ -16,7 +14,7 @@ const SPEAKER_MODES = [
 ] as const;
 
 /**
- * Step D: who and what appears, picked one by one from the saved library.
+ * Who and what appears, picked one by one from the saved library.
  * Nothing is uploaded here, so every video is made from labelled, consented
  * assets the person can reuse.
  */
@@ -52,11 +50,12 @@ export function StepAssets({
   }
 
   const assets = library.assets;
-  const hasFace = assets.some((asset) => asset.kind === "face");
 
   // The clip starts from the face when there is one and it is not talking,
   // otherwise from the product, then the environment.
   function pick(patch: Partial<GenerateFormValues>): void {
+    // A recording only means something with a face to speak it, so taking the face away takes it too.
+    if (patch.faceAssetId === "") patch = { ...patch, voiceAssetId: "" };
     const next = { ...values, ...patch };
     const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]
       .map((id) => assets.find((asset) => asset.id === id))
@@ -68,24 +67,8 @@ export function StepAssets({
 
   return (
     <div className="flex flex-col gap-6">
-      {!hasFace ? (
-        <div className="rounded-xl border border-hairline bg-cloud/50 p-4">
-          <p className="text-sm font-medium text-ink">Create an avatar first</p>
-          <p className="mt-1 text-sm text-ink-soft">
-            Videos with a person use one of your saved faces. Add a face (and a voice recording if they should speak) in
-            Assets, label them clearly, then pick them here.
-          </p>
-          <Link
-            href="/dashboard/assets"
-            className="mt-3 inline-flex h-9 items-center rounded-[10px] bg-ink px-3.5 text-sm font-medium text-paper transition-opacity hover:opacity-90"
-          >
-            Go to Assets
-          </Link>
-        </div>
-      ) : null}
-
       <ChoiceChips
-        label="Who speaks"
+        label="Who is in the video?"
         options={SPEAKER_MODES}
         value={values.speakerMode}
         onChange={(mode) =>
@@ -103,38 +86,50 @@ export function StepAssets({
         <>
           <LibraryPicker
             kind="face"
+            title="Person"
+            hint="Optional. Pick someone you saved. They appear in the video wearing what they wear in their photo."
             assets={assets}
             value={values.faceAssetId}
             onChange={(asset) => pick({ faceAssetId: asset?.id ?? "" })}
           />
-          <LibraryPicker
-            kind="voice"
-            assets={assets}
-            value={values.voiceAssetId}
-            onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}
-          />
-          <p className="-mt-3 text-xs text-ink-soft">
-            {isTalking(values)
-              ? "The face will speak your saved voice recording, lip-synced to it."
-              : values.voiceAssetId !== ""
-                ? "Pick a face too, so someone speaks the recording."
-                : "Pick a face and a voice for a talking video, or leave the voice out for a clip without speech from a person."}
-          </p>
+          {values.faceAssetId !== "" || values.voiceAssetId !== "" ? (
+            <>
+              <LibraryPicker
+                kind="voice"
+                title="Their own voice"
+                hint="Optional. Pick a recording and this person speaks it. Leave it empty and an AI voice reads your words."
+                assets={assets}
+                value={values.voiceAssetId}
+                onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}
+              />
+              {isTalking(values) ? <p className="-mt-3 text-xs text-ink-soft">This person will speak your recording, lip-synced to it.</p> : null}
+            </>
+          ) : null}
         </>
       )}
 
-      <LibraryPicker
-        kind="product"
-        assets={assets}
-        value={values.productAssetId}
-        onChange={(asset) => pick({ productAssetId: asset?.id ?? "" })}
-      />
-      <LibraryPicker
-        kind="environment"
-        assets={assets}
-        value={values.environmentAssetId}
-        onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}
-      />
+      <details open={values.productAssetId !== "" || values.environmentAssetId !== ""} className="rounded-xl border border-hairline px-3 py-2.5">
+        <summary className="cursor-pointer text-sm font-medium text-ink">
+          Show a product or a place <span className="font-normal text-ink-soft">(optional)</span>
+        </summary>
+        <div className="mt-3 flex flex-col gap-5">
+          <LibraryPicker
+            kind="product"
+            title="Product"
+            assets={assets}
+            value={values.productAssetId}
+            onChange={(asset) => pick({ productAssetId: asset?.id ?? "" })}
+          />
+          <LibraryPicker
+            kind="environment"
+            title="Place"
+            hint="Where the video happens."
+            assets={assets}
+            value={values.environmentAssetId}
+            onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}
+          />
+        </div>
+      </details>
 
       {notes.length > 0 ? (
         <div role="status" className="flex flex-col gap-1 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">

@@ -10,14 +10,13 @@ import { useAssistant } from "../../hooks/use-assistant";
 import { selectProject, useStudio } from "../../store/editor-store";
 import { RememberCard } from "./remember-card";
 import { SceneCard } from "./scene-card";
-import { SelectionBar } from "./selection-bar";
 
 const SUGGESTIONS = [
   "Watch my clip and tell me what happens",
   "Add the next scene",
   "Add a title at the start",
   "Cut the clip in half at the playhead",
-  "Make the captions yellow and bigger",
+  "Speed up the clip to 1.5x",
 ];
 
 export function AiPanel() {
@@ -45,7 +44,7 @@ export function AiPanel() {
           <div className="flex h-full flex-col items-center justify-center gap-3 px-2 text-center">
             <Sparkles className="size-9 text-primary" strokeWidth={1.25} aria-hidden />
             <p className="text-base font-medium text-ink">Edit by asking</p>
-            <p className="text-sm text-ink-soft">Tell it what to change. It makes supported timeline edits, and you can undo them.</p>
+            <p className="text-sm text-ink-soft">Ask to cut, trim, add text, adjust speed, or generate a scene.</p>
             <div className="flex flex-wrap justify-center gap-2">
               {SUGGESTIONS.map((text) => (
                 <button
@@ -92,8 +91,7 @@ export function AiPanel() {
           {error} <ErrorHelp code={errorCode} className="font-medium text-ink underline underline-offset-2" />
         </p>
       ) : null}
-      <div className="shrink-0 space-y-2 p-2">
-        <SelectionBar />
+      <div className="shrink-0 p-2">
         <form
           onSubmit={submit}
           className="relative rounded-lg border border-hairline bg-canvas transition-colors focus-within:border-primary"
@@ -125,14 +123,13 @@ export function AiPanel() {
             <ArrowUp className="size-4" aria-hidden />
           </button>
         </form>
-        <div className="mt-1.5 flex items-center justify-between gap-2 px-1 text-[11px] leading-4 text-ink-soft">
-          <span>Older messages are left out automatically. 1 credit per message.</span>
-          {messages.length > 0 ? (
+        {messages.length > 0 ? (
+          <div className="mt-1.5 flex justify-end px-1 text-[11px] leading-4 text-ink-soft">
             <button type="button" onClick={clear} className="shrink-0 cursor-pointer hover:text-ink">
               Clear
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

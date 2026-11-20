@@ -5,7 +5,7 @@ function labelStep(zoom: number): number {
   return STUDIO_TIMELINE.LABEL_STEPS.find((step) => step * zoom >= STUDIO_TIMELINE.MIN_LABEL_SPACING) ?? 300;
 }
 
-export function TimelineRuler({ zoom, span, onScrub, onMark }: { zoom: number; span: number; onScrub: (clientX: number) => void; onMark: (clientX: number) => void }) {
+export function TimelineRuler({ zoom, span, onScrub }: { zoom: number; span: number; onScrub: (clientX: number) => void }) {
   const step = labelStep(zoom);
   const minor = step / STUDIO_TIMELINE.MINOR_TICKS_PER_LABEL;
   const ticks = Math.ceil(span / minor);
@@ -14,7 +14,7 @@ export function TimelineRuler({ zoom, span, onScrub, onMark }: { zoom: number; s
     <div
       className="sticky top-0 z-20 shrink-0 cursor-pointer border-b border-hairline bg-paper"
       style={{ height: STUDIO_TIMELINE.RULER_HEIGHT }}
-      onPointerDown={(event) => (event.shiftKey ? onMark(event.clientX) : onScrub(event.clientX))}
+      onPointerDown={(event) => onScrub(event.clientX)}
     >
       {Array.from({ length: ticks + 1 }, (_, i) => {
         const time = i * minor;

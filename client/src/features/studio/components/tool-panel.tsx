@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 import { useStudio, type ToolTab } from "../store/editor-store";
 import { AssetsPanel } from "./panels/assets-panel";
-import { MediaPanel } from "./panels/media-panel";
 
 // Panels other than the first load when their tab opens, which keeps the editor's first download smaller.
 const Fallback = (): ReactNode => <div className="m-3 h-24 animate-pulse rounded-lg bg-cloud" aria-hidden />;
@@ -60,7 +59,7 @@ export function ToolPanel(): ReactNode {
 function panel(tool: ToolTab): ReactNode {
   switch (tool) {
     case "media":
-      return <MediaPanel />;
+      return <AssetsPanel kind="video" />;
     case "captions":
       return <CaptionsPanel />;
     case "text":

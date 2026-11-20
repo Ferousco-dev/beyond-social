@@ -19,7 +19,6 @@ export function buildPrompt(values: GenerateFormValues): string {
     values.tone !== "" ? `Tone: ${values.tone}` : "",
     values.cta !== "" ? `Ends with: ${values.cta}` : "",
     values.product !== "" ? `Featuring: ${values.product}` : "",
-    values.music !== "" ? `Music: ${values.music}` : "",
   ];
   return parts.map((part) => part.trim()).filter((part) => part !== "").join("\n");
 }

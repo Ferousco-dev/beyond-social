@@ -8,26 +8,28 @@ import { cn } from "@/lib/utils";
 import { transcribeVideo } from "../../assist-actions";
 import { captionsFromWords, DEFAULT_CAPTION_STYLE } from "../../core/captions.ts";
 import { endOf, locate } from "../../core/find.ts";
+import { MUSIC_TRACK_ID } from "../../core/music.ts";
 import { replaceCaptions, restyleCaptions } from "../../core/ops.ts";
 import { CAPTION_PRESETS, type CaptionPreset, type Item, type Project } from "../../core/types.ts";
 import { makeId } from "../../lib/format";
-import { resolveSrc } from "../../lib/media-ref";
+import { mediaId, resolveSrc } from "../../lib/media-ref";
+import { resolveMediaUrls } from "../../media-actions";
 import { selectProject, useStudio } from "../../store/editor-store";
 import { Field } from "./field";
 
 const PRESET_LABEL: Record<CaptionPreset, string> = { karaoke: "Karaoke", pill: "Pill", classic: "Classic", box: "Box", minimal: "Minimal" };
 const SIZES = [{ label: "Small", value: 48 }, { label: "Medium", value: 64 }, { label: "Large", value: 84 }] as const;
 const POSITIONS = [{ label: "Top", value: 0.15 }, { label: "Middle", value: 0.5 }, { label: "Bottom", value: 0.8 }] as const;
-// Speech-to-text is switched off until a transcription service is connected, so nothing is generated or charged.
-const CAPTIONS_AVAILABLE = false;
 
-type Video = Extract<Item, { kind: "video" }>;
+type MediaClip = Extract<Item, { kind: "video" | "audio" }>;
 
-function targetClip(project: Project, selection: string | null): Video | null {
+function targetClip(project: Project, selection: string | null): MediaClip | null {
   const chosen = selection ? locate(project, selection)?.item : undefined;
-  if (chosen?.kind === "video") return chosen;
-  const first = project.tracks.find((t) => t.kind === "video")?.items[0];
-  return first?.kind === "video" ? first : null;
+  if (chosen?.kind === "video" || chosen?.kind === "audio") return chosen;
+  const firstVideo = project.tracks.find((t) => t.kind === "video")?.items[0];
+  if (firstVideo?.kind === "video") return firstVideo;
+  const firstAudio = project.tracks.find((t) => t.kind === "audio" && t.id !== MUSIC_TRACK_ID)?.items[0];
+  return firstAudio?.kind === "audio" ? firstAudio : null;
 }
 
 function currentStyle(project: Project) {
@@ -50,19 +52,41 @@ export function CaptionsPanel() {
 
   const generate = async (): Promise<void> => {
     if (!clip) return;
-    // Clips refer to uploads as "media:<id>"; the server needs the file's own address.
-    const url = resolveSrc(clip.src, useStudio.getState().mediaUrls);
-    if (url === "") return useStudio.getState().setNotice("That clip is still loading. Try again in a moment.");
     setBusy(true);
-    const result = await transcribeVideo(url);
-    setBusy(false);
-    if (!result.ok) return useStudio.getState().setNotice(result.message, result.code);
-    // Transcribing takes a while and the person may have moved, trimmed or removed the clip meanwhile.
-    const latest = locate(useStudio.getState().history.present, clip.id)?.item;
-    if (latest?.kind !== "video") return useStudio.getState().setNotice("That clip was removed while listening. Try again.");
-    const captions = captionsFromWords(result.words, latest, makeId, style);
-    if (captions.length === 0) return useStudio.getState().setNotice("No speech was found in that clip.");
-    useStudio.getState().edit((p) => replaceCaptions(p, latest.start, endOf(latest), captions));
+    try {
+      // Clips refer to uploads as "media:<id>"; the server needs the file's own https address.
+      let url = resolveSrc(clip.src, useStudio.getState().mediaUrls);
+      if (!url.startsWith("https://")) {
+        const id = mediaId(clip.src);
+        if (id) {
+          const links = await resolveMediaUrls([id]);
+          url = links[id]?.url ?? "";
+        }
+      }
+      if (!url.startsWith("https://")) {
+        useStudio.getState().setNotice("That clip is still loading. Try again in a moment.");
+        return;
+      }
+      const result = await transcribeVideo(url);
+      if (!result.ok) {
+        useStudio.getState().setNotice(result.message, result.code);
+        return;
+      }
+      // Transcribing takes a while and the person may have moved, trimmed or removed the clip meanwhile.
+      const latest = locate(useStudio.getState().history.present, clip.id)?.item;
+      if (!latest || (latest.kind !== "video" && latest.kind !== "audio")) {
+        useStudio.getState().setNotice("That clip was removed while listening. Try again.");
+        return;
+      }
+      const captions = captionsFromWords(result.words, latest, makeId, style);
+      if (captions.length === 0) {
+        useStudio.getState().setNotice("No speech was found in that clip.");
+        return;
+      }
+      useStudio.getState().edit((p) => replaceCaptions(p, latest.start, endOf(latest), captions));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -70,16 +94,14 @@ export function CaptionsPanel() {
       <div className="space-y-2">
         <button
           type="button"
-          disabled={!CAPTIONS_AVAILABLE || !clip || busy}
+          disabled={!clip || busy}
           onClick={() => void generate()}
           className="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
           {busy ? "Listening" : "Generate captions"}
         </button>
-        <p className="text-xs text-ink-soft">
-          {CAPTIONS_AVAILABLE ? (clip ? "Listens to the selected clip, or the first one." : "Add a video to the timeline first.") : "Automatic captions are not available yet. You can still add your own text from the Text tab."}
-        </p>
+        {!clip ? <p className="text-xs text-ink-soft">Add a video or audio clip first.</p> : null}
       </div>
 
       <Field label="Style">

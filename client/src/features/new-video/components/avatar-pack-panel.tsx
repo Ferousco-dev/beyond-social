@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { listAssetGroups } from "@/features/asset-groups/actions";
 import { resolveMediaUrls } from "@/features/studio/media-actions";
 import { type AssetGroup } from "@/lib/go-api/schemas";
+import { clearDraft } from "@/features/generate-form/draft";
 
 function ready(group: AssetGroup): boolean {
   return group.slots.face !== "" && group.slots.voice !== "" && Boolean(group.face_consent_at) && Boolean(group.voice_consent_at);
@@ -49,6 +50,7 @@ export function AvatarPackPanel() {
 
   function choose(group: AssetGroup): void {
     try {
+      clearDraft();
       for (const key of ["bs:generate-draft", "bs:approved-script", "bs:own-idea", "bs:quick-start"]) window.sessionStorage.removeItem(key);
       window.sessionStorage.setItem(AVATAR_PACK_KEY, JSON.stringify(group.slots));
     } catch {
@@ -58,51 +60,63 @@ export function AvatarPackPanel() {
     router.push("/dashboard/videos/new" as Route);
   }
 
-  if (groups === null) return <p className="text-sm text-ink-soft">Loading your avatar packs…</p>;
+  if (groups === null) return <p className="text-sm text-ink-soft">Loading your saved people…</p>;
 
   const complete = groups.filter(ready);
+  const unfinished = groups.length - complete.length;
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm leading-relaxed text-ink-soft">Choose a saved avatar pack, then write the script and scene direction for this video.</p>
       {complete.length > 0 ? (
-        <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
-          {complete.map((group) => {
-            const face = faces[group.slots.face];
-            return (
-              <li key={group.id}>
-                <button
-                  type="button"
-                  onClick={() => choose(group)}
-                                    className="group flex flex-col items-center gap-2 rounded-xl p-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  <span className="relative flex size-20 items-center justify-center overflow-hidden rounded-full bg-cloud ring-2 ring-hairline transition group-hover:ring-primary">
-                    {face ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={face} alt="" onError={(event) => (event.currentTarget.style.display = "none")} className="size-full object-cover" />
-                    ) : (
-                      <UserRound className="size-9 text-ink-soft" aria-hidden />
-                    )}
-                  </span>
-                  <span className="w-full truncate text-sm font-medium text-ink">{group.name}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <p className="text-sm leading-relaxed text-ink-soft">Tap a person. Their face and voice are filled in for you.</p>
+          <ul className="grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4">
+            {complete.map((group) => {
+              const face = faces[group.slots.face];
+              return (
+                <li key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => choose(group)}
+                    className="group flex w-full cursor-pointer flex-col items-center gap-2 rounded-xl p-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <span className="relative flex size-20 items-center justify-center overflow-hidden rounded-full bg-cloud ring-2 ring-hairline transition group-hover:ring-primary">
+                      {face ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={face} alt="" onError={(event) => (event.currentTarget.style.display = "none")} className="size-full object-cover" />
+                      ) : (
+                        <UserRound className="size-9 text-ink-soft" aria-hidden />
+                      )}
+                    </span>
+                    <span className="w-full truncate text-sm font-medium text-ink">{group.name}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       ) : (
         <div className="rounded-xl border border-hairline bg-cloud/40 p-4">
-          <p className="text-sm font-medium text-ink">No complete avatar packs yet.</p>
-          <p className="mt-1 text-sm text-ink-soft">Create one with a face image, a voice recording, and your consent before generating a video.</p>
+          <p className="text-sm font-medium text-ink">Nobody saved yet.</p>
+          <p className="mt-1 text-sm leading-relaxed text-ink-soft">
+            Add a face and a voice in Assets. A button there brings you straight back, and nothing you have written is lost.
+          </p>
         </div>
       )}
-      <div className="flex flex-wrap gap-2">
-        <Link href={"/dashboard/assets" as Route} className="inline-flex min-h-11 items-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90">
-          {complete.length === 0 ? "Create an avatar" : "Create another avatar"}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Link
+          href={"/dashboard/assets" as Route}
+          className={
+            complete.length === 0
+              ? "inline-flex min-h-11 items-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+              : "text-sm text-primary underline underline-offset-2"
+          }
+        >
+          {complete.length === 0 ? "Add a person in Assets" : "Add another person"}
         </Link>
-        {groups.length > complete.length ? (
-          <Link href={"/dashboard/assets" as Route} className="inline-flex min-h-11 items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud">
-            Finish a saved pack
-          </Link>
+        {unfinished > 0 ? (
+          <span className="text-xs text-ink-soft">
+            {unfinished} saved {unfinished === 1 ? "person is" : "people are"} missing a voice or consent, so not shown.
+          </span>
         ) : null}
       </div>
       {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}

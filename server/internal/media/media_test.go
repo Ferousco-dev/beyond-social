@@ -255,3 +255,26 @@ func TestTwoRequestsForTheSameClipDownloadItOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestAdoptAudioCopiesOnceAndOnlyRealAudio(t *testing.T) {
+	mp3 := append([]byte("ID3"), make([]byte, 64)...)
+	st := &memStore{items: map[string]Item{}}
+	svc := NewService(st, fakeStorage{}, fakeFetcher{data: mp3})
+	ctx := context.Background()
+
+	first, err := svc.AdoptAudio(ctx, "u1", "job-1", "https://cdn.example/v.mp3", "Voiceover")
+	if err != nil || first.Kind != KindAudio || first.MIME != "audio/mpeg" {
+		t.Fatalf("adopt: %+v %v", first, err)
+	}
+	again, err := svc.AdoptAudio(ctx, "u1", "job-1", "https://cdn.example/v.mp3", "Voiceover")
+	if err != nil || again.ID != first.ID || len(st.items) != 1 {
+		t.Fatalf("adopting twice made another copy: %+v %v (%d)", again, err, len(st.items))
+	}
+	if other, err := svc.AdoptAudio(ctx, "u2", "job-1", "https://cdn.example/v.mp3", "x"); err != nil || other.ID == first.ID {
+		t.Fatalf("another user got the first user's copy: %+v %v", other, err)
+	}
+	notAudio := NewService(&memStore{items: map[string]Item{}}, fakeStorage{}, fakeFetcher{data: []byte("<html>")})
+	if _, err := notAudio.AdoptAudio(ctx, "u1", "job-2", "https://cdn.example/v", "x"); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("a non-audio file was copied: %v", err)
+	}
+}
