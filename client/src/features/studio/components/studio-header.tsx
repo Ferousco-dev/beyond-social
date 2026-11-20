@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ErrorHelp } from "@/components/billing/error-help";
+import { TutorialButton } from "@/features/tutorial/tutorial-button";
 import { cn } from "@/lib/utils";
 
 import { FALLBACK_TITLE, RETRY_SAVE_EVENT } from "../hooks/use-autosave";
@@ -95,8 +96,11 @@ export function StudioHeader({ backHref }: { backHref: string }) {
           <ErrorHelp code={noticeCode} className="shrink-0 underline underline-offset-2" />
         </p>
       ) : null}
-      <div className={notice ? "" : "ml-auto"}>
-        <ExportDialog />
+      <div className={cn("flex items-center gap-1.5", !notice && "ml-auto")}>
+        <TutorialButton track="editor" />
+        <div data-tip-anchor="studio-export">
+          <ExportDialog />
+        </div>
       </div>
     </header>
   );

@@ -25,15 +25,17 @@ export default async function NewVideoPage({
       <h1 className="text-2xl font-semibold tracking-tight text-ink">New Video</h1>
       <p className="mt-1 text-sm text-ink-soft">Pick a starting point. Every path ends at the main generation page.</p>
       <ContinueDraft variant="start" />
-      <NewVideoOptions
-        // A real navigation here (a sidebar draft, a shared link) starts the panel afresh.
-        key={`${option ?? ""}|${link ?? ""}|${job ?? ""}|${stage ?? ""}`}
-        initialOption={isOption(option) ? option : null}
-        plan={user.plan}
-        initialUrl={link?.startsWith("https://") ? link : ""}
-        resumeJobId={job}
-        resumeStage={stage === "preview" || stage === "analysis" ? stage : undefined}
-      />
+      <div data-tip-anchor="new-video-options">
+        <NewVideoOptions
+          // A real navigation here (a sidebar draft, a shared link) starts the panel afresh.
+          key={`${option ?? ""}|${link ?? ""}|${job ?? ""}|${stage ?? ""}`}
+          initialOption={isOption(option) ? option : null}
+          plan={user.plan}
+          initialUrl={link?.startsWith("https://") ? link : ""}
+          resumeJobId={job}
+          resumeStage={stage === "preview" || stage === "analysis" ? stage : undefined}
+        />
+      </div>
     </div>
   );
 }

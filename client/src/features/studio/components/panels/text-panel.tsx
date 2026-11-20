@@ -6,7 +6,6 @@ import { addItem } from "../../core/ops.ts";
 import { makeId } from "../../lib/format";
 import { NEW_ITEM_SECONDS } from "../../config";
 import { useStudio } from "../../store/editor-store";
-import { EndingSection } from "./ending-section";
 
 export function TextPanel() {
   const add = (): void => {
@@ -32,7 +31,6 @@ export function TextPanel() {
         <Type className="size-4" aria-hidden />
         Add text
       </button>
-      <EndingSection />
     </div>
   );
 }

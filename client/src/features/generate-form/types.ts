@@ -18,6 +18,8 @@ export function newTurn(): ConversationTurn {
 }
 
 export interface GenerateFormValues {
+  /** Optional project name shown in the sidebar and editor header. */
+  title: string;
   purpose: string;
   /** What the person typed when the purpose is Other. */
   purposeOther: string;
@@ -56,6 +58,7 @@ export interface GenerateFormValues {
 }
 
 export const EMPTY_FORM: GenerateFormValues = {
+  title: "",
   purpose: "promotion",
   purposeOther: "",
   objective: "",

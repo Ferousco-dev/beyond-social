@@ -15,6 +15,7 @@ export function ReviewSummary({
   balance: number | null;
 }) {
   const rows: ReadonlyArray<[string, string]> = [
+    ["Project title", values.title.trim() || values.objective.trim() || "Untitled project"],
     ["Objective", values.objective || "—"],
     [
       "Purpose & audience",

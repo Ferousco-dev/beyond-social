@@ -21,6 +21,7 @@ import { ToolPanel } from "./tool-panel";
 import { ConversationJob } from "./conversation-job";
 import { LongVideoJob } from "./long-video-job";
 import { LiveAvatarJob } from "./live-avatar-job";
+import { TutorialOverlay } from "@/features/tutorial/tutorial-overlay";
 import { type ProjectGeneration } from "../core/types.ts";
 
 interface StudioScreenProps {
@@ -106,6 +107,7 @@ export function StudioScreen({ id, title, version, document, backHref, generatio
       <div className="min-h-0 flex-1">
         {desktop ? <StudioLayout {...panes} /> : <MobileStudioLayout {...panes} />}
       </div>
+      <TutorialOverlay track="editor" />
     </div>
   );
 }

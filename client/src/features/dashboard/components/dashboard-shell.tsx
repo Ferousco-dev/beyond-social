@@ -5,6 +5,8 @@ import { Menu, Search } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
 import { UndoToaster } from "@/components/ui/undo-toast";
+import { TutorialButton } from "@/features/tutorial/tutorial-button";
+import { TutorialOverlay } from "@/features/tutorial/tutorial-overlay";
 import { type Credits, type DashboardUser, type SidebarProject } from "@/lib/dashboard/data";
 
 import { AppSidebar, DrawerSidebar } from "./app-sidebar";
@@ -74,6 +76,7 @@ export function DashboardShell({
           <WorkspaceMenu />
 
           <div className="ml-auto flex items-center gap-2">
+            <TutorialButton track="dashboard" />
             {/* On desktop, search lives in the sidebar. Below that width the
                 sidebar is a drawer, so a search icon stays in the top bar. */}
             <div className="lg:hidden">
@@ -87,7 +90,6 @@ export function DashboardShell({
                 </button>
               </CommandPalette>
             </div>
-
           </div>
         </header>
 
@@ -109,6 +111,7 @@ export function DashboardShell({
         <main id="main" className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">
           {children}
           <UndoToaster />
+          <TutorialOverlay track="dashboard" />
         </main>
       </div>
 

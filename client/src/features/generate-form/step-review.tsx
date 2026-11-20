@@ -101,7 +101,7 @@ export function StepReview({
       }
       const { generation } = started;
       const project = await createEditorProject({
-        title: values.objective.trim() || (kind === "conversation" ? "Conversation" : kind === "talking" ? "Talking video" : "New video"),
+        title: values.title.trim() || values.objective.trim() || (kind === "conversation" ? "Conversation" : kind === "talking" ? "Talking video" : "New video"),
         generation,
       });
       if (!project.ok) {

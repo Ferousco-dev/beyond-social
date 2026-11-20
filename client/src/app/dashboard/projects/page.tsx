@@ -1,28 +1,50 @@
+import { Plus } from "lucide-react";
 import { type Metadata } from "next";
+import Link from "next/link";
 import { type ReactNode } from "react";
+import { z } from "zod";
 
-import { CreatedVideoGrid } from "@/features/dashboard/components/recent-video-grid";
-import { loadVideos } from "@/features/dashboard/video-page-actions";
+import { ProjectsGrid } from "@/features/dashboard/components/projects-grid";
+import { goApi } from "@/lib/go-api/client";
 
 export const metadata: Metadata = { title: "Projects" };
 
-/**
- * Finished videos, fifteen to a page. One request for metadata: the server
- * already says which editor project holds each video, so nothing else is
- * fetched, and no video file is downloaded to draw the list.
- */
+const projectsResponse = z.object({
+  data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string() })),
+});
+
 export default async function ProjectsPage(): Promise<ReactNode> {
-  const page = await loadVideos(0);
+  const result = await goApi("/api/v1/editor/projects?limit=60", projectsResponse);
+  const projects = result.ok
+    ? [...result.data.data]
+        .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+        .map((item) => ({
+          id: item.id,
+          title: item.title || "Untitled project",
+          updatedAt: item.updated_at,
+        }))
+    : [];
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:py-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Projects</h1>
-      <p className="mt-1 text-sm text-ink-soft">Open a video to keep editing it.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">Projects</h1>
+          <p className="mt-1 text-sm text-ink-soft">Open a project to keep editing it.</p>
+        </div>
+        <Link
+          href="/dashboard/new"
+          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+        >
+          <Plus className="size-4" aria-hidden />
+          New video
+        </Link>
+      </div>
 
-      {!page.ok ? (
-        <p role="alert" className="mt-6 text-sm text-destructive">{page.message}</p>
+      {!result.ok ? (
+        <p role="alert" className="mt-6 text-sm text-destructive">{result.message}</p>
       ) : (
-        <CreatedVideoGrid initial={page.items} hasMore={page.hasMore} />
+        <ProjectsGrid projects={projects} />
       )}
     </div>
   );

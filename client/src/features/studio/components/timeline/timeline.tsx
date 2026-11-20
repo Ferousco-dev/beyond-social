@@ -3,7 +3,7 @@
 import { AudioLines, Captions, Film, Image as ImageIcon, Type, type LucideIcon } from "lucide-react";
 import { useCallback, useRef, useState, type DragEvent } from "react";
 
-import { endOf, locate } from "../../core/find.ts";
+import { endOf, locate, speedOf } from "../../core/find.ts";
 import { moveItem, trimItem } from "../../core/ops.ts";
 import { type Item, type Project, type Track, type TrackKind } from "../../core/types.ts";
 import { STUDIO_TIMELINE } from "../../config";
@@ -17,6 +17,7 @@ import { TimelineItem, type DragMode } from "./timeline-item";
 import { TimelineRuler } from "./timeline-ruler";
 import { TimelineToolbar } from "./timeline-toolbar";
 import { TransitionJoints } from "./transition-joints";
+import { VideoFilmstrip } from "./video-filmstrip";
 import { cn } from "@/lib/utils";
 
 const TRACK_LOOK: Record<TrackKind, { label: string; Icon: LucideIcon; colour: string }> = {
@@ -114,7 +115,7 @@ export function Timeline() {
   rows.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 
   return (
-    <section aria-label="Timeline" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
+    <section aria-label="Timeline" data-tip-anchor="studio-timeline" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
       <TimelineToolbar />
       <div className="relative min-h-0 flex-1 overflow-auto">
         <div className="flex min-h-full min-w-max">
@@ -165,27 +166,62 @@ export function Timeline() {
 
 function TrackRow({ track, project, zoom, selection, onDrag }: { track: Track; project: Project; zoom: number; selection: string | null; onDrag: (item: Item, mode: DragMode, seconds: number) => void }) {
   const { colour } = TRACK_LOOK[track.kind];
+  const sorted = [...track.items].sort((a, b) => a.start - b.start);
+  const aspectRatio = project.height > 0 ? project.width / project.height : 9 / 16;
+
   return (
     <div className="relative" style={{ height: STUDIO_TIMELINE.TRACK_HEIGHTS[track.kind] }}>
-      {track.items.map((item) => (
-        <TimelineItem
-          key={item.id}
-          start={item.start}
-          end={endOf(item)}
-          zoom={zoom}
-          label={itemLabel(item, project)}
-          selected={item.id === selection}
-          className={colour}
-          onSelect={() => useStudio.getState().select(item.id)}
-          onDrag={(mode, seconds) => onDrag(item, mode, seconds)}
-          onDragEnd={() => useStudio.getState().endDrag()}
-        >
-          <span className={cn("pointer-events-none block truncate px-2 leading-[inherit]", track.kind === "video" ? "text-ink" : "text-white")} style={{ lineHeight: `${STUDIO_TIMELINE.TRACK_HEIGHTS[track.kind]}px` }}>
-            {itemLabel(item, project)}
-          </span>
-        </TimelineItem>
-      ))}
-      {track.kind === "video" ? <TransitionJoints items={track.items} zoom={zoom} /> : null}
+      {sorted.map((item, index) => {
+        const widthPx = Math.max(2, item.duration * zoom);
+        const rawLabel = itemLabel(item, project);
+        const sceneTitle =
+          item.kind === "video"
+            ? rawLabel === "AI scene" || rawLabel === "Video" || /^Part \d+$/.test(rawLabel)
+              ? `Scene ${index + 1}`
+              : `Scene ${index + 1} · ${rawLabel}`
+            : rawLabel;
+
+        return (
+          <TimelineItem
+            key={item.id}
+            start={item.start}
+            end={endOf(item)}
+            zoom={zoom}
+            label={sceneTitle}
+            selected={item.id === selection}
+            className={colour}
+            onSelect={() => useStudio.getState().select(item.id)}
+            onDrag={(mode, seconds) => onDrag(item, mode, seconds)}
+            onDragEnd={() => useStudio.getState().endDrag()}
+          >
+            {item.kind === "video" ? (
+              <>
+                <VideoFilmstrip
+                  src={item.src}
+                  trimIn={item.trimIn}
+                  duration={item.duration}
+                  speed={speedOf(item)}
+                  widthPx={widthPx}
+                  aspectRatio={aspectRatio}
+                />
+                <div className="pointer-events-none relative z-[1] flex h-full items-start justify-between gap-1.5 bg-gradient-to-b from-black/75 via-black/25 to-transparent px-2 pt-1 text-[11px] font-medium text-white">
+                  <span className="truncate drop-shadow-xs">{sceneTitle}</span>
+                  {widthPx >= 96 ? (
+                    <span className="shrink-0 rounded bg-black/55 px-1 py-0.2 font-mono text-[10px] text-white/90">
+                      {item.duration.toFixed(1)}s
+                    </span>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <span className="pointer-events-none block truncate px-2 text-white" style={{ lineHeight: `${STUDIO_TIMELINE.TRACK_HEIGHTS[track.kind]}px` }}>
+                {rawLabel}
+              </span>
+            )}
+          </TimelineItem>
+        );
+      })}
+      {track.kind === "video" ? <TransitionJoints items={sorted} zoom={zoom} /> : null}
     </div>
   );
 }

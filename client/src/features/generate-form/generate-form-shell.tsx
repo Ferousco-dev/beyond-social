@@ -123,7 +123,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       setStep(STEPS.length - 1);
       setReviewing(true);
     }
-    setValues((current) => ({ ...current, objective: idea.objective }));
+    setValues((current) => ({ ...current, title: idea.title ?? "", objective: idea.objective }));
   }, []);
 
   // Autosave every change; the job itself persists server-side.

@@ -1,12 +1,12 @@
 "use client";
 
-import { Magnet, Redo2, Scissors, Trash2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
+import { Columns3, Loader2, Magnet, Redo2, Scissors, Trash2, Undo2, ZoomIn, ZoomOut } from "lucide-react";
 import { type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
 import { STUDIO_ZOOM } from "../../config";
-import { useStudio } from "../../store/editor-store";
+import { selectProject, useStudio } from "../../store/editor-store";
 import { useTimelineActions } from "../../hooks/use-timeline-actions";
 
 function ToolButton({ label, onClick, disabled, active, children }: { label: string; onClick: () => void; disabled?: boolean; active?: boolean; children: ReactNode }) {
@@ -29,13 +29,15 @@ function ToolButton({ label, onClick, disabled, active, children }: { label: str
 }
 
 export function TimelineToolbar() {
+  const project = useStudio(selectProject);
   const zoom = useStudio((s) => s.zoom);
   const snapping = useStudio((s) => s.snapping);
   const selection = useStudio((s) => s.selection);
   const canUndo = useStudio((s) => s.history.past.length > 0);
   const canRedo = useStudio((s) => s.history.future.length > 0);
+  const hasVideo = project.tracks.some((t) => t.kind === "video" && t.items.length > 0);
   const { undo, redo, zoomBy, setZoom, toggleSnapping } = useStudio.getState();
-  const { split, remove } = useTimelineActions();
+  const { split, remove, splitScenes, detectingScenes } = useTimelineActions();
 
   return (
     <div className="flex h-10 shrink-0 items-center justify-between gap-2 overflow-x-auto border-b border-hairline px-2">
@@ -44,6 +46,17 @@ export function TimelineToolbar() {
         <ToolButton label="Redo" disabled={!canRedo} onClick={redo}><Redo2 /></ToolButton>
         <span className="mx-1 h-4 w-px bg-hairline" />
         <ToolButton label="Split at playhead (B)" onClick={split}><Scissors /></ToolButton>
+        <button
+          type="button"
+          title="Detect and split individual scenes"
+          aria-label="Split into scenes"
+          disabled={!hasVideo || detectingScenes}
+          onClick={() => void splitScenes()}
+          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium text-ink-soft transition-colors hover:bg-cloud hover:text-ink focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {detectingScenes ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : <Columns3 className="size-3.5" aria-hidden />}
+          <span className="hidden sm:inline">{detectingScenes ? "Detecting…" : "Split scenes"}</span>
+        </button>
         <ToolButton label="Delete (Backspace)" disabled={!selection} onClick={() => remove(false)}><Trash2 /></ToolButton>
         <span className="mx-1 h-4 w-px bg-hairline" />
         <ToolButton label="Snap to edges" active={snapping} onClick={toggleSnapping}><Magnet /></ToolButton>

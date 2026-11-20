@@ -30,6 +30,9 @@ export function TimelineItem({ start, end, zoom, label, selected, className, onS
     trackPointer(event, (dx) => onDrag(mode, dx / zoom), undefined, onDragEnd);
   };
 
+  const rawWidth = Math.max(2, (end - start) * zoom);
+  const gap = rawWidth > 8 ? 1.5 : 0;
+
   return (
     <div
       role="button"
@@ -41,11 +44,11 @@ export function TimelineItem({ start, end, zoom, label, selected, className, onS
         if (event.key === "Enter") onSelect();
       }}
       className={cn(
-        "group/item absolute inset-y-0 cursor-grab select-none overflow-hidden rounded-sm text-[11px] text-white outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring",
-        selected && "ring-2 ring-primary ring-offset-1 ring-offset-background",
+        "group/item absolute inset-y-0 cursor-grab select-none overflow-hidden rounded-md border border-white/15 text-[11px] text-white outline-none active:cursor-grabbing focus-visible:ring-2 focus-visible:ring-ring",
+        selected && "border-primary ring-2 ring-primary ring-offset-1 ring-offset-background",
         className,
       )}
-      style={{ left: start * zoom, width: Math.max(2, (end - start) * zoom) }}
+      style={{ left: start * zoom + gap, width: Math.max(2, rawWidth - gap * 2) }}
     >
       {children}
       {(["start", "end"] as const).map((side) => (

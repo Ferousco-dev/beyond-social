@@ -11,16 +11,17 @@ const fieldClass =
   "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
 
 export interface OwnIdea {
+  title?: string;
   objective: string;
 }
 
 export const OWN_IDEA_KEY = "bs:own-idea";
 const QUICK_KEY = "bs:quick-start";
 
-/** Option 3: one question, what the video is for. Length, look and the rest are chosen on the next page. */
+/** Option 3: project title and what the video is for. Length, look and the rest are chosen on the next page. */
 export function OwnIdeaPanel() {
   const router = useRouter();
-  const [fields, setFields] = useState<OwnIdea>({ objective: "" });
+  const [fields, setFields] = useState<OwnIdea>({ title: "", objective: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -56,6 +57,12 @@ export function OwnIdeaPanel() {
       }}
       className="grid gap-3 sm:grid-cols-2"
     >
+      <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
+        <span>
+          Project title <span className="font-normal text-ink-soft">(optional)</span>
+        </span>
+        <input value={fields.title ?? ""} maxLength={120} onChange={(event) => set("title", event.target.value)} placeholder="e.g. Summer serum launch" aria-label="Project title" className={fieldClass} />
+      </label>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
         What is the video for?
         <input value={fields.objective} maxLength={120} onChange={(event) => set("objective", event.target.value)} placeholder="Promote my new serum" aria-label="What is the video for?" className={fieldClass} />

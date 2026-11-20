@@ -111,6 +111,16 @@ export function StepObjective({
 
   return (
     <div className="flex flex-col gap-5">
+      <Field label="Project title" optional>
+        <input
+          id="field-title"
+          value={values.title}
+          onChange={(event) => onChange({ title: event.target.value })}
+          placeholder="e.g. Summer serum launch"
+          maxLength={120}
+          className={fieldClass}
+        />
+      </Field>
       <div className="flex flex-col gap-1.5">
         <ChoiceSelect
           id="field-objective"
