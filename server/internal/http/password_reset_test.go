@@ -88,3 +88,46 @@ func TestPasswordResetIsUnavailableWithoutASender(t *testing.T) {
 		t.Fatalf("got %d", got.Code)
 	}
 }
+
+func TestResetGateCapsEachAddressPerDay(t *testing.T) {
+	now := time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)
+	g := newResetGate()
+	g.now = func() time.Time { return now }
+	for i := 0; i < resetDailyPerAddress; i++ {
+		if !g.allow("a@example.com") {
+			t.Fatalf("email %d refused within the daily allowance", i+1)
+		}
+		if g.allow("a@example.com") {
+			t.Fatal("a second email inside the cooldown was allowed")
+		}
+		now = now.Add(resetCooldown)
+	}
+	if g.allow("a@example.com") {
+		t.Fatal("an email past the daily allowance was allowed")
+	}
+	if !g.allow("b@example.com") {
+		t.Fatal("another address was refused")
+	}
+	now = now.Add(resetDay)
+	if !g.allow("a@example.com") {
+		t.Fatal("the address was still refused a day later")
+	}
+}
+
+func TestResetGateCapsTotalPerHour(t *testing.T) {
+	now := time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)
+	g := newResetGate()
+	g.now = func() time.Time { return now }
+	for i := 0; i < resetHourlyTotal; i++ {
+		if !g.allow("user" + strings.Repeat("x", i%7) + string(rune('a'+i%26)) + time.Duration(i).String() + "@example.com") {
+			t.Fatalf("email %d refused under the hourly cap", i+1)
+		}
+	}
+	if g.allow("late@example.com") {
+		t.Fatal("an email past the hourly cap was allowed")
+	}
+	now = now.Add(time.Hour)
+	if !g.allow("late@example.com") {
+		t.Fatal("still refused after the hour passed")
+	}
+}

@@ -33,13 +33,21 @@ func (a *App) kieCallback(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "callback has no task id")
 		return
 	}
-	if key := webhookSecret(r.Context(), a.deps.WebhookHMACKey); key != "" {
+	key := webhookSecret(r.Context(), a.deps.WebhookHMACKey)
+	switch {
+	case key != "":
 		err := kie.VerifyCallback(key, taskID, r.Header.Get("X-Webhook-Timestamp"), r.Header.Get("X-Webhook-Signature"), time.Now())
 		if err != nil {
 			slog.Warn("callback rejected", "reason", err.Error())
 			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid callback signature")
 			return
 		}
+	case a.deps.RequireSignedCallbacks:
+		// Without a secret anyone could post here. Jobs still finish, because
+		// every task is also polled; a callback only makes the check sooner.
+		slog.Error("callback refused: KIE webhook secret is not set", "task_id", taskID)
+		writeError(w, http.StatusUnauthorized, "unauthorized", "callbacks are not accepted until a webhook secret is set")
+		return
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)

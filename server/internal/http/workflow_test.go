@@ -364,3 +364,16 @@ func TestCallbackMalformedAndOversizedBodies(t *testing.T) {
 		t.Errorf("oversized: expected 413, got %d", res.Code)
 	}
 }
+
+func TestUnsignedCallbackRefusedWhenSignaturesRequired(t *testing.T) {
+	h := newHarness(t, &fakeRepo{}, fakePinger{})
+	h.deps.RequireSignedCallbacks = true
+	h.rebuild()
+
+	if res := callback(h, callbackBody, nil); res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", res.Code)
+	}
+	if len(h.reconciler.tasks) != 0 {
+		t.Fatalf("a refused callback must not reconcile, got %v", h.reconciler.tasks)
+	}
+}

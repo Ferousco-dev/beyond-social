@@ -46,7 +46,7 @@ func (b Builder) hosted(ctx context.Context, userID string, s source) (string, e
 		mimeType = http.DetectContentType(data)
 	}
 	if err != nil {
-		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) {
+		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) || errors.Is(err, media.ErrUnsupported) {
 			return "", &transform.UserError{Message: "A file for this request could not be used. Attach it again."}
 		}
 		return "", err

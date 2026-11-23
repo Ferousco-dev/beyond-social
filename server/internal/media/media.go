@@ -4,9 +4,11 @@
 package media
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 	"sync"
@@ -329,7 +331,37 @@ func (s *Service) Load(ctx context.Context, userID, id string, max int64) ([]byt
 	if err != nil {
 		return nil, "", err
 	}
+	// The type was declared by the browser that uploaded the file. Check the
+	// bytes before they go to a model, so a renamed page or program never does.
+	if !bytesMatchKind(item.Kind, data) {
+		return nil, "", ErrUnsupported
+	}
 	return data, item.MIME, nil
+}
+
+// ebml starts Matroska and WebM files, which carry video or audio.
+var ebml = []byte{0x1A, 0x45, 0xDF, 0xA3}
+
+// bytesMatchKind says whether a file's leading bytes are a picture, a video or
+// a sound file, as its kind says they should be.
+func bytesMatchKind(kind Kind, data []byte) bool {
+	switch kind {
+	case KindImage:
+		switch http.DetectContentType(data) {
+		case "image/jpeg", "image/png", "image/webp":
+			return true
+		}
+		return false
+	case KindVideo:
+		_, err := safenet.SniffVideo(data)
+		return err == nil
+	case KindAudio:
+		if _, err := safenet.SniffAudio(data); err == nil {
+			return true
+		}
+		return bytes.HasPrefix(data, ebml)
+	}
+	return false
 }
 
 // AdoptVideo copies a finished video from a provider's link into the user's own

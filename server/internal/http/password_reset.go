@@ -10,8 +10,20 @@ import (
 	"time"
 )
 
-// resetCooldown keeps one address from being mailed over and over, whoever asks.
-const resetCooldown = time.Minute
+// Limits on reset emails. The request reaches this API from the web server, so
+// every caller shares one address and a per-visitor limit would block everyone;
+// the caps are per address and overall instead. A cooldown alone still let one
+// person's inbox be filled 1,440 times a day, and a script could mail thousands
+// of addresses, spending the email quota and the sender's reputation.
+const (
+	// resetCooldown keeps one address from being mailed twice in a row.
+	resetCooldown = time.Minute
+	// resetDailyPerAddress is the most reset emails one address gets in a day.
+	resetDailyPerAddress = 5
+	// resetHourlyTotal caps reset emails across all addresses.
+	resetHourlyTotal = 300
+	resetDay         = 24 * time.Hour
+)
 
 // RecoveryTokens makes a one-time token for resetting an account's password.
 type RecoveryTokens interface {
@@ -24,28 +36,47 @@ type ResetMailer interface {
 }
 
 type resetGate struct {
-	mu   sync.Mutex
-	last map[string]time.Time
-	now  func() time.Time
+	mu sync.Mutex
+	// sent holds the times each address was mailed in the last day, oldest first.
+	sent map[string][]time.Time
+	// recent holds the times of every email in the last hour, oldest first.
+	recent []time.Time
+	now    func() time.Time
 }
 
-func newResetGate() *resetGate { return &resetGate{last: map[string]time.Time{}, now: time.Now} }
+func newResetGate() *resetGate { return &resetGate{sent: map[string][]time.Time{}, now: time.Now} }
+
+// within drops the times older than window and returns what is left.
+func within(times []time.Time, now time.Time, window time.Duration) []time.Time {
+	i := 0
+	for i < len(times) && now.Sub(times[i]) >= window {
+		i++
+	}
+	return times[i:]
+}
 
 func (g *resetGate) allow(email string) bool {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	now := g.now()
-	if len(g.last) > 5000 {
-		for k, t := range g.last {
-			if now.Sub(t) > resetCooldown {
-				delete(g.last, k)
+	if len(g.sent) > 5000 {
+		for k, times := range g.sent {
+			if len(within(times, now, resetDay)) == 0 {
+				delete(g.sent, k)
 			}
 		}
 	}
-	if t, ok := g.last[email]; ok && now.Sub(t) < resetCooldown {
+	g.recent = within(g.recent, now, time.Hour)
+	if len(g.recent) >= resetHourlyTotal {
 		return false
 	}
-	g.last[email] = now
+	times := within(g.sent[email], now, resetDay)
+	if len(times) >= resetDailyPerAddress || (len(times) > 0 && now.Sub(times[len(times)-1]) < resetCooldown) {
+		g.sent[email] = times
+		return false
+	}
+	g.sent[email] = append(times, now)
+	g.recent = append(g.recent, now)
 	return true
 }
 

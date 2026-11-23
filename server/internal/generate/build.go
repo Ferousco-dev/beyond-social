@@ -57,7 +57,7 @@ func (b Builder) Build(ctx context.Context, job jobs.Job) (transform.Prepared, e
 	}
 	if req.ImageMediaID != "" {
 		url, err := b.uploadPicture(ctx, job.UserID, req.ImageMediaID)
-		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) {
+		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) || errors.Is(err, media.ErrUnsupported) {
 			return transform.Prepared{}, &transform.UserError{Message: "That picture could not be used. Attach it again."}
 		}
 		if err != nil {

@@ -59,8 +59,11 @@ func (f fakeFetcher) Fetch(context.Context, string, int64) ([]byte, error) { ret
 
 func newSvc(info storage.Info, err error) (*Service, *memStore) {
 	st := &memStore{items: map[string]Item{}}
-	return NewService(st, fakeStorage{stat: info, err: err}, fakeFetcher{data: []byte("bytes")}), st
+	return NewService(st, fakeStorage{stat: info, err: err}, fakeFetcher{data: testMP4}), st
 }
+
+// testMP4 starts like a real MP4 file.
+var testMP4 = append([]byte{0, 0, 0, 24}, []byte("ftypmp42xxxxxxxxxxxxxxxx")...)
 
 func TestRequestUploadChoosesThePathAndChecksTypeAndSize(t *testing.T) {
 	svc, st := newSvc(storage.Info{}, nil)
@@ -161,7 +164,7 @@ func TestLoadRefusesTooLargeAndStrangers(t *testing.T) {
 	svc, _ := newSvc(storage.Info{Size: 5 << 20}, nil)
 	slot, _ := svc.RequestUpload(ctx, "u1", "a.mp4", "video/mp4", 5<<20)
 	_, _ = svc.Confirm(ctx, "u1", slot.ID)
-	if data, mime, err := svc.Load(ctx, "u1", slot.ID, 18<<20); err != nil || mime != "video/mp4" || string(data) != "bytes" {
+	if data, mime, err := svc.Load(ctx, "u1", slot.ID, 18<<20); err != nil || mime != "video/mp4" || string(data) != string(testMP4) {
 		t.Fatalf("load = %q %q %v", data, mime, err)
 	}
 	if _, _, err := svc.Load(ctx, "u1", slot.ID, 1<<20); !errors.Is(err, ErrTooLarge) {
@@ -276,5 +279,37 @@ func TestAdoptAudioCopiesOnceAndOnlyRealAudio(t *testing.T) {
 	notAudio := NewService(&memStore{items: map[string]Item{}}, fakeStorage{}, fakeFetcher{data: []byte("<html>")})
 	if _, err := notAudio.AdoptAudio(ctx, "u1", "job-2", "https://cdn.example/v", "x"); !errors.Is(err, ErrUnsupported) {
 		t.Fatalf("a non-audio file was copied: %v", err)
+	}
+}
+
+func TestLoadRefusesBytesThatAreNotTheirKind(t *testing.T) {
+	ctx := context.Background()
+	page := []byte("<!doctype html><script>alert(1)</script>")
+	png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR")
+	cases := []struct {
+		name, mime string
+		data       []byte
+		ok         bool
+	}{
+		{"a page named as a picture", "image/png", page, false},
+		{"a page named as a video", "video/mp4", page, false},
+		{"a real picture", "image/png", png, true},
+		{"a real video", "video/mp4", testMP4, true},
+	}
+	for _, c := range cases {
+		st := &memStore{items: map[string]Item{}}
+		svc := NewService(st, fakeStorage{stat: storage.Info{Size: 100}}, fakeFetcher{data: c.data})
+		slot, err := svc.RequestUpload(ctx, "u1", "f", c.mime, 100)
+		if err != nil {
+			t.Fatalf("%s: request: %v", c.name, err)
+		}
+		_, _ = svc.Confirm(ctx, "u1", slot.ID)
+		_, _, err = svc.Load(ctx, "u1", slot.ID, 1<<20)
+		if c.ok && err != nil {
+			t.Fatalf("%s: refused: %v", c.name, err)
+		}
+		if !c.ok && !errors.Is(err, ErrUnsupported) {
+			t.Fatalf("%s: expected ErrUnsupported, got %v", c.name, err)
+		}
 	}
 }

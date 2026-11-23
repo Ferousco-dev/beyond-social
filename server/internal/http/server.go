@@ -33,7 +33,10 @@ type Deps struct {
 	Reconciler Reconciler
 	// Webhook secrets are read per request so an admin can rotate them live.
 	WebhookHMACKey func(ctx context.Context) string
-	Workflows      WorkflowService
+	// RequireSignedCallbacks refuses provider callbacks while no webhook secret
+	// is set, instead of accepting them unsigned. On in production.
+	RequireSignedCallbacks bool
+	Workflows              WorkflowService
 
 	Accounts            *accounts.Service
 	AdminProfiles       AdminProfileStore

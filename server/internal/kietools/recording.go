@@ -28,7 +28,7 @@ func (s *LiveAvatarService) recordingSeconds(ctx context.Context, userID, mediaI
 	}
 	data, mimeType, err := s.files.Load(ctx, userID, mediaID, kie.MaxInputBytes)
 	if err != nil {
-		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) {
+		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) || errors.Is(err, media.ErrUnsupported) {
 			return 0, ErrInvalid
 		}
 		return 0, err
