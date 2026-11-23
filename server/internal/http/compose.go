@@ -35,7 +35,9 @@ type rewriteGate struct {
 	now  func() time.Time
 }
 
-func newRewriteGate() *rewriteGate { return &rewriteGate{used: map[string][]time.Time{}, now: time.Now} }
+func newRewriteGate() *rewriteGate {
+	return &rewriteGate{used: map[string][]time.Time{}, now: time.Now}
+}
 
 // allow spends one rewrite, or says how long until one is free.
 func (g *rewriteGate) allow(userID string) (bool, time.Duration) {
