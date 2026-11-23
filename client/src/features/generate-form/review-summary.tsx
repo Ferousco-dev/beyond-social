@@ -32,12 +32,12 @@ export function ReviewSummary({
           : `${values.platform} · ${values.aspectRatio} · ${values.seconds}s`,
     ],
     [
-      "Generator",
+      "Made with",
       videoKind(values) === "conversation"
-        ? `KIE lip-sync, one clip per turn`
+        ? "Our AI, lip-synced, one clip per turn"
         : isTalking(values)
-          ? "KIE lip-sync to your recording"
-          : "KIE Kling 3.0 video",
+          ? "Our AI, lip-synced to your recording"
+          : "Our AI video model",
     ],
     [
       "Script",

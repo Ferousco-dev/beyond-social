@@ -88,7 +88,7 @@ export function LandingHero(): ReactNode {
       {/* The orbit is decorative and hidden from assistive tech, so the claim it
           makes is stated here in text instead. */}
       <p className="sr-only">
-        Built with Anthropic, Google Gemini, OpenAI, Supabase, Next.js and Vercel.
+        Built with Supabase, Next.js and Vercel.
       </p>
     </section>
   );

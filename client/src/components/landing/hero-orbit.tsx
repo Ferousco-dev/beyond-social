@@ -1,10 +1,7 @@
 import { type ReactNode } from "react";
 
 import {
-  AnthropicIcon,
-  GoogleGeminiIcon,
   NextJsIcon,
-  OpenAIIcon,
   SupabaseIcon,
   VercelIcon,
 } from "@/components/brand/tech-icons";
@@ -54,11 +51,8 @@ const SPHERE = {
   top: "88%",
 } as const;
 
-/** The real stack. Every mark is something the product actually runs on. */
+/** The platform the product runs on. AI vendors are not named: the product presents its AI as its own. */
 const LOGOS = [
-  { node: <AnthropicIcon />, title: "Anthropic" },
-  { node: <GoogleGeminiIcon />, title: "Google Gemini" },
-  { node: <OpenAIIcon />, title: "OpenAI" },
   { node: <SupabaseIcon />, title: "Supabase" },
   { node: <NextJsIcon />, title: "Next.js" },
   { node: <VercelIcon />, title: "Vercel" },

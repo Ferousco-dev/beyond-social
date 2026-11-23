@@ -133,7 +133,7 @@ func DefaultRegistry() *Registry {
 	return NewRegistry(
 		Tool{
 			Name:         "discover_videos",
-			Description:  "Search TikTok or Instagram for videos by keyword, or look up one video from its link, using Apify.",
+			Description:  "Search TikTok or Instagram for videos by keyword, or look up one video from its link.",
 			Billable:     true,
 			Args:         append(discover.docs, "give either query or url, not both"),
 			Outputs:      []Output{{"ref", KindID, "the id of the search"}, {"result_count", KindNumber, "how many videos were found"}},
@@ -141,7 +141,7 @@ func DefaultRegistry() *Registry {
 		},
 		Tool{
 			Name:         "transform_video",
-			Description:  "Remake a discovered video in a new style from a text prompt, using KIE.",
+			Description:  "Remake a discovered video in a new style from a text prompt.",
 			Billable:     true,
 			Args:         transform.docs,
 			Outputs:      jobOutputs(),
@@ -149,7 +149,7 @@ func DefaultRegistry() *Registry {
 		},
 		Tool{
 			Name:        "generate_video",
-			Description: "Make a new video clip from scene descriptions with Kling, optionally starting from a picture the user attached.",
+			Description: "Make a new video clip from scene descriptions, optionally starting from a picture the user attached.",
 			Billable:    true,
 			Args: []string{
 				"scenes (required): 1 to 6 scenes, each {prompt, seconds}; the clip runs 3 to 15 seconds in total",
