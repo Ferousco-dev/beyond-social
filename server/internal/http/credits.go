@@ -18,6 +18,22 @@ type CreditQuoter interface {
 	Quote(ctx context.Context, action string) (int, error)
 }
 
+// userPricer works out what a table price costs one user, the way charging
+// does (a Free member pays the free-plan percentage). The credit service
+// implements it.
+type userPricer interface {
+	PriceFor(ctx context.Context, userID string, amount int) (int, error)
+}
+
+// priceFor turns a quote from the price table into what this user will be
+// charged, so the credits shown before a click are the credits taken after it.
+func (a *App) priceFor(ctx context.Context, userID string, amount int) (int, error) {
+	if p, ok := a.deps.Prices.(userPricer); ok {
+		return p.PriceFor(ctx, userID, amount)
+	}
+	return amount, nil
+}
+
 // CreditAdmin is the admin-facing side of the credit system.
 type CreditAdmin interface {
 	Prices(ctx context.Context) ([]credits.PriceRow, error)

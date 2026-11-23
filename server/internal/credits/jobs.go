@@ -8,6 +8,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kietools"
+	"github.com/Ferousco-dev/beyond-social/server/internal/videoedit"
 )
 
 // Job types priced here. They mirror the constants in the transform and
@@ -71,6 +72,13 @@ func (b *JobBiller) quantity(job jobs.Job) (action string, units int, err error)
 			return "", 0, err
 		}
 		return "speech_thousand_chars", (len([]rune(req.Text)) + 999) / 1000, nil
+	case videoedit.JobType:
+		// Priced by the length of the person's video, measured from its headers on submit.
+		req, err := videoedit.ParseArgs(job.Input)
+		if err != nil {
+			return "", 0, err
+		}
+		return ActionVideoEditSecond, req.BilledSeconds(), nil
 	case jobAnalysis:
 		return jobAnalysis, 1, nil
 	case kietools.JobLiveAvatar:

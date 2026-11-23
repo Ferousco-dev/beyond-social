@@ -141,7 +141,12 @@ func (a *App) quoteLiveAvatar(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	writeData(w, http.StatusOK, map[string]int{"credits": rate * seconds, "seconds": seconds})
+	price, err := a.priceFor(r.Context(), identity.UserID, rate*seconds)
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, map[string]int{"credits": price, "seconds": seconds})
 }
 
 // liveAvatarSeconds measures what a quote is for: one saved group's recording,

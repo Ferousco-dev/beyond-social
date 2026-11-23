@@ -128,6 +128,24 @@ func (s *Service) multiplierPct(ctx context.Context) int {
 	return 100
 }
 
+// PriceFor is what an amount priced from the table costs this user, worked
+// out the way Reserve takes it: a Free member pays the free-plan percentage on
+// top. Quotes shown to a person use it, so the number on the screen is the
+// number taken from their balance.
+func (s *Service) PriceFor(ctx context.Context, userID string, amount int) (int, error) {
+	if amount <= 0 || s.usage == nil {
+		return amount, nil
+	}
+	plan, err := s.usage.Plan(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	if plan == PlanPro {
+		return amount, nil
+	}
+	return ceilPct(amount, s.multiplierPct(ctx)), nil
+}
+
 // PlanOf says which plan a user is on.
 func (s *Service) PlanOf(ctx context.Context, userID string) (Plan, error) {
 	if s.usage == nil {

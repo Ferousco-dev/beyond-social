@@ -57,7 +57,8 @@ func (a *App) createScene(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) sceneQuote(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.IdentityFromContext(r.Context()); !ok {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
 		writeUnauthorized(w)
 		return
 	}
@@ -71,6 +72,11 @@ func (a *App) sceneQuote(w http.ResponseWriter, r *http.Request) {
 		if !writeCreditError(w, err) {
 			writeInternal(w, r, err)
 		}
+		return
+	}
+	credits, err = a.priceFor(r.Context(), identity.UserID, credits)
+	if err != nil {
+		writeInternal(w, r, err)
 		return
 	}
 	writeData(w, http.StatusOK, map[string]int{"credits": credits, "seconds": seconds})

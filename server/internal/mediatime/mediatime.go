@@ -189,3 +189,45 @@ func mp3(data []byte) (float64, bool) {
 	}
 	return float64(audio) * 8 / float64(bitrate*1000), true
 }
+
+// ReadAt reads up to n bytes of a file starting at off. Fewer bytes mean the
+// file ended.
+type ReadAt func(off, n int64) ([]byte, error)
+
+// MP4SecondsAt reads the playing time of an MP4 or QuickTime file through ranged
+// reads, walking its top-level boxes to the "moov" box wherever it sits, so the
+// media data is never downloaded. size is the file's length in bytes.
+func MP4SecondsAt(read ReadAt, size int64) (float64, bool) {
+	const maxMoov = 8 << 20
+	for off, hops := int64(0), 0; off+8 <= size && hops < 64; hops++ {
+		head, err := read(off, 16)
+		if err != nil || len(head) < 8 {
+			return 0, false
+		}
+		boxSize, header := int64(binary.BigEndian.Uint32(head[:4])), int64(8)
+		switch boxSize {
+		case 0:
+			boxSize = size - off
+		case 1:
+			if len(head) < 16 {
+				return 0, false
+			}
+			boxSize, header = int64(binary.BigEndian.Uint64(head[8:16])), 16
+		}
+		if boxSize < header || off+boxSize > size {
+			return 0, false
+		}
+		if string(head[4:8]) == "moov" {
+			if boxSize > maxMoov {
+				return 0, false
+			}
+			body, err := read(off, boxSize)
+			if err != nil || int64(len(body)) < boxSize {
+				return 0, false
+			}
+			return mp4(body)
+		}
+		off += boxSize
+	}
+	return 0, false
+}

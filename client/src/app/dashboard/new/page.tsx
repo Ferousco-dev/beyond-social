@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
+import { Composer } from "@/features/composer/components/composer";
 import { ContinueDraft } from "@/features/generate-form/continue-draft";
 import { NewVideoOptions } from "@/features/new-video/components/new-video-options";
 import { NEW_VIDEO_OPTIONS, type NewVideoOptionId } from "@/features/new-video/options";
@@ -37,6 +38,7 @@ export default async function NewVideoPage({
           resumeStage={stage === "preview" || stage === "analysis" ? stage : undefined}
         />
       </div>
+      <Composer />
     </div>
   );
 }

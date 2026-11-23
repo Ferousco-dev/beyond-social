@@ -201,3 +201,23 @@ func TestAFullWindowSendsOneNoticeNoMatterHowOftenItIsHit(t *testing.T) {
 		t.Fatalf("notices = %v", notice.windows)
 	}
 }
+
+func TestPriceForMatchesWhatReserveTakes(t *testing.T) {
+	ctx := context.Background()
+	free, m, _ := planService(PlanFree)
+	m.balance["u1"] = 1000
+	quoted, err := free.PriceFor(ctx, "u1", 61)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := free.Reserve(ctx, "u1", "j1", 61, "video"); err != nil {
+		t.Fatal(err)
+	}
+	if taken := 1000 - m.balance["u1"]; taken != quoted || quoted != 122 {
+		t.Fatalf("quoted %d, reserve took %d", quoted, taken)
+	}
+	pro, _, _ := planService(PlanPro)
+	if got, _ := pro.PriceFor(ctx, "u1", 61); got != 61 {
+		t.Fatalf("pro price = %d", got)
+	}
+}

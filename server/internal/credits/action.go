@@ -12,6 +12,8 @@ const (
 	ActionEditorWatch    = "editor_watch"
 	ActionStoryboard     = "storyboard"
 	ActionChatMessage    = "chat_message"
+	// ActionVideoEditSecond prices a second of a person's own video changed by the editing model.
+	ActionVideoEditSecond = "video_edit_second"
 )
 
 // VideoAction is the priced action for a generated clip: speech and ambience cost the

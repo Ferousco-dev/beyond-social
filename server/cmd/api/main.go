@@ -48,6 +48,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/storyboard"
 	"github.com/Ferousco-dev/beyond-social/server/internal/supabaseauth"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
+	"github.com/Ferousco-dev/beyond-social/server/internal/videoedit"
 	"github.com/Ferousco-dev/beyond-social/server/internal/worker"
 	"github.com/Ferousco-dev/beyond-social/server/migrations"
 )
@@ -149,6 +150,8 @@ func run() error {
 		return err
 	}
 	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient, Director: generate.GeminiDirector{Client: geminiClient}}.Build
+	mediaBuilders[videoedit.JobType] = videoedit.Builder{Files: mediaService}.Build
+	editService := videoedit.NewService(jobService, mediaService)
 	profileStore := database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)
 	settingsStore := database.NewSettingsStore(pool)
 	emails := mailer.NewNotifier(mailer.NewResend(vault.Key(secrets.NameResend), func(ctx context.Context) string {
@@ -220,54 +223,59 @@ func run() error {
 	jobService.WithObserver(credits.NewSpendRecorder(jobBiller, spendStore))
 
 	app := httpserver.NewApp(httpserver.Deps{
-		Chat:                   chatService,
-		Media:                  mediaService,
-		Social:                 socialService,
-		Posts:                  postService,
-		AppURL:                 cfg.AppURL(),
-		Accounts:               accounts.NewService(profileStore).WithGranter(creditService),
-		AdminProfiles:          profileStore,
-		Credits:                creditService,
-		Prices:                 creditService,
-		CreditAdmin:            credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
-		AdminUserDetails:       database.NewAdminCreditStore(creditStore),
-		CreditLedger:           creditService,
-		Blog:                   blog.NewService(database.NewBlogStore(pool)),
-		Insights:               insightsService,
-		AssetGroups:            assetService,
-		AssetLibrary:           assetLibrary,
-		Monitoring:             database.NewMonitoringStore(pool),
-		Probe:                  providers.NewChecker(),
-		Alerts:                 alertService,
-		LiveAvatar:             liveAvatarService,
-		LiveAvatarScripts:      chat.NewModelScriptWriter(geminiClient),
-		Vault:                  vault,
-		PublicBaseURL:          cfg.PublicBaseURL,
-		Library:                database.NewLibraryStore(pool),
-		Editor:                 database.NewEditorStore(pool),
-		Assistant:              editor.NewModelAssistant(geminiClient),
-		Memory:                 memoryService,
-		AssistBiller:           credits.NewActionBiller(creditService, credits.ActionEditorAssist),
-		Transcriber:            editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
-		CaptionBiller:          credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
-		Storyboards:            storyboard.NewModelWriter(geminiClient),
-		Voiceover:              kietools.NewService(jobService),
-		StoryboardBiller:       credits.NewActionBiller(creditService, credits.ActionStoryboard),
-		Billing:                billingService,
-		Usage:                  creditService,
-		PaymentFailing:         billingStore.PaymentFailing,
-		BillingAdmin:           billingStore,
-		RevenueHistory:         billingStore,
-		Spend:                  spendStore,
-		EmailSettings:          settingsStore,
-		SignIns:                supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
-		Recovery:               supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
-		ResetMail:              emails,
-		Purger:                 purger,
-		StripeWebhookSecret:    vault.Optional(secrets.NameStripeWebhook),
-		Watcher:                editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
-		WatchBiller:            credits.NewActionBiller(creditService, credits.ActionEditorWatch),
-		Scenes:                 editorScenes{generate: generateService, credits: creditService},
+		Chat:                chatService,
+		Media:               mediaService,
+		Social:              socialService,
+		Posts:               postService,
+		AppURL:              cfg.AppURL(),
+		Accounts:            accounts.NewService(profileStore).WithGranter(creditService),
+		AdminProfiles:       profileStore,
+		Credits:             creditService,
+		Prices:              creditService,
+		CreditAdmin:         credits.NewAdmin(database.NewAdminCreditStore(creditStore)),
+		AdminUserDetails:    database.NewAdminCreditStore(creditStore),
+		CreditLedger:        creditService,
+		Blog:                blog.NewService(database.NewBlogStore(pool)),
+		Insights:            insightsService,
+		AssetGroups:         assetService,
+		AssetLibrary:        assetLibrary,
+		Monitoring:          database.NewMonitoringStore(pool),
+		Probe:               providers.NewChecker(),
+		Alerts:              alertService,
+		LiveAvatar:          liveAvatarService,
+		LiveAvatarScripts:   chat.NewModelScriptWriter(geminiClient),
+		Vault:               vault,
+		PublicBaseURL:       cfg.PublicBaseURL,
+		Library:             database.NewLibraryStore(pool),
+		Editor:              database.NewEditorStore(pool),
+		Assistant:           editor.NewModelAssistant(geminiClient),
+		Memory:              memoryService,
+		AssistBiller:        credits.NewActionBiller(creditService, credits.ActionEditorAssist),
+		Transcriber:         editor.NewModelTranscriber(geminiClient, transformProcessor.Fetcher),
+		CaptionBiller:       credits.NewActionBiller(creditService, credits.ActionEditorCaptions),
+		Storyboards:         storyboard.NewModelWriter(geminiClient),
+		Voiceover:           kietools.NewService(jobService),
+		StoryboardBiller:    credits.NewActionBiller(creditService, credits.ActionStoryboard),
+		Billing:             billingService,
+		Usage:               creditService,
+		PaymentFailing:      billingStore.PaymentFailing,
+		BillingAdmin:        billingStore,
+		RevenueHistory:      billingStore,
+		Spend:               spendStore,
+		EmailSettings:       settingsStore,
+		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
+		Recovery:            supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
+		ResetMail:           emails,
+		Purger:              purger,
+		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
+		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
+		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
+		Scenes:              editorScenes{generate: generateService, credits: creditService},
+		Compose: composer{
+			rewriter: videoedit.Rewriter{Model: geminiClient, Pictures: mediaService},
+			edits:    editService,
+			credits:  creditService,
+		},
 		Audit:                  database.NewAuditStore(pool),
 		Jobs:                   jobService,
 		Discovery:              discoveryService,
@@ -344,6 +352,13 @@ func run() error {
 				Name: "video_generate", Capacity: 3, Timeout: transform.HandleTimeout,
 				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
 					return jobService.Claim(ctx, generate.JobType, n, transform.Lease)
+				},
+				Handle: transformProcessor.Handle,
+			},
+			&worker.Pool[jobs.Job]{
+				Name: "video_edit", Capacity: 2, Timeout: transform.HandleTimeout,
+				Claim: func(ctx context.Context, n int) ([]jobs.Job, error) {
+					return jobService.Claim(ctx, videoedit.JobType, n, transform.Lease)
 				},
 				Handle: transformProcessor.Handle,
 			},

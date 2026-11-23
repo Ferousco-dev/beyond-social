@@ -252,3 +252,40 @@ func (c *Client) SignedUploadToken(ctx context.Context, bucket, path string) (st
 	}
 	return token, nil
 }
+
+// ReadRange returns up to length bytes of an object starting at offset, without
+// downloading the rest. A video's length can be read from a few kilobytes of
+// its headers this way, instead of holding a whole phone clip in memory.
+func (c *Client) ReadRange(ctx context.Context, bucket, path string, offset, length int64) ([]byte, error) {
+	p, err := objectPath(bucket, path)
+	if err != nil {
+		return nil, err
+	}
+	if offset < 0 || length <= 0 || length > 8<<20 {
+		return nil, fmt.Errorf("storage: invalid range %d+%d", offset, length)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/object/authenticated/"+p, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.auth(req)
+	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", offset, offset+length-1))
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, &provider.Error{Provider: providerName, Message: "request failed", Transient: true}
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusBadRequest:
+		return nil, ErrNotFound
+	case resp.StatusCode == http.StatusRequestedRangeNotSatisfiable:
+		return []byte{}, nil
+	case resp.StatusCode == http.StatusOK && offset > 0:
+		// The server ignored the range and is sending the whole file: refuse
+		// rather than read it all.
+		return nil, &provider.Error{Provider: providerName, Message: "range not supported"}
+	case resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusPartialContent:
+		return nil, provider.FromHTTPStatus(providerName, resp.StatusCode, "read failed")
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, length))
+}

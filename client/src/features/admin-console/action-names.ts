@@ -3,6 +3,7 @@ const NAMES: Readonly<Record<string, string>> = {
   chat_message: "Chat message",
   video_analysis: "Watching a link video",
   video_generate_second: "Making a video, no sound",
+  video_edit_second: "Editing your own video",
   video_generate_sound_second: "Making a video, with sound",
   "video_transform:5:720p": "Remixing a video, 5 seconds, 720p",
   "video_transform:5:1080p": "Remixing a video, 5 seconds, 1080p",

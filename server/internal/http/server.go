@@ -79,6 +79,8 @@ type Deps struct {
 	}
 	WatchBiller ResourceBiller
 	Scenes      SceneService
+	// Compose is the New Video composer; nil turns its routes off.
+	Compose ComposeService
 	// AppURL is the web app the sign-in redirects back into.
 	AppURL string
 	// PublicBaseURL is this service's own address, reported by the admin setup check.
@@ -103,9 +105,13 @@ type App struct {
 	deps   Deps
 	limits *limiter
 	resets *resetGate
+	// rewrites caps the composer's prompt suggestions per person.
+	rewrites *rewriteGate
 }
 
-func NewApp(deps Deps) *App { return &App{deps: deps, limits: newLimiter(), resets: newResetGate()} }
+func NewApp(deps Deps) *App {
+	return &App{deps: deps, limits: newLimiter(), resets: newResetGate(), rewrites: newRewriteGate()}
+}
 
 func (a *App) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -162,6 +168,9 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
 	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
 	mux.Handle("POST /api/v1/storyboard", protected(http.HandlerFunc(a.storyboardWrite)))
+	mux.Handle("POST /api/v1/compose/rewrite", protected(http.HandlerFunc(a.composeRewrite)))
+	mux.Handle("GET /api/v1/compose/edit/quote", protected(http.HandlerFunc(a.composeEditQuote)))
+	mux.Handle("POST /api/v1/compose/edit", protected(http.HandlerFunc(a.composeEdit)))
 	mux.Handle("POST /api/v1/voiceover", protected(http.HandlerFunc(a.createVoiceover)))
 	mux.Handle("POST /api/v1/voiceover/{id}/adopt", protected(http.HandlerFunc(a.adoptVoiceover)))
 	mux.Handle("GET /api/v1/memory", protected(http.HandlerFunc(a.memorySettings)))
