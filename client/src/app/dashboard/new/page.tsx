@@ -30,6 +30,7 @@ export default async function NewVideoPage({
           // A real navigation here (a sidebar draft, a shared link) starts the panel afresh.
           key={`${option ?? ""}|${link ?? ""}|${job ?? ""}|${stage ?? ""}`}
           initialOption={isOption(option) ? option : null}
+          signupIndustry={user.industry}
           plan={user.plan}
           initialUrl={link?.startsWith("https://") ? link : ""}
           resumeJobId={job}

@@ -20,12 +20,14 @@ import { TrendingPanel } from "./trending-panel";
  */
 export function NewVideoOptions({
   initialOption,
+  signupIndustry,
   plan,
   initialUrl,
   resumeJobId,
   resumeStage,
 }: {
   initialOption: NewVideoOptionId | null;
+  signupIndustry: string;
   plan: "free" | "pro";
   initialUrl: string;
   resumeJobId?: string;
@@ -75,7 +77,7 @@ export function NewVideoOptions({
         description={current?.body ?? ""}
         onClose={() => choose(active as NewVideoOptionId)}
       >
-        {active === "trending" ? <TrendingPanel plan={plan} /> : null}
+        {active === "trending" ? <TrendingPanel signupIndustry={signupIndustry} plan={plan} /> : null}
         {active === "link" ? <LinkPanel initialUrl={initialUrl} resumeJobId={resumeJobId} resumeStage={resumeStage} /> : null}
         {active === "idea" ? <OwnIdeaPanel /> : null}
         {active === "avatar" ? <AvatarPackPanel /> : null}
