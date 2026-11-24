@@ -61,7 +61,8 @@ export function StepAssets({
   const notes = unusedAssetNotes(values, assets);
   const groups = library.groups.filter((group) => assets.some((asset) => asset.group_id === group.id));
 
-  // A group fills every slot it has an asset for: the first usable face, voice, product and place in it.
+  // A group fills the person, product and place. Their recording is left for them to choose,
+  // because it would speak its own words instead of the script.
   function applyGroup(groupId: string): void {
     const first = (kind: string): string =>
       assets.find((asset) => asset.group_id === groupId && asset.kind === kind && (!(kind === "face" || kind === "voice") || asset.consent_at !== null))?.id ?? "";
@@ -69,7 +70,7 @@ export function StepAssets({
     pick({
       speakerMode: "single",
       faceAssetId: face,
-      voiceAssetId: face ? first("voice") : "",
+      voiceAssetId: "",
       productAssetId: first("product") || values.productAssetId,
       environmentAssetId: first("environment") || values.environmentAssetId,
     });
@@ -116,7 +117,8 @@ export function StepAssets({
             <>
               <LibraryPicker
                 kind="voice"
-                title="Their own voice"
+                title="Their own recording"
+                hint="Speaks this recording instead of your script."
                 assets={assets}
                 value={values.voiceAssetId}
                 onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}

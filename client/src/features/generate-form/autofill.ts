@@ -32,7 +32,8 @@ export function valuesFromBrief(current: GenerateFormValues, brief: Brief): Part
   };
   if (conversation && current.turns.length < MIN_TURNS) patch.turns = [newTurn(), newTurn()];
   if (brief.face_asset_id) patch.faceAssetId = brief.face_asset_id;
-  if (brief.voice_asset_id) patch.voiceAssetId = brief.voice_asset_id;
+  // A saved recording is never filled in: it would speak its own words instead of the script.
+  patch.voiceAssetId = "";
   if (brief.product_asset_id) patch.productAssetId = brief.product_asset_id;
   if (brief.environment_asset_id) patch.environmentAssetId = brief.environment_asset_id;
   return patch;

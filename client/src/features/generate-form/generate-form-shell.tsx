@@ -98,7 +98,8 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       ...current,
       speakerMode: "single",
       faceAssetId: find(chosen.face),
-      voiceAssetId: find(chosen.voice),
+      // The person speaks the script; a saved recording is only used when they pick it.
+      voiceAssetId: "",
       productAssetId: find(chosen.product),
       environmentAssetId: find(chosen.environment),
       ...(face?.file_kind === "image" ? { firstFrameId: face.media_id } : {}),
@@ -150,7 +151,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
             ...current,
             ...valuesFromBrief(current, result.brief),
             // Someone picked on New Video is who appears, whatever the AI suggested.
-            ...(chosen ? { speakerMode: "single" as const, faceAssetId: chosen.face, voiceAssetId: chosen.voice ?? "" } : {}),
+            ...(chosen ? { speakerMode: "single" as const, faceAssetId: chosen.face, voiceAssetId: "" } : {}),
           };
           const assets = libraryRef.current.status === "ready" ? libraryRef.current.assets : [];
           const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]

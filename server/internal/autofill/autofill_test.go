@@ -60,8 +60,11 @@ func TestFillKeepsOnlyChoicesTheFormCanShow(t *testing.T) {
 	if len(b.Audience.Ages) != 1 || b.Audience.Ages[0] != "25-34" {
 		t.Fatalf("ages = %v", b.Audience.Ages)
 	}
-	if b.FaceAssetID != "face-ok" || b.VoiceAssetID != "voice-ok" {
-		t.Fatalf("owned, consented assets are kept: %+v", b)
+	if b.FaceAssetID != "face-ok" {
+		t.Fatalf("an owned, consented face is kept: %+v", b)
+	}
+	if b.VoiceAssetID != "" {
+		t.Fatalf("a recording must never be chosen: it would replace the written dialogue: %+v", b)
 	}
 	if b.ProductAssetID != "" || b.EnvironmentAssetID != "" {
 		t.Fatalf("an invented id or an asset of the wrong kind must be dropped: %+v", b)
@@ -74,7 +77,7 @@ func TestFillKeepsOnlyChoicesTheFormCanShow(t *testing.T) {
 func TestAFaceWithoutConsentIsNeverChosen(t *testing.T) {
 	b := Clean(Brief{FaceAssetID: "face-no-consent", VoiceAssetID: "voice-ok"}, library())
 	if b.FaceAssetID != "" || b.VoiceAssetID != "" {
-		t.Fatalf("no consent, no face; and no face, no voice: %+v", b)
+		t.Fatalf("no consent, no face; and never a recording: %+v", b)
 	}
 }
 
@@ -120,6 +123,10 @@ func TestLengthIsNeverTooShortForTheWords(t *testing.T) {
 	}
 	if got := shortestFitting(12); got != 5 {
 		t.Fatalf("shortestFitting(12) = %d", got)
+	}
+	// The call to action is spoken too: 12 words plus "Follow for more" no longer fit 5 s.
+	if b := Clean(Brief{Seconds: 5, Dialogue: line, CTA: "Follow for more"}, nil); b.Seconds != 8 {
+		t.Fatalf("12 words plus a 3-word call to action need 8 s, got %d", b.Seconds)
 	}
 }
 

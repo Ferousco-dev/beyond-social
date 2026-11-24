@@ -67,7 +67,7 @@ export function AvatarPackPanel() {
     try {
       clearDraft();
       for (const key of ["bs:generate-draft", "bs:approved-script", "bs:quick-start"]) window.sessionStorage.removeItem(key);
-      const person: ChosenPerson = { face: chosen.face.id, name: chosen.group ?? chosen.face.label, ...(chosen.voice ? { voice: chosen.voice.id } : {}) };
+      const person: ChosenPerson = { face: chosen.face.id, name: chosen.group ?? chosen.face.label };
       const own: OwnIdea = { objective: idea.trim() };
       window.sessionStorage.setItem(AVATAR_PACK_KEY, JSON.stringify(person));
       window.sessionStorage.setItem(OWN_IDEA_KEY, JSON.stringify(own));
@@ -134,7 +134,6 @@ export function AvatarPackPanel() {
                   ) : null}
                 </span>
                 <span className="w-full truncate text-sm font-medium text-ink">{person.group ?? person.face.label}</span>
-                {person.voice ? <span className="-mt-1.5 text-[11px] text-ink-soft">With their voice</span> : null}
               </button>
             </li>
           );

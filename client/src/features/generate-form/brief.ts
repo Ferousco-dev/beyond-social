@@ -1,4 +1,5 @@
 import { audienceLabel } from "./audience";
+import { spokenText } from "./pacing";
 import { purposeLabel, type GenerateFormValues } from "./types";
 
 /** The prompt a generated clip is made from. */
@@ -14,10 +15,10 @@ export function buildPrompt(values: GenerateFormValues): string {
     values.contentKind !== "" ? `${values.contentKind} video` : "",
     values.hook !== "" ? `Opens with: ${values.hook}` : "",
     values.scenes,
-    values.dialogue !== "" ? `Says: ${values.dialogue}` : "",
+    // The call to action is spoken at the end, so it goes with the words said, where the director keeps it word for word.
+    spokenText(values) !== "" ? `Says: ${spokenText(values).replace(/\n+/g, " ")}` : "",
     values.language !== "" ? `In ${values.language}` : "",
     values.tone !== "" ? `Tone: ${values.tone}` : "",
-    values.cta !== "" ? `Ends with: ${values.cta}` : "",
     values.product !== "" ? `Featuring: ${values.product}` : "",
   ];
   return parts.map((part) => part.trim()).filter((part) => part !== "").join("\n");
