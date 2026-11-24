@@ -138,7 +138,7 @@ func (a *ModelAssistant) Assist(ctx context.Context, history []Turn, message, st
 		b.WriteString(t.Role + ": " + t.Content + "\n")
 	}
 	b.WriteString("Latest message: " + message)
-	data, _, err := a.client.GenerateJSON(ctx, assistSystem, b.String(), assistSchema())
+	data, _, err := a.client.GenerateJSON(gemini.Tag(ctx, "editor_assist"), assistSystem, b.String(), assistSchema())
 	if err != nil {
 		return Reply{}, fmt.Errorf("editor: assist: %w", err)
 	}

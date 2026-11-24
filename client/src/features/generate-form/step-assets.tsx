@@ -1,6 +1,7 @@
 "use client";
 
 import { ChoiceChips } from "@/components/ui/choice-chips";
+import { cn } from "@/lib/utils";
 import { useLibrary } from "@/features/asset-library/use-library";
 
 import { unusedAssetNotes } from "./asset-use";
@@ -64,9 +65,48 @@ export function StepAssets({
   }
 
   const notes = unusedAssetNotes(values, assets);
+  const groups = library.groups.filter((group) => assets.some((asset) => asset.group_id === group.id));
+
+  // A group fills every slot it has an asset for: the first usable face, voice, product and place in it.
+  function applyGroup(groupId: string): void {
+    const first = (kind: string): string =>
+      assets.find((asset) => asset.group_id === groupId && asset.kind === kind && (!(kind === "face" || kind === "voice") || asset.consent_at !== null))?.id ?? "";
+    const face = first("face");
+    pick({
+      speakerMode: "single",
+      faceAssetId: face,
+      voiceAssetId: face ? first("voice") : "",
+      productAssetId: first("product") || values.productAssetId,
+      environmentAssetId: first("environment") || values.environmentAssetId,
+    });
+  }
+  const inGroup = (groupId: string): boolean =>
+    [values.faceAssetId, values.productAssetId].some((id) => id !== "" && assets.find((asset) => asset.id === id)?.group_id === groupId);
 
   return (
     <div className="flex flex-col gap-6">
+      {groups.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-ink">Use a group</span>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Use a group">
+            {groups.map((group) => (
+              <button
+                key={group.id}
+                type="button"
+                aria-pressed={inGroup(group.id)}
+                onClick={() => applyGroup(group.id)}
+                className={cn(
+                  "inline-flex h-9 cursor-pointer items-center rounded-full border px-3.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-primary",
+                  inGroup(group.id) ? "border-ink bg-ink text-paper" : "border-hairline text-ink hover:bg-cloud",
+                )}
+              >
+                {group.name}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-ink-soft">Fills the person, voice, product and place from that group. Change any of them below.</p>
+        </div>
+      ) : null}
       <ChoiceChips
         label="Who is in the video?"
         options={SPEAKER_MODES}

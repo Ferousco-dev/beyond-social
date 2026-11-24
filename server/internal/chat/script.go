@@ -136,9 +136,9 @@ func (w *ModelScriptWriter) Write(ctx context.Context, history []Turn, message s
 	var data []byte
 	var err error
 	if len(files) > 0 {
-		data, _, err = w.client.GenerateJSONFromMedia(ctx, scriptSystem, routerPrompt(history, message, time.Time{}), files, scriptSchema())
+		data, _, err = w.client.GenerateJSONFromMedia(gemini.Tag(ctx, "script"), scriptSystem, routerPrompt(history, message, time.Time{}), files, scriptSchema())
 	} else {
-		data, _, err = w.client.GenerateJSON(ctx, scriptSystem, routerPrompt(history, message, time.Time{}), scriptSchema())
+		data, _, err = w.client.GenerateJSON(gemini.Tag(ctx, "script"), scriptSystem, routerPrompt(history, message, time.Time{}), scriptSchema())
 	}
 	if err != nil {
 		return Script{}, fmt.Errorf("chat: write script: %w", err)

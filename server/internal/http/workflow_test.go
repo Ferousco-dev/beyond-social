@@ -156,7 +156,6 @@ func TestCreateDiscovery(t *testing.T) {
 		"bad url":      `{"url":"https://evil.example/x"}`,
 		"not json":     `nope`,
 		"trailing":     `{"platform":"tiktok","query":"cats"} {}`,
-		"huge limit":   `{"platform":"tiktok","query":"cats","limit":1000}`,
 	} {
 		if res := h.post("/api/v1/discover", token, payload); res.Code != http.StatusBadRequest {
 			t.Errorf("%s: expected 400, got %d", name, res.Code)

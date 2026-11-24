@@ -63,7 +63,7 @@ func (d GeminiDirector) Direct(ctx context.Context, brief string, seconds int, h
 		user += "A first-frame picture is attached.\n"
 	}
 	user += "Maximum " + itoa(maxRunes) + " characters.\n\nBrief:\n" + brief
-	raw, _, err := d.Client.GenerateJSON(ctx, directorSystem, user, schema)
+	raw, _, err := d.Client.GenerateJSON(gemini.Tag(ctx, "video_direction"), directorSystem, user, schema)
 	if err != nil {
 		return "", err
 	}

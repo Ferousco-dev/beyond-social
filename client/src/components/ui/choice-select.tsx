@@ -67,13 +67,18 @@ export function ChoiceSelect({
           <label htmlFor={inputId} className="sr-only">
             {label}, custom
           </label>
-          <input
+          {/* Grows with the answer so the whole of it stays readable; it is still one line of meaning, so line breaks become spaces. */}
+          <textarea
             id={inputId}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => onChange(event.target.value.replace(/\s*\n\s*/g, " "))}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
             placeholder={customPlaceholder}
             maxLength={200}
-            className="h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            rows={1}
+            className="field-sizing-content min-h-11 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm leading-6 text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
           />
         </>
       ) : null}

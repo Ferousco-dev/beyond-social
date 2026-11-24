@@ -67,7 +67,7 @@ func ParseCheckArgs(args map[string]any) (string, error) {
 
 // Check reviews one script.
 func (c *Checker) Check(ctx context.Context, script string) (Review, error) {
-	data, _, err := c.client.GenerateJSON(ctx, checkRules, "Script:\n"+script, reviewSchema())
+	data, _, err := c.client.GenerateJSON(gemini.Tag(ctx, "script_check"), checkRules, "Script:\n"+script, reviewSchema())
 	if err != nil {
 		return Review{}, fmt.Errorf("script review: %w", err)
 	}

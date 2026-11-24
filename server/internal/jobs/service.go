@@ -19,6 +19,8 @@ type Repository interface {
 	List(ctx context.Context, userID string, limit, offset int) ([]Job, error)
 	Get(ctx context.Context, userID, jobID string) (Job, error)
 	CountActive(ctx context.Context, userID, jobType string) (int, error)
+	// CountSince counts the jobs of a type a user created at or after since.
+	CountSince(ctx context.Context, userID, jobType string, since time.Time) (int, error)
 
 	// Claim leases up to limit due jobs of a type, pushing their next_run_at
 	// out by lease so a crashed worker's jobs become due again on their own.
@@ -120,6 +122,12 @@ func (s *Service) Get(ctx context.Context, userID, jobID string) (Job, error) {
 
 func (s *Service) CountActive(ctx context.Context, userID, jobType string) (int, error) {
 	return s.repo.CountActive(ctx, userID, jobType)
+}
+
+// CountSince counts the jobs of a type a user created at or after since, for
+// daily caps that must survive a restart.
+func (s *Service) CountSince(ctx context.Context, userID, jobType string, since time.Time) (int, error) {
+	return s.repo.CountSince(ctx, userID, jobType, since)
 }
 
 func (s *Service) Claim(ctx context.Context, jobType string, limit int, lease time.Duration) ([]Job, error) {

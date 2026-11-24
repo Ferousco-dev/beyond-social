@@ -160,7 +160,6 @@ func TestCreateValidatesAndNormalises(t *testing.T) {
 		"short query":        {Platform: video.TikTok, Query: "a"},
 		"long query":         {Platform: video.TikTok, Query: strings.Repeat("a", 81)},
 		"control chars":      {Platform: video.TikTok, Query: "ca\x00ts"},
-		"limit too high":     {Platform: video.TikTok, Query: "cats", Limit: MaxLimit + 1},
 		"negative limit":     {Platform: video.TikTok, Query: "cats", Limit: -1},
 		"url wrong site":     {URL: "https://evil.example/@a/video/1"},
 		"url internal":       {URL: "https://169.254.169.254/p/abc/"},
@@ -173,6 +172,10 @@ func TestCreateValidatesAndNormalises(t *testing.T) {
 		if _, err := svc.Create(ctx, alice, p); !errors.Is(err, ErrInvalid) {
 			t.Errorf("%s: expected ErrInvalid, got %v", name, err)
 		}
+	}
+	// Asking for more than a search allows gets the most it allows, not an error.
+	if d, err := svc.Create(ctx, alice, Params{Platform: video.TikTok, Query: "coffee", Limit: MaxLimit + 30}); err != nil || d.RequestedLimit != MaxLimit {
+		t.Fatalf("over the cap: %+v %v", d, err)
 	}
 }
 

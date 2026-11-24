@@ -71,9 +71,9 @@ func (r *ModelRouter) Route(ctx context.Context, in RouteInput) (Decision, error
 	var err error
 	prompt := routerPrompt(in.History, in.Message, in.Now)
 	if len(in.Files) > 0 {
-		data, _, err = r.client.GenerateJSONFromMedia(ctx, routerSystem, prompt, in.Files, routerSchema())
+		data, _, err = r.client.GenerateJSONFromMedia(gemini.Tag(ctx, "chat_route"), routerSystem, prompt, in.Files, routerSchema())
 	} else {
-		data, _, err = r.client.GenerateJSON(ctx, routerSystem, prompt, routerSchema())
+		data, _, err = r.client.GenerateJSON(gemini.Tag(ctx, "chat_route"), routerSystem, prompt, routerSchema())
 	}
 	if err != nil {
 		return Decision{}, fmt.Errorf("chat: route: %w", err)

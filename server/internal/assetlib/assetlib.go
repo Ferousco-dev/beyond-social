@@ -70,6 +70,8 @@ type Asset struct {
 	MediaID   string     `json:"media_id"`
 	ConsentAt *time.Time `json:"consent_at"`
 	CreatedAt time.Time  `json:"created_at"`
+	// GroupID is the group the asset is filed in, or nil when it is in none.
+	GroupID *string `json:"group_id"`
 	// FileKind is the stored file's sort (image, video, audio).
 	FileKind string `json:"file_kind"`
 	// URL is a short-lived link for display, set when listing.
@@ -93,8 +95,9 @@ type Repository interface {
 }
 
 type Service struct {
-	repo  Repository
-	media MediaLookup
+	repo   Repository
+	media  MediaLookup
+	groups GroupStore
 }
 
 func NewService(repo Repository, media MediaLookup) *Service {

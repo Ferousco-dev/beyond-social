@@ -124,7 +124,7 @@ func (rw Rewriter) Rewrite(ctx context.Context, userID string, req RewriteReques
 		Properties: map[string]*genai.Schema{"prompt": {Type: genai.TypeString, MaxLength: &limit}},
 		Required:   []string{"prompt"},
 	}
-	raw, _, err := rw.Model.GenerateJSONFromMedia(ctx, system, user, pictures, schema)
+	raw, _, err := rw.Model.GenerateJSONFromMedia(gemini.Tag(ctx, "prompt_rewrite"), system, user, pictures, schema)
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrRewrite, err)
 	}

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -19,12 +20,16 @@ const FetchJobType = "video_fetch"
 
 const (
 	maxActivePerUser = 2
+	// MaxFetchesPerDay caps how many linked videos one user can fetch in 24 hours.
+	MaxFetchesPerDay = 30
 	// MaxNotesRunes bounds what a person can add to the instructions.
 	MaxNotesRunes = 1000
 )
 
 var (
-	ErrTooManyBusy  = errors.New("too many analyses in progress")
+	ErrTooManyBusy = errors.New("too many analyses in progress")
+	// ErrDailyLimit means the user fetched as many linked videos as a day allows.
+	ErrDailyLimit   = errors.New("daily link limit reached")
 	ErrBadLink      = errors.New("not a supported video link")
 	ErrNotesTooLong = errors.New("notes are too long")
 )
@@ -33,6 +38,7 @@ var (
 type Jobs interface {
 	Create(ctx context.Context, userID, jobType string, input map[string]any, idempotencyKey string) (jobs.Job, bool, error)
 	CountActive(ctx context.Context, userID, jobType string) (int, error)
+	CountSince(ctx context.Context, userID, jobType string, since time.Time) (int, error)
 }
 
 // LinkResolver turns a share-sheet link into the post's own address.
@@ -107,6 +113,15 @@ func (s *Service) StartFetch(ctx context.Context, userID, raw, key string) (jobs
 	link, ok := ParseLink(raw)
 	if !ok {
 		return jobs.Job{}, false, ErrBadLink
+	}
+	// Each fetch is a paid scraper run and costs the user nothing, so a day has a cap.
+	// It is counted from stored jobs so a restart does not reset it.
+	fetched, err := s.jobs.CountSince(ctx, userID, FetchJobType, time.Now().Add(-24*time.Hour))
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	if fetched >= MaxFetchesPerDay {
+		return jobs.Job{}, false, ErrDailyLimit
 	}
 	return s.create(ctx, userID, FetchJobType, map[string]any{"url": link.URL, "kind": string(link.Kind)}, key)
 }

@@ -72,6 +72,8 @@ export function LibraryPicker({
                 >
                   {asset.file_kind === "audio" ? (
                     <AudioLines className="size-6 text-ink-soft" aria-hidden />
+                  ) : !asset.url ? (
+                    <span className="px-1 text-center text-[11px] text-ink-soft">No preview</span>
                   ) : asset.file_kind === "video" ? (
                     <video src={asset.url} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                   ) : (

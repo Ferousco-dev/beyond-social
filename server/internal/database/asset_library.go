@@ -11,7 +11,7 @@ import (
 )
 
 // The file kind comes from the media row, so a listing needs no second lookup.
-const assetLibraryColumns = `a.id::text, a.user_id::text, a.kind, a.label, a.media_id::text, a.consent_at, a.created_at, coalesce(m.kind, '')`
+const assetLibraryColumns = `a.id::text, a.user_id::text, a.kind, a.label, a.media_id::text, a.consent_at, a.created_at, coalesce(m.kind, ''), a.group_id::text`
 
 const assetLibraryFrom = ` from public.library_assets a left join public.media m on m.id = a.media_id`
 
@@ -118,7 +118,7 @@ func assetLibraryErr(err error) error {
 func scanAsset(row pgx.Row) (assetlib.Asset, error) {
 	var asset assetlib.Asset
 	var kind string
-	err := row.Scan(&asset.ID, &asset.UserID, &kind, &asset.Label, &asset.MediaID, &asset.ConsentAt, &asset.CreatedAt, &asset.FileKind)
+	err := row.Scan(&asset.ID, &asset.UserID, &kind, &asset.Label, &asset.MediaID, &asset.ConsentAt, &asset.CreatedAt, &asset.FileKind, &asset.GroupID)
 	asset.Kind = assetlib.Kind(kind)
 	return asset, err
 }

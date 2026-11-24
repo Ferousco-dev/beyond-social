@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/purge"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,7 +20,7 @@ func NewPurgeStore(pool *pgxpool.Pool) *PurgeStore { return &PurgeStore{pool: po
 var (
 	ErasedTables = []string{
 		"post_metrics", "scheduled_posts", "editor_projects", "messages", "conversation_summaries", "conversations", "user_memories", "workflow_steps", "workflows",
-		"discovery_videos", "discoveries", "jobs", "avatar_handoffs", "avatars", "social_oauth_states", "asset_groups", "library_assets", "cloned_voices",
+		"discovery_videos", "discoveries", "jobs", "avatar_handoffs", "avatars", "social_oauth_states", "asset_groups", "library_assets", "library_groups", "cloned_voices",
 		"social_connections", "media", "usage_events", "usage_state", "ai_usage", "provider_spend",
 	}
 	KeptTables = []string{"admin_audit_log", "credit_balances", "credit_ledger", "invoices", "payments", "subscriptions", "subscription_events"}
@@ -88,4 +89,21 @@ func (s *PurgeStore) Erase(ctx context.Context, userID string) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// RetainedLogs are the operational logs kept only for LogRetention, whatever
+// the account. The names come from this list, never from input.
+var RetainedLogs = []string{"ai_usage", "usage_events", "provider_spend"}
+
+// PruneLogs deletes operational log rows created before the cut-off.
+func (s *PurgeStore) PruneLogs(ctx context.Context, before time.Time) (int64, error) {
+	var total int64
+	for _, table := range RetainedLogs {
+		result, err := s.pool.Exec(ctx, fmt.Sprintf(`delete from public.%s where created_at < $1`, table), before)
+		if err != nil {
+			return total, fmt.Errorf("prune %s: %w", table, err)
+		}
+		total += result.RowsAffected()
+	}
+	return total, nil
 }

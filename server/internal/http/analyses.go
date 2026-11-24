@@ -3,6 +3,7 @@ package httpserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/analysis"
@@ -78,6 +79,8 @@ func (a *App) writeAnalysisJob(w http.ResponseWriter, r *http.Request, job jobs.
 		writeError(w, http.StatusBadRequest, "invalid_request", "send a TikTok, Instagram, or YouTube video link")
 	case errors.Is(err, analysis.ErrNotesTooLong):
 		writeError(w, http.StatusBadRequest, "invalid_request", "notes are too long")
+	case errors.Is(err, analysis.ErrDailyLimit):
+		writeError(w, http.StatusTooManyRequests, "daily_limit", fmt.Sprintf("You can open up to %d links a day. Try again tomorrow.", analysis.MaxFetchesPerDay))
 	case errors.Is(err, analysis.ErrTooManyBusy):
 		w.Header().Set("Retry-After", "30")
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "too many analyses in progress; wait for one to finish")

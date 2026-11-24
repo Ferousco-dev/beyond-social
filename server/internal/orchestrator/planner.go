@@ -110,7 +110,7 @@ func (p *Planner) Plan(ctx context.Context, objective string, view ContextView) 
 	var usage gemini.Usage
 	var rejected error
 	for attempt := 0; attempt <= maxRepairs; attempt++ {
-		data, used, err := p.client.GenerateJSON(ctx, p.systemPrompt(), text, p.registry.PlanResponseSchema())
+		data, used, err := p.client.GenerateJSON(gemini.Tag(ctx, "planner"), p.systemPrompt(), text, p.registry.PlanResponseSchema())
 		usage = addUsage(usage, used)
 		if err != nil {
 			return PlanResult{}, fmt.Errorf("orchestrator: plan generation: %w", err)

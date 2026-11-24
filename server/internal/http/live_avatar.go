@@ -3,7 +3,9 @@ package httpserver
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/assetlib"
@@ -57,8 +59,14 @@ func (a *App) createLiveAvatarVideo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) draftLiveAvatarScript(w http.ResponseWriter, r *http.Request) {
-	if _, ok := auth.IdentityFromContext(r.Context()); !ok {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
 		writeUnauthorized(w)
+		return
+	}
+	if allowed, wait := a.drafts.allow(identity.UserID); !allowed {
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have drafted many scripts this hour; write your own or try again later")
 		return
 	}
 	var req liveAvatarScriptRequest

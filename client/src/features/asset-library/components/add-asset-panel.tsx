@@ -4,9 +4,10 @@ import { useId, useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
 
 import { Chip } from "@/components/ui/choice-chips";
+import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-import { ASSET_KINDS, KIND_META, fileProblem, type AssetKind } from "../types";
+import { ASSET_KINDS, KIND_META, fileProblem, type AssetKind, type LibraryGroup } from "../types";
 
 const VOICE_SCRIPT =
   "Hi, my name is ____, and I make videos to share what I love. Every day I try to explain things simply, so anyone can follow along. Last week I visited a small market, tasted something new, and told my friends about it straight away. If you like what you see, stay with me. I will show you how it works, step by step, and I will keep it clear and friendly. Thanks for listening, and see you in the next one.";
@@ -18,19 +19,25 @@ const VOICE_SCRIPT =
 export function AddAssetPanel({
   initialKind,
   lockKind = false,
+  groups = [],
+  initialGroupId = null,
   onAdd,
   onClose,
 }: {
   initialKind: AssetKind;
   /** Opened from a single kind's tab, so there is nothing to choose. */
   lockKind?: boolean;
-  onAdd: (kind: AssetKind, label: string, file: File) => void;
+  groups?: readonly LibraryGroup[];
+  /** Opened from a group, so the asset goes into it unless changed. */
+  initialGroupId?: string | null;
+  onAdd: (kind: AssetKind, label: string, file: File, groupId: string | null) => void;
   onClose: () => void;
 }) {
   const labelId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [kind, setKind] = useState<AssetKind>(initialKind);
   const [label, setLabel] = useState("");
+  const [groupId, setGroupId] = useState<string | null>(initialGroupId);
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const meta = KIND_META[kind];
@@ -161,14 +168,24 @@ export function AddAssetPanel({
             className="h-11 rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
           />
           <p className="text-xs leading-relaxed text-ink-soft">
-            Name it so you can tell it apart later: who or what it is, and
-            anything that makes it different. For example, “{meta.example}”.
+            Name it so you can tell it apart later. For example, “{meta.example}”.
           </p>
+          {groups.length > 0 ? (
+            <div className="mt-1 flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-ink">Group</span>
+              <Select
+                aria-label="Group"
+                options={[{ value: "", label: "No group" }, ...groups.map((g) => ({ value: g.id, label: g.name }))]}
+                value={groupId ?? ""}
+                onValueChange={(next) => setGroupId(next === "" ? null : next)}
+              />
+            </div>
+          ) : null}
           <button
             type="button"
             disabled={!ready}
             onClick={() => {
-              if (file) onAdd(kind, label.trim(), file);
+              if (file) onAdd(kind, label.trim(), file, groupId);
             }}
             className="mt-auto inline-flex h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >

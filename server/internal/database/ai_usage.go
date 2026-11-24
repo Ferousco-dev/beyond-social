@@ -30,7 +30,7 @@ func (s *AIUsageStore) RecordUsage(ctx context.Context, r gemini.Record) {
 		insert into public.ai_usage (provider, model, purpose, user_id, job_id, input_tokens, output_tokens, total_tokens)
 		values ($1, $2, $3, nullif($4, '')::uuid, nullif($5, ''), $6, $7, $8)`,
 		r.Provider, r.Model, r.Purpose, r.UserID, r.JobID,
-		r.Usage.PromptTokens, r.Usage.CandidatesTokens, r.Usage.TotalTokens)
+		r.Usage.PromptTokens, r.Usage.OutputTokens(), r.Usage.TotalTokens)
 	if err != nil {
 		slog.Warn("record ai usage", "error", err)
 	}

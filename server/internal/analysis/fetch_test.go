@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
@@ -95,3 +96,33 @@ func TestStartFetchFollowsShortLinks(t *testing.T) {
 type staticLinks string
 
 func (s staticLinks) Resolve(context.Context, string) (string, error) { return string(s), nil }
+
+// countingJobs reports a fixed number of fetches already made today.
+type countingJobs struct {
+	today   int
+	created int
+}
+
+func (c *countingJobs) Create(_ context.Context, userID, jobType string, input map[string]any, _ string) (jobs.Job, bool, error) {
+	c.created++
+	return jobs.Job{ID: "j", UserID: userID, Type: jobType, Input: input}, true, nil
+}
+func (c *countingJobs) CountActive(context.Context, string, string) (int, error) { return 0, nil }
+func (c *countingJobs) CountSince(_ context.Context, _, jobType string, since time.Time) (int, error) {
+	if jobType != FetchJobType || time.Since(since) < 23*time.Hour {
+		return 0, errors.New("asked for the wrong count")
+	}
+	return c.today, nil
+}
+
+func TestLinkFetchesStopAtTheDailyCap(t *testing.T) {
+	const link = "https://www.tiktok.com/@a/video/1"
+	under := &countingJobs{today: MaxFetchesPerDay - 1}
+	if _, _, err := NewService(under).StartFetch(context.Background(), "u1", link, ""); err != nil || under.created != 1 {
+		t.Fatalf("under the cap: err=%v created=%d", err, under.created)
+	}
+	at := &countingJobs{today: MaxFetchesPerDay}
+	if _, _, err := NewService(at).StartFetch(context.Background(), "u1", link, ""); !errors.Is(err, ErrDailyLimit) || at.created != 0 {
+		t.Fatalf("at the cap: err=%v created=%d", err, at.created)
+	}
+}

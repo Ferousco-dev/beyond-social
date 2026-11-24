@@ -91,7 +91,7 @@ func (t *ModelTranscriber) Transcribe(ctx context.Context, url string) ([]Word, 
 	if err != nil {
 		return nil, err
 	}
-	out, _, err := t.client.GenerateJSONFromMedia(ctx, transcribeSystem, "Transcribe this video.", []gemini.Media{media}, transcribeSchema())
+	out, _, err := t.client.GenerateJSONFromMedia(gemini.Tag(ctx, "editor_captions"), transcribeSystem, "Transcribe this video.", []gemini.Media{media}, transcribeSchema())
 	if err != nil {
 		return nil, fmt.Errorf("editor: transcribe: %w", err)
 	}

@@ -1,26 +1,31 @@
 "use client";
 
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useState } from "react";
-import { AudioLines, Check, ShieldCheck, Trash2 } from "lucide-react";
+import { AudioLines, Check, FolderInput, MoreHorizontal, ShieldCheck, Trash2 } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
-import { KIND_META, needsConsent } from "../types";
+import { KIND_META, needsConsent, type LibraryGroup } from "../types";
 import type { ShownAsset } from "../use-asset-library";
 
-/** One asset: its preview, an editable label, consent for people, and delete. */
+/** One asset: its preview, an editable label, consent for people, and a menu to file or delete it. */
 export function AssetTile({
   asset,
   showKind,
+  groups,
   onRelabel,
   onConsent,
+  onMove,
   onRemove,
 }: {
   asset: ShownAsset;
   showKind: boolean;
+  groups: readonly LibraryGroup[];
   onRelabel: (label: string) => void;
   onConsent: () => void;
+  onMove: (groupId: string | null) => void;
   onRemove: () => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -44,14 +49,7 @@ export function AssetTile({
             <Spinner className="size-5" />
           </span>
         ) : (
-          <button
-            type="button"
-            aria-label={`Delete ${asset.label}`}
-            onClick={onRemove}
-            className="absolute right-2 top-2 inline-flex size-8 cursor-pointer items-center justify-center rounded-lg bg-paper/90 text-ink-soft opacity-0 shadow-sm transition-opacity hover:text-destructive focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-          >
-            <Trash2 className="size-4" aria-hidden />
-          </button>
+          <TileMenu asset={asset} groups={groups} onMove={onMove} onRemove={onRemove} />
         )}
       </div>
 
@@ -110,7 +108,7 @@ export function AssetTile({
 }
 
 function Preview({ asset }: { asset: ShownAsset }) {
-  if (asset.url === "") return <Placeholder />;
+  if (!asset.url) return <Placeholder />;
   if (asset.file_kind === "audio") {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-3">
@@ -128,4 +126,66 @@ function Preview({ asset }: { asset: ShownAsset }) {
 
 function Placeholder() {
   return <div className="flex h-full items-center justify-center text-xs text-ink-soft">Preview unavailable</div>;
+}
+
+const itemClass =
+  "flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-sm outline-none data-[highlighted]:bg-cloud";
+
+/** Filing and deleting, kept in one menu so the tile shows only its picture and name. */
+function TileMenu({
+  asset,
+  groups,
+  onMove,
+  onRemove,
+}: {
+  asset: ShownAsset;
+  groups: readonly LibraryGroup[];
+  onMove: (groupId: string | null) => void;
+  onRemove: () => void;
+}) {
+  const current = asset.group_id ?? null;
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger
+        aria-label={`Options for ${asset.label}`}
+        className="absolute right-2 top-2 inline-flex size-8 cursor-pointer items-center justify-center rounded-lg bg-paper/90 text-ink-soft opacity-0 shadow-sm transition-opacity hover:text-ink focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary group-hover:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+      >
+        <MoreHorizontal className="size-4" aria-hidden />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="end" sideOffset={6} className="z-50 min-w-48 rounded-lg border border-hairline bg-paper p-1 text-ink shadow-card">
+          {groups.length > 0 ? (
+            <DropdownMenu.Sub>
+              <DropdownMenu.SubTrigger className={itemClass}>
+                <FolderInput className="size-4 text-ink-soft" aria-hidden />
+                Move to group
+              </DropdownMenu.SubTrigger>
+              <DropdownMenu.Portal>
+                <DropdownMenu.SubContent sideOffset={4} className="z-50 max-h-72 min-w-44 overflow-y-auto rounded-lg border border-hairline bg-paper p-1 text-ink shadow-card">
+                  {groups.map((group) => (
+                    <DropdownMenu.Item key={group.id} onSelect={() => onMove(group.id)} disabled={group.id === current} className={cn(itemClass, "justify-between data-[disabled]:cursor-default data-[disabled]:text-ink-soft")}>
+                      <span className="truncate">{group.name}</span>
+                      {group.id === current ? <Check className="size-4" aria-hidden /> : null}
+                    </DropdownMenu.Item>
+                  ))}
+                  {current ? (
+                    <>
+                      <DropdownMenu.Separator className="my-1 h-px bg-hairline" />
+                      <DropdownMenu.Item onSelect={() => onMove(null)} className={itemClass}>
+                        Take out of group
+                      </DropdownMenu.Item>
+                    </>
+                  ) : null}
+                </DropdownMenu.SubContent>
+              </DropdownMenu.Portal>
+            </DropdownMenu.Sub>
+          ) : null}
+          <DropdownMenu.Item onSelect={onRemove} className={cn(itemClass, "text-destructive")}>
+            <Trash2 className="size-4" aria-hidden />
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/assetlib"
 	"github.com/Ferousco-dev/beyond-social/server/internal/assets"
 	"github.com/Ferousco-dev/beyond-social/server/internal/auth"
+	"github.com/Ferousco-dev/beyond-social/server/internal/autofill"
 	"github.com/Ferousco-dev/beyond-social/server/internal/billing"
 	"github.com/Ferousco-dev/beyond-social/server/internal/blog"
 	"github.com/Ferousco-dev/beyond-social/server/internal/chat"
@@ -25,6 +26,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/database"
 	"github.com/Ferousco-dev/beyond-social/server/internal/discovery"
 	"github.com/Ferousco-dev/beyond-social/server/internal/editor"
+	"github.com/Ferousco-dev/beyond-social/server/internal/ffmpeg"
 	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"github.com/Ferousco-dev/beyond-social/server/internal/generate"
 	httpserver "github.com/Ferousco-dev/beyond-social/server/internal/http"
@@ -134,7 +136,8 @@ func run() error {
 	transformProcessor.ResultKeys = kietools.ResultKeys
 	assetStore := database.NewAssetStore(pool)
 	assetService := assets.NewService(assetStore, mediaService)
-	assetLibrary := assetlib.NewService(database.NewAssetLibraryStore(pool), mediaService)
+	libraryStore := database.NewAssetLibraryStore(pool)
+	assetLibrary := assetlib.NewService(libraryStore, mediaService).WithGroups(libraryStore)
 	liveAvatarService := kietools.NewLiveAvatarService(jobService, assetService, assetLibrary, mediaService)
 	mediaBuilders[kietools.JobLiveAvatar] = kietools.LiveAvatarBuilder{Builder: kietools.Builder{Files: mediaService, Fetcher: transformProcessor.Fetcher, Uploader: kieUploads}}.BuildLiveAvatar
 
@@ -151,6 +154,15 @@ func run() error {
 	}
 	mediaBuilders[generate.JobType] = generate.Builder{Pictures: mediaService, Uploader: kieClient, Director: generate.GeminiDirector{Client: geminiClient}}.Build
 	mediaBuilders[videoedit.JobType] = videoedit.Builder{Files: mediaService}.Build
+	// ffmpeg puts the person's own sound back on an edit. Without it edits stay silent.
+	mixer := ffmpeg.Find()
+	editFinisher := videoedit.Finisher{Files: mediaService}
+	if mixer.Available() {
+		editFinisher.Mix = mixer.WithSound
+	} else {
+		slog.Warn("ffmpeg not found; edited videos will be silent")
+	}
+	transformProcessor.Finishers = map[string]transform.Finisher{videoedit.JobType: editFinisher.Finish}
 	editService := videoedit.NewService(jobService, mediaService)
 	profileStore := database.NewProfileStore(pool).WithAdminEmails(cfg.AdminEmails)
 	settingsStore := database.NewSettingsStore(pool)
@@ -239,6 +251,8 @@ func run() error {
 		Insights:            insightsService,
 		AssetGroups:         assetService,
 		AssetLibrary:        assetLibrary,
+		LibraryGroups:       assetLibrary,
+		Autofill:            autofill.NewService(geminiClient, assetLibrary),
 		Monitoring:          database.NewMonitoringStore(pool),
 		Probe:               providers.NewChecker(),
 		Alerts:              alertService,

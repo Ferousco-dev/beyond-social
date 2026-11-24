@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { listLibraryAssets } from "./actions";
-import type { LibraryAsset } from "./types";
+import { listLibraryAssets, listLibraryGroups } from "./actions";
+import type { LibraryAsset, LibraryGroup } from "./types";
 
 type LibraryState =
   | { readonly status: "loading" }
-  | { readonly status: "ready"; readonly assets: readonly LibraryAsset[] }
+  | { readonly status: "ready"; readonly assets: readonly LibraryAsset[]; readonly groups: readonly LibraryGroup[] }
   | { readonly status: "error"; readonly message: string };
 
 // One read per visit: every step that offers saved assets shares it, so moving
@@ -17,9 +17,9 @@ let version = 0;
 const listeners = new Set<() => void>();
 
 function load(): Promise<LibraryState> {
-  pending ??= listLibraryAssets()
-    .then((result): LibraryState => {
-      if (result.status === "ok") return { status: "ready", assets: result.assets };
+  pending ??= Promise.all([listLibraryAssets(), listLibraryGroups()])
+    .then(([result, groups]): LibraryState => {
+      if (result.status === "ok") return { status: "ready", assets: result.assets, groups };
       pending = null;
       return { status: "error", message: result.status === "unconfigured" ? "The service is not available right now. Try again in a few minutes." : result.message };
     })

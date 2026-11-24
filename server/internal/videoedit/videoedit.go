@@ -249,3 +249,33 @@ func clip(s string, n int) string {
 	}
 	return strings.TrimSpace(string([]rune(s)[:n]))
 }
+
+// Keeper copies a finished edit into the user's storage with the sound of their
+// original video laid under it.
+type Keeper interface {
+	AdoptWithSound(ctx context.Context, userID, jobID, sourceURL, originalID, name string, mix media.Mixer) (media.Descriptor, bool, error)
+}
+
+// Finisher gives a finished edit back its sound: the model returns the changed
+// picture silent, and the person's own voice is what makes it theirs. Without a
+// mixer (ffmpeg missing) it does nothing and the edit stays silent.
+type Finisher struct {
+	Files Keeper
+	Mix   media.Mixer
+}
+
+// Finish implements transform.Finisher.
+func (f Finisher) Finish(ctx context.Context, job jobs.Job, urls []string) error {
+	if f.Mix == nil || f.Files == nil {
+		return nil
+	}
+	req, err := ParseArgs(job.Input)
+	if err != nil {
+		return err
+	}
+	_, sound, err := f.Files.AdoptWithSound(ctx, job.UserID, job.ID, urls[0], req.VideoMediaID, clip(req.Prompt, 80), f.Mix)
+	if err == nil && !sound {
+		return errors.New("the edit was kept without its sound")
+	}
+	return err
+}

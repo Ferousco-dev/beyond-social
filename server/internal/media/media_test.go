@@ -313,3 +313,44 @@ func TestLoadRefusesBytesThatAreNotTheirKind(t *testing.T) {
 		}
 	}
 }
+
+func TestAdoptWithSoundMixesOnlyTheOwnersOriginal(t *testing.T) {
+	ctx := context.Background()
+	st := &memStore{items: map[string]Item{
+		"orig-1": {ID: "orig-1", UserID: "u1", Kind: KindVideo, MIME: "video/mp4", Path: "u1/orig-1.mp4", Size: int64(len(testMP4)), Ready: true},
+	}}
+	svc := NewService(st, fakeStorage{}, fakeFetcher{data: testMP4})
+	mixed := append(append([]byte{}, testMP4...), []byte("with sound")...)
+	calls := 0
+	mix := func(_ context.Context, video, source []byte) ([]byte, error) {
+		calls++
+		return mixed, nil
+	}
+
+	d, sound, err := svc.AdoptWithSound(ctx, "u1", "job-1", "https://cdn.example/v.mp4", "orig-1", "Suit", mix)
+	if err != nil || !sound || d.Size != int64(len(mixed)) || calls != 1 {
+		t.Fatalf("adopt: %+v sound=%v err=%v calls=%d", d, sound, err, calls)
+	}
+	// Once kept, the same job returns the same file without mixing again.
+	if again, _, err := svc.AdoptWithSound(ctx, "u1", "job-1", "https://cdn.example/v.mp4", "orig-1", "Suit", mix); err != nil || again.ID != d.ID || calls != 1 {
+		t.Fatalf("second adopt: %+v %v calls=%d", again, err, calls)
+	}
+	// Someone else's original is never read; the edit is kept silent instead.
+	other, sound, err := svc.AdoptWithSound(ctx, "u2", "job-2", "https://cdn.example/v.mp4", "orig-1", "x", mix)
+	if err != nil || sound || other.Size != int64(len(testMP4)) || calls != 1 {
+		t.Fatalf("stranger: %+v sound=%v err=%v calls=%d", other, sound, err, calls)
+	}
+}
+
+func TestAdoptWithSoundKeepsTheSilentEditWhenMixingFails(t *testing.T) {
+	ctx := context.Background()
+	st := &memStore{items: map[string]Item{
+		"orig-1": {ID: "orig-1", UserID: "u1", Kind: KindVideo, MIME: "video/mp4", Path: "u1/orig-1.mp4", Size: int64(len(testMP4)), Ready: true},
+	}}
+	svc := NewService(st, fakeStorage{}, fakeFetcher{data: testMP4})
+	broken := func(context.Context, []byte, []byte) ([]byte, error) { return nil, errors.New("ffmpeg died") }
+	d, sound, err := svc.AdoptWithSound(ctx, "u1", "job-1", "https://cdn.example/v.mp4", "orig-1", "x", broken)
+	if err != nil || sound || d.ID == "" {
+		t.Fatalf("got %+v sound=%v err=%v, want the silent edit kept", d, sound, err)
+	}
+}

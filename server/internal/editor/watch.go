@@ -79,7 +79,7 @@ func (w *ModelWatcher) Watch(ctx context.Context, url string) (ClipNotes, error)
 	if err != nil {
 		return ClipNotes{}, err
 	}
-	out, _, err := w.client.GenerateJSONFromMedia(ctx, watchSystem, "Watch this video.", []gemini.Media{media}, watchSchema())
+	out, _, err := w.client.GenerateJSONFromMedia(gemini.Tag(ctx, "editor_watch"), watchSystem, "Watch this video.", []gemini.Media{media}, watchSchema())
 	if err != nil {
 		return ClipNotes{}, fmt.Errorf("editor: watch: %w", err)
 	}

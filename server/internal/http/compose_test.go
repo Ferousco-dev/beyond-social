@@ -138,3 +138,15 @@ func TestQuotesShowWhatAFreeMemberIsCharged(t *testing.T) {
 		t.Fatalf("edit quote: %d %s", res.Code, res.Body.String())
 	}
 }
+
+func TestScriptDraftGateUsesItsOwnLimit(t *testing.T) {
+	g := newHourlyGate(scriptDraftsPerHour)
+	for i := 0; i < scriptDraftsPerHour; i++ {
+		if ok, _ := g.allow("u1"); !ok {
+			t.Fatalf("refused draft %d of %d", i+1, scriptDraftsPerHour)
+		}
+	}
+	if ok, _ := g.allow("u1"); ok {
+		t.Fatal("allowed a draft past the hourly cap")
+	}
+}

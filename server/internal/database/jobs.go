@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/jackc/pgx/v5"
@@ -89,6 +90,14 @@ func (s *JobStore) CountActive(ctx context.Context, userID, jobType string) (int
 	err := s.pool.QueryRow(ctx, `
 		select count(*) from public.jobs
 		where user_id = $1 and job_type = $2 and status in ('queued', 'running')`, userID, jobType).Scan(&n)
+	return n, err
+}
+
+func (s *JobStore) CountSince(ctx context.Context, userID, jobType string, since time.Time) (int, error) {
+	var n int
+	err := s.pool.QueryRow(ctx, `
+		select count(*) from public.jobs
+		where user_id = $1 and job_type = $2 and created_at >= $3`, userID, jobType, since).Scan(&n)
 	return n, err
 }
 

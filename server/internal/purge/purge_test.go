@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 type memStore struct {
@@ -58,5 +59,30 @@ func TestTheJobFindsAccountsThatWereMissed(t *testing.T) {
 	p.once(context.Background())
 	if len(store.erased) != 2 {
 		t.Fatalf("erased = %v", store.erased)
+	}
+}
+
+type pruningStore struct {
+	memStore
+	cutoffs []time.Time
+}
+
+func (p *pruningStore) PruneLogs(_ context.Context, before time.Time) (int64, error) {
+	p.cutoffs = append(p.cutoffs, before)
+	return 0, nil
+}
+
+func TestOldLogsArePrunedAtMostOnceADay(t *testing.T) {
+	store := &pruningStore{}
+	p := New(store, nil, "media", "footage")
+	now := time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)
+	p.prune(context.Background(), now)
+	p.prune(context.Background(), now.Add(time.Hour))
+	if len(store.cutoffs) != 1 || !store.cutoffs[0].Equal(now.Add(-LogRetention)) {
+		t.Fatalf("cutoffs = %v", store.cutoffs)
+	}
+	p.prune(context.Background(), now.Add(25*time.Hour))
+	if len(store.cutoffs) != 2 {
+		t.Fatalf("a day later it should prune again: %v", store.cutoffs)
 	}
 }

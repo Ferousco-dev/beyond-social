@@ -108,7 +108,7 @@ func (p *Processor) Handle(ctx context.Context, job jobs.Job) {
 	p.advance(ctx, job, jobs.Update{Stage: ptr(stageWatching), Progress: ptr(40)})
 
 	watchStart := p.now()
-	data, _, err := p.Watcher.GenerateJSONFromMedia(ctx, system, prompt(job), []gemini.Media{media}, schema())
+	data, _, err := p.Watcher.GenerateJSONFromMedia(gemini.TagJob(ctx, "video_analysis", job.UserID, job.ID), system, prompt(job), []gemini.Media{media}, schema())
 	slog.Info("analysis watched", "job_id", job.ID, "watch_ms", p.now().Sub(watchStart).Milliseconds())
 	if err != nil {
 		p.failed(ctx, job, err)

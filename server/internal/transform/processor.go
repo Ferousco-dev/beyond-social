@@ -67,9 +67,20 @@ func (e *UserError) Error() string { return e.Message }
 // its prompt) so this processor can submit it and follow it to completion.
 type Builder func(ctx context.Context, job jobs.Job) (Prepared, error)
 
+// Finisher works on a job's finished files before the job is marked done, such
+// as copying them into the user's storage with their sound put back. It is best
+// effort: an error is logged and the job still completes with the provider's
+// files.
+type Finisher func(ctx context.Context, job jobs.Job, urls []string) error
+
+// finishTimeout bounds a finisher, well inside the worker's lease.
+const finishTimeout = 3 * time.Minute
+
 type Processor struct {
 	// Builders handle job types other than a video transformation.
 	Builders map[string]Builder
+	// Finishers run once a job of their type succeeds. Types not listed have none.
+	Finishers map[string]Finisher
 	// ResultKeys names where a job type's finished file is stored in its
 	// result. Types not listed make videos, stored as video_url.
 	ResultKeys  map[string]string
@@ -148,6 +159,7 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 	}
 	switch task.State {
 	case kie.StateSuccess:
+		p.finish(ctx, job, task.ResultURLs)
 		p.advance(ctx, job, jobs.Update{
 			Status: jobs.StatusCompleted, Stage: ptr(stageDone), Progress: ptr(100),
 			Result: p.result(job.Type, task.ResultURLs),
@@ -164,6 +176,20 @@ func (p *Processor) poll(ctx context.Context, job jobs.Job) {
 		next := p.now().Add(delay)
 		progress := max(job.Progress, 40+task.Progress*60/100)
 		p.advance(ctx, job, jobs.Update{Progress: &progress, NextRun: &next})
+	}
+}
+
+// finish runs the job type's finisher, if it has one. It runs detached from the
+// caller, so a callback request that ends early does not cut it short.
+func (p *Processor) finish(ctx context.Context, job jobs.Job, urls []string) {
+	f, ok := p.Finishers[job.Type]
+	if !ok || len(urls) == 0 {
+		return
+	}
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishTimeout)
+	defer cancel()
+	if err := f(fctx, job, urls); err != nil {
+		slog.Warn("finishing job failed, keeping the provider's files", "job_id", job.ID, "type", job.Type, "error", err)
 	}
 }
 

@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	DefaultLimit     = 20
-	MaxLimit         = 60
+	DefaultLimit = 20
+	// MaxLimit keeps a search inside its price: each result is billed by Apify
+	// (about $0.0037 on TikTok), and 60 cost as much as the search earned.
+	MaxLimit         = 30
 	maxQueryRunes    = 80
 	minQueryRunes    = 2
 	maxActivePerUser = 3
@@ -151,7 +153,11 @@ func validate(userID string, p Params) (Discovery, error) {
 	if limit == 0 {
 		limit = DefaultLimit
 	}
-	if limit < 1 || limit > MaxLimit {
+	if limit > MaxLimit {
+		// Older pages still ask for more; give them the most a search allows.
+		limit = MaxLimit
+	}
+	if limit < 1 {
 		return Discovery{}, fmt.Errorf("%w: limit must be between 1 and %d", ErrInvalid, MaxLimit)
 	}
 	d := Discovery{UserID: userID, RequestedLimit: limit, Status: StatusQueued}

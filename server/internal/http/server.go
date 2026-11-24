@@ -93,12 +93,16 @@ type Deps struct {
 	Insights         InsightsService
 	AssetGroups      AssetGroups
 	AssetLibrary     AssetLibrary
-	Probe            CredentialProbe
-	Audit            Auditor
-	Verifier         *auth.Verifier
-	Database         Pinger
-	Hub              *realtime.Hub
-	AllowedOrigins   []string
+	// LibraryGroups files library assets into named groups. Nil turns groups off.
+	LibraryGroups LibraryGroups
+	// Autofill fills the video form from one sentence. Nil turns it off.
+	Autofill       Autofill
+	Probe          CredentialProbe
+	Audit          Auditor
+	Verifier       *auth.Verifier
+	Database       Pinger
+	Hub            *realtime.Hub
+	AllowedOrigins []string
 }
 
 type App struct {
@@ -107,10 +111,14 @@ type App struct {
 	resets *resetGate
 	// rewrites caps the composer's prompt suggestions per person.
 	rewrites *rewriteGate
+	// drafts caps free script drafts, which cost a model call and the person nothing.
+	drafts *rewriteGate
+	// autofills caps free form filling.
+	autofills *rewriteGate
 }
 
 func NewApp(deps Deps) *App {
-	return &App{deps: deps, limits: newLimiter(), resets: newResetGate(), rewrites: newRewriteGate()}
+	return &App{deps: deps, limits: newLimiter(), resets: newResetGate(), rewrites: newRewriteGate(), drafts: newHourlyGate(scriptDraftsPerHour), autofills: newHourlyGate(autofillsPerHour)}
 }
 
 func (a *App) Handler() http.Handler {
@@ -157,6 +165,11 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/asset-groups/{id}", protected(http.HandlerFunc(a.deleteAssetGroup)))
 	mux.Handle("POST /api/v1/asset-groups/{id}/consent", protected(http.HandlerFunc(a.consentAssetGroup)))
 	mux.Handle("GET /api/v1/assets", protected(revalidated(http.HandlerFunc(a.listLibraryAssets))))
+	mux.Handle("GET /api/v1/assets/groups", protected(revalidated(http.HandlerFunc(a.listLibraryGroups))))
+	mux.Handle("POST /api/v1/assets/groups", protected(http.HandlerFunc(a.createLibraryGroup)))
+	mux.Handle("PATCH /api/v1/assets/groups/{id}", protected(http.HandlerFunc(a.renameLibraryGroup)))
+	mux.Handle("DELETE /api/v1/assets/groups/{id}", protected(http.HandlerFunc(a.deleteLibraryGroup)))
+	mux.Handle("PUT /api/v1/assets/{id}/group", protected(http.HandlerFunc(a.assignLibraryGroup)))
 	mux.Handle("POST /api/v1/assets", protected(http.HandlerFunc(a.createLibraryAsset)))
 	mux.Handle("PATCH /api/v1/assets/{id}", protected(http.HandlerFunc(a.relabelLibraryAsset)))
 	mux.Handle("POST /api/v1/assets/{id}/consent", protected(http.HandlerFunc(a.consentLibraryAsset)))
@@ -168,6 +181,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("POST /api/v1/editor/transcribe", protected(http.HandlerFunc(a.editorTranscribe)))
 	mux.Handle("POST /api/v1/editor/assist", protected(http.HandlerFunc(a.editorAssist)))
 	mux.Handle("POST /api/v1/storyboard", protected(http.HandlerFunc(a.storyboardWrite)))
+	mux.Handle("POST /api/v1/compose/brief", protected(http.HandlerFunc(a.composeBrief)))
 	mux.Handle("POST /api/v1/compose/rewrite", protected(http.HandlerFunc(a.composeRewrite)))
 	mux.Handle("GET /api/v1/compose/edit/quote", protected(http.HandlerFunc(a.composeEditQuote)))
 	mux.Handle("POST /api/v1/compose/edit", protected(http.HandlerFunc(a.composeEdit)))

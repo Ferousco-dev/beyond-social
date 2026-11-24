@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"errors"
+	"github.com/Ferousco-dev/beyond-social/server/internal/gemini"
 	"strconv"
 
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
@@ -35,6 +36,8 @@ const mode = "pro"
 
 // Build implements transform.Builder.
 func (b Builder) Build(ctx context.Context, job jobs.Job) (transform.Prepared, error) {
+	// Workers carry no signed-in user, so the job names who the direction is for.
+	ctx = gemini.TagJob(ctx, "video_direction", job.UserID, job.ID)
 	req, err := ParseArgs(job.Input)
 	if err != nil {
 		return transform.Prepared{}, &transform.UserError{Message: "That video request was not valid. Please try again."}

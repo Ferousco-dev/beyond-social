@@ -2,6 +2,7 @@ package kietools
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"testing"
@@ -136,5 +137,55 @@ func TestTalkPromptKeepsThePersonsWordsFirstAndAddsTheRealLook(t *testing.T) {
 	}
 	if n := utf8.RuneCountInString(talkPrompt(strings.Repeat("x", MaxPromptRunes))); n > 5000 {
 		t.Fatalf("prompt is %d characters, the model takes 5000", n)
+	}
+}
+
+// wavFile is a silent mono 8 kHz 8-bit WAV that plays for the given seconds.
+func wavFile(seconds int) []byte {
+	const rate = 8000
+	n := rate * seconds
+	h := make([]byte, 44)
+	copy(h[0:], "RIFF")
+	binary.LittleEndian.PutUint32(h[4:], uint32(36+n))
+	copy(h[8:], "WAVEfmt ")
+	binary.LittleEndian.PutUint32(h[16:], 16)
+	binary.LittleEndian.PutUint16(h[20:], 1)
+	binary.LittleEndian.PutUint16(h[22:], 1)
+	binary.LittleEndian.PutUint32(h[24:], rate)
+	binary.LittleEndian.PutUint32(h[28:], rate)
+	binary.LittleEndian.PutUint16(h[32:], 1)
+	binary.LittleEndian.PutUint16(h[34:], 8)
+	copy(h[36:], "data")
+	binary.LittleEndian.PutUint32(h[40:], uint32(n))
+	return append(h, make([]byte, n)...)
+}
+
+const voiceID = "3c7d2e1f-6a5b-4c3d-8e9f-0a1b2c3d4e5f"
+
+type talkFiles struct{ seconds int }
+
+func (r talkFiles) Load(_ context.Context, _, id string, _ int64) ([]byte, string, error) {
+	if id == voiceID {
+		return wavFile(r.seconds), "audio/wav", nil
+	}
+	return []byte("data"), "image/png", nil
+}
+
+func TestATalkingPhotoLongerThanWhatWasChargedIsRefused(t *testing.T) {
+	job := func(seconds float64) jobs.Job {
+		return jobs.Job{UserID: "u", Input: map[string]any{"image_media_id": picture, "audio_media_id": voiceID, "prompt": "calm", "seconds": seconds}}
+	}
+	up := &uploader{}
+	b := Builder{Files: talkFiles{seconds: 30}, Fetcher: fetcher{}, Uploader: up}
+	_, err := b.BuildTalk(context.Background(), job(5))
+	var ue *transform.UserError
+	if !errors.As(err, &ue) {
+		t.Fatalf("a 30 s recording charged as 5 s was accepted: %v", err)
+	}
+	if up.n != 1 {
+		t.Fatalf("the recording must not reach the provider; uploads = %d", up.n)
+	}
+	if _, err := b.BuildTalk(context.Background(), job(30)); err != nil {
+		t.Fatalf("a recording charged at its own length was refused: %v", err)
 	}
 }

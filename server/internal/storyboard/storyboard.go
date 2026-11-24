@@ -157,63 +157,97 @@ func prompt(in Input) string {
 	return b.String()
 }
 
-// Write asks the model for a plan and makes it exactly the chosen length.
+// outputTokens leaves room for a long plan: up to 45 shots of text, plus the
+// model's thinking, which counts toward the same limit.
+const outputTokens = 24576
+
+// Write asks the model for a plan and makes it exactly the chosen length. A
+// reply that cannot be used is asked for once more before giving up, so one
+// bad answer does not fail the person.
 func (w *ModelWriter) Write(ctx context.Context, in Input) (Plan, error) {
 	if err := in.Validate(); err != nil {
 		return Plan{}, err
 	}
-	data, _, err := w.client.GenerateJSON(ctx, system, prompt(in), schema())
-	if err != nil {
-		return Plan{}, fmt.Errorf("storyboard: write: %w", err)
+	ctx = gemini.WithOutputLimit(gemini.Tag(ctx, "storyboard"), outputTokens)
+	var last error
+	for range 2 {
+		data, _, err := w.client.GenerateJSON(ctx, system, prompt(in), schema())
+		if err != nil {
+			return Plan{}, fmt.Errorf("storyboard: write: %w", err)
+		}
+		plan, err := Decode(data)
+		if err == nil {
+			plan, err = Fit(plan, in.Seconds)
+		}
+		if err == nil {
+			return plan, nil
+		}
+		last = err
 	}
-	plan, err := Decode(data)
-	if err != nil {
-		return Plan{}, err
-	}
-	return Fit(plan, in.Seconds)
+	return Plan{}, last
 }
 
-// Decode checks a model reply: exact shape, bounded, every shot a usable length.
+// Decode reads a model reply and tidies what is easy to mend instead of
+// refusing the whole plan: shot lengths are brought inside the limits, long
+// text is cut, and a shot with nothing to show is dropped. Only a reply with
+// no usable shots is refused.
 func Decode(data []byte) (Plan, error) {
 	var p Plan
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&p); err != nil {
+	if err := json.NewDecoder(bytes.NewReader(data)).Decode(&p); err != nil {
 		return Plan{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
-	p.Title = strings.TrimSpace(p.Title)
-	p.Look = strings.TrimSpace(p.Look)
-	if len(p.Shots) == 0 || len(p.Shots) > MaxShots {
-		return Plan{}, fmt.Errorf("%w: a plan has 1 to %d shots", ErrInvalid, MaxShots)
-	}
-	for i := range p.Shots {
-		s := &p.Shots[i]
-		s.Visual, s.Camera = strings.TrimSpace(s.Visual), strings.TrimSpace(s.Camera)
-		s.Voiceover, s.OnScreenText = strings.TrimSpace(s.Voiceover), strings.TrimSpace(s.OnScreenText)
-		if s.Seconds < MinShotSeconds || s.Seconds > MaxShotSeconds {
-			return Plan{}, fmt.Errorf("%w: shot %d is %d seconds, outside %d to %d", ErrInvalid, i+1, s.Seconds, MinShotSeconds, MaxShotSeconds)
+	p.Title = clipRunes(strings.TrimSpace(p.Title), maxTitleRunes)
+	p.Look = clipRunes(strings.TrimSpace(p.Look), MaxLookRunes)
+	shots := make([]Shot, 0, len(p.Shots))
+	for _, s := range p.Shots {
+		s.Visual = clipRunes(strings.TrimSpace(s.Visual), maxVisualRunes)
+		if s.Visual == "" {
+			continue
 		}
-		if s.Visual == "" || utf8.RuneCountInString(s.Visual) > maxVisualRunes || utf8.RuneCountInString(s.Voiceover) > maxTextRunes {
-			return Plan{}, fmt.Errorf("%w: shot %d has nothing to show or is too long", ErrInvalid, i+1)
-		}
+		s.Camera = clipRunes(strings.TrimSpace(s.Camera), 200)
+		s.Voiceover = clipRunes(strings.TrimSpace(s.Voiceover), maxTextRunes)
+		s.OnScreenText = clipRunes(strings.TrimSpace(s.OnScreenText), 200)
+		s.Seconds = min(max(s.Seconds, MinShotSeconds), MaxShotSeconds)
+		shots = append(shots, s)
 	}
+	if len(shots) == 0 {
+		return Plan{}, fmt.Errorf("%w: the plan has no shots to show", ErrInvalid)
+	}
+	if len(shots) > MaxShots {
+		shots = shots[:MaxShots]
+	}
+	p.Shots = shots
 	return p, nil
 }
 
-// Fit makes the plan exactly the chosen length by moving whole seconds between
-// shots, one at a time, never taking a shot outside its limits. A model that is
-// a few seconds off is corrected here; one that is far off is refused so the
-// person is not shown a plan that does not match what they chose.
-func Fit(p Plan, seconds int) (Plan, error) {
-	slack := seconds / 10
-	if slack < 3 {
-		slack = 3
+func clipRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
 	}
-	diff := seconds - p.TotalSeconds()
-	if diff > slack || -diff > slack {
-		return Plan{}, fmt.Errorf("%w: the plan runs %d seconds, not %d", ErrInvalid, p.TotalSeconds(), seconds)
+	return strings.TrimSpace(string([]rune(s)[:n]))
+}
+
+// Fit makes the plan exactly the chosen length. Shots are first stretched or
+// shrunk in proportion, then whole seconds are moved one at a time, never
+// taking a shot outside its limits. Only a length the shots cannot reach at
+// all (too few or too many of them) is refused.
+func Fit(p Plan, seconds int) (Plan, error) {
+	n := len(p.Shots)
+	if n == 0 || seconds < n*MinShotSeconds || seconds > n*MaxShotSeconds {
+		return Plan{}, fmt.Errorf("%w: %d shots cannot run %d seconds", ErrInvalid, n, seconds)
 	}
 	shots := append([]Shot(nil), p.Shots...)
+	if total := p.TotalSeconds(); total != seconds && total > 0 {
+		ratio := float64(seconds) / float64(total)
+		for i := range shots {
+			scaled := int(float64(shots[i].Seconds)*ratio + 0.5)
+			shots[i].Seconds = min(max(scaled, MinShotSeconds), MaxShotSeconds)
+		}
+	}
+	diff := seconds
+	for _, s := range shots {
+		diff -= s.Seconds
+	}
 	for diff != 0 {
 		moved := false
 		for i := len(shots) - 1; i >= 0 && diff != 0; i-- {

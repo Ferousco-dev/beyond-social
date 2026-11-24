@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { toAudience } from "./audience";
+import { AutofillCard } from "./autofill-card";
 import { DRAFT_KEY, STEP_KEY, readDraft } from "./draft";
 import { valuesFromAnalysis } from "./analysis-values";
 import { useReferenceScript } from "./reference-script";
@@ -156,7 +157,8 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
 
   return (
     <div className="flex flex-col gap-5">
-      {script.state.phase !== "idle" ? (
+      {/* Once written, the script is simply in the Script step: no message needed. */}
+      {script.state.phase === "working" || script.state.phase === "failed" ? (
         <div role="status" aria-live="polite" className="flex flex-col gap-2 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
           {script.state.phase === "working" ? (
             <>
@@ -168,16 +170,6 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
                 <span className="block h-full bg-primary transition-[width]" style={{ width: `${script.state.progress}%` }} />
               </span>
             </>
-          ) : script.state.phase === "ready" ? (
-            <span className="flex flex-wrap items-center gap-3">
-              Your script is ready.
-              <button type="button" onClick={() => setStep(1)} className="cursor-pointer font-medium text-primary underline underline-offset-2">
-                See it
-              </button>
-              <button type="button" onClick={script.dismiss} className="cursor-pointer text-ink-soft underline underline-offset-2">
-                Dismiss
-              </button>
-            </span>
           ) : (
             <span className="flex flex-wrap items-center gap-3 text-destructive" role="alert">
               {script.state.message}
@@ -191,6 +183,17 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
           )}
         </div>
       ) : null}
+      <AutofillCard
+        values={values}
+        assets={library.status === "ready" ? library.assets : []}
+        onFill={(next) => {
+          patch(next);
+          setShowErrors(false);
+        }}
+        onReview={() => {
+          if (goTo(STEPS.length - 1)) setReviewing(true);
+        }}
+      />
       <ol aria-label="Progress" className="flex gap-1.5">
         {STEPS.map((label, index) => (
           <li key={label} className="flex-1">

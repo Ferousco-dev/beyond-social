@@ -203,3 +203,5 @@ func TestServiceListPagination(t *testing.T) {
 		t.Fatalf("last page: %+v", page)
 	}
 }
+
+func (r *memRepo) CountSince(context.Context, string, string, time.Time) (int, error) { return 0, nil }

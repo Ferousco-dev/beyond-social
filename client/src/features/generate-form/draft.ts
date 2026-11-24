@@ -11,6 +11,29 @@ export function readDraft<T>(key: string): T | null {
   }
 }
 
+/** The saved form exactly as stored, so a discard can be undone. */
+export interface DraftSnapshot {
+  readonly draft: string | null;
+  readonly step: string | null;
+}
+
+export function snapshotDraft(): DraftSnapshot {
+  try {
+    return { draft: window.localStorage.getItem(DRAFT_KEY), step: window.localStorage.getItem(STEP_KEY) };
+  } catch {
+    return { draft: null, step: null };
+  }
+}
+
+export function restoreDraft(snapshot: DraftSnapshot): void {
+  try {
+    if (snapshot.draft !== null) window.localStorage.setItem(DRAFT_KEY, snapshot.draft);
+    if (snapshot.step !== null) window.localStorage.setItem(STEP_KEY, snapshot.step);
+  } catch {
+    // Storage is unavailable; there was nothing saved to bring back.
+  }
+}
+
 /** Forgets the saved form once its video has started, so the next one opens empty. */
 export function clearDraft(): void {
   try {
@@ -23,7 +46,7 @@ export function clearDraft(): void {
 }
 
 export interface DraftSummary {
-  /** The first words of what the video is for, or empty when only later steps were filled in. */
+  /** What the video is for, or empty when only later steps were filled in. */
   title: string;
   /** One-based step the person was on. */
   step: number;
@@ -54,7 +77,7 @@ export function draftSummary(): DraftSummary | null {
     const filled = text("objective") || text("hook") || text("scenes") || text("dialogue");
     if (values && filled) {
       const step = Number(stepRaw);
-      summary = { title: text("objective").slice(0, 80), step: Number.isInteger(step) && step >= 0 ? step + 1 : 1 };
+      summary = { title: text("objective"), step: Number.isInteger(step) && step >= 0 ? step + 1 : 1 };
     }
   } catch {
     summary = null;

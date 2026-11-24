@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"path"
 	"strings"
@@ -378,6 +379,49 @@ func (s *Service) AdoptVideo(ctx context.Context, userID, jobID, sourceURL, name
 		return Descriptor{}, err
 	}
 	return v.(Descriptor), nil
+}
+
+// Mixer lays the sound of source under the picture of video.
+type Mixer func(ctx context.Context, video, source []byte) ([]byte, error)
+
+// AdoptWithSound copies a finished video like AdoptVideo, first laying the sound
+// of the user's own video originalID under it. Providers that change a video
+// return it silent; this gives the person their voice back. When the sound
+// cannot be added, the silent video is kept rather than lost, and soundAdded
+// is false.
+func (s *Service) AdoptWithSound(ctx context.Context, userID, jobID, sourceURL, originalID, name string, mix Mixer) (d Descriptor, soundAdded bool, err error) {
+	type out struct {
+		d     Descriptor
+		sound bool
+	}
+	v, err, _ := s.adopting.Do(userID+"/"+jobID, func() (any, error) {
+		shared, cancel := context.WithTimeout(context.WithoutCancel(ctx), 4*time.Minute)
+		defer cancel()
+		if existing, found, err := s.store.FindByJob(shared, userID, jobID); err != nil {
+			return nil, err
+		} else if found {
+			return out{d: existing.Descriptor()}, nil
+		}
+		data, err := s.fetcher.Fetch(shared, sourceURL, maxBytes[KindVideo])
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrNotUploaded, err)
+		}
+		sound := false
+		if original, _, err := s.Load(shared, userID, originalID, maxBytes[KindVideo]); err != nil {
+			slog.Warn("original video unavailable, keeping the edit silent", "job_id", jobID, "error", err)
+		} else if mixed, err := mix(shared, data, original); err != nil {
+			slog.Warn("could not add the original sound, keeping the edit silent", "job_id", jobID, "error", err)
+		} else {
+			data, sound = mixed, true
+		}
+		d, err := s.StoreVideo(shared, userID, jobID, name, data)
+		return out{d: d, sound: sound}, err
+	})
+	if err != nil {
+		return Descriptor{}, false, err
+	}
+	o := v.(out)
+	return o.d, o.sound, nil
 }
 
 func (s *Service) adopt(ctx context.Context, userID, jobID, sourceURL, name string) (Descriptor, error) {

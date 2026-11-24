@@ -347,3 +347,5 @@ func TestMain(m *testing.M) {
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 	os.Exit(m.Run())
 }
+
+func (r *fakeRepo) CountSince(context.Context, string, string, time.Time) (int, error) { return 0, nil }

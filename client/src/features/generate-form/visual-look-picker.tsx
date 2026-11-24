@@ -28,7 +28,7 @@ export function VisualLookPicker({
       label: asset.label,
       hint: "One of your saved places",
       art:
-        asset.file_kind === "image" ? (
+        asset.file_kind === "image" && asset.url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={asset.url} alt="" loading="lazy" decoding="async" className="size-full object-cover" />
         ) : null,

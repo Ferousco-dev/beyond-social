@@ -9,6 +9,7 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/jobs"
 	"github.com/Ferousco-dev/beyond-social/server/internal/kie"
 	"github.com/Ferousco-dev/beyond-social/server/internal/media"
+	"github.com/Ferousco-dev/beyond-social/server/internal/mediatime"
 	"github.com/Ferousco-dev/beyond-social/server/internal/transform"
 )
 
@@ -36,6 +37,15 @@ type Builder struct {
 }
 
 func (b Builder) hosted(ctx context.Context, userID string, s source) (string, error) {
+	data, mimeType, err := b.load(ctx, userID, s)
+	if err != nil {
+		return "", err
+	}
+	return b.Uploader.Upload(ctx, "input"+extensionFor(mimeType), mimeType, data)
+}
+
+// load reads a request's file, the user's own or a fetched link.
+func (b Builder) load(ctx context.Context, userID string, s source) ([]byte, string, error) {
 	var data []byte
 	var mimeType string
 	var err error
@@ -47,11 +57,11 @@ func (b Builder) hosted(ctx context.Context, userID string, s source) (string, e
 	}
 	if err != nil {
 		if errors.Is(err, media.ErrNotFound) || errors.Is(err, media.ErrNotUploaded) || errors.Is(err, media.ErrTooLarge) || errors.Is(err, media.ErrUnsupported) {
-			return "", &transform.UserError{Message: "A file for this request could not be used. Attach it again."}
+			return nil, "", &transform.UserError{Message: "A file for this request could not be used. Attach it again."}
 		}
-		return "", err
+		return nil, "", err
 	}
-	return b.Uploader.Upload(ctx, "input"+extensionFor(mimeType), mimeType, data)
+	return data, mimeType, nil
 }
 
 // commonExtensions names uploads the way providers expect. The standard
@@ -87,7 +97,17 @@ func (b Builder) BuildTalk(ctx context.Context, job jobs.Job) (transform.Prepare
 	if err != nil {
 		return transform.Prepared{}, err
 	}
-	audio, err := b.hosted(ctx, job.UserID, req.Audio)
+	// The video lasts as long as the recording, and the provider bills for that.
+	// The job was priced from the seconds the browser sent, so a recording that
+	// plays longer is refused here, before anything is billed, and refunded.
+	data, mimeType, err := b.load(ctx, job.UserID, req.Audio)
+	if err != nil {
+		return transform.Prepared{}, err
+	}
+	if played := audioSeconds(data, mimeType); played > float64(req.Seconds)+1 {
+		return transform.Prepared{}, &transform.UserError{Message: "That recording is longer than the length you were charged for, so nothing was made and your credits were returned. Try again to see the right price."}
+	}
+	audio, err := b.Uploader.Upload(ctx, "input"+extensionFor(mimeType), mimeType, data)
 	if err != nil {
 		return transform.Prepared{}, err
 	}
@@ -110,4 +130,13 @@ func (b Builder) BuildSpeech(_ context.Context, job jobs.Job) (transform.Prepare
 // Builders registers all three with the KIE processor.
 func (b Builder) Builders() map[string]transform.Builder {
 	return map[string]transform.Builder{JobTalk: b.BuildTalk, JobSpeech: b.BuildSpeech}
+}
+
+// audioSeconds reads how long a recording plays from its headers, or estimates
+// it from its size at a low bit rate, so an unreadable file errs long.
+func audioSeconds(data []byte, mimeType string) float64 {
+	if seconds, ok := mediatime.Seconds(data, mimeType); ok {
+		return seconds
+	}
+	return float64(len(data)) * 8 / assumedBitsPerSecond
 }

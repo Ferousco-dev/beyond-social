@@ -4,6 +4,13 @@
 #
 # Auto-deploy is off: .github/workflows/deploy.yml triggers the deploy hook after
 # the checks pass, naming the exact commit, then waits for /ready to report it.
+#
+# ffmpeg: edits of a person's own video get their original sound back only when
+# ffmpeg is installed. The native Go runtime below has none, so edits stay
+# silent. To turn it on, run the service from server/Dockerfile instead (Docker
+# runtime, root directory server, Dockerfile path ./Dockerfile). The free plan
+# is enough for this: edits are 3-15 s and only the sound is re-encoded.
+# Re-encoding whole generated videos (up to 3 minutes) would need a paid plan.
 services:
   - name: beyond-social
     type: web

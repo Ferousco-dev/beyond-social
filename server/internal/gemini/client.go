@@ -67,10 +67,21 @@ type Client struct {
 
 // Usage mirrors the token counts Gemini reports, for spend guardrails.
 type Usage struct {
-	PromptTokens     int32
+	PromptTokens int32
+	// CandidatesTokens is the visible answer only.
 	CandidatesTokens int32
-	TotalTokens      int32
+	// ThoughtsTokens is the model's thinking, which Google bills as output.
+	ThoughtsTokens int32
+	TotalTokens    int32
 }
+
+// OutputTokens is everything billed at the output price: the answer and the thinking.
+func (u Usage) OutputTokens() int32 { return u.CandidatesTokens + u.ThoughtsTokens }
+
+// thinkingLevel keeps the model's thinking short. Every call here asks for
+// structured JSON against a schema, where long thinking adds cost (thinking is
+// billed as output) without a better answer.
+const thinkingLevel = genai.ThinkingLevelLow
 
 func NewClient(cfg Config) (*Client, error) {
 	keyFn := cfg.KeyFunc
@@ -125,9 +136,11 @@ type Media struct {
 	URI  string
 }
 
+// Output limits. The model's thinking counts toward them as well as the answer,
+// so they leave room for both; a limit that is too tight cuts the JSON off.
 const (
-	textMaxOutput  = 4096
-	mediaMaxOutput = 8192
+	textMaxOutput  = 8192
+	mediaMaxOutput = 12288
 	// Watching a video takes longer than reading a request.
 	mediaTimeout = 150 * time.Second
 )
@@ -151,12 +164,16 @@ func (c *Client) generate(ctx context.Context, system, user string, media []Medi
 	if len(media) > 0 {
 		maxOut, timeout = mediaMaxOutput, max(c.timeout, mediaTimeout)
 	}
+	if n := outputLimitFrom(ctx); n > maxOut {
+		maxOut = n
+	}
 	config := &genai.GenerateContentConfig{
 		SystemInstruction: genai.NewContentFromText(system, "system"),
 		ResponseMIMEType:  "application/json",
 		ResponseSchema:    schema,
 		Temperature:       &temperature,
 		MaxOutputTokens:   maxOut,
+		ThinkingConfig:    &genai.ThinkingConfig{ThinkingLevel: thinkingLevel},
 	}
 	parts := make([]*genai.Part, 0, len(media)+1)
 	for _, m := range media {
@@ -181,6 +198,13 @@ func (c *Client) generate(ctx context.Context, system, user string, media []Medi
 	for i, model := range models {
 		for attempt := 1; attempt <= tries; attempt++ {
 			data, usage, err := c.attempt(ctx, model, contents, config, timeout)
+			if err != nil && config.ThinkingConfig != nil && rejectsThinking(err) {
+				// A model that does not take a thinking level must still answer.
+				slog.Warn("gemini model refused the thinking level, retrying without it", "model", model)
+				plain := *config
+				plain.ThinkingConfig = nil
+				data, usage, err = c.attempt(ctx, model, contents, &plain, timeout)
+			}
 			if err == nil {
 				return data, usage, nil
 			}
@@ -218,28 +242,42 @@ func (c *Client) attempt(ctx context.Context, model string, contents []*genai.Co
 	if err != nil {
 		return nil, Usage{}, wrapError(err)
 	}
-	text := strings.TrimSpace(resp.Text())
-	if text == "" {
-		return nil, Usage{}, errors.New("gemini: empty response")
-	}
 	var usage Usage
 	if resp.UsageMetadata != nil {
 		usage = Usage{
 			PromptTokens:     resp.UsageMetadata.PromptTokenCount,
 			CandidatesTokens: resp.UsageMetadata.CandidatesTokenCount,
+			ThoughtsTokens:   resp.UsageMetadata.ThoughtsTokenCount,
 			TotalTokens:      resp.UsageMetadata.TotalTokenCount,
 		}
 	}
-	// The only record of what a call cost the provider. Counts only: no prompt
-	// or response text, and no user id (the request log carries that).
+	// Recorded before the answer is checked: an empty or cut-off answer was
+	// still billed, and a retry after it is billed again.
+	c.record(ctx, model, usage)
+	text := strings.TrimSpace(resp.Text())
+	if text == "" {
+		return nil, Usage{}, errors.New("gemini: empty response")
+	}
+	return []byte(text), usage, nil
+}
+
+// record stores what one call cost the provider. Counts only: no prompt or
+// response text.
+func (c *Client) record(ctx context.Context, model string, usage Usage) {
 	if c.recorder != nil {
 		scope := ScopeFrom(ctx)
 		c.recorder.RecordUsage(ctx, Record{Provider: "gemini", Model: model, Purpose: scope.Purpose,
 			UserID: scope.UserID, JobID: scope.JobID, Usage: usage})
 	}
-	slog.Info("gemini usage", "model", model, "prompt_tokens", usage.PromptTokens,
-		"output_tokens", usage.CandidatesTokens, "total_tokens", usage.TotalTokens)
-	return []byte(text), usage, nil
+	slog.Info("gemini usage", "model", model, "purpose", ScopeFrom(ctx).Purpose, "prompt_tokens", usage.PromptTokens,
+		"output_tokens", usage.CandidatesTokens, "thinking_tokens", usage.ThoughtsTokens, "total_tokens", usage.TotalTokens)
+}
+
+// rejectsThinking says a request failed because the model does not accept a
+// thinking setting, rather than for any other reason.
+func rejectsThinking(err error) bool {
+	var pe *provider.Error
+	return errors.As(err, &pe) && pe.Status == http.StatusBadRequest && strings.Contains(strings.ToLower(pe.Message), "think")
 }
 
 // wrapError turns the SDK's failure into a classified provider error. The

@@ -29,14 +29,21 @@ type ComposeService interface {
 // own cap on top of the general request limit.
 const rewritesPerHour = 30
 
+// scriptDraftsPerHour caps the free Live Avatar script drafts the same way.
+const scriptDraftsPerHour = 30
+
+// rewriteGate allows a set number of free model calls per user per hour.
 type rewriteGate struct {
-	mu   sync.Mutex
-	used map[string][]time.Time
-	now  func() time.Time
+	limit int
+	mu    sync.Mutex
+	used  map[string][]time.Time
+	now   func() time.Time
 }
 
-func newRewriteGate() *rewriteGate {
-	return &rewriteGate{used: map[string][]time.Time{}, now: time.Now}
+func newRewriteGate() *rewriteGate { return newHourlyGate(rewritesPerHour) }
+
+func newHourlyGate(limit int) *rewriteGate {
+	return &rewriteGate{limit: limit, used: map[string][]time.Time{}, now: time.Now}
 }
 
 // allow spends one rewrite, or says how long until one is free.
@@ -52,7 +59,7 @@ func (g *rewriteGate) allow(userID string) (bool, time.Duration) {
 		}
 	}
 	times := within(g.used[userID], now, time.Hour)
-	if len(times) >= rewritesPerHour {
+	if len(times) >= g.limit {
 		g.used[userID] = times
 		return false, time.Hour - now.Sub(times[0])
 	}

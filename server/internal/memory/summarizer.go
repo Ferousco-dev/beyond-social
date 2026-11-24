@@ -47,7 +47,7 @@ func (s *Summarizer) Summarize(ctx context.Context, previous string, turns []Tur
 		Properties: map[string]*genai.Schema{"summary": {Type: genai.TypeString, MaxLength: &max}},
 		Required:   []string{"summary"},
 	}
-	data, _, err := s.client.GenerateJSON(ctx, summarySystem, b.String(), schema)
+	data, _, err := s.client.GenerateJSON(gemini.Tag(ctx, "memory_summary"), summarySystem, b.String(), schema)
 	if err != nil {
 		return "", fmt.Errorf("memory: summarize: %w", err)
 	}

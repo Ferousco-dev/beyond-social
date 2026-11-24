@@ -14,8 +14,20 @@ export const libraryAssetSchema = z.object({
   created_at: z.string(),
   file_kind: z.string(),
   url: z.string(),
+  /** The group the asset is filed in. Missing from a server without groups yet. */
+  group_id: z.string().nullable().optional(),
 });
 export type LibraryAsset = z.infer<typeof libraryAssetSchema>;
+
+/** A named set of assets, such as one person or one product. */
+export const libraryGroupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  created_at: z.string(),
+});
+export type LibraryGroup = z.infer<typeof libraryGroupSchema>;
+
+export const MAX_GROUP_NAME = 40;
 
 interface KindMeta {
   readonly plural: string;

@@ -79,15 +79,11 @@ func TestFitRefusesAPlanFarFromTheLength(t *testing.T) {
 	}
 }
 
-func TestDecodeRejectsWhatCannotBeRendered(t *testing.T) {
+func TestDecodeRefusesOnlyWhatCannotBeMended(t *testing.T) {
 	good := planJSON(5, 5, 5)
 	for name, bad := range map[string]string{
-		"not json":       "nope",
-		"unknown field":  strings.Replace(good, `"look"`, `"extra":1,"look"`, 1),
-		"no shots":       `{"title":"t","look":"l","shots":[]}`,
-		"shot too short": strings.Replace(good, `"seconds":5`, `"seconds":1`, 1),
-		"shot too long":  strings.Replace(good, `"seconds":5`, `"seconds":20`, 1),
-		"shows nothing":  strings.Replace(good, "Shot 1: a woman at a desk", " ", 1),
+		"not json": "nope",
+		"no shots": `{"title":"t","look":"l","shots":[]}`,
 	} {
 		if _, err := Decode([]byte(bad)); err == nil {
 			t.Errorf("%s was accepted", name)
@@ -95,6 +91,39 @@ func TestDecodeRejectsWhatCannotBeRendered(t *testing.T) {
 	}
 	if _, err := Decode([]byte(good)); err != nil {
 		t.Fatal(err)
+	}
+	// Small slips are mended rather than failing the person's storyboard.
+	short, err := Decode([]byte(strings.Replace(good, `"seconds":5`, `"seconds":1`, 1)))
+	if err != nil || short.Shots[0].Seconds != MinShotSeconds {
+		t.Fatalf("a short shot should be lengthened: %+v %v", short, err)
+	}
+	long, err := Decode([]byte(strings.Replace(good, `"seconds":5`, `"seconds":20`, 1)))
+	if err != nil || long.Shots[0].Seconds != MaxShotSeconds {
+		t.Fatalf("a long shot should be shortened: %+v %v", long, err)
+	}
+	empty, err := Decode([]byte(strings.Replace(good, "Shot 1: a woman at a desk", " ", 1)))
+	if err != nil || len(empty.Shots) != 2 {
+		t.Fatalf("a shot with nothing to show should be dropped: %+v %v", empty, err)
+	}
+	if _, err := Decode([]byte(strings.Replace(good, `"look"`, `"extra":1,"look"`, 1))); err != nil {
+		t.Fatalf("an extra field should be ignored: %v", err)
+	}
+}
+
+func TestFitStretchesAPlanThatIsFarOff(t *testing.T) {
+	// Twelve 3-second shots (36 s) for a minute: each is stretched, not refused.
+	shots := make([]Shot, 12)
+	for i := range shots {
+		shots[i] = Shot{Seconds: 3, Visual: "x"}
+	}
+	got, err := Fit(Plan{Shots: shots}, 60)
+	if err != nil || got.TotalSeconds() != 60 {
+		t.Fatalf("got %d seconds, %v", got.TotalSeconds(), err)
+	}
+	for _, s := range got.Shots {
+		if s.Seconds < MinShotSeconds || s.Seconds > MaxShotSeconds {
+			t.Fatalf("shot out of range: %+v", s)
+		}
 	}
 }
 

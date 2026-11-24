@@ -48,6 +48,18 @@ func (r *Repo) Get(_ context.Context, userID, id string) (jobs.Job, error) {
 	return jobs.Job{}, jobs.ErrNotFound
 }
 
+func (r *Repo) CountSince(_ context.Context, userID, jobType string, since time.Time) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n := 0
+	for _, j := range r.rows {
+		if j.UserID == userID && j.Type == jobType && !j.CreatedAt.Before(since) {
+			n++
+		}
+	}
+	return n, nil
+}
+
 func (r *Repo) CountActive(_ context.Context, userID, jobType string) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

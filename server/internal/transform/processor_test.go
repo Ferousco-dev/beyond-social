@@ -315,3 +315,25 @@ func TestNoCallbackURLWhenNotConfigured(t *testing.T) {
 		t.Fatal("no callback URL should be sent without PUBLIC_BASE_URL")
 	}
 }
+
+func TestFinisherRunsBeforeCompletionAndCannotFailTheJob(t *testing.T) {
+	r := newRig(t)
+	var seen []string
+	completedFirst := false
+	r.proc.Finishers = map[string]Finisher{JobType: func(_ context.Context, job jobs.Job, urls []string) error {
+		completedFirst = r.jobs.get(job.ID).Status == jobs.StatusCompleted
+		seen = append(seen, urls...)
+		return errors.New("mixing broke")
+	}}
+	job := r.queued()
+	r.proc.Handle(ctx, job)
+	r.provider.task = kie.Task{State: kie.StateSuccess, ResultURLs: []string{"https://cdn.kie/out.mp4"}}
+	r.proc.Handle(ctx, r.jobs.get(job.ID))
+
+	if len(seen) != 1 || seen[0] != "https://cdn.kie/out.mp4" || completedFirst {
+		t.Fatalf("finisher saw %v, ran after completion: %v", seen, completedFirst)
+	}
+	if got := r.jobs.get(job.ID); got.Status != jobs.StatusCompleted || got.Result["video_url"] != "https://cdn.kie/out.mp4" {
+		t.Fatalf("a failed finisher must still complete the job: %+v", got)
+	}
+}
