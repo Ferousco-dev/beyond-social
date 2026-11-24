@@ -22,7 +22,8 @@ export function OptionSheet({
 }: {
   open: boolean;
   title: string;
-  description: string;
+  /** A short line under the title. Omit it when the title says enough. */
+  description?: string;
   onClose: () => void;
   children: ReactNode;
 }): ReactNode {
@@ -73,7 +74,7 @@ export function OptionSheet({
           <div className="flex items-start justify-between gap-4 px-5 pb-3 pt-3 sm:px-6 sm:pt-5">
             <div className="min-w-0">
               <Dialog.Title className="text-lg font-semibold tracking-tight text-ink">{title}</Dialog.Title>
-              <Dialog.Description className="mt-0.5 text-sm text-ink-soft">{description}</Dialog.Description>
+              {description ? <Dialog.Description className="mt-0.5 text-sm text-ink-soft">{description}</Dialog.Description> : null}
             </div>
             {desktop ? (
               <Dialog.Close asChild>

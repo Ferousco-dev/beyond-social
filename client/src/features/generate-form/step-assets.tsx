@@ -1,18 +1,12 @@
 "use client";
 
-import { ChoiceChips } from "@/components/ui/choice-chips";
 import { cn } from "@/lib/utils";
 import { useLibrary } from "@/features/asset-library/use-library";
 
 import { unusedAssetNotes } from "./asset-use";
 import { ConversationTurns } from "./conversation-turns";
 import { LibraryPicker } from "./library-picker";
-import { MIN_TURNS, isTalking, newTurn, type GenerateFormValues } from "./types";
-
-const SPEAKER_MODES = [
-  { value: "single", label: "One person" },
-  { value: "conversation", label: "Conversation" },
-] as const;
+import type { GenerateFormValues } from "./types";
 
 /**
  * Who and what appears, picked one by one from the saved library.
@@ -104,22 +98,9 @@ export function StepAssets({
               </button>
             ))}
           </div>
-          <p className="text-xs text-ink-soft">Fills the person, voice, product and place from that group. Change any of them below.</p>
         </div>
       ) : null}
-      <ChoiceChips
-        label="Who is in the video?"
-        options={SPEAKER_MODES}
-        value={values.speakerMode}
-        onChange={(mode) =>
-          onChange(
-            mode === "conversation"
-              ? { speakerMode: "conversation", turns: values.turns.length >= MIN_TURNS ? values.turns : [newTurn(), newTurn()] }
-              : { speakerMode: "single" },
-          )
-        }
-      />
-
+      {/* One person or a conversation is decided by our AI when it fills in the video, so nobody is asked. */}
       {values.speakerMode === "conversation" ? (
         <ConversationTurns assets={assets} turns={values.turns} onChange={(turns) => onChange({ turns })} />
       ) : (
@@ -127,7 +108,6 @@ export function StepAssets({
           <LibraryPicker
             kind="face"
             title="Person"
-            hint="Optional. Pick someone you saved. They appear in the video wearing what they wear in their photo."
             assets={assets}
             value={values.faceAssetId}
             onChange={(asset) => pick({ faceAssetId: asset?.id ?? "" })}
@@ -137,12 +117,10 @@ export function StepAssets({
               <LibraryPicker
                 kind="voice"
                 title="Their own voice"
-                hint="Optional. Pick a recording and this person speaks it. Leave it empty and an AI voice reads your words."
                 assets={assets}
                 value={values.voiceAssetId}
                 onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}
               />
-              {isTalking(values) ? <p className="-mt-3 text-xs text-ink-soft">This person will speak your recording, lip-synced to it.</p> : null}
             </>
           ) : null}
         </>
@@ -163,7 +141,6 @@ export function StepAssets({
           <LibraryPicker
             kind="environment"
             title="Place"
-            hint="Where the video happens."
             assets={assets}
             value={values.environmentAssetId}
             onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}

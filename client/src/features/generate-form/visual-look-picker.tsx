@@ -45,7 +45,6 @@ export function VisualLookPicker({
           value={style}
           onChange={(visualStyle) => onChange({ visualStyle })}
           customPlaceholder="Describe the look, e.g. pastel and dreamy"
-          note="Leave it empty and the best fit is chosen for you."
         />
       )}
       {only === "style" ? null : (

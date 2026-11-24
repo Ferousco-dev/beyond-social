@@ -84,6 +84,11 @@ type MediaLookup interface {
 	ViewURL(ctx context.Context, userID, id string) (string, error)
 }
 
+// batchLinker signs many files at once. *media.Service satisfies it.
+type batchLinker interface {
+	ViewLinks(ctx context.Context, userID string, ids []string) map[string]media.Link
+}
+
 // Repository persists assets. *database.AssetLibraryStore satisfies it.
 type Repository interface {
 	List(ctx context.Context, userID string) ([]Asset, error)
@@ -110,6 +115,22 @@ func (s *Service) List(ctx context.Context, userID string) ([]Asset, error) {
 	list, err := s.repo.List(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+	// Signed together when the media service can, so a large library opens in
+	// one round of signing instead of one request per file.
+	if batch, ok := s.media.(batchLinker); ok {
+		for start := 0; start < len(list); start += media.MaxLinks {
+			part := list[start:min(start+media.MaxLinks, len(list))]
+			ids := make([]string, len(part))
+			for i := range part {
+				ids[i] = part[i].MediaID
+			}
+			links := batch.ViewLinks(ctx, userID, ids)
+			for i := range part {
+				part[i].URL = links[part[i].MediaID].URL
+			}
+		}
+		return list, nil
 	}
 	for i := range list {
 		if url, err := s.media.ViewURL(ctx, userID, list[i].MediaID); err == nil {

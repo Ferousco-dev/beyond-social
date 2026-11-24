@@ -64,30 +64,35 @@ export function OwnIdeaPanel() {
         <input value={fields.title ?? ""} maxLength={120} onChange={(event) => set("title", event.target.value)} placeholder="e.g. Summer serum launch" aria-label="Project title" className={fieldClass} />
       </label>
       <label className="flex flex-col gap-1.5 text-sm font-medium text-ink sm:col-span-2">
-        What is the video for?
-        <input value={fields.objective} maxLength={120} onChange={(event) => set("objective", event.target.value)} placeholder="Promote my new serum" aria-label="What is the video for?" className={fieldClass} />
+        What is the video about?
+        <textarea
+          value={fields.objective}
+          maxLength={500}
+          rows={3}
+          onChange={(event) => set("objective", event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              go(false);
+            }
+          }}
+          placeholder="e.g. Me showing my new glow serum to women 25 to 34, upbeat, ends with shop now"
+          aria-label="What is the video about?"
+          className="field-sizing-content min-h-20 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm leading-6 text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        />
       </label>
       <div className="sm:col-span-2">
         {submitError ? <p role="alert" className="mb-2 text-sm text-destructive">{submitError}</p> : null}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => go(true)}
-            disabled={!ready || submitting}
-            aria-busy={submitting}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? <Spinner className="size-4" /> : null}
-            {submitting ? "Opening" : "Generate now"}
-          </button>
-          <button
-            type="submit"
-            disabled={!ready || submitting}
-            className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] border border-hairline px-5 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Continue
-          </button>
-        </div>
+        {/* One way forward: our AI fills in every step from the idea, and the person checks it before anything is charged. */}
+        <button
+          type="submit"
+          disabled={!ready || submitting}
+          aria-busy={submitting}
+          className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+        >
+          {submitting ? <Spinner className="size-4" /> : null}
+          {submitting ? "Opening" : "Continue"}
+        </button>
       </div>
     </form>
   );

@@ -3,6 +3,7 @@ package assetlib
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -163,5 +164,45 @@ func TestOnlyConsentedAssetsOfTheRightKindAreUsable(t *testing.T) {
 	}
 	if _, err := s.Usable(ctx, "other", product.ID, KindProduct); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("another user's asset: %v", err)
+	}
+}
+
+// batchMedia signs in batches and counts them; it refuses one-by-one signing.
+type batchMedia struct {
+	fakeMedia
+	batches []int
+}
+
+func (b *batchMedia) ViewURL(context.Context, string, string) (string, error) {
+	return "", errors.New("one at a time is too slow")
+}
+
+func (b *batchMedia) ViewLinks(_ context.Context, _ string, ids []string) map[string]media.Link {
+	b.batches = append(b.batches, len(ids))
+	out := map[string]media.Link{}
+	for _, id := range ids {
+		out[id] = media.Link{URL: "https://cdn/" + id}
+	}
+	return out
+}
+
+func TestListSignsEveryFileInBatches(t *testing.T) {
+	repo := &fakeRepo{assets: map[string]Asset{}}
+	for i := range media.MaxLinks + 20 {
+		id := fmt.Sprintf("a%d", i)
+		repo.assets[id] = Asset{ID: id, UserID: "u1", MediaID: "m" + id}
+	}
+	m := &batchMedia{}
+	list, err := NewService(repo, m).List(context.Background(), "u1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.batches) != 2 || m.batches[0] != media.MaxLinks || m.batches[1] != 20 {
+		t.Fatalf("batches = %v", m.batches)
+	}
+	for _, a := range list {
+		if a.URL != "https://cdn/"+a.MediaID {
+			t.Fatalf("asset %s has no link", a.ID)
+		}
 	}
 }

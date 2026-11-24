@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import { preloadLibrary } from "@/features/asset-library/use-library";
 
 import { NEW_VIDEO_OPTIONS, type NewVideoOptionId } from "../options";
 import { CardArt } from "./card-art";
-import { FirstRunHint } from "./first-run-hint";
 import { OptionSheet } from "./option-sheet";
 import { AvatarPackPanel } from "./avatar-pack-panel";
 import { LinkPanel } from "./link-panel";
@@ -33,6 +34,8 @@ export function NewVideoOptions({
   resumeJobId?: string;
   resumeStage?: "preview" | "analysis";
 }) {
+  // Saved people are read now, so Use a saved person opens with them already there.
+  useEffect(() => preloadLibrary(), []);
   const [active, setActive] = useState<NewVideoOptionId | null>(initialOption);
 
   function choose(id: NewVideoOptionId): void {
@@ -50,7 +53,6 @@ export function NewVideoOptions({
 
   return (
     <>
-      <FirstRunHint hidden={active !== null} />
       <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
         {NEW_VIDEO_OPTIONS.map((item) => (
           <li key={item.id}>

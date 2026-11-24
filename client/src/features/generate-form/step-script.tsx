@@ -6,7 +6,6 @@ import { Select } from "@/components/ui/select";
 import { PacingNote } from "./length-picker";
 import { CTA_OPTIONS } from "./options";
 import { isLong, spokenText } from "./pacing";
-import { StoryboardPanel } from "./storyboard-panel";
 import { TONES, isTalking, type GenerateFormValues } from "./types";
 
 const fieldClass =
@@ -44,7 +43,6 @@ export function StepScript({
       {!isTalking(values) && !isLong(values.seconds) ? (
         <PacingNote spoken={spokenText(values)} seconds={values.seconds} onPick={(seconds) => onChange({ seconds })} />
       ) : null}
-      {!isTalking(values) && values.speakerMode !== "conversation" && isLong(values.seconds) ? <StoryboardPanel values={values} onChange={onChange} /> : null}
       <ChoiceSelect
         label="Call to action"
         options={CTA_OPTIONS}

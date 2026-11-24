@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { preloadLibrary, useLibrary } from "@/features/asset-library/use-library";
-import { AVATAR_PACK_KEY } from "@/features/new-video/components/avatar-pack-panel";
+import { AVATAR_PACK_KEY, type ChosenPerson } from "@/features/new-video/components/avatar-pack-panel";
 import { OptionSheet } from "@/features/new-video/components/option-sheet";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -73,8 +73,11 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
   const pack = useRef<{ face?: string; voice?: string; product?: string; environment?: string } | null | undefined>(undefined);
   if (pack.current === undefined) pack.current = null;
+  // The person chosen on New Video stays chosen when our AI fills in the rest.
+  const person = useRef<ChosenPerson | null>(null);
   useEffect(() => {
     pack.current = readJSON<{ face?: string; voice?: string; product?: string; environment?: string }>(AVATAR_PACK_KEY);
+    person.current = readJSON<ChosenPerson>(AVATAR_PACK_KEY);
     try {
       window.sessionStorage.removeItem(AVATAR_PACK_KEY);
     } catch {
@@ -86,12 +89,15 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
     if (library.status !== "ready" || !chosen) return;
     pack.current = null;
     const find = (slot: string | undefined): string => (slot ? (library.assets.find((a) => a.id === slot || a.media_id === slot)?.id ?? "") : "");
+    const face = library.assets.find((a) => a.id === find(chosen.face));
     setValues((current) => ({
       ...current,
+      speakerMode: "single",
       faceAssetId: find(chosen.face),
       voiceAssetId: find(chosen.voice),
       productAssetId: find(chosen.product),
       environmentAssetId: find(chosen.environment),
+      ...(face?.file_kind === "image" ? { firstFrameId: face.media_id } : {}),
     }));
     setStep(0);
   }, [library]);
@@ -129,10 +135,17 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
     // The idea fills in every step on its own: the person only checks it. A quick start opens the
     // review once it is filled, so the price is for the finished brief.
     setFilling("working");
-    void autofillVideo([idea.title, idea.objective].filter(Boolean).join(". ")).then((result) => {
+    const who = person.current ? `The person in the video is ${person.current.name}.` : "";
+    void autofillVideo([idea.title, idea.objective, who].filter(Boolean).join(". ")).then((result) => {
       if (result.ok) {
         setValues((current) => {
-          const next = { ...current, ...valuesFromBrief(current, result.brief) };
+          const chosen = person.current;
+          const next = {
+            ...current,
+            ...valuesFromBrief(current, result.brief),
+            // Someone picked on New Video is who appears, whatever the AI suggested.
+            ...(chosen ? { speakerMode: "single" as const, faceAssetId: chosen.face, voiceAssetId: chosen.voice ?? "" } : {}),
+          };
           const assets = libraryRef.current.status === "ready" ? libraryRef.current.assets : [];
           const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]
             .map((id) => assets.find((asset) => asset.id === id))
@@ -271,7 +284,6 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       <OptionSheet
         open={reviewing}
         title="Final review"
-        description="Check the summary and the credit cost, then generate."
         onClose={() => setReviewing(false)}
       >
         <StepReview values={values} balance={balance} proPrice={proPrice} onChange={patch} />

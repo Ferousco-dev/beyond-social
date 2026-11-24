@@ -6,7 +6,7 @@ import { avatarDirection, buildAvatarScript, buildPrompt } from "./brief";
 import { planLongVideo } from "./long-video";
 import { hasSound, isLong, wordCount } from "./pacing";
 import { cachedLongQuote, cachedSceneQuote } from "./scene-quotes";
-import { clipsFromStoryboard, isReady, isStale, voiceoverFit, voiceoverMatches, voiceoverOf, type Voiceover } from "./storyboard";
+import { voiceoverFit, voiceoverMatches, voiceoverOf, type Voiceover } from "./storyboard";
 import { isTalking, type GenerateFormValues } from "./types";
 
 export type VideoKind = "clip" | "talking" | "conversation";
@@ -113,10 +113,8 @@ export async function startGeneration(values: GenerateFormValues): Promise<Start
       const sound = clipSound(values);
       const voice = narration(values);
       if (isLong(values.seconds)) {
-        // The approved storyboard is what is rendered. The even split of the script is only the fallback for a form that has none.
-        const board = values.storyboard;
-        const approved = board !== null && isReady(board, values.seconds) && !isStale(board, { seconds: values.seconds, script: longStory(values) });
-        const plan = approved ? clipsFromStoryboard(board, longSetting(values), voice !== null) : planLongVideo({ setting: longSetting(values), story: longStory(values), totalSeconds: values.seconds });
+        // A long video is split into clips from its script automatically; nobody has to plan the shots.
+        const plan = planLongVideo({ setting: longSetting(values), story: longStory(values), totalSeconds: values.seconds });
         const keys = plan.map(() => crypto.randomUUID());
         const firstPart = plan[0];
         const firstKey = keys[0];

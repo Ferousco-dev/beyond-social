@@ -11,7 +11,6 @@ export default function NewVideoLoading(): ReactNode {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">New Video</h1>
-      <p className="mt-1 text-sm text-ink-soft">Pick a starting point. Every path ends at the main generation page.</p>
       <ul className="mt-6 grid grid-cols-2 gap-3 sm:gap-4">
         {NEW_VIDEO_OPTIONS.map((item) => (
           <li key={item.id}>

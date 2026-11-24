@@ -1,14 +1,14 @@
 "use client";
 
+import { Coins } from "lucide-react";
+
 import { Chip } from "@/components/ui/choice-chips";
 
-import { partSeconds } from "./long-video";
 import {
   LENGTHS,
   LONG_LENGTHS,
   MAX_VIDEO_SECONDS,
   fits,
-  isLong,
   maxWords,
   recommendedLength,
   shortestVideoFit,
@@ -45,7 +45,6 @@ export function LengthPicker({
   const recommended = recommendedLength(spoken, contentKind);
   const options: readonly (Length | LongLength)[] = withLong ? [...LENGTHS, ...LONG_LENGTHS] : LENGTHS;
   const credits = quotes[value];
-  const clips = isLong(value) ? partSeconds(value).length : 1;
 
   return (
     <div className="flex flex-col gap-2" role="group" aria-label="Video length">
@@ -58,11 +57,12 @@ export function LengthPicker({
           </Chip>
         ))}
       </div>
-      <p className="text-xs text-ink-soft" role="status">
-        {label(value)}
-        {credits === undefined ? " · …" : credits === null ? "" : ` · ${credits} credits`}
-        {clips > 1 ? ` · made as ${clips} clips and joined for you` : ""}
-      </p>
+      {credits === null ? null : (
+        <p className="inline-flex items-center gap-1.5 text-xs text-ink-soft" role="status">
+          <Coins className="size-3.5" aria-hidden />
+          {credits === undefined ? "…" : `${credits} credits`}
+        </p>
+      )}
       <PacingNote spoken={spoken} seconds={value} onPick={onChange} />
     </div>
   );
@@ -81,13 +81,8 @@ export function PacingNote({
   const words = wordCount(spoken);
   if (words === 0) return null;
   const needed = Math.ceil(speechSeconds(spoken));
-  if (fits(spoken, seconds)) {
-    return (
-      <p className="text-xs text-ink-soft" role="status">
-        About {needed}s of speech: it fits {seconds}s at a natural pace.
-      </p>
-    );
-  }
+  // Words that fit need no comment; only a script that is too long is pointed out.
+  if (fits(spoken, seconds)) return null;
   const fit = shortestVideoFit(spoken);
   const trim = words - maxWords(fit ?? MAX_VIDEO_SECONDS);
   return (
