@@ -32,7 +32,7 @@ export default async function VideosNewPage(): Promise<ReactNode> {
       </Link>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">Configure video</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Describe it, check it, make it. You see the cost before anything is charged.
+        Check each step, then make it. You see the cost before anything is charged.
       </p>
       <div className="mt-6">
         <GenerateFormShell balance={credits.ok ? credits.data.data.balance : null} proPrice={proPrice} />

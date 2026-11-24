@@ -9,7 +9,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 import { toAudience } from "./audience";
-import { AutofillCard } from "./autofill-card";
+import { autofillVideo } from "./autofill-actions";
+import { valuesFromBrief } from "./autofill";
 import { DRAFT_KEY, STEP_KEY, readDraft } from "./draft";
 import { valuesFromAnalysis } from "./analysis-values";
 import { useReferenceScript } from "./reference-script";
@@ -63,6 +64,10 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   }
 
   const library = useLibrary();
+  // Read by the idea autofill, which answers after the library may have loaded.
+  const libraryRef = useRef(library);
+  libraryRef.current = library;
+  const [filling, setFilling] = useState<"idle" | "working" | "failed">("idle");
 
   // A pack chosen on New Video fills the face, voice, product and environment, and opens at the first step, ready for what the video is about.
   // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
@@ -120,11 +125,29 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
     } catch {
       // Nothing to clear.
     }
-    if (quick) {
-      setStep(STEPS.length - 1);
-      setReviewing(true);
-    }
     setValues((current) => ({ ...current, title: idea.title ?? "", objective: idea.objective }));
+    // The idea fills in every step on its own: the person only checks it. A quick start opens the
+    // review once it is filled, so the price is for the finished brief.
+    setFilling("working");
+    void autofillVideo([idea.title, idea.objective].filter(Boolean).join(". ")).then((result) => {
+      if (result.ok) {
+        setValues((current) => {
+          const next = { ...current, ...valuesFromBrief(current, result.brief) };
+          const assets = libraryRef.current.status === "ready" ? libraryRef.current.assets : [];
+          const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]
+            .map((id) => assets.find((asset) => asset.id === id))
+            .find((asset) => asset?.file_kind === "image");
+          return { ...next, firstFrameId: frame?.media_id ?? next.firstFrameId };
+        });
+        setFilling("idle");
+      } else {
+        setFilling("failed");
+      }
+      if (quick) {
+        setStep(STEPS.length - 1);
+        setReviewing(true);
+      }
+    });
   }, []);
 
   // Autosave every change; the job itself persists server-side.
@@ -183,17 +206,19 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
           )}
         </div>
       ) : null}
-      <AutofillCard
-        values={values}
-        assets={library.status === "ready" ? library.assets : []}
-        onFill={(next) => {
-          patch(next);
-          setShowErrors(false);
-        }}
-        onReview={() => {
-          if (goTo(STEPS.length - 1)) setReviewing(true);
-        }}
-      />
+      {filling === "working" ? (
+        <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
+          <Spinner className="size-4 text-primary" />
+          Filling in your video from your idea…
+        </div>
+      ) : filling === "failed" ? (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
+          It could not be filled in automatically. Check each step below.
+          <button type="button" onClick={() => setFilling("idle")} className="cursor-pointer text-ink-soft underline underline-offset-2 hover:text-ink">
+            OK
+          </button>
+        </div>
+      ) : null}
       <ol aria-label="Progress" className="flex gap-1.5">
         {STEPS.map((label, index) => (
           <li key={label} className="flex-1">
