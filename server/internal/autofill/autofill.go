@@ -100,8 +100,9 @@ Fill in every field so they could make the video without changing anything:
 - "objective": one plain sentence saying what the video is for, in their words where possible.
 - "title": a short project name, 2 to 5 words.
 - Pick "purpose", "platform", "seconds", "visual_style", "environment", "content_kind", "tone", "speaker_mode", "audience.gender" and "audience.ages" only from the allowed values.
-- "seconds": the length that suits the idea. Short punchy ideas 8 to 15, a story or explanation 30 to 60, only go longer if they ask for it.
-- "hook": the first line or moment that stops the scroll. "scenes": what is seen, one short line per scene, each on its own line. "dialogue": the words spoken, at most 2.5 words for every second of the video.
+- If the person wrote the exact words to be said (a greeting, a line in quotes, a full sentence to speak), use those words word for word as "dialogue". Do not add to them or rewrite them.
+- "seconds": the shortest allowed length that fits. People speak about 2.5 words a second, so 12 words fit 5 seconds, 20 words fit 8, 25 fit 10, 37 fit 15. Pick the smallest allowed length that holds the dialogue. Only go longer when the idea needs more scenes than that, such as a story, a demo or an explanation, or when they ask for a length.
+- "hook": the first line or moment that stops the scroll. "scenes": what is seen, one short line per scene, each on its own line, about one scene for every 5 seconds. "dialogue": the words spoken, at most 2.5 words for every second of the video.
 - "speaker_mode": "conversation" only when two or more people talk to each other, otherwise "single".
 - Assets: you are given the person's saved library, grouped. Pick an asset id only when it clearly fits the idea, choosing a face and voice from the same group where you can. Use "" when nothing fits. Never make up an id.
 - "language": the language they wrote in, as an English name such as "English" or "French".
@@ -153,13 +154,23 @@ func schema() *genai.Schema {
 }
 
 // Fill writes a brief for one idea, choosing only from the person's own assets.
-func (s *Service) Fill(ctx context.Context, userID, idea string) (Brief, error) {
+// A non-zero seconds fixes the length, and the script is written to fit it;
+// zero lets the model choose.
+func (s *Service) Fill(ctx context.Context, userID, idea string, seconds int) (Brief, error) {
 	idea = strings.TrimSpace(idea)
 	if idea == "" || utf8.RuneCountInString(idea) > MaxIdeaRunes {
 		return Brief{}, fmt.Errorf("%w: describe the video in up to %d characters", ErrInvalid, MaxIdeaRunes)
 	}
+	if seconds != 0 && !slices.Contains(Lengths, seconds) {
+		return Brief{}, fmt.Errorf("%w: choose one of the offered lengths", ErrInvalid)
+	}
 	assets, groups := s.libraryFor(ctx, userID)
-	raw, _, err := s.model.GenerateJSON(gemini.Tag(ctx, "autofill"), system, prompt(idea, assets, groups), schema())
+	user := prompt(idea, assets, groups)
+	if seconds > 0 {
+		user += fmt.Sprintf("\nThe person chose exactly %d seconds. Set \"seconds\" to %d and write the hook, scenes and dialogue to fill that length: about %d spoken words, and about one scene for every 5 seconds.\n",
+			seconds, seconds, int(float64(seconds)*2.5))
+	}
+	raw, _, err := s.model.GenerateJSON(gemini.Tag(ctx, "autofill"), system, user, schema())
 	if err != nil {
 		return Brief{}, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
@@ -167,7 +178,11 @@ func (s *Service) Fill(ctx context.Context, userID, idea string) (Brief, error) 
 	if err := json.Unmarshal(raw, &b); err != nil {
 		return Brief{}, fmt.Errorf("%w: %v", ErrUnavailable, err)
 	}
-	return Clean(b, assets), nil
+	b = Clean(b, assets)
+	if seconds > 0 {
+		b.Seconds = seconds
+	}
+	return b, nil
 }
 
 // libraryFor reads the person's assets; a library that cannot be read only
@@ -234,6 +249,11 @@ func Clean(b Brief, assets []assetlib.Asset) Brief {
 	if !slices.Contains(Lengths, b.Seconds) {
 		b.Seconds = nearest(b.Seconds)
 	}
+	// A length too short for its own words would rush them, so it is raised to
+	// the shortest one that fits. A longer choice stands: scenes can run silent.
+	if need := shortestFitting(len(strings.Fields(b.Dialogue))); need > b.Seconds {
+		b.Seconds = need
+	}
 	b.VisualStyle = pick(b.VisualStyle, Styles, "")
 	b.Environment = pick(b.Environment, Environments, "")
 	b.ContentKind = pick(b.ContentKind, ContentKinds, "Mixed")
@@ -274,6 +294,20 @@ func Clean(b Brief, assets []assetlib.Asset) Brief {
 		b.VoiceAssetID = ""
 	}
 	return b
+}
+
+// WordsPerSecond is the natural speaking pace the form uses.
+const WordsPerSecond = 2.5
+
+// shortestFitting is the shortest offered length that holds the words at a
+// natural pace, or the longest length when nothing does.
+func shortestFitting(words int) int {
+	for _, l := range Lengths {
+		if float64(words) <= float64(l)*WordsPerSecond {
+			return l
+		}
+	}
+	return Lengths[len(Lengths)-1]
 }
 
 func nearest(seconds int) int {

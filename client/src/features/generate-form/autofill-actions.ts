@@ -32,11 +32,11 @@ export type Brief = z.infer<typeof briefSchema>;
 export type AutofillResult = { readonly ok: true; readonly brief: Brief } | { readonly ok: false; readonly message: string };
 
 /** Asks our AI to fill the whole form from a sentence or two. Free, capped per hour by the server. */
-export async function autofillVideo(idea: string): Promise<AutofillResult> {
+export async function autofillVideo(idea: string, seconds = 0): Promise<AutofillResult> {
   const text = idea.trim();
   if (text === "" || text.length > 2000) return { ok: false, message: "Describe your video in a sentence or two." };
   if (!isGoApiConfigured()) return { ok: false, message: "This is not available right now. Fill it in yourself." };
-  const result = await goApi("/api/v1/compose/brief", z.object({ data: briefSchema }), { method: "POST", body: { idea: text }, timeoutMs: 60_000 });
+  const result = await goApi("/api/v1/compose/brief", z.object({ data: briefSchema }), { method: "POST", body: { idea: text, ...(seconds > 0 ? { seconds } : {}) }, timeoutMs: 60_000 });
   if (result.ok) return { ok: true, brief: result.data.data };
   return { ok: false, message: result.status === 404 ? "This is not available right now. Fill it in yourself." : result.message };
 }

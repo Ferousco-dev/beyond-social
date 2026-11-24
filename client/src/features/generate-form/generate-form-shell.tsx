@@ -68,6 +68,10 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   const libraryRef = useRef(library);
   libraryRef.current = library;
   const [filling, setFilling] = useState<"idle" | "working" | "failed">("idle");
+  // The length the script was last written for, so changing it rewrites the script to fit.
+  const filledFor = useRef<number | null>(null);
+  const [refitting, setRefitting] = useState(false);
+  const [refitFailed, setRefitFailed] = useState(false);
 
   // A pack chosen on New Video fills the face, voice, product and environment, and opens at the first step, ready for what the video is about.
   // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
@@ -136,7 +140,9 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
     // review once it is filled, so the price is for the finished brief.
     setFilling("working");
     const who = person.current ? `The person in the video is ${person.current.name}.` : "";
-    void autofillVideo([idea.title, idea.objective, who].filter(Boolean).join(". ")).then((result) => {
+    const ideaText = [idea.title, idea.objective, who].filter(Boolean).join(". ");
+    setValues((current) => ({ ...current, idea: ideaText }));
+    void autofillVideo(ideaText).then((result) => {
       if (result.ok) {
         setValues((current) => {
           const chosen = person.current;
@@ -150,6 +156,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
           const frame = [next.faceAssetId, next.productAssetId, next.environmentAssetId]
             .map((id) => assets.find((asset) => asset.id === id))
             .find((asset) => asset?.file_kind === "image");
+          filledFor.current = next.seconds;
           return { ...next, firstFrameId: frame?.media_id ?? next.firstFrameId };
         });
         setFilling("idle");
@@ -162,6 +169,40 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       }
     });
   }, []);
+
+  // A new length gets a script written for it, from the same idea, a moment after the last tap.
+  // Only the hook, scenes and spoken words change; everything else the person set stays.
+  useEffect(() => {
+    // Older drafts have no saved idea; what the video is for is the next best thing to write from.
+    const source = (values.idea || [values.title, values.objective].filter(Boolean).join(". ")).trim();
+    if (!hydrated || source === "" || filling === "working") return;
+    if (filledFor.current === null) {
+      filledFor.current = values.seconds;
+      return;
+    }
+    if (filledFor.current === values.seconds) return;
+    const seconds = values.seconds;
+    const timer = window.setTimeout(() => {
+      setRefitting(true);
+      setRefitFailed(false);
+      void autofillVideo(source, seconds).then((result) => {
+        setRefitting(false);
+        if (!result.ok) {
+          setRefitFailed(true);
+          return;
+        }
+        filledFor.current = seconds;
+        setValues((current) =>
+          current.seconds !== seconds
+            ? current
+            : { ...current, hook: result.brief.hook || current.hook, scenes: result.brief.scenes || current.scenes, dialogue: result.brief.dialogue || current.dialogue, storyboard: null, voiceover: null },
+        );
+      });
+    }, 700);
+    return () => window.clearTimeout(timer);
+    // The idea text is read when the length changes; edits to it alone do not rewrite the script.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.seconds, hydrated, filling]);
 
   // Autosave every change; the job itself persists server-side.
   useEffect(() => {
@@ -217,6 +258,19 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
               </button>
             </span>
           )}
+        </div>
+      ) : null}
+      {refitting ? (
+        <div role="status" aria-live="polite" className="flex items-center gap-2 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
+          <Spinner className="size-4 text-primary" />
+          Rewriting the script for {values.seconds >= 60 ? `${values.seconds / 60} min` : `${values.seconds}s`}…
+        </div>
+      ) : refitFailed ? (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
+          The script could not be rewritten for this length. Check the Script step.
+          <button type="button" onClick={() => setRefitFailed(false)} className="cursor-pointer text-ink-soft underline underline-offset-2 hover:text-ink">
+            OK
+          </button>
         </div>
       ) : null}
       {filling === "working" ? (

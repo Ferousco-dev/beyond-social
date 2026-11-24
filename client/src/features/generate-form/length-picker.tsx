@@ -10,7 +10,6 @@ import {
   MAX_VIDEO_SECONDS,
   fits,
   maxWords,
-  recommendedLength,
   shortestVideoFit,
   speechSeconds,
   wordCount,
@@ -30,19 +29,16 @@ export function LengthPicker({
   value,
   onChange,
   spoken,
-  contentKind,
   withLong = true,
 }: {
   value: Length | LongLength;
   onChange: (length: Length | LongLength) => void;
   spoken: string;
-  contentKind: string;
   /** Offer lengths past one clip. Off where the result must be a single clip. */
   withLong?: boolean;
 }) {
   // Spoken words turn sound on, which the provider charges more for, so the price follows it.
   const quotes = useSceneQuotes(spoken.trim() !== "");
-  const recommended = recommendedLength(spoken, contentKind);
   const options: readonly (Length | LongLength)[] = withLong ? [...LENGTHS, ...LONG_LENGTHS] : LENGTHS;
   const credits = quotes[value];
 
@@ -53,7 +49,6 @@ export function LengthPicker({
         {options.map((length) => (
           <Chip key={length} selected={value === length} onClick={() => onChange(length)}>
             <span className="tabular-nums">{label(length)}</span>
-            {length === recommended ? <span className="ml-1.5 text-[11px] opacity-70">Best fit</span> : null}
           </Chip>
         ))}
       </div>

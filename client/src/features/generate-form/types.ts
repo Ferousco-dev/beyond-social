@@ -20,6 +20,8 @@ export function newTurn(): ConversationTurn {
 export interface GenerateFormValues {
   /** Optional project name shown in the sidebar and editor header. */
   title: string;
+  /** The idea our AI filled the form from, kept so the script can be rewritten for a new length. */
+  idea: string;
   purpose: string;
   /** What the person typed when the purpose is Other. */
   purposeOther: string;
@@ -59,6 +61,7 @@ export interface GenerateFormValues {
 
 export const EMPTY_FORM: GenerateFormValues = {
   title: "",
+  idea: "",
   purpose: "promotion",
   purposeOther: "",
   objective: "",

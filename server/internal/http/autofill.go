@@ -13,7 +13,7 @@ import (
 
 // Autofill writes the video form's answers from one sentence.
 type Autofill interface {
-	Fill(ctx context.Context, userID, idea string) (autofill.Brief, error)
+	Fill(ctx context.Context, userID, idea string, seconds int) (autofill.Brief, error)
 }
 
 // autofillsPerHour caps the free form filling, which costs a model call.
@@ -31,6 +31,8 @@ func (a *App) composeBrief(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Idea string `json:"idea"`
+		// Seconds fixes the length when the person has chosen one; 0 lets the AI choose.
+		Seconds int `json:"seconds"`
 	}
 	if !decodeJSONLimit(w, r, &req, 16<<10) {
 		return
@@ -40,7 +42,7 @@ func (a *App) composeBrief(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have filled the form many times this hour; fill it in yourself or try again later")
 		return
 	}
-	brief, err := a.deps.Autofill.Fill(r.Context(), identity.UserID, req.Idea)
+	brief, err := a.deps.Autofill.Fill(r.Context(), identity.UserID, req.Idea, req.Seconds)
 	switch {
 	case errors.Is(err, autofill.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "invalid_request", "describe the video in a sentence or two")

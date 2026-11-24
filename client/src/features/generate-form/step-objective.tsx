@@ -141,7 +141,7 @@ export function StepObjective({
           </span>
         ) : null}
       </div>
-      <LengthPicker value={toVideoLength(values.seconds)} onChange={(seconds) => onChange({ seconds })} spoken={spokenText(values)} contentKind={values.contentKind} />
+      <LengthPicker value={toVideoLength(values.seconds)} onChange={(seconds) => onChange({ seconds })} spoken={spokenText(values)} />
       <Segmented label="Post it on" options={PLATFORMS} value={values.platform as (typeof PLATFORMS)[number]} onPick={(platform) => onChange({ platform })} />
       <VisualLookPicker only="style" style={values.visualStyle} environment={values.environment} onChange={onChange} />
 

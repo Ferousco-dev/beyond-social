@@ -47,7 +47,7 @@ func TestFillKeepsOnlyChoicesTheFormCanShow(t *testing.T) {
 	"hook":"Stop scrolling","scenes":"Ada holds the serum","dialogue":"This changed my skin","tone":"Calm","cta":"Shop now, link in bio","speaker_mode":"single",
 	"face_asset_id":"face-ok","voice_asset_id":"voice-ok","product_asset_id":"made-up-id","environment_asset_id":"serum"}`}
 	svc := NewService(m, stubLibrary{assets: library()})
-	b, err := svc.Fill(context.Background(), "u1", "A video for my new glow serum, me talking to camera")
+	b, err := svc.Fill(context.Background(), "u1", "A video for my new glow serum, me talking to camera", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,10 +80,53 @@ func TestAFaceWithoutConsentIsNeverChosen(t *testing.T) {
 
 func TestFillRefusesEmptyIdeasAndReportsModelFailures(t *testing.T) {
 	svc := NewService(&stubModel{err: errors.New("busy")}, stubLibrary{})
-	if _, err := svc.Fill(context.Background(), "u1", "  "); !errors.Is(err, ErrInvalid) {
+	if _, err := svc.Fill(context.Background(), "u1", "  ", 0); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("empty idea: %v", err)
 	}
-	if _, err := svc.Fill(context.Background(), "u1", "a coffee video"); !errors.Is(err, ErrUnavailable) {
+	if _, err := svc.Fill(context.Background(), "u1", "a coffee video", 0); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("model failure: %v", err)
+	}
+}
+
+func TestAChosenLengthIsKeptAndTheScriptIsAskedToFitIt(t *testing.T) {
+	m := &stubModel{reply: `{"seconds":10,"hook":"h","scenes":"s","dialogue":"d"}`}
+	svc := NewService(m, stubLibrary{})
+	b, err := svc.Fill(context.Background(), "u1", "a coffee video", 60)
+	if err != nil || b.Seconds != 60 {
+		t.Fatalf("seconds = %d, %v; the person's choice must stand", b.Seconds, err)
+	}
+	if !strings.Contains(m.prompt, "exactly 60 seconds") || !strings.Contains(m.prompt, "150 spoken words") {
+		t.Fatalf("the model was not told the length: %s", m.prompt)
+	}
+	if _, err := svc.Fill(context.Background(), "u1", "a coffee video", 7); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("a length the form does not offer must be refused: %v", err)
+	}
+}
+
+func TestLengthIsNeverTooShortForTheWords(t *testing.T) {
+	line := "Hello! I am just here showing anything that is actually good today."
+	// Twelve words fit five seconds: a 5 s pick stands.
+	if b := Clean(Brief{Seconds: 5, Dialogue: line}, nil); b.Seconds != 5 {
+		t.Fatalf("12 words in 5 s became %d s", b.Seconds)
+	}
+	// A pick too short for its words is raised to the shortest that fits.
+	long := strings.Repeat("word ", 30)
+	if b := Clean(Brief{Seconds: 5, Dialogue: long}, nil); b.Seconds != 15 {
+		t.Fatalf("30 words should need 15 s, got %d", b.Seconds)
+	}
+	// A longer pick stands: a video may have scenes with nobody speaking.
+	if b := Clean(Brief{Seconds: 30, Dialogue: line}, nil); b.Seconds != 30 {
+		t.Fatalf("a longer choice was changed to %d", b.Seconds)
+	}
+	if got := shortestFitting(12); got != 5 {
+		t.Fatalf("shortestFitting(12) = %d", got)
+	}
+}
+
+func TestThePromptAsksForTheShortestFittingLengthAndExactWords(t *testing.T) {
+	for _, rule := range []string{"word for word", "shortest allowed length that fits", "12 words fit 5 seconds"} {
+		if !strings.Contains(system, rule) {
+			t.Fatalf("the instructions lost %q", rule)
+		}
 	}
 }
