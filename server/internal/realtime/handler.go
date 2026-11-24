@@ -12,6 +12,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// SessionWatcher says whether a sign-in session still exists. *auth.Verifier
+// satisfies it; a verifier without it is never asked.
+type SessionWatcher interface {
+	SessionAlive(ctx context.Context, sessionID string) (bool, error)
+}
+
 // TokenVerifier is satisfied by *auth.Verifier.
 type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (auth.Identity, error)
@@ -27,6 +33,9 @@ type Options struct {
 	PongWait     time.Duration
 	// WriteWait bounds one write. Zero selects the default.
 	WriteWait time.Duration
+	// SessionCheck is how often an open connection checks that its sign-in
+	// session still exists. Zero selects the default.
+	SessionCheck time.Duration
 }
 
 const (
@@ -50,6 +59,9 @@ func NewHandler(opts Options) http.Handler {
 	}
 	if opts.WriteWait == 0 {
 		opts.WriteWait = defaultWriteWait
+	}
+	if opts.SessionCheck == 0 {
+		opts.SessionCheck = 30 * time.Second
 	}
 	if opts.PongWait == 0 {
 		opts.PongWait = 2 * opts.PingInterval
@@ -107,6 +119,9 @@ func serve(ctx context.Context, conn *websocket.Conn, opts Options) {
 
 	writerDone := make(chan struct{})
 	go func() { defer close(writerDone); c.writeLoop(opts.PingInterval, opts.WriteWait) }()
+	if watcher, ok := opts.Verifier.(SessionWatcher); ok && identity.SessionID != "" {
+		go watchSession(ctx, c, watcher, identity.SessionID, opts.SessionCheck)
+	}
 
 	c.readLoop(opts.PongWait)
 	c.stop(closeGoingAway)
@@ -131,4 +146,24 @@ func authenticate(ctx context.Context, conn *websocket.Conn, opts Options) (auth
 	}
 	conn.SetReadLimit(512)
 	return identity, true
+}
+
+// watchSession closes a connection once its sign-in session has ended, so a
+// signed-out person stops receiving updates. A failed check is not a sign-out:
+// the next one decides.
+func watchSession(ctx context.Context, c *client, watcher SessionWatcher, sessionID string, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			alive, err := watcher.SessionAlive(context.WithoutCancel(ctx), sessionID)
+			if err == nil && !alive {
+				c.stop(closePolicyBreach)
+				return
+			}
+		}
+	}
 }

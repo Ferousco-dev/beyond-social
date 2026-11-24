@@ -14,7 +14,21 @@ export type Platform = "youtube" | "tiktok" | "instagram";
 
 export type Destination =
   | { readonly kind: "download" }
-  | { readonly kind: "post"; readonly platform: Platform; readonly caption: string; readonly at: Date | null };
+  | {
+      readonly kind: "post";
+      readonly platforms: readonly Platform[];
+      /** Each platform's own caption and, for YouTube, title. */
+      readonly words: Readonly<Partial<Record<Platform, { readonly title: string; readonly caption: string }>>>;
+      readonly at: Date | null;
+    };
+
+const NAMES: Readonly<Record<Platform, string>> = { youtube: "YouTube", tiktok: "TikTok", instagram: "Instagram" };
+
+/** "TikTok", "TikTok and Instagram", "YouTube, TikTok and Instagram". */
+export function platformList(platforms: readonly Platform[]): string {
+  const names = platforms.map((p) => NAMES[p]);
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
 
 export type FlowState =
   | { readonly phase: "idle" }
@@ -74,11 +88,32 @@ export function useExportFlow(): { state: FlowState; start: (to: Destination) =>
         return setState({ phase: "done", message: `Saved to your computer.${noteOf(warnings)}` });
       }
       setState({ phase: "uploading" });
+      // One render and one upload, then one post per account. Each has its own key,
+      // so a retry after a partial failure posts only to the accounts still missing.
       const mediaId = await upload(blob, title);
-      const posted = await postExport({ mediaId, platform: to.platform, caption: to.caption, at: to.at?.toISOString(), idempotencyKey: key.current });
-      if (!posted.ok) return setState({ phase: "failed", message: posted.message });
-      key.current = crypto.randomUUID();
-      setState({ phase: "done", message: `${to.at ? "Scheduled. You can change or cancel it in Schedule." : "Queued to post. You can follow it in Schedule."}${noteOf(warnings)}` });
+      const results = await Promise.all(
+        to.platforms.map(async (platform) => ({
+          platform,
+          result: await postExport({
+            mediaId,
+            platform,
+            caption: to.words[platform]?.caption ?? "",
+            title: (to.words[platform]?.title || title).slice(0, 100),
+            at: to.at?.toISOString(),
+            idempotencyKey: `${key.current}:${platform}`,
+          }),
+        })),
+      );
+      const done = results.filter((r) => r.result.ok).map((r) => r.platform);
+      const failed = results.filter((r) => !r.result.ok);
+      if (done.length === 0) {
+        const first = failed[0]?.result;
+        return setState({ phase: "failed", message: first && !first.ok ? first.message : "Nothing could be posted. Try again." });
+      }
+      if (failed.length === 0) key.current = crypto.randomUUID();
+      const what = to.at ? `Scheduled for ${platformList(done)}.` : `Posting to ${platformList(done)}.`;
+      const problem = failed.length > 0 ? ` ${platformList(failed.map((f) => f.platform))} did not go: ${failed[0]?.result.ok === false ? failed[0].result.message : ""}` : "";
+      setState({ phase: "done", message: `${what} Follow it in Schedule.${problem}${noteOf(warnings)}` });
     } catch (error) {
       if (error instanceof ExportCancelled) return setState({ phase: "idle" });
       // A refused file request (no CORS headers, or offline) surfaces as a bare TypeError from fetch.

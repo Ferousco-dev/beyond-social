@@ -38,6 +38,13 @@ func (f *fakePostService) Cancel(_ context.Context, user, id string) (publish.Po
 	return publish.Post{ID: id, Status: publish.StatusCancelled}, nil
 }
 
+func (f *fakePostService) Retry(_ context.Context, user, id string) (publish.Post, error) {
+	if user != alice {
+		return publish.Post{}, publish.ErrNotFound
+	}
+	return publish.Post{ID: id, Status: publish.StatusScheduled}, nil
+}
+
 func (f *fakePostService) Reschedule(_ context.Context, user, id string, at time.Time) (publish.Post, error) {
 	if user != alice {
 		return publish.Post{}, publish.ErrNotFound

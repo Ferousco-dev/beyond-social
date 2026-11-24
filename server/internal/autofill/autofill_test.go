@@ -137,3 +137,41 @@ func TestThePromptAsksForTheShortestFittingLengthAndExactWords(t *testing.T) {
 		}
 	}
 }
+
+func TestCaptionsAreWrittenPerPlatformAndTidied(t *testing.T) {
+	m := &stubModel{reply: `{
+		"tiktok": {"text": "Ice cold zobo \u2014 made this morning", "hashtags": ["#zobo", "Lagos Food", "zobo", "#drinks", "a", "b", "c"]},
+		"youtube": {"title": "Making zobo at home", "text": "How we brew it.", "hashtags": ["zobo"]}
+	}`}
+	posts, err := NewService(m, nil).Captions(context.Background(), "Homemade zobo for young people in Lagos", []string{"tiktok", "youtube", "tiktok", "myspace"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tt := posts["tiktok"]
+	if strings.ContainsAny(tt.Text, "\u2014\u2013") {
+		t.Fatalf("dashes must be removed: %q", tt.Text)
+	}
+	if len(tt.Hashtags) != 5 || tt.Hashtags[0] != "#zobo" || tt.Hashtags[1] != "#LagosFood" {
+		t.Fatalf("hashtags = %v: cleaned, unique and at most 5 for TikTok", tt.Hashtags)
+	}
+	if !strings.HasSuffix(tt.Caption, strings.Join(tt.Hashtags, " ")) {
+		t.Fatalf("the caption should end with its hashtags: %q", tt.Caption)
+	}
+	if posts["youtube"].Title != "Making zobo at home" {
+		t.Fatalf("youtube = %+v", posts["youtube"])
+	}
+	if _, ok := posts["myspace"]; ok {
+		t.Fatal("an unknown platform was written for")
+	}
+	if !strings.Contains(m.prompt, "tiktok, youtube") {
+		t.Fatalf("prompt = %s", m.prompt)
+	}
+	for _, rule := range []string{"No dashes", "not just X, but Y", "game-changer"} {
+		if !strings.Contains(captionSystem, rule) {
+			t.Fatalf("the human-writing rule %q is missing", rule)
+		}
+	}
+	if _, err := NewService(m, nil).Captions(context.Background(), "zobo", nil); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("no platform: %v", err)
+	}
+}

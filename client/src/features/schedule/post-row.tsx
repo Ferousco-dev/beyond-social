@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { type ScheduledPost } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
-import { cancelPost, reschedulePost } from "./actions";
+import { cancelPost, reschedulePost, retryPost } from "./actions";
 
 const STATUS: Readonly<Record<ScheduledPost["status"], { label: string; tone: string }>> = {
   preparing: { label: "Getting ready", tone: "text-ink-soft" },
@@ -34,6 +34,15 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
   const status = STATUS[post.status];
   const movable = post.status === "preparing" || post.status === "scheduled";
   const cancellable = movable;
+
+  const [retried, setRetried] = useState(false);
+  const retry = (): void =>
+    startTransition(async () => {
+      setError(null);
+      const result = await retryPost(post.id);
+      if (result.ok) setRetried(true);
+      else setError(result.message);
+    });
 
   const cancel = (): void =>
     startTransition(async () => {
@@ -117,6 +126,11 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
         {cancellable ? (
           <Button variant="outline" disabled={pending} onClick={cancel}>
             Cancel
+          </Button>
+        ) : null}
+        {post.status === "failed" && !retried ? (
+          <Button disabled={pending} onClick={retry}>
+            Try again
           </Button>
         ) : null}
       </div>

@@ -133,3 +133,39 @@ func TestACancelledPostIsNeverClaimedOrChanged(t *testing.T) {
 		t.Fatalf("cancelling twice: %v", err)
 	}
 }
+
+func TestRetrySendsOnlyAFailedPostAgainFromItsKeptCopy(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewPostStore(pool)
+	alice, bob := uuid.NewString(), uuid.NewString()
+	for _, id := range []string{alice, bob} {
+		if _, err := NewProfileStore(pool).Ensure(ctx, id, id[:8]+"@example.com", "U"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	post, _, err := store.Create(ctx, publish.Post{UserID: alice, Platform: social.TikTok, Caption: "hi", Visibility: "public", SourceURL: "https://cdn.example/v.mp4", ScheduledAt: time.Now().Add(time.Hour)}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Retry(ctx, alice, post.ID); !errors.Is(err, publish.ErrNotRetryable) {
+		t.Fatalf("a post that has not failed was retried: %v", err)
+	}
+	path := alice + "/posts/" + post.ID + ".mp4"
+	if _, err := store.Advance(ctx, post.ID, publish.Update{Status: publish.StatusScheduled, StoragePath: &path}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Advance(ctx, post.ID, publish.Update{Status: publish.StatusPublishing, MarkStarted: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Advance(ctx, post.ID, publish.Update{Status: publish.StatusFailed, Error: "TikTok refused it"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Retry(ctx, bob, post.ID); !errors.Is(err, publish.ErrNotFound) {
+		t.Fatalf("someone else retried it: %v", err)
+	}
+	got, err := store.Retry(ctx, alice, post.ID)
+	if err != nil || got.Status != publish.StatusScheduled || got.Error != "" || got.PublishStartedAt != nil || got.Attempts != 0 || got.StoragePath != path {
+		t.Fatalf("retry: %+v %v", got, err)
+	}
+}

@@ -58,6 +58,9 @@ type Config struct {
 	// SocialApps are the OAuth credentials for publishing, by vault name. All
 	// optional: an admin can paste them in instead.
 	SocialApps map[string]string
+	// SocialSandbox swaps TikTok, Instagram and YouTube for test stand-ins, so
+	// posting can be tried without their keys. Ignored in production.
+	SocialSandbox bool
 	// GeminiModel overrides the default planning model.
 	GeminiModel string
 	// GeminiFallbackModel answers when the main model is busy or unavailable.
@@ -128,6 +131,7 @@ func LoadFromEnv() (Config, error) {
 
 		GeminiAPIKey:     strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		AppEncryptionKey: strings.TrimSpace(os.Getenv("APP_ENCRYPTION_KEY")),
+		SocialSandbox:    strings.EqualFold(strings.TrimSpace(os.Getenv("SOCIAL_SANDBOX")), "true"),
 		SocialApps: map[string]string{
 			"youtube_client_id":     strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_ID")),
 			"youtube_client_secret": strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_SECRET")),

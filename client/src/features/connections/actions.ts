@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { goApi } from "@/lib/go-api/client";
-import { connectUrlResponse } from "@/lib/go-api/schemas";
+import { connectUrlResponse, socialListResponse, type SocialStatus } from "@/lib/go-api/schemas";
 import { emptyResponse } from "@/lib/go-api/admin-schemas";
 
 const platform = z.enum(["youtube", "tiktok", "instagram"]);
@@ -28,4 +28,10 @@ export async function disconnect(input: string): Promise<{ readonly ok: boolean;
   if (!result.ok) return { ok: false, message: result.message };
   revalidatePath("/dashboard/settings/connections");
   return { ok: true };
+}
+
+/** Every platform, whether it can be connected here, and whether this person has. */
+export async function listConnections(): Promise<{ readonly ok: true; readonly list: readonly SocialStatus[] } | { readonly ok: false; readonly message: string }> {
+  const result = await goApi("/api/v1/social", socialListResponse);
+  return result.ok ? { ok: true, list: result.data.data } : { ok: false, message: result.message };
 }

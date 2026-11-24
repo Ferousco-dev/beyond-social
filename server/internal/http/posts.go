@@ -19,6 +19,7 @@ type PostService interface {
 	Get(ctx context.Context, userID, id string) (publish.Post, error)
 	Cancel(ctx context.Context, userID, id string) (publish.Post, error)
 	Reschedule(ctx context.Context, userID, id string, at time.Time) (publish.Post, error)
+	Retry(ctx context.Context, userID, id string) (publish.Post, error)
 }
 
 func (a *App) listPosts(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +119,26 @@ func (a *App) cancelPost(w http.ResponseWriter, r *http.Request) {
 	writeData(w, http.StatusOK, post)
 }
 
+// retryPost sends a failed post again now.
+func (a *App) retryPost(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	id := r.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeError(w, http.StatusNotFound, "not_found", "post not found")
+		return
+	}
+	post, err := a.deps.Posts.Retry(r.Context(), identity.UserID, id)
+	if err != nil {
+		a.postError(w, r, err)
+		return
+	}
+	writeData(w, http.StatusOK, post)
+}
+
 // reschedulePost moves a post that has not started publishing to a new time.
 func (a *App) reschedulePost(w http.ResponseWriter, r *http.Request) {
 	identity, ok := auth.IdentityFromContext(r.Context())
@@ -164,6 +185,8 @@ func (a *App) postError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, http.StatusNotFound, "not_found", "post not found")
 	case errors.Is(err, publish.ErrNotCancellable):
 		writeError(w, http.StatusConflict, "not_cancellable", err.Error())
+	case errors.Is(err, publish.ErrNotRetryable):
+		writeError(w, http.StatusConflict, "not_retryable", err.Error())
 	case errors.Is(err, social.ErrNotConnected):
 		writeError(w, http.StatusConflict, "not_connected", "connect that account first")
 	case errors.Is(err, social.ErrReconnect):

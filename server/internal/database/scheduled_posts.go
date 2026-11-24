@@ -112,6 +112,24 @@ func (s *PostStore) Reschedule(ctx context.Context, userID, id string, at time.T
 	return publish.Post{}, publish.ErrNotReschedulable
 }
 
+// Retry sends a failed post again now, from its kept copy when there is one.
+func (s *PostStore) Retry(ctx context.Context, userID, id string) (publish.Post, error) {
+	p, err := scanPost(s.pool.QueryRow(ctx, `
+		update public.scheduled_posts
+		set status = case when coalesce(storage_path, '') <> '' then 'scheduled' else 'preparing' end,
+		    scheduled_at = now(), next_run_at = now(), attempts = 0, publish_started_at = null,
+		    error = null, updated_at = now()
+		where id = $1 and user_id = $2 and status = 'failed'
+		returning `+postColumns, id, userID))
+	if !errors.Is(err, publish.ErrNotFound) {
+		return p, err
+	}
+	if _, getErr := s.Get(ctx, userID, id); getErr != nil {
+		return publish.Post{}, getErr
+	}
+	return publish.Post{}, publish.ErrNotRetryable
+}
+
 // Claim leases due posts. A claimed post's next_run_at moves out by the lease,
 // so one that its worker never finished becomes due again by itself.
 func (s *PostStore) Claim(ctx context.Context, limit int, lease time.Duration) ([]publish.Post, error) {

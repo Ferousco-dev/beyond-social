@@ -79,6 +79,20 @@ func (m *memStore) Reschedule(_ context.Context, user, id string, at time.Time) 
 	p.ScheduledAt = at
 	return *p, nil
 }
+func (m *memStore) Retry(_ context.Context, user, id string) (Post, error) {
+	p, ok := m.posts[id]
+	if !ok || p.UserID != user {
+		return Post{}, ErrNotFound
+	}
+	if p.Status != StatusFailed {
+		return Post{}, ErrNotRetryable
+	}
+	p.Status, p.Error, p.Attempts, p.PublishStartedAt = StatusScheduled, "", 0, nil
+	if p.StoragePath == "" {
+		p.Status = StatusPreparing
+	}
+	return *p, nil
+}
 func (m *memStore) Claim(context.Context, int, time.Duration) ([]Post, error) { return nil, nil }
 func (m *memStore) Advance(_ context.Context, id string, u Update) (Post, error) {
 	m.mu.Lock()
@@ -494,5 +508,28 @@ func TestAnotherUsersFileOrAFailedCopyFallsBackToDownloading(t *testing.T) {
 				t.Fatalf("copied=%v fetches=%d post=%+v", cv.copied, r.fetch.calls, r.post())
 			}
 		})
+	}
+}
+
+func TestOnlyAFailedPostCanBeTriedAgainAndOnlyWhileConnected(t *testing.T) {
+	ctx := context.Background()
+	store := newMem()
+	svc := newService(fakeAccounts{}, store)
+	post, _, _ := svc.Schedule(ctx, "u1", Request{Platform: social.TikTok, JobID: "job-1"}, "")
+	if _, err := svc.Retry(ctx, "u1", post.ID); !errors.Is(err, ErrNotRetryable) {
+		t.Fatalf("a post that has not failed was retried: %v", err)
+	}
+	store.posts[post.ID].Status, store.posts[post.ID].Error, store.posts[post.ID].StoragePath = StatusFailed, "TikTok refused it", "u1/posts/x.mp4"
+	if _, err := svc.Retry(ctx, "u2", post.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("someone else retried it: %v", err)
+	}
+	got, err := svc.Retry(ctx, "u1", post.ID)
+	if err != nil || got.Status != StatusScheduled || got.Error != "" {
+		t.Fatalf("retry = %+v, %v; a kept copy goes straight back to scheduled", got, err)
+	}
+	store.posts[post.ID].Status = StatusFailed
+	gone := newService(fakeAccounts{err: social.ErrNotConnected}, store)
+	if _, err := gone.Retry(ctx, "u1", post.ID); !errors.Is(err, social.ErrNotConnected) {
+		t.Fatalf("a post was retried into a disconnected account: %v", err)
 	}
 }

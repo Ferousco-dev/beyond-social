@@ -179,12 +179,27 @@ func run() error {
 	registry := orchestrator.DefaultRegistry()
 	planner := orchestrator.NewPlanner(geminiClient, registry)
 	youtube, tiktok, instagram := social.NewYouTube(), social.NewTikTok(), social.NewInstagram()
+	socialProviders := []social.Provider{youtube, tiktok, instagram}
+	publishers := map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}
+	switch {
+	case cfg.SocialSandbox && cfg.IsProduction():
+		slog.Error("SOCIAL_SANDBOX is ignored in production; real platforms are used")
+	case cfg.SocialSandbox:
+		// Test stand-ins: signing in and posting work without any platform keys.
+		slog.Warn("social sandbox is on: posts go nowhere")
+		socialProviders, publishers = nil, map[social.Platform]social.Publisher{}
+		for _, p := range social.Platforms {
+			sb := social.Sandbox{For: p}
+			socialProviders = append(socialProviders, sb)
+			publishers[p] = sb
+		}
+	}
 	var socialSealer social.Sealer
 	if sealer != nil {
 		socialSealer = sealer
 	}
 	socialService := social.NewService(database.NewSocialStore(pool), socialSealer, vaultKeys(vault),
-		func(p social.Platform) string { return cfg.SocialRedirectURL(string(p)) }, youtube, tiktok, instagram)
+		func(p social.Platform) string { return cfg.SocialRedirectURL(string(p)) }, socialProviders...)
 	postStore := database.NewPostStore(pool)
 	postService := publish.NewService(postStore, jobService, socialService)
 	orchestratorService, err := orchestrator.NewService(orchestrator.Deps{
@@ -217,7 +232,7 @@ func run() error {
 	workflowPlanner := chat.NewWorkflowPlanner(orchestratorService, registry)
 	postProcessor := &publish.Processor{
 		Store: postStore, Fetcher: transformProcessor.Fetcher, Vault: footage, Tokens: socialService,
-		Publishers: map[social.Platform]social.Publisher{social.YouTube: youtube, social.TikTok: tiktok, social.Instagram: instagram}, Alerts: alertService,
+		Publishers: publishers, Alerts: alertService,
 	}
 	insightsService := insights.NewService(database.NewMetricsStore(pool), socialService, youtube)
 	go insights.NewCollector(insightsService, 15*time.Minute).Run(ctx)
@@ -303,7 +318,7 @@ func run() error {
 			Issuer:      cfg.Issuer(),
 			JWKSURL:     cfg.JWKSURL(),
 			HS256Secret: cfg.SupabaseJWTSecret,
-		}),
+		}).WithSessions(database.NewSessionStore(pool)),
 		Database:       pool,
 		Hub:            hub,
 		AllowedOrigins: cfg.AllowedOrigins,

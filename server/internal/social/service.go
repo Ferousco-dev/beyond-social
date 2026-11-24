@@ -63,7 +63,13 @@ func (s *Service) provider(p Platform) (Provider, error) {
 	return prov, nil
 }
 
+// keyless is a provider that signs in without app credentials: the sandbox.
+type keyless interface{ Keyless() bool }
+
 func (s *Service) credentials(ctx context.Context, p Platform) (Credentials, error) {
+	if prov, ok := s.providers[p].(keyless); ok && prov.Keyless() {
+		return Credentials{}, nil
+	}
 	names := credentialNames[p]
 	id, err := s.keys(ctx, names[0])
 	if err != nil {

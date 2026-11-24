@@ -314,3 +314,32 @@ func TestConnectionSurvivesPastTheWriteDeadlineToTheFirstHeartbeat(t *testing.T)
 		t.Fatal("the connection is no longer registered")
 	}
 }
+
+// sessionVerifier gives tokens a session that can be signed out.
+type sessionVerifier struct{ signedOut *atomic.Bool }
+
+func (s sessionVerifier) Verify(_ context.Context, token string) (auth.Identity, error) {
+	if token != "tok-alice" {
+		return auth.Identity{}, errors.New("bad token")
+	}
+	return auth.Identity{UserID: alice, SessionID: "s1"}, nil
+}
+
+func (s sessionVerifier) SessionAlive(context.Context, string) (bool, error) {
+	return !s.signedOut.Load(), nil
+}
+
+func TestAnOpenConnectionClosesAfterSignOut(t *testing.T) {
+	var signedOut atomic.Bool
+	r := newRig(t, func(o *Options) {
+		o.Verifier = sessionVerifier{signedOut: &signedOut}
+		o.SessionCheck = 50 * time.Millisecond
+	})
+	conn := r.connect(t, "tok-alice")
+	if e := readEvent(t, conn); e.Type != eventReady {
+		t.Fatalf("first event = %+v", e)
+	}
+	signedOut.Store(true)
+	expectCloseCode(t, conn, closePolicyBreach)
+	waitFor(t, "the connection to leave the hub", func() bool { return r.connections(alice) == 0 })
+}

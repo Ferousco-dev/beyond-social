@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import { type ReactNode } from "react";
 
+import { ConnectReturn } from "@/features/connections/connect-return";
 import { ConnectionRow } from "@/features/connections/connection-row";
 import { goApi } from "@/lib/go-api/client";
 import { socialListResponse } from "@/lib/go-api/schemas";
@@ -24,6 +25,7 @@ export default async function ConnectionsPage({
 
   return (
     <div>
+      <ConnectReturn status={status} />
       <h2 className="text-xl font-semibold tracking-tight text-ink">Connections</h2>
       <p className="mt-1 text-sm text-ink-soft">
         Connect the accounts you want to publish to. You approve every post before it goes out.

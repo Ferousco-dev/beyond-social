@@ -11,6 +11,8 @@ type Identity struct {
 	Phone        string `json:"phone,omitempty"`
 	BusinessName string `json:"business_name,omitempty"`
 	Industry     string `json:"industry,omitempty"`
+	// SessionID is the sign-in session the token came from; never sent back to the client.
+	SessionID string `json:"-"`
 }
 
 type contextKey struct{}

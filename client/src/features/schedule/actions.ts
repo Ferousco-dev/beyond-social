@@ -30,3 +30,15 @@ export async function reschedulePost(id: string, at: string): Promise<CancelResu
   revalidatePath("/dashboard/schedule");
   return { ok: true };
 }
+
+/** Sends a failed post again now, from the copy of the video kept for it. */
+export async function retryPost(id: string): Promise<CancelResult> {
+  if (!z.string().uuid().safeParse(id).success) return { ok: false, message: "That post could not be found." };
+  const result = await goApi(`/api/v1/posts/${id}/retry`, postResponse, { method: "POST" });
+  if (!result.ok) {
+    const message = result.code === "not_connected" || result.code === "reconnect" ? "Connect that account again in Connections, then try again." : result.message;
+    return { ok: false, message };
+  }
+  revalidatePath("/dashboard/schedule");
+  return { ok: true };
+}

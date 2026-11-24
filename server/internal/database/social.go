@@ -51,6 +51,11 @@ func (s *SocialStore) TakeState(ctx context.Context, stateHash []byte, now time.
 }
 
 func (s *SocialStore) Upsert(ctx context.Context, c social.Connection) error {
+	// A platform that lists no scopes in its answer leaves this nil, which the
+	// column refuses; an empty list says the same thing and is stored.
+	if c.Scopes == nil {
+		c.Scopes = []string{}
+	}
 	_, err := s.pool.Exec(ctx, `
 		insert into public.social_connections (user_id, platform, account_id, account_name, access_ct, refresh_ct, expires_at, scopes)
 		values ($1, $2, $3, $4, $5, $6, $7, $8)

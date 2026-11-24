@@ -83,3 +83,20 @@ func TestSocialConnectionsAreOwnedReplaceInPlaceAndStatesWorkOnce(t *testing.T) 
 		t.Fatalf("deleting twice: %v", err)
 	}
 }
+
+func TestAConnectionWithNoScopesIsSaved(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewSocialStore(pool)
+	user := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, user, "s@example.com", "S"); err != nil {
+		t.Fatal(err)
+	}
+	// Some platforms answer a sign-in without listing scopes.
+	if err := store.Upsert(ctx, social.Connection{UserID: user, Platform: social.TikTok, AccountID: "a", AccountName: "A", AccessCT: []byte("x")}); err != nil {
+		t.Fatalf("a sign-in with no scopes must still be saved: %v", err)
+	}
+	if _, err := store.Get(ctx, user, social.TikTok); err != nil {
+		t.Fatal(err)
+	}
+}

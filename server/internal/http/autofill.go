@@ -14,6 +14,7 @@ import (
 // Autofill writes the video form's answers from one sentence.
 type Autofill interface {
 	Fill(ctx context.Context, userID, idea string, seconds int) (autofill.Brief, error)
+	Captions(ctx context.Context, about string, platforms []string) (map[string]autofill.Post, error)
 }
 
 // autofillsPerHour caps the free form filling, which costs a model call.
@@ -52,5 +53,45 @@ func (a *App) composeBrief(w http.ResponseWriter, r *http.Request) {
 		writeInternal(w, r, err)
 	default:
 		writeData(w, http.StatusOK, brief)
+	}
+}
+
+// composeCaption writes a post caption. It shares the hourly cap with filling the form.
+func (a *App) composeCaption(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	if a.deps.Autofill == nil {
+		writeError(w, http.StatusNotFound, "not_found", "captions are not available")
+		return
+	}
+	var req struct {
+		About     string   `json:"about"`
+		Platforms []string `json:"platforms"`
+	}
+	if !decodeJSONLimit(w, r, &req, 16<<10) {
+		return
+	}
+	if len(req.Platforms) > 3 {
+		writeError(w, http.StatusBadRequest, "invalid_request", "choose up to three platforms")
+		return
+	}
+	if allowed, wait := a.autofills.allow(identity.UserID); !allowed {
+		w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(wait.Seconds()))))
+		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have asked our AI many times this hour; write the caption yourself or try again later")
+		return
+	}
+	posts, err := a.deps.Autofill.Captions(r.Context(), req.About, req.Platforms)
+	switch {
+	case errors.Is(err, autofill.ErrInvalid):
+		writeError(w, http.StatusBadRequest, "invalid_request", "say what the video is about and choose a platform")
+	case errors.Is(err, autofill.ErrUnavailable):
+		writeError(w, http.StatusBadGateway, "provider_unavailable", "our AI could not write a caption right now; write it yourself or try again")
+	case err != nil:
+		writeInternal(w, r, err)
+	default:
+		writeData(w, http.StatusOK, map[string]any{"posts": posts})
 	}
 }

@@ -38,6 +38,8 @@ var (
 	ErrNotCancellable = errors.New("this post can no longer be cancelled")
 	// ErrNotReschedulable means the post already started or finished.
 	ErrNotReschedulable = errors.New("this post can no longer be rescheduled")
+	// ErrNotRetryable means the post did not fail, so there is nothing to try again.
+	ErrNotRetryable = errors.New("only a failed post can be tried again")
 )
 
 const (
@@ -93,6 +95,9 @@ type Store interface {
 	Cancel(ctx context.Context, userID, id string) (Post, error)
 	// Reschedule moves a post that has not started publishing to a new time.
 	Reschedule(ctx context.Context, userID, id string, at time.Time) (Post, error)
+	// Retry sends a failed post again now: from its kept copy when it has one,
+	// otherwise from the start. Its earlier error and attempts are cleared.
+	Retry(ctx context.Context, userID, id string) (Post, error)
 	// Claim leases due posts, pushing their next_run_at out by lease.
 	Claim(ctx context.Context, limit int, lease time.Duration) ([]Post, error)
 	Advance(ctx context.Context, id string, u Update) (Post, error)
@@ -228,4 +233,20 @@ func (s *Service) Reschedule(ctx context.Context, userID, id string, at time.Tim
 		return Post{}, fmt.Errorf("%w: choose a time from now to a year ahead", ErrInvalid)
 	}
 	return s.store.Reschedule(ctx, userID, id, at)
+}
+
+// Retry tries a failed post again, now. The account must still be connected,
+// so a post that failed for want of a sign-in is not retried into the same wall.
+func (s *Service) Retry(ctx context.Context, userID, id string) (Post, error) {
+	post, err := s.store.Get(ctx, userID, id)
+	if err != nil {
+		return Post{}, err
+	}
+	if post.Status != StatusFailed {
+		return Post{}, ErrNotRetryable
+	}
+	if err := s.accounts.Usable(ctx, userID, post.Platform); err != nil {
+		return Post{}, err
+	}
+	return s.store.Retry(ctx, userID, id)
 }

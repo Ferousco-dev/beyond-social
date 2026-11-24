@@ -32,12 +32,16 @@ type Verifier struct {
 	secret []byte
 	keys   *keySet
 	parser *jwt.Parser
+	// sessions, when set, refuses tokens whose sign-in session has ended.
+	sessions *sessionCache
 }
 
 type claims struct {
 	jwt.RegisteredClaims
 	Email string `json:"email"`
 	Role  string `json:"role"`
+	// SessionID is the sign-in session the token belongs to. Signing out ends it.
+	SessionID string `json:"session_id"`
 	// Supabase copies the sign-up metadata (name) into the access token.
 	Meta struct {
 		FullName     string `json:"full_name"`
@@ -84,12 +88,19 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (Identity, error) {
 	if _, err := uuid.Parse(c.Subject); err != nil {
 		return Identity{}, fmt.Errorf("%w: subject is not a user id", ErrInvalidToken)
 	}
+	// The signature only proves the token was issued. A session that has since
+	// signed out is refused too, so a copied token does not outlive the sign-out.
+	if alive, err := v.SessionAlive(ctx, c.SessionID); err != nil {
+		return Identity{}, fmt.Errorf("%w: session could not be checked: %w", ErrInvalidToken, err)
+	} else if !alive {
+		return Identity{}, fmt.Errorf("%w: session has ended", ErrInvalidToken)
+	}
 	name := c.Meta.FullName
 	if name == "" {
 		name = c.Meta.Name
 	}
 	return Identity{
-		UserID: c.Subject, Email: c.Email, Role: c.Role, Name: name,
+		UserID: c.Subject, Email: c.Email, Role: c.Role, Name: name, SessionID: c.SessionID,
 		Phone: c.Meta.Phone, BusinessName: c.Meta.BusinessName, Industry: c.Meta.Industry,
 	}, nil
 }
