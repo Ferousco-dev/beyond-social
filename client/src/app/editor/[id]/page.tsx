@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { z } from "zod";
 
+import { fitGeneration } from "@/features/studio/core/fit-generation.ts";
 import { emptyProject } from "@/features/studio/core/validate.ts";
 import { projectGenerationSchema } from "@/features/studio/core/types.ts";
 import { StudioScreen } from "@/features/studio/components/studio-screen";
@@ -36,10 +37,10 @@ export default async function EditorPage({
   const rawDocument = project.data.data.document;
   const documentRecord = z.record(z.string(), z.unknown()).safeParse(rawDocument);
   const storedGeneration = documentRecord.success
-    ? projectGenerationSchema.safeParse(documentRecord.data.generation)
+    ? projectGenerationSchema.safeParse(fitGeneration(documentRecord.data.generation))
     : null;
   const queryGeneration = typeof job === "string" && typeof script === "string"
-    ? projectGenerationSchema.safeParse({ jobId: job, script, state: "running" })
+    ? projectGenerationSchema.safeParse(fitGeneration({ jobId: job, script, state: "running" }))
     : null;
   const generation = storedGeneration?.success
     ? storedGeneration.data

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { useOnline } from "@/hooks/use-online";
 import { createEditorProject } from "@/features/studio/actions";
+import { fitGeneration } from "@/features/studio/core/fit-generation.ts";
 
 import { buildAvatarScript } from "./brief";
 import { clearDraft } from "./draft";
@@ -84,17 +85,17 @@ export function StepReview({
         setError(started.message);
         return;
       }
-      const { generation } = started;
-      const project = await createEditorProject({
-        title: values.title.trim() || values.objective.trim() || (kind === "conversation" ? "Conversation" : kind === "talking" ? "Talking video" : "New video"),
-        generation,
-      });
+      // The video has started and been paid for, so the project must save: the record is cut to its
+      // limits and the title to its length rather than refused.
+      const generation = fitGeneration(started.generation);
+      const title = (values.title.trim() || values.objective.trim() || (kind === "conversation" ? "Conversation" : kind === "talking" ? "Talking video" : "New video")).slice(0, 120).trim();
+      const project = await createEditorProject({ title, generation });
       if (!project.ok) {
         setError(project.message);
         return;
       }
       clearDraft();
-      router.push(`/editor/${project.value}?job=${generation.jobId}&script=${encodeURIComponent(prompt)}` as Route);
+      router.push(`/editor/${project.value}?job=${generation.jobId}&script=${encodeURIComponent(generation.script)}` as Route);
     } catch {
       setError("Generation did not start. Your project is saved. Try again.");
     } finally {
