@@ -175,3 +175,24 @@ func TestCaptionsAreWrittenPerPlatformAndTidied(t *testing.T) {
 		t.Fatalf("no platform: %v", err)
 	}
 }
+
+func TestTheCaptionFormatHasNoLimitsForGeminiToChokeOn(t *testing.T) {
+	var walk func(s *genai.Schema)
+	walk = func(s *genai.Schema) {
+		if s == nil {
+			return
+		}
+		if s.MaxLength != nil || s.MaxItems != nil {
+			t.Fatalf("a limit in the schema can make Gemini refuse it: %+v", s)
+		}
+		walk(s.Items)
+		for _, p := range s.Properties {
+			walk(p)
+		}
+	}
+	walk(captionSchema([]string{"tiktok", "instagram", "youtube"}))
+	long := tidyPost("tiktok", Post{Text: strings.Repeat("a", 3000), Hashtags: []string{"a"}})
+	if len([]rune(long.Text)) > 1800 {
+		t.Fatalf("the text must still be cut in code: %d", len(long.Text))
+	}
+}
