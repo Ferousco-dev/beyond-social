@@ -7,10 +7,8 @@ import { Chip } from "@/components/ui/choice-chips";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+import { VoiceScript } from "./voice-script";
 import { ASSET_KINDS, KIND_META, fileProblem, type AssetKind, type LibraryGroup } from "../types";
-
-const VOICE_SCRIPT =
-  "Hi, my name is ____, and I make videos to share what I love. Every day I try to explain things simply, so anyone can follow along. Last week I visited a small market, tasted something new, and told my friends about it straight away. If you like what you see, stay with me. I will show you how it works, step by step, and I will keep it clear and friendly. Thanks for listening, and see you in the next one.";
 
 /**
  * Adding one asset: what it is, a clear label, and the file. The label is
@@ -96,16 +94,7 @@ export function AddAssetPanel({
         </div>
       )}
 
-      {kind === "voice" ? (
-        <div className="mt-4 border-l-2 border-hairline pl-3">
-          <p className="text-xs font-medium text-ink">
-            Read this out loud, in a quiet room (about 30 seconds):
-          </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-            {VOICE_SCRIPT}
-          </p>
-        </div>
-      ) : null}
+      {kind === "voice" ? <VoiceScript /> : null}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
         <button
