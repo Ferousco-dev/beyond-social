@@ -61,6 +61,10 @@ type Config struct {
 	// SocialSandbox swaps TikTok, Instagram and YouTube for test stand-ins, so
 	// posting can be tried without their keys. Ignored in production.
 	SocialSandbox bool
+	// E2EFakeProviders is the address of the end-to-end test stack's fake
+	// kie.ai, Apify and Gemini. When set, those providers are never called and
+	// no credits are spent. Refused in production.
+	E2EFakeProviders string
 	// GeminiModel overrides the default planning model.
 	GeminiModel string
 	// GeminiFallbackModel answers when the main model is busy or unavailable.
@@ -132,6 +136,7 @@ func LoadFromEnv() (Config, error) {
 		GeminiAPIKey:     strings.TrimSpace(os.Getenv("GEMINI_API_KEY")),
 		AppEncryptionKey: strings.TrimSpace(os.Getenv("APP_ENCRYPTION_KEY")),
 		SocialSandbox:    strings.EqualFold(strings.TrimSpace(os.Getenv("SOCIAL_SANDBOX")), "true"),
+		E2EFakeProviders: strings.TrimRight(strings.TrimSpace(os.Getenv("E2E_FAKE_PROVIDERS")), "/"),
 		SocialApps: map[string]string{
 			"youtube_client_id":     strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_ID")),
 			"youtube_client_secret": strings.TrimSpace(os.Getenv("YOUTUBE_CLIENT_SECRET")),
@@ -149,6 +154,16 @@ func LoadFromEnv() (Config, error) {
 	}
 	if port, err := strconv.Atoi(cfg.HTTPPort); err != nil || port < 1 || port > 65535 {
 		return Config{}, errors.New("PORT must be an integer between 1 and 65535")
+	}
+
+	if cfg.E2EFakeProviders != "" {
+		if cfg.IsProduction() {
+			return Config{}, errors.New("E2E_FAKE_PROVIDERS must never be set in production")
+		}
+		fake, err := url.Parse(cfg.E2EFakeProviders)
+		if err != nil || fake.Scheme != "http" || fake.Host == "" {
+			return Config{}, errors.New("E2E_FAKE_PROVIDERS must be an http address such as http://127.0.0.1:8090")
+		}
 	}
 
 	if cfg.SupabaseURL == "" {

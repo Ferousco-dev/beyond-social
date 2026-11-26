@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -92,7 +93,12 @@ func Fetch(ctx context.Context, client *http.Client, rawURL string, maxBytes int
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	return download(ctx, client, u.String(), maxBytes)
+}
+
+// download fetches an address that has already been checked, refusing anything over maxBytes.
+func download(ctx context.Context, client *http.Client, target string, maxBytes int64) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +117,36 @@ func Fetch(ctx context.Context, client *http.Client, rawURL string, maxBytes int
 	return readCapped(resp.Body, maxBytes)
 }
 
+// TestMediaHost is the made-up address the end-to-end test stack's fake
+// providers give for generated files. Only a Fetcher built WithTestMedia can
+// reach it; every other Fetcher refuses it like any unknown host.
+const TestMediaHost = "media.e2e.test"
+
 // Fetcher is a ready-to-use downloader built on NewClient.
-type Fetcher struct{ client *http.Client }
+type Fetcher struct {
+	client *http.Client
+	// testOrigin is where https://media.e2e.test is served in the test stack. Empty everywhere else.
+	testOrigin string
+	testClient *http.Client
+}
 
 func NewFetcher(timeout time.Duration) Fetcher { return Fetcher{client: NewClient(timeout)} }
 
+// WithTestMedia sends https://media.e2e.test/... to the fake providers at
+// origin (plain http on this machine). Every other address keeps the full
+// protection. The caller only uses it when E2E_FAKE_PROVIDERS is set, which
+// production refuses.
+func (f Fetcher) WithTestMedia(origin string) Fetcher {
+	f.testOrigin = strings.TrimRight(origin, "/")
+	f.testClient = &http.Client{Timeout: f.client.Timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return f
+}
+
 func (f Fetcher) Fetch(ctx context.Context, rawURL string, maxBytes int64) ([]byte, error) {
+	if f.testOrigin != "" {
+		if u, err := url.Parse(rawURL); err == nil && u.Scheme == "https" && u.Host == TestMediaHost {
+			return download(ctx, f.testClient, f.testOrigin+u.RequestURI(), maxBytes)
+		}
+	}
 	return Fetch(ctx, f.client, rawURL, maxBytes)
 }

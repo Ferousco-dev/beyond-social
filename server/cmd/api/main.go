@@ -110,12 +110,25 @@ func run() error {
 		vaultEnv[name] = value
 	}
 	vault := secrets.NewVault(database.NewSecretStore(pool), sealer, vaultEnv)
-	alertService := alerts.NewService(database.NewAlertStore(pool), alerts.NewWebhook(vault.Key(secrets.NameAlertWebhook)))
+	// Alerts go to the chat webhook and to the admin's alert email; the email
+	// sender is given its address and mailer below, once those exist.
+	alertEmail := &alerts.EmailSender{}
+	alertService := alerts.NewService(database.NewAlertStore(pool), alerts.Senders{alerts.NewWebhook(vault.Key(secrets.NameAlertWebhook)), alertEmail})
 
 	apifyClient := apify.NewClientWithKey(vault.Key(secrets.NameApify))
+	fetcher := safenet.NewFetcher(45 * time.Second)
+	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
+	geminiBase := ""
+	if fake := cfg.E2EFakeProviders; fake != "" {
+		// The end-to-end test stack: kie.ai, Apify and Gemini are a local fake, so nothing is generated or paid for.
+		slog.Warn("fake providers are on: no real generation, scraping or AI", "at", fake)
+		apifyClient = apifyClient.WithBaseURL(fake + "/apify")
+		kieClient = kieClient.WithBaseURLs(fake+"/kie", fake+"/kie-upload")
+		geminiBase = fake + "/gemini"
+		fetcher = fetcher.WithTestMedia(fake)
+	}
 	actors := apify.Actors{TikTok: cfg.APIFYTikTokActor, Instagram: cfg.APIFYInstagramActor}
 	discoveryProcessor := discovery.NewProcessor(discoveryStore, apifyClient, actors, hub).WithAlerts(alertService).WithBiller(searchBiller)
-	kieClient := kie.NewClientWithKey(vault.Key(secrets.NameKIE))
 	// Hosting a file at KIE sends it out of this server, which Render meters. The same
 	// picture or recording is sent once a day, not once per clip.
 	kieUploads := kie.NewUploadCache(kieClient, 24*time.Hour, 200)
@@ -123,7 +136,7 @@ func run() error {
 		Alerts:      alertService,
 		Jobs:        jobService,
 		Provider:    kieClient,
-		Fetcher:     safenet.NewFetcher(45 * time.Second),
+		Fetcher:     fetcher,
 		Resolver:    transform.ApifyResolver{API: apifyClient, Actors: actors},
 		CallbackURL: cfg.KIECallbackURL(),
 	}
@@ -148,7 +161,7 @@ func run() error {
 		}
 		return ""
 	}
-	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, FallbackModel: cfg.GeminiFallbackModel, Recorder: aiUsage})
+	geminiClient, err := gemini.NewClient(gemini.Config{KeyFunc: vault.Key(secrets.NameGemini), Model: cfg.GeminiModel, FallbackModel: cfg.GeminiFallbackModel, Recorder: aiUsage, BaseURL: geminiBase})
 	if err != nil {
 		return err
 	}
@@ -171,6 +184,13 @@ func run() error {
 		return from
 	}), profileStore, cfg.AppURL())
 	creditService.WithLimitNotifier(emails)
+	alertEmail.To = func(ctx context.Context) string {
+		to, _, _ := settingsStore.Get(ctx, httpserver.AlertEmailKey)
+		return to
+	}
+	alertEmail.Mail = func(ctx context.Context, to string, a alerts.Alert) error {
+		return emails.AdminAlert(ctx, to, a.Provider, a.Kind, a.Count)
+	}
 	transformProcessor.Notifier = emails
 	billingStore := database.NewBillingStore(pool)
 	billingService := billing.NewService(billingStore, creditService, billing.NewStripe(vault.Key(secrets.NameStripeKey)), cfg.AppURL()).
@@ -292,6 +312,7 @@ func run() error {
 		RevenueHistory:      billingStore,
 		Spend:               spendStore,
 		EmailSettings:       settingsStore,
+		AlertMail:           emails,
 		SignIns:             supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		Recovery:            supabaseauth.NewAdmin(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey),
 		ResetMail:           emails,
@@ -299,6 +320,9 @@ func run() error {
 		StripeWebhookSecret: vault.Optional(secrets.NameStripeWebhook),
 		Watcher:             editor.NewModelWatcher(geminiClient, transformProcessor.Fetcher),
 		WatchBiller:         credits.NewActionBiller(creditService, credits.ActionEditorWatch),
+		AutofillBiller:      credits.NewActionBiller(creditService, credits.ActionAutofill),
+		CaptionWriteBiller:  credits.NewActionBiller(creditService, credits.ActionPostCaption),
+		ScriptBiller:        credits.NewActionBiller(creditService, credits.ActionScriptWrite),
 		Scenes:              editorScenes{generate: generateService, credits: creditService},
 		Compose: composer{
 			rewriter: videoedit.Rewriter{Model: geminiClient, Pictures: mediaService},

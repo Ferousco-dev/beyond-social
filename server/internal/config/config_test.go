@@ -1,6 +1,9 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func setEnv(t *testing.T, values map[string]string) {
 	t.Helper()
@@ -8,7 +11,7 @@ func setEnv(t *testing.T, values map[string]string) {
 	if _, skip := values["NO_PROVIDER_KEYS"]; !skip {
 		values = withProviderKeys(values)
 	}
-	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL"} {
+	for _, key := range []string{"PORT", "APP_ENV", "LOG_LEVEL", "DATABASE_URL", "SUPABASE_URL", "SUPABASE_JWT_SECRET", "WEBSOCKET_ALLOWED_ORIGINS", "SHUTDOWN_TIMEOUT", "APIFY_API_TOKEN", "KIE_API_KEY", "KIE_WEBHOOK_HMAC_KEY", "PUBLIC_BASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GEMINI_API_KEY", "GEMINI_MODEL", "E2E_FAKE_PROVIDERS"} {
 		t.Setenv(key, values[key])
 	}
 }
@@ -110,5 +113,27 @@ func TestKIECallbackURL(t *testing.T) {
 	setEnv(t, map[string]string{"SUPABASE_URL": "https://a.co", "PUBLIC_BASE_URL": "not-a-url"})
 	if _, err := LoadFromEnv(); err == nil {
 		t.Fatal("expected invalid PUBLIC_BASE_URL to be rejected")
+	}
+}
+
+func TestFakeProvidersAreNeverAllowedInProduction(t *testing.T) {
+	setEnv(t, map[string]string{"SUPABASE_URL": "https://a.co", "APP_ENV": "production", "DATABASE_URL": "postgres://u:p@db.example:5432/app?sslmode=require", "E2E_FAKE_PROVIDERS": "http://127.0.0.1:8090"})
+	if _, err := LoadFromEnv(); err == nil || !strings.Contains(err.Error(), "E2E_FAKE_PROVIDERS") {
+		t.Fatalf("production must refuse fake providers, got %v", err)
+	}
+}
+
+func TestFakeProvidersLoadForTheTestStack(t *testing.T) {
+	setEnv(t, map[string]string{"SUPABASE_URL": "http://127.0.0.1:54321", "E2E_FAKE_PROVIDERS": "http://127.0.0.1:8090/"})
+	cfg, err := LoadFromEnv()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.E2EFakeProviders != "http://127.0.0.1:8090" {
+		t.Fatalf("fake providers = %q", cfg.E2EFakeProviders)
+	}
+	setEnv(t, map[string]string{"SUPABASE_URL": "http://127.0.0.1:54321", "E2E_FAKE_PROVIDERS": "https://api.kie.ai"})
+	if _, err := LoadFromEnv(); err == nil {
+		t.Fatal("a real https provider address was accepted as the fake")
 	}
 }

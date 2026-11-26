@@ -50,10 +50,13 @@ type Config struct {
 	HTTPClient *http.Client
 	// Optional. Receives one record per successful call.
 	Recorder Recorder
+	// BaseURL sends every call elsewhere. Empty is Google itself; the test stack points it at its fake.
+	BaseURL string
 }
 
 type Client struct {
 	keyFn      provider.KeyFunc
+	baseURL    string
 	httpClient *http.Client
 	model      string
 	fallback   string
@@ -103,7 +106,7 @@ func NewClient(cfg Config) (*Client, error) {
 	if timeout <= 0 {
 		timeout = DefaultTimeout
 	}
-	return &Client{keyFn: keyFn, httpClient: cfg.HTTPClient, model: model, fallback: fallback, timeout: timeout, recorder: cfg.Recorder}, nil
+	return &Client{keyFn: keyFn, baseURL: cfg.BaseURL, httpClient: cfg.HTTPClient, model: model, fallback: fallback, timeout: timeout, recorder: cfg.Recorder}, nil
 }
 
 // sdk returns the SDK client for the current key, rebuilding it only when the
@@ -120,6 +123,7 @@ func (c *Client) sdk(ctx context.Context) (*genai.Client, error) {
 	}
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
 		APIKey: key, Backend: genai.BackendGeminiAPI, HTTPClient: c.httpClient,
+		HTTPOptions: genai.HTTPOptions{BaseURL: c.baseURL},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini: create client: %w", err)

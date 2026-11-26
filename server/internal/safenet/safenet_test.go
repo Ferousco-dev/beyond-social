@@ -75,3 +75,31 @@ func TestSniffVideo(t *testing.T) {
 		}
 	}
 }
+
+func TestTestMediaReachesTheFakeProvidersOnlyWhenAsked(t *testing.T) {
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/media/sample.mp4" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte("clip"))
+	}))
+	defer fake.Close()
+
+	plain := NewFetcher(5 * time.Second)
+	if _, err := plain.Fetch(context.Background(), "https://"+TestMediaHost+"/media/sample.mp4", 1<<20); err == nil {
+		t.Fatal("a normal fetcher reached the test media host")
+	}
+
+	forStack := plain.WithTestMedia(fake.URL)
+	got, err := forStack.Fetch(context.Background(), "https://"+TestMediaHost+"/media/sample.mp4", 1<<20)
+	if err != nil || string(got) != "clip" {
+		t.Fatalf("test media fetch = %q, %v", got, err)
+	}
+	if _, err := forStack.Fetch(context.Background(), fake.URL+"/media/sample.mp4", 1<<20); err == nil {
+		t.Fatal("the fake server's own private address must stay blocked")
+	}
+	if _, err := forStack.Fetch(context.Background(), "https://127.0.0.1/secret", 1<<20); err == nil {
+		t.Fatal("other private addresses must stay blocked")
+	}
+}
