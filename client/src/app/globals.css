@@ -605,3 +605,50 @@ textarea:not([aria-invalid="true"]):focus {
 @media (prefers-reduced-motion: reduce) {
   .ev-rise, .ev-pop { opacity: 1; animation: none !important; }
 }
+
+/* The landing editor loop (safari-editor.tsx): twelve seconds, the cursor asks the AI for a title, then exports
+   and approves the suggested time. Positions are in em, where 1em is 1% of the window's width. */
+.se-cursor { animation: se-cursor 12s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
+@keyframes se-cursor {
+  0% { transform: translate(55em, 42em); opacity: 0; }
+  6% { transform: translate(55em, 42em); opacity: 1; }
+  17% { transform: translate(85.4em, 22.8em) scale(1); }
+  19% { transform: translate(85.4em, 22.8em) scale(0.82); }
+  21% { transform: translate(85.4em, 22.8em) scale(1); }
+  44% { transform: translate(85.4em, 22.8em); }
+  54% { transform: translate(93.6em, 7.3em) scale(1); }
+  56% { transform: translate(93.6em, 7.3em) scale(0.82); }
+  58% { transform: translate(93.6em, 7.3em) scale(1); }
+  68% { transform: translate(91.4em, 19.2em) scale(1); }
+  70% { transform: translate(91.4em, 19.2em) scale(0.82); }
+  72% { transform: translate(91.4em, 19.2em) scale(1); opacity: 1; }
+  92% { opacity: 1; }
+  100% { transform: translate(91.4em, 19.2em); opacity: 0; }
+}
+.se-chips { animation: se-chips 12s steps(1, end) infinite; }
+@keyframes se-chips { 0% { opacity: 1; } 21% { opacity: 0; } 100% { opacity: 0; } }
+.se-chip { animation: se-chip 12s ease infinite; }
+@keyframes se-chip { 0%, 16% { background: transparent; } 18%, 21% { background: #e8f0ff; border-color: #0066ff; } 22%, 100% { background: transparent; } }
+.se-ask { animation: se-show 12s ease infinite; --se-in: 21%; }
+.se-working { animation: se-working 12s ease infinite; }
+.se-reply, .se-title { animation: se-reply 12s ease infinite; }
+.se-textclip { animation: se-clip 12s ease infinite; transform-origin: left center; }
+@keyframes se-show { 0%, 20% { opacity: 0; transform: translateY(0.4em); } 23%, 96% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes se-working { 0%, 23% { opacity: 0; } 25%, 37% { opacity: 1; } 39%, 100% { opacity: 0; height: 0; } }
+@keyframes se-reply { 0%, 38% { opacity: 0; transform: translateY(0.4em); } 41%, 96% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes se-clip { 0%, 39% { opacity: 0; transform: scaleX(0.2); } 43%, 96% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.se-export { animation: se-export 12s ease infinite; }
+@keyframes se-export { 0%, 54% { filter: none; } 56% { filter: brightness(0.85); } 58%, 100% { filter: none; } }
+.se-post { animation: se-post 12s ease infinite; }
+@keyframes se-post { 0%, 57% { opacity: 0; transform: translateY(0.8em) scale(0.98); pointer-events: none; } 60%, 92% { opacity: 1; transform: none; } 95%, 100% { opacity: 0; } }
+.se-approve { animation: se-approve 12s ease infinite; }
+@keyframes se-approve { 0%, 70% { background: #0066ff; } 71%, 100% { background: #16a34a; } }
+.se-playhead { animation: se-playhead 12s linear infinite; }
+@keyframes se-playhead { from { transform: translateX(0); } to { transform: translateX(91.4em); } }
+.se-kenburns { animation: se-kenburns 12s ease-in-out infinite alternate; }
+@keyframes se-kenburns { from { transform: scale(1.04); } to { transform: scale(1.14) translateY(-2%); } }
+@media (prefers-reduced-motion: reduce) {
+  .se-cursor, .se-chips, .se-post { display: none; }
+  .se-ask, .se-reply, .se-title, .se-textclip, .se-chip, .se-export, .se-approve, .se-playhead, .se-kenburns { animation: none; opacity: 1; transform: none; }
+  .se-working { display: none; }
+}
