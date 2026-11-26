@@ -3,7 +3,7 @@ import path from "node:path";
 
 /** The addresses e2e/stack.sh wrote when it started. Tests never fall back to a live service. */
 function readStackEnv(): Record<string, string> {
-  const file = path.resolve(__dirname, "../../../e2e/.state/env");
+  const file = path.resolve(import.meta.dirname, "../../../e2e/.state/env");
   try {
     return Object.fromEntries(
       readFileSync(file, "utf8")
@@ -33,6 +33,6 @@ export const stack = {
   serviceRoleKey: env.E2E_SERVICE_ROLE_KEY ?? "",
 };
 
-export const USER_STATE = path.resolve(__dirname, "../.auth/user.json");
-export const ADMIN_STATE = path.resolve(__dirname, "../.auth/admin.json");
+export const USER_STATE = path.resolve(import.meta.dirname, "../.auth/user.json");
+export const ADMIN_STATE = path.resolve(import.meta.dirname, "../.auth/admin.json");
 export const PASSWORD = "Test-password-2026!";
