@@ -69,7 +69,7 @@ function AppIcon(): ReactNode {
       <span className={`${tile} opacity-80 blur-[20px]`} />
       <span className={tile}>
         <span className="absolute inset-0 bg-[radial-gradient(120%_70%_at_50%_0%,rgba(255,255,255,0.45),rgba(255,255,255,0)_60%)]" />
-        <Image src="/brand/logo-mark-dark.png" alt="" width={64} height={64} className="relative h-[62%] w-[62%] object-contain" />
+        <Image src="/brand/logo-mark-dark.png" alt="" width={64} height={64} className="relative h-[62%] w-[62%] object-contain brightness-0 invert drop-shadow-[0_1px_2px_rgba(0,20,60,0.35)]" />
       </span>
     </span>
   );
