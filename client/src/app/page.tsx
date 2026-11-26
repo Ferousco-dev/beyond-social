@@ -5,7 +5,7 @@ import { FeatureBento } from "@/components/landing/feature-bento";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { LandingFaq } from "@/components/landing/landing-faq";
 import { LandingHeader } from "@/components/landing/landing-header";
-import { LandingHero } from "@/components/landing/landing-hero";
+import { EcoHero } from "@/components/landing/eco-hero";
 import { LandingPricing } from "@/components/landing/landing-pricing";
 import { LatestArticles } from "@/components/landing/latest-articles";
 import { Testimonials } from "@/components/landing/testimonials";
@@ -23,7 +23,7 @@ export default function HomePage(): ReactNode {
     <div className="min-h-dvh overflow-x-hidden bg-canvas text-ink">
       <LandingHeader />
       <main id="main">
-        <LandingHero />
+        <EcoHero />
         <FeatureBento />
         <HowItWorks />
         <Showcase />
