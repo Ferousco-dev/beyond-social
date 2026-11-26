@@ -1,11 +1,10 @@
 import { type ReactNode } from "react";
 
 import { ClosingPanel } from "@/components/landing/closing-panel";
-import { FeatureBento } from "@/components/landing/feature-bento";
-import { HowItWorks } from "@/components/landing/how-it-works";
 import { LandingFaq } from "@/components/landing/landing-faq";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { EcoHero } from "@/components/landing/eco-hero";
+import { EcoFeatures } from "@/components/landing/eco-features";
 import { EcoProblem } from "@/components/landing/eco-problem";
 import { LandingPricing } from "@/components/landing/landing-pricing";
 import { LatestArticles } from "@/components/landing/latest-articles";
@@ -26,8 +25,7 @@ export default function HomePage(): ReactNode {
       <main id="main">
         <EcoHero />
         <EcoProblem />
-        <FeatureBento />
-        <HowItWorks />
+        <EcoFeatures />
         <Showcase />
         <LandingPricing />
         <Testimonials />

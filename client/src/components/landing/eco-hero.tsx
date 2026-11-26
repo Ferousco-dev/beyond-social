@@ -102,7 +102,7 @@ function Topics(): ReactNode {
 export function EcoHero(): ReactNode {
   return (
     <div className="bg-canvas">
-      <section id="hero" className="relative flex min-h-[100svh] w-full flex-col overflow-hidden rounded-b-[20px] bg-paper pt-24">
+      <section id="hero" className="relative flex w-full flex-col overflow-hidden rounded-b-[20px] bg-paper pt-24 md:min-h-[100svh]">
         <Backdrop />
         <div className="relative z-10 mx-auto mt-6 flex max-w-[760px] flex-col items-center px-5 text-center md:mt-10">
           <div className="inline-flex items-center gap-1 rounded-[61px] border border-[rgba(0,102,255,0.22)] bg-white px-2.5 py-1.5 sm:px-3 sm:py-2">

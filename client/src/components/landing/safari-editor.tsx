@@ -237,7 +237,7 @@ function Cursor(): ReactNode {
 
 export function SafariEditor(): ReactNode {
   return (
-    <div className="relative z-10 mx-auto mt-12 w-full max-w-[1100px] px-4 md:mt-16">
+    <div className="relative z-10 mx-auto mt-12 w-full max-w-[1100px] px-4 md:mt-auto md:pt-16">
       <div className="[container-type:inline-size]">
         <div
           className="relative overflow-hidden rounded-t-[1.4em] border border-b-0 border-[#e4e4e7] bg-white text-[1cqw] shadow-[0_3em_8em_-3em_rgba(0,71,179,0.45)]"
