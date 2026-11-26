@@ -102,7 +102,8 @@ jobs:
   e2e:
     if: github.event_name != 'workflow_dispatch' || !inputs.fast
     needs: [server, client]
-    runs-on: ubuntu-latest
+    # Pinned: Playwright's browsers support Ubuntu 24.04, and ubuntu-latest moved past it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
