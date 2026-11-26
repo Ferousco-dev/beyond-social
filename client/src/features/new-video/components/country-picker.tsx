@@ -4,7 +4,7 @@ import { Select } from "@/components/ui/select";
 import { OTHER_COUNTRY, TARGET_COUNTRIES } from "../countries";
 
 const fieldClass =
-  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary";
+  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5";
 
 export function CountryPicker({
   choice,

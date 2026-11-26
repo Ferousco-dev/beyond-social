@@ -1,9 +1,10 @@
 "use client";
 
 import { Monitor, Moon, Sun, type LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { type Theme } from "@/lib/theme";
+import { useClientValue } from "@/lib/hooks/use-client-value";
 import { applyTheme, readTheme, writeTheme } from "@/lib/theme-client";
 import { cn } from "@/lib/utils";
 
@@ -23,16 +24,12 @@ const OPTIONS: readonly { value: Theme; label: string; icon: LucideIcon }[] = [
 ];
 
 export function ThemeToggle() {
-  // Starts at the documented default and corrects on mount, because the cookie
-  // is not readable while rendering.
-  const [selected, setSelected] = useState<Theme>("light");
-
-  useEffect(() => {
-    setSelected(readTheme());
-  }, []);
+  const saved = useClientValue(readTheme, "light");
+  const [chosen, setChosen] = useState<Theme | null>(null);
+  const selected = chosen ?? saved;
 
   function choose(theme: Theme): void {
-    setSelected(theme);
+    setChosen(theme);
     applyTheme(theme);
     writeTheme(theme);
   }

@@ -16,12 +16,12 @@ export function ReviewSummary({
 }) {
   const rows: ReadonlyArray<[string, string]> = [
     ["Project title", values.title.trim() || values.objective.trim() || "Untitled project"],
-    ["Objective", values.objective || "—"],
+    ["Objective", values.objective || "-"],
     [
       "Purpose & audience",
       [purposeLabel(values), audienceLabel(values.audience)]
         .filter(Boolean)
-        .join(" · ") || "—",
+        .join(" · ") || "-",
     ],
     [
       "Format",
@@ -71,7 +71,7 @@ export function ReviewSummary({
         <div key={label} className="flex gap-3 text-sm">
           <dt className="w-20 shrink-0 font-medium text-ink-soft">{label}</dt>
           <dd className="min-w-0 flex-1 truncate text-ink">
-            {value !== "" ? value : "—"}
+            {value !== "" ? value : "-"}
           </dd>
         </div>
       ))}

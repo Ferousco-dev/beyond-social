@@ -65,10 +65,7 @@ export function VoiceScript(): ReactNode {
 
       <ul className="mt-4 flex flex-col gap-1 border-t border-hairline pt-3 text-xs text-ink-soft">
         {TIPS.map((tip) => (
-          <li key={tip} className="flex gap-2">
-            <span aria-hidden className="mt-1.5 size-1 shrink-0 rounded-full bg-ink-soft" />
-            {tip}
-          </li>
+          <li key={tip}>{tip}</li>
         ))}
       </ul>
     </section>

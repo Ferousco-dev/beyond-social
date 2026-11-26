@@ -80,7 +80,7 @@ export function AccountForm({ email, fullName }: { email: string; fullName: stri
         <button
           type="submit"
           disabled={pending || name.trim() === fullName.trim() || name.trim() === ""}
-          className="inline-flex h-9 items-center gap-2 rounded-full bg-ink px-4 text-xs font-medium text-canvas transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-primary btn-sm"
         >
           {pending ? <Spinner className="size-3.5" /> : null}
           Save

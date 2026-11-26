@@ -11,7 +11,10 @@
     "lint": "eslint .",
     "typegen": "next typegen",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"src/features/studio/core/*.test.ts\" \"src/features/studio/lib/*.test.ts\" \"src/lib/**/*.test.ts\" \"src/features/generate-form/*.test.ts\" \"src/features/auth/*.test.ts\" \"src/features/tutorial/*.test.ts\""
+    "test": "node --test \"src/features/studio/core/*.test.ts\" \"src/features/studio/lib/*.test.ts\" \"src/lib/**/*.test.ts\" \"src/features/generate-form/*.test.ts\" \"src/features/auth/*.test.ts\" \"src/features/tour/*.test.ts\" \"src/features/settings/*.test.ts\"",
+    "guard": "node scripts/guards/run.mjs && node --test scripts/guards/*.test.mjs",
+    "guard:tighten": "node scripts/guards/run.mjs --tighten",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@beyond-social/env": "workspace:*",
@@ -24,6 +27,7 @@
     "@supabase/supabase-js": "^2.110.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "driver.js": "1.10.2",
     "geist": "^1.7.2",
     "lucide-react": "^1.24.0",
     "mediabunny": "^1.61.3",
@@ -42,6 +46,7 @@
     "@beyond-social/eslint-config": "workspace:*",
     "@beyond-social/typescript-config": "workspace:*",
     "@eslint/eslintrc": "^3.2.0",
+    "@playwright/test": "1.57.0",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^22.10.5",
     "@types/qrcode": "^1.5.6",

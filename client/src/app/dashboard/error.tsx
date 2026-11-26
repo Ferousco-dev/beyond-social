@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-
 import { ErrorState } from "@/components/ui/error-state";
 import { errorReference } from "@/lib/errors";
+import { useReportError } from "@/lib/hooks/use-page-effects";
 
 /**
  * Route boundary for the dashboard. It catches a render failure in one page
@@ -16,9 +15,7 @@ export default function DashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+  useReportError(error);
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-16">

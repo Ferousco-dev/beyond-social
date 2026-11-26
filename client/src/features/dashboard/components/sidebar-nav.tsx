@@ -84,6 +84,7 @@ export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () 
 
   // Setting up a video is a step of New Video, so that item stays marked while the form is open.
   const isActive = (link: NavLink): boolean =>
+    // guard-allow: links-to-real-pages (a path prefix, not a link)
     link.exact ? pathname === link.href || pathname.startsWith("/dashboard/videos") : pathname.startsWith(link.href);
 
   return (
@@ -97,7 +98,6 @@ export function SidebarNav({ onNavigate, collapsed = false }: { onNavigate?: () 
               // Fetched in full ahead of the click, so the page is already here.
               prefetch
               onClick={onNavigate}
-              data-tip-anchor={`nav-${link.label.toLowerCase().replace(/\s+/g, "-")}`}
               aria-current={active ? "page" : undefined}
               title={collapsed ? link.label : undefined}
               className={cn(

@@ -39,6 +39,19 @@
   --warning: #f59e0b;
   --info: #2563eb;
 
+  /* Illustration colours (New Video cards). The accent is --primary. */
+  /* Secondary buttons, after Verify Flow. */
+  --btn-border: #d1d5db;
+  --btn-border-hover: #9ca3af;
+  --btn-hover: #f9fafb;
+  --btn-press: #f3f4f6;
+
+  --illus-ink: #1f2230;
+  --illus-ink-soft: #3f4256;
+  --illus-line: #d9dbe3;
+  --illus-soft: #eceef3;
+  --illus-surface: #ffffff;
+
   --border: #e5e7eb;
   --input: #e5e7eb;
   --ring: #66a3ff;
@@ -89,6 +102,17 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --info: #3b82f6;
+
+  --btn-border: rgba(255, 255, 255, 0.14);
+  --btn-border-hover: rgba(255, 255, 255, 0.26);
+  --btn-hover: #1e1e24;
+  --btn-press: #24242b;
+
+  --illus-ink: #c9cad3;
+  --illus-ink-soft: #9a9ba8;
+  --illus-line: #3a3a45;
+  --illus-soft: #26262e;
+  --illus-surface: #1b1b21;
 
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.1);
@@ -418,3 +442,152 @@
   70% { width: 82%; }
   100% { width: 94%; }
 }
+
+/*
+ * Buttons. One system for the whole app, after the Verify Flow buttons:
+ * 8px corners, a thin edge, a hairline of shadow, and a small press.
+ *
+ *   .btn + .btn-primary | .btn-secondary | .btn-ghost | .btn-danger
+ *        + .btn-sm (32px) | .btn-md (36px) | .btn-lg (40px)
+ *
+ * Layered as components, so a layout utility on the element (w-full, flex-1)
+ * still applies on top.
+ */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    user-select: none;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .btn svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+  .btn:active:not(:disabled) {
+    transform: translateY(0.5px);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .btn:focus-visible {
+    outline: none;
+  }
+
+  .btn-sm {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+  }
+  .btn-md {
+    height: 36px;
+    padding: 0 14px;
+  }
+  .btn-lg {
+    height: 40px;
+    padding: 0 18px;
+    font-size: 14px;
+  }
+
+  .btn-primary {
+    color: #fff;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white) 0%, var(--primary) 100%);
+    border-color: color-mix(in srgb, var(--primary) 82%, black);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.18);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 88%, black) 100%);
+    border-color: color-mix(in srgb, var(--primary) 72%, black);
+    box-shadow: 0 2px 4px color-mix(in srgb, var(--primary) 24%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.14);
+  }
+  .btn-primary:active:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 78%, black);
+    box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.28);
+  }
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 28%, transparent), 0 1px 2px rgb(15 23 42 / 0.12);
+  }
+
+  .btn-secondary {
+    color: var(--ink);
+    background: var(--paper);
+    border-color: var(--btn-border);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.05), inset 0 -1px 0 rgb(15 23 42 / 0.04);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--btn-hover);
+    border-color: var(--btn-border-hover);
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+  }
+  .btn-secondary:active:not(:disabled) {
+    background: var(--btn-press);
+    box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.08);
+  }
+  .btn-secondary:focus-visible,
+  .btn-ghost:focus-visible {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  }
+
+  .btn-ghost {
+    color: var(--ink-soft);
+    background: transparent;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--ink);
+    background: var(--btn-hover);
+  }
+
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--destructive) 90%, white) 0%, var(--destructive) 100%);
+    border-color: color-mix(in srgb, var(--destructive) 80%, black);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.16);
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--destructive) 0%, color-mix(in srgb, var(--destructive) 85%, black) 100%);
+  }
+  .btn-danger:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 24%, transparent);
+  }
+}
+
+/*
+ * Text fields show focus with a quiet darker border and a faint glow, not the
+ * blue ring that buttons and links keep for keyboard users. Left outside any
+ * layer on purpose: unlayered rules win over the outline utilities that some
+ * fields still carry, so every field looks the same without editing each one.
+ */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"]):focus,
+textarea:focus {
+  outline: none;
+}
+/* Borderless fields (a search bar, an inline title) stay plain. */
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [class*="bg-transparent"]):focus,
+textarea:not([class*="bg-transparent"]):focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-ink) 6%, transparent);
+}
+input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [aria-invalid="true"]):focus,
+textarea:not([aria-invalid="true"]):focus {
+  border-color: color-mix(in srgb, var(--color-ink) 30%, transparent);
+}
+

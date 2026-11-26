@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 
 import { type Route } from "next";
 
@@ -15,7 +16,7 @@ const CONNECT_RETURN_KEY = "bs:connect-return";
  */
 export function ConnectReturn({ status }: { status: string | undefined }): ReactNode {
   const router = useRouter();
-  useEffect(() => {
+  useOnMount(() => {
     let back: string | null = null;
     try {
       back = window.sessionStorage.getItem(CONNECT_RETURN_KEY);
@@ -25,6 +26,6 @@ export function ConnectReturn({ status }: { status: string | undefined }): React
     }
     // Only a path inside this site, never a full address someone could have planted.
     if (status === "connected" && back && back.startsWith("/") && !back.startsWith("//")) router.replace(back as Route);
-  }, [router, status]);
+  });
   return null;
 }

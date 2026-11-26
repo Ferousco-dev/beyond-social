@@ -1,6 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+
+import { Select } from "@/components/ui/select";
 import { useLibrary } from "@/features/asset-library/use-library";
 
 import { unusedAssetNotes } from "./asset-use";
@@ -27,11 +29,7 @@ export function StepAssets({
       <div className="flex flex-col gap-4" aria-busy>
         <span className="sr-only">Loading your saved assets</span>
         {[0, 1, 2].map((row) => (
-          <div key={row} className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {[0, 1, 2, 3, 4].map((tile) => (
-              <div key={tile} className="aspect-square animate-pulse rounded-xl bg-cloud" />
-            ))}
-          </div>
+          <div key={row} className="h-10 animate-pulse rounded-[10px] bg-cloud" />
         ))}
       </div>
     );
@@ -78,77 +76,57 @@ export function StepAssets({
   const inGroup = (groupId: string): boolean =>
     [values.faceAssetId, values.productAssetId].some((id) => id !== "" && assets.find((asset) => asset.id === id)?.group_id === groupId);
 
+  const has = (kind: string): boolean => assets.some((asset) => asset.kind === kind);
+  const missing = [
+    has("face") ? "" : "people",
+    has("product") ? "" : "products",
+    has("environment") ? "" : "places",
+  ].filter(Boolean);
+  const currentGroup = groups.find((group) => inGroup(group.id))?.id ?? "";
+
   return (
-    <div className="flex flex-col gap-6">
-      {groups.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-ink">Use a group</span>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Use a group">
-            {groups.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                aria-pressed={inGroup(group.id)}
-                onClick={() => applyGroup(group.id)}
-                className={cn(
-                  "inline-flex h-9 cursor-pointer items-center rounded-full border px-3.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-primary",
-                  inGroup(group.id) ? "border-ink bg-ink text-paper" : "border-hairline text-ink hover:bg-cloud",
-                )}
-              >
-                {group.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
+    <div className="flex flex-col gap-3">
       {/* One person or a conversation is decided by our AI when it fills in the video, so nobody is asked. */}
       {values.speakerMode === "conversation" ? (
         <ConversationTurns assets={assets} turns={values.turns} onChange={(turns) => onChange({ turns })} />
-      ) : (
-        <>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {groups.length > 0 ? (
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <span className="text-xs text-ink-soft">Group</span>
+            <Select
+              aria-label="Use a group"
+              value={currentGroup}
+              placeholder="Pick a group"
+              options={groups.map((group) => ({ value: group.id, label: group.name }))}
+              onValueChange={(groupId) => applyGroup(groupId)}
+              className="h-10"
+            />
+          </div>
+        ) : null}
+        {values.speakerMode === "conversation" ? null : (
+          <LibraryPicker kind="face" title="Person" assets={assets} value={values.faceAssetId} onChange={(asset) => pick({ faceAssetId: asset?.id ?? "" })} />
+        )}
+        {values.speakerMode !== "conversation" && values.faceAssetId !== "" ? (
           <LibraryPicker
-            kind="face"
-            title="Person"
+            kind="voice"
+            title="Their own recording"
             assets={assets}
-            value={values.faceAssetId}
-            onChange={(asset) => pick({ faceAssetId: asset?.id ?? "" })}
+            value={values.voiceAssetId}
+            onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}
           />
-          {values.faceAssetId !== "" || values.voiceAssetId !== "" ? (
-            <>
-              <LibraryPicker
-                kind="voice"
-                title="Their own recording"
-                hint="Speaks this recording instead of your script."
-                assets={assets}
-                value={values.voiceAssetId}
-                onChange={(asset) => pick({ voiceAssetId: asset?.id ?? "" })}
-              />
-            </>
-          ) : null}
-        </>
-      )}
-
-      <details open={values.productAssetId !== "" || values.environmentAssetId !== ""} className="rounded-xl border border-hairline px-3 py-2.5">
-        <summary className="cursor-pointer text-sm font-medium text-ink">
-          Show a product or a place <span className="font-normal text-ink-soft">(optional)</span>
-        </summary>
-        <div className="mt-3 flex flex-col gap-5">
-          <LibraryPicker
-            kind="product"
-            title="Product"
-            assets={assets}
-            value={values.productAssetId}
-            onChange={(asset) => pick({ productAssetId: asset?.id ?? "" })}
-          />
-          <LibraryPicker
-            kind="environment"
-            title="Place"
-            assets={assets}
-            value={values.environmentAssetId}
-            onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })}
-          />
-        </div>
-      </details>
+        ) : null}
+        <LibraryPicker kind="product" title="Product" assets={assets} value={values.productAssetId} onChange={(asset) => pick({ productAssetId: asset?.id ?? "" })} />
+        <LibraryPicker kind="environment" title="Place" assets={assets} value={values.environmentAssetId} onChange={(asset) => pick({ environmentAssetId: asset?.id ?? "" })} />
+      </div>
+      {missing.length > 0 ? (
+        <p className="text-xs text-ink-soft">
+          No saved {missing.join(" or ")} yet.{" "}
+          <Link href="/dashboard/assets" className="text-primary underline-offset-2 hover:underline">
+            Add them in Assets
+          </Link>
+        </p>
+      ) : null}
 
       {notes.length > 0 ? (
         <div role="status" className="flex flex-col gap-1 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">

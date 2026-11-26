@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { type Route } from "next";
 import { type ReactNode } from "react";
+import { EmptyScreen } from "@/components/ui/empty-art";
 
 import { ConnectEmptyState } from "@/features/connections/connect-empty-state";
 import { PostRow } from "@/features/schedule/post-row";
@@ -33,13 +34,16 @@ export default async function SchedulePage(): Promise<ReactNode> {
           {result.message}
         </p>
       ) : result.data.data.length === 0 ? (
-        <p className="mt-6 text-sm text-ink-soft">
-          Nothing is scheduled yet.{" "}
-          <Link href={"/dashboard/settings/connections" as Route} className="text-ink underline underline-offset-2">
-            Connect an account
-          </Link>{" "}
-          to start.
-        </p>
+        <EmptyScreen
+          art="schedule"
+          title="Nothing scheduled yet"
+          body="Pick a time when you post a finished video, and it shows up here."
+          action={
+            <Link href={"/dashboard/projects" as Route} className="btn btn-primary btn-md">
+              Open your videos
+            </Link>
+          }
+        />
       ) : (
         <div className="mt-6 flex flex-col gap-6">
           <ScheduleCalendar posts={result.data.data} />

@@ -15,7 +15,7 @@ export default async function AdminBlogPage(): Promise<ReactNode> {
         <h1 className="min-w-0 flex-1 text-2xl font-semibold tracking-tight text-ink">Blog</h1>
         <Link
           href="/dashboard/admin/blog/new"
-          className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="btn btn-primary btn-md"
         >
           New post
         </Link>

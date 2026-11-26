@@ -133,7 +133,7 @@ export function MusicPanel() {
         type="button"
         disabled={uploading}
         onClick={() => picker.current?.click()}
-        className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-hairline text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-wait disabled:opacity-60"
+        className="btn btn-secondary btn-md w-full"
       >
         <Upload className="size-4" aria-hidden />
         {uploading ? "Uploading…" : "Upload music"}

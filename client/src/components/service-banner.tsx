@@ -1,8 +1,24 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+
+import { useDocumentEvent, useWindowEvent } from "@/lib/hooks/use-event";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 import { checkEverySeconds, isDown, nextFailures } from "@/lib/service-health";
+
+/** Whether our side answers. A person with no connection is told so elsewhere, so offline counts as fine here. */
+async function serviceAnswers(): Promise<boolean> {
+  if (!navigator.onLine) return true;
+  try {
+    const response = await fetch("/api/service-status", { cache: "no-store" });
+    const body: unknown = await response.json().catch(() => null);
+    return response.ok && typeof body === "object" && body !== null && (body as { ok?: unknown }).ok === true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A red bar across the top while the service behind the app is not answering:
@@ -13,51 +29,22 @@ import { checkEverySeconds, isDown, nextFailures } from "@/lib/service-health";
 export function ServiceBanner(): ReactNode {
   const [failures, setFailures] = useState(0);
 
-  useEffect(() => {
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let count = 0;
+  const [checks, setChecks] = useState(0);
 
-    const check = async (): Promise<void> => {
-      let ok = true;
-      // A person with no connection is told so elsewhere; this is about our side.
-      if (navigator.onLine) {
-        try {
-          const response = await fetch("/api/service-status", { cache: "no-store" });
-          const body: unknown = await response.json().catch(() => null);
-          ok = response.ok && typeof body === "object" && body !== null && (body as { ok?: unknown }).ok === true;
-        } catch {
-          ok = false;
-        }
-      }
-      if (stopped) return;
-      count = nextFailures(count, ok);
-      setFailures(count);
-      schedule();
-    };
+  async function check(): Promise<void> {
+    const ok = await serviceAnswers();
+    setFailures((count) => nextFailures(count, ok));
+    setChecks((done) => done + 1);
+  }
 
-    const schedule = (): void => {
-      clearTimeout(timer);
-      timer = setTimeout(() => void check(), checkEverySeconds(count) * 1000);
-    };
+  function wake(): void {
+    if (document.visibilityState === "visible") void check();
+  }
 
-    const wake = (): void => {
-      if (document.visibilityState === "visible") {
-        clearTimeout(timer);
-        void check();
-      }
-    };
-
-    void check();
-    document.addEventListener("visibilitychange", wake);
-    window.addEventListener("online", wake);
-    return () => {
-      stopped = true;
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", wake);
-      window.removeEventListener("online", wake);
-    };
-  }, []);
+  useOnMount(() => void check());
+  useTimeout(() => void check(), checks > 0 ? checkEverySeconds(failures) * 1000 : null, checks);
+  useDocumentEvent("visibilitychange", wake);
+  useWindowEvent("online", wake);
 
   if (!isDown(failures)) return null;
   return (

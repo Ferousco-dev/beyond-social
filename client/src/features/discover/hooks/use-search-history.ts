@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 
 import { type ScrapePlatform } from "@/lib/social-scrape/types";
 
@@ -12,6 +14,26 @@ const KEPT = 8;
 export interface PastSearch {
   readonly term: string;
   readonly platform: ScrapePlatform;
+}
+
+/** The searches stored on this device, or none when the store is empty, malformed or blocked. */
+function readStoredHistory(): readonly PastSearch[] {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (entry): entry is PastSearch =>
+          typeof entry === "object" &&
+          entry !== null &&
+          typeof (entry as PastSearch).term === "string" &&
+          ((entry as PastSearch).platform === "tiktok" || (entry as PastSearch).platform === "instagram"),
+      )
+      .slice(0, KEPT);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -28,32 +50,7 @@ export interface PastSearch {
 export function useSearchHistory() {
   const [history, setHistory] = useState<readonly PastSearch[]>([]);
 
-  // Read after mount: the server cannot know this, and rendering it before the
-  // stored value is read would flash an empty row on every navigation.
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-
-      setHistory(
-        parsed
-          .filter(
-            (entry): entry is PastSearch =>
-              typeof entry === "object" &&
-              entry !== null &&
-              typeof (entry as PastSearch).term === "string" &&
-              ((entry as PastSearch).platform === "tiktok" ||
-                (entry as PastSearch).platform === "instagram"),
-          )
-          .slice(0, KEPT),
-      );
-    } catch {
-      // A malformed or blocked store should not take the page down.
-    }
-  }, []);
+  useOnMount(() => setHistory(readStoredHistory()));
 
   const remember = useCallback((term: string, platform: ScrapePlatform) => {
     const cleaned = term.trim();

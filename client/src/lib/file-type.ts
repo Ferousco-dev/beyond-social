@@ -49,7 +49,7 @@ export function standardType(type: string, filename = ""): string {
   const base = (type.split(";")[0] ?? "").trim().toLowerCase();
   const canonical = ALIASES[base] ?? base;
   if (canonical) return canonical;
-  // Browser gave us nothing useful — infer from the file extension.
+  // The browser gave nothing useful, so infer it from the file extension.
   return EXT_MIME[fileExtension(filename)] ?? "";
 }
 

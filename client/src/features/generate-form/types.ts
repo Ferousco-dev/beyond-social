@@ -57,6 +57,8 @@ export interface GenerateFormValues {
   voiceover: Voiceover | null;
   /** The voice that reads a long video's voiceover. */
   voice: string;
+  /** Anything else the person wants, in their words. Folded into the brief by our AI on Generate. */
+  extras: string;
 }
 
 export const EMPTY_FORM: GenerateFormValues = {
@@ -91,9 +93,8 @@ export const EMPTY_FORM: GenerateFormValues = {
   storyboard: null,
   voiceover: null,
   voice: DEFAULT_VOICE,
+  extras: "",
 };
-
-export const STEPS = ["Basics", "Script", "People & sound"] as const;
 
 export const PLATFORMS = ["TikTok", "Instagram Reels"] as const;
 export const RATIOS = ["9:16", "16:9", "1:1"] as const;

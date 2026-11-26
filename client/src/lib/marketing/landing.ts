@@ -3,8 +3,7 @@ import {
   CalendarClock,
   Clapperboard,
   Layers,
-  Sparkles,
-  Wand2,
+  Lightbulb,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,7 +49,7 @@ export const CTA_IMAGE_ALT = "Silhouette of a camera operator against a bright s
 
 export const FEATURES: readonly Feature[] = [
   {
-    icon: Wand2,
+    icon: Lightbulb,
     title: "Prompt intelligence",
     description:
       "Your prompt is checked against a knowledge base of cinematography, lighting and pacing, then rewritten as a detailed shot description.",
@@ -83,7 +82,7 @@ export const FEATURES: readonly Feature[] = [
     peek: { src: "/app/overview.png", alt: "" },
   },
   {
-    icon: Sparkles,
+    icon: Lightbulb,
     title: "Learns from what you keep",
     description:
       "Outputs you accept, edit or reject update the knowledge behind your next prompts.",

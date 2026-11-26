@@ -84,3 +84,43 @@ func (a *App) myCredits(w http.ResponseWriter, r *http.Request) {
 	}
 	writeData(w, http.StatusOK, map[string]any{"balance": balance, "history": history, "asOf": time.Now().UTC()})
 }
+
+// pricedAction is one line of the price list a person sees: what an action
+// costs them, never what it costs us.
+type pricedAction struct {
+	Action  string `json:"action"`
+	Unit    string `json:"unit"`
+	Credits int    `json:"credits"`
+}
+
+// listMyPrices is the price list in Settings: every action that can be used
+// today and the credits it takes from this person, at their plan's rate.
+func (a *App) listMyPrices(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromContext(r.Context())
+	if !ok {
+		writeUnauthorized(w)
+		return
+	}
+	if a.deps.CreditAdmin == nil {
+		writeError(w, http.StatusNotFound, "not_found", "prices are not available")
+		return
+	}
+	rows, err := a.deps.CreditAdmin.Prices(r.Context())
+	if err != nil {
+		writeInternal(w, r, err)
+		return
+	}
+	list := make([]pricedAction, 0, len(rows))
+	for _, row := range rows {
+		if !row.Enabled {
+			continue
+		}
+		mine, err := a.priceFor(r.Context(), identity.UserID, row.Credits)
+		if err != nil {
+			writeInternal(w, r, err)
+			return
+		}
+		list = append(list, pricedAction{Action: row.Action, Unit: row.Unit, Credits: mine})
+	}
+	writeData(w, http.StatusOK, list)
+}

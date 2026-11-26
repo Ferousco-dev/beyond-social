@@ -12,7 +12,7 @@ import { BlogArticleBody, type BlogArticleDraft } from "./blog-article-body";
 import { createPost, deletePost, updatePost } from "../admin-actions";
 
 const inputClass =
-  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
+  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5";
 const labelClass = "mb-1.5 block text-sm font-medium text-ink";
 
 /** Create and edit form for one post, including SEO fields. */
@@ -118,11 +118,11 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
       </div>
       <div>
         <label className={labelClass} htmlFor="blog-excerpt">Excerpt</label>
-        <textarea id="blog-excerpt" name="excerpt" rows={2} defaultValue={post?.excerpt ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary" />
+        <textarea id="blog-excerpt" name="excerpt" rows={2} defaultValue={post?.excerpt ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5" />
       </div>
       <div>
         <label className={labelClass} htmlFor="blog-content">Content</label>
-        <textarea id="blog-content" name="content" rows={12} defaultValue={post?.content ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 font-mono text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary" />
+        <textarea id="blog-content" name="content" rows={12} defaultValue={post?.content ?? ""} className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2.5 font-mono text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
@@ -158,7 +158,7 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
           type="button"
           onClick={(event) => updatePreview(event.currentTarget.form)}
           disabled={busy}
-          className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink hover:bg-cloud disabled:opacity-40"
+          className="btn btn-secondary btn-md"
         >
           <Eye className="size-4" aria-hidden />
           {preview ? "Refresh preview" : "Preview"}
@@ -166,7 +166,7 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="btn btn-primary btn-md"
         >
           {post ? "Save changes" : "Create post"}
         </button>
@@ -175,7 +175,7 @@ export function BlogForm({ post }: { post?: GoBlogPost }) {
             type="button"
             onClick={() => void onDelete()}
             disabled={busy}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-5 text-sm font-medium text-destructive transition-colors hover:bg-cloud disabled:opacity-40"
+            className="btn btn-secondary btn-md text-destructive"
           >
             Delete
           </button>

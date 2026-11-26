@@ -87,7 +87,7 @@ export function AvatarPackPanel() {
         <p className="text-sm text-ink">Nobody saved yet. Add a photo of someone in Assets and confirm their consent.</p>
         <Link
           href={"/dashboard/assets" as Route}
-          className="inline-flex min-h-11 items-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+          className="btn btn-primary btn-md"
         >
           Add a person in Assets
         </Link>
@@ -156,7 +156,7 @@ export function AvatarPackPanel() {
             rows={3}
             autoFocus
             placeholder={`e.g. ${chosen.group ?? chosen.face.label} showing my new glow serum, upbeat, ends with shop now`}
-            className="field-sizing-content min-h-20 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm font-normal leading-6 text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            className="field-sizing-content min-h-20 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm font-normal leading-6 text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
           />
         </label>
       ) : null}
@@ -166,7 +166,7 @@ export function AvatarPackPanel() {
           type="submit"
           disabled={!chosen || idea.trim() === "" || opening}
           aria-busy={opening}
-          className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="btn btn-primary btn-lg w-full sm:w-auto"
         >
           {opening ? <Spinner className="size-4" /> : null}
           {opening ? "Opening" : "Continue"}

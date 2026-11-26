@@ -4,7 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 import { useForm } from "react-hook-form";
 
 import { signInAction, type AuthResult } from "../actions";
@@ -34,10 +35,10 @@ export function LoginForm() {
     defaultValues: { email: "", password: "", rememberMe: true },
   });
 
-  useEffect(() => {
+  useOnMount(() => {
     const stored = window.localStorage.getItem(LAST_EMAIL_KEY);
     if (stored) setValue("email", stored);
-  }, [setValue]);
+  });
 
   function onSubmit(values: LoginInput) {
     setResult(null);

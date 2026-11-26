@@ -43,9 +43,6 @@ export default async function BillingSettingsPage({ searchParams }: { searchPara
           ) : (
             <RedirectButton action={startSubscription}>Upgrade to Pro</RedirectButton>
           )}
-          {/* <Link href={"/dashboard/usage" as Route} className="inline-flex h-11 items-center text-sm text-ink underline underline-offset-2">
-            {pro ? "See your usage" : "See your credits"}
-          </Link> */}
         </div>
       </div>
 
@@ -55,13 +52,6 @@ export default async function BillingSettingsPage({ searchParams }: { searchPara
         </p>
       ) : null}
       {cancelled ? <p className="text-sm text-ink-soft">The payment was cancelled. You have not been charged.</p> : null}
-
-      <div>
-        <h2 className="text-sm font-semibold text-ink">Credits</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          {user.credits === null ? "Your balance is not available right now." : `${user.credits} credits left.`} Credits are returned if something fails, and they do not expire.
-        </p>
-      </div>
 
       {pro && packs.ok && packs.data.data.length > 0 ? (
         <ul className="grid gap-3 sm:grid-cols-3">

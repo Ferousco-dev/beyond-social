@@ -61,7 +61,7 @@ export function ClosingPanel(): ReactNode {
                   <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                     <Link
                       href="/signup"
-                      className="group inline-flex h-12 items-center justify-center gap-2 rounded-full bg-ink px-7 text-sm font-medium text-canvas transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      className="btn btn-primary btn-lg group"
                     >
                       Start creating free
                       <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none" />

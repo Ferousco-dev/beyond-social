@@ -22,7 +22,7 @@ export function EmailFromForm({ current, fallback }: { readonly current: string;
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="min-w-64 flex-1 text-xs text-ink-soft">
           From
-          <Input className="mt-1" value={from} onChange={(e) => setFrom(e.target.value)} placeholder={fallback} />
+          <Input className="mt-1 h-8 text-[13px]" value={from} onChange={(e) => setFrom(e.target.value)} placeholder={fallback} />
         </label>
         <Button disabled={pending || !from.includes("@") || from.trim() === current} onClick={() => run(() => saveEmailFrom(from))}>
           Save

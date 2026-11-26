@@ -66,8 +66,8 @@ export function HeaderAuthActions({
   }, []);
 
   const primary = stacked
-    ? "rounded-full bg-ink px-4 py-2.5 text-center text-sm font-medium text-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    : "rounded-full bg-ink px-4 py-2 text-sm font-medium text-canvas transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+    ? "btn btn-primary btn-lg w-full"
+    : "btn btn-primary btn-md";
 
   if (state === "unknown") {
     // Holds the space the resolved links will occupy, so nothing shifts when

@@ -1,7 +1,7 @@
 "use client";
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Check, Plus, Sparkles } from "lucide-react";
+import { Check, Plus, Lightbulb } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -57,7 +57,7 @@ function Joint({ item, left }: { item: Item; left: number }) {
           )}
           style={{ left }}
         >
-          {current ? <Sparkles className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
+          {current ? <Lightbulb className="size-3" aria-hidden /> : <Plus className="size-3" aria-hidden />}
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

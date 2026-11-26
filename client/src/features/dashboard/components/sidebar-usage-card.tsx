@@ -1,8 +1,11 @@
+"use client";
+
 import { ChevronRight } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
+import { useLiveBalance } from "@/features/billing/live-balance";
 import { type Credits, type UsageBars } from "@/lib/dashboard/data";
 import { cn } from "@/lib/utils";
 
@@ -43,7 +46,8 @@ function ProUsage({ usage }: { usage: UsageBars }): ReactNode {
   );
 }
 
-function FreeCredits({ balance }: { balance: number }): ReactNode {
+function FreeCredits({ balance: initial }: { balance: number }): ReactNode {
+  const balance = useLiveBalance(initial);
   const low = balance <= LOW_BALANCE;
   return (
     <>
@@ -52,7 +56,7 @@ function FreeCredits({ balance }: { balance: number }): ReactNode {
         <span className={cn("text-3xl font-semibold tracking-tight tabular-nums", low ? "text-warning" : "text-primary")}>{balance}</span>
         <span className="text-sm text-ink-soft">available</span>
       </p>
-      <Link href={"/pricing" as Route} className="mt-3 flex h-9 items-center justify-center rounded-xl bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+      <Link href={"/pricing" as Route} className="btn btn-primary btn-md mt-3 flex">
         Upgrade to Pro
       </Link>
       <Link href={"/dashboard/settings/billing" as Route} className={LINK}>

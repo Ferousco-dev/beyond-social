@@ -123,3 +123,32 @@ func TestChatContextReturnsTheChatsRecentMessagesInOrder(t *testing.T) {
 		t.Fatalf("a stranger read the chat: %q", other)
 	}
 }
+
+func TestEditorProjectListSaysWhichHoldAVideo(t *testing.T) {
+	pool := testPool(t)
+	ctx := context.Background()
+	store := NewEditorStore(pool)
+	user := uuid.NewString()
+	if _, err := NewProfileStore(pool).Ensure(ctx, user, user[:8]+"@example.com", "U"); err != nil {
+		t.Fatal(err)
+	}
+	empty, err := store.Create(ctx, user, "Empty", json.RawMessage(`{"tracks":[{"id":"t1","kind":"text","items":[{"kind":"text"}]}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	made, err := store.Create(ctx, user, "Made", json.RawMessage(`{"tracks":[{"id":"v1","kind":"video","items":[{"kind":"video","src":"media:x"}]}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := store.List(ctx, user, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, item := range list {
+		got[item.ID] = item.HasVideo
+	}
+	if got[empty.ID] || !got[made.ID] {
+		t.Fatalf("has_video = %+v, want only %s", got, made.ID)
+	}
+}

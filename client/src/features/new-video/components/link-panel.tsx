@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { type Route } from "next";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 
 import { clearDraft } from "@/features/generate-form/draft";
 import { REFERENCE_KEY } from "@/features/generate-form/reference-script";
@@ -42,13 +43,11 @@ export function LinkPanel({
     router.push("/dashboard/videos/new" as Route);
   }
 
-  // An analysis that was already running carries on in the form.
-  useEffect(() => {
+  useOnMount(() => {
     if (resumed.current || resumeStage !== "analysis" || !resumeJobId) return;
     resumed.current = true;
     open({ jobId: resumeJobId });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resumeJobId, resumeStage]);
+  });
 
   return (
     <form
@@ -72,7 +71,7 @@ export function LinkPanel({
           <button
             type="submit"
             disabled={url.trim() === ""}
-            className="inline-flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="btn btn-primary btn-md shrink-0"
           >
             Use this video
           </button>

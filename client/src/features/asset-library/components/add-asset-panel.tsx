@@ -154,7 +154,7 @@ export function AddAssetPanel({
             onChange={(event) => setLabel(event.target.value)}
             maxLength={60}
             placeholder={meta.example}
-            className="h-11 rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+            className="h-11 rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
           />
           <p className="text-xs leading-relaxed text-ink-soft">
             Name it so you can tell it apart later. For example, “{meta.example}”.
@@ -176,7 +176,7 @@ export function AddAssetPanel({
             onClick={() => {
               if (file) onAdd(kind, label.trim(), file, groupId);
             }}
-            className="mt-auto inline-flex h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn btn-primary btn-md mt-auto"
           >
             Add to library
           </button>

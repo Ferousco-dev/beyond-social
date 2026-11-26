@@ -95,9 +95,10 @@ type Processor struct {
 	Now      func() time.Time
 }
 
-// VideoNotifier tells an owner their video finished.
+// VideoNotifier tells an owner their video finished, or that it could not be made.
 type VideoNotifier interface {
 	VideoReady(userID string)
+	VideoFailed(userID string)
 }
 
 func (p *Processor) now() time.Time {
@@ -202,7 +203,11 @@ func (p *Processor) fail(ctx context.Context, job jobs.Job, message string) {
 	// Detached so the failure is recorded even while shutting down.
 	saveCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	p.advance(saveCtx, job, jobs.Update{Status: jobs.StatusFailed, Error: message})
+	if p.advance(saveCtx, job, jobs.Update{Status: jobs.StatusFailed, Error: message}) && p.Notifier != nil {
+		if notify, _ := job.Input["notify_email"].(bool); notify {
+			p.Notifier.VideoFailed(job.UserID)
+		}
+	}
 }
 
 // notifyVideoReady emails the owner when they opted in at submit time.

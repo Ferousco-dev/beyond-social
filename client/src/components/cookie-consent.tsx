@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useClientValue } from "@/lib/hooks/use-client-value";
 
 /**
  * First-visit cookie notice for the marketing site.
@@ -16,24 +17,28 @@ import { Button } from "@/components/ui/button";
 
 const STORAGE_KEY = "bs:cookie-consent";
 
-export function CookieConsent(): React.ReactNode {
-  const [visible, setVisible] = useState(false);
+/** Whether this browser has not answered yet. Unreadable storage counts as answered, so no banner sticks. */
+function unanswered(): boolean {
+  try {
+    return window.localStorage.getItem(STORAGE_KEY) === null;
+  } catch {
+    return false;
+  }
+}
 
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(STORAGE_KEY) === null) setVisible(true);
-    } catch {
-      // Storage unavailable: say nothing rather than show a banner nobody can dismiss.
-    }
-  }, []);
+export function CookieConsent(): React.ReactNode {
+  const needed = useClientValue(unanswered, false);
+  const [dismissed, setDismissed] = useState(false);
+  const visible = needed && !dismissed;
 
   function accept(): void {
     try {
       window.localStorage.setItem(STORAGE_KEY, "accepted");
     } catch {
-      // Nothing to persist to; the banner still closes for this visit.
+      setDismissed(true);
+      return;
     }
-    setVisible(false);
+    setDismissed(true);
   }
 
   if (!visible) return null;

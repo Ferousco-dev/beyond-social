@@ -69,7 +69,7 @@ export function AssetTile({
             maxLength={60}
             aria-label="Label"
             autoFocus
-            className="-mx-1 h-7 rounded-md border border-hairline bg-paper px-1 text-sm font-medium text-ink focus:outline-2 focus:outline-primary"
+            className="-mx-1 h-7 rounded-md border border-hairline bg-paper px-1 text-sm font-medium text-ink focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
           />
         ) : (
           <button

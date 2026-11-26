@@ -18,7 +18,7 @@ export default async function AdminBlogEditPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Edit post</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-ink">Edit post</h1>
       <BlogForm post={result.post} />
     </div>
   );

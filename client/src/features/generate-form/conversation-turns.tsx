@@ -84,7 +84,7 @@ export function ConversationTurns({
                 rows={2}
                 maxLength={5000}
                 placeholder="The words in this voice recording"
-                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+                className="w-full rounded-[10px] border border-hairline bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
               />
             </label>
           </li>
@@ -94,7 +94,7 @@ export function ConversationTurns({
         type="button"
         disabled={turns.length >= MAX_TURNS}
         onClick={() => onChange([...turns, newTurn()])}
-        className="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 self-start rounded-[10px] border border-hairline px-3.5 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn btn-secondary btn-md self-start"
       >
         <Plus className="size-4" aria-hidden />
         Add a turn

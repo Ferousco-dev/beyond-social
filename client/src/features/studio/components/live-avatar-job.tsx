@@ -247,13 +247,13 @@ export function LiveAvatarJob({ generation }: { generation: ProjectGeneration })
             {confirmRetry ? (
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span>Retry generation for {retryCredits ?? "…"} credits?</span>
-                <button type="button" disabled={retrying} onClick={() => void retryGeneration()} className="min-h-9 rounded-md bg-primary px-3 font-medium text-primary-foreground disabled:opacity-50">
+                <button type="button" disabled={retrying} onClick={() => void retryGeneration()} className="btn btn-primary btn-md">
                   {retrying ? "Retrying…" : "Confirm retry"}
                 </button>
                 <button type="button" disabled={retrying} onClick={() => setConfirmRetry(false)} className="min-h-9 rounded-md border border-hairline px-3 text-ink disabled:opacity-50">Cancel</button>
               </div>
             ) : (
-              <button type="button" disabled={retrying} onClick={() => void prepareRetry()} className="min-h-9 rounded-md border border-hairline px-3 text-sm font-medium text-ink hover:bg-cloud disabled:opacity-50">
+              <button type="button" disabled={retrying} onClick={() => void prepareRetry()} className="btn btn-secondary btn-md">
                 {retrying ? "Checking generation…" : "Retry generation"}
               </button>
             )}

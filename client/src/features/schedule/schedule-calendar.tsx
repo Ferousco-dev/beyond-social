@@ -6,15 +6,6 @@ import { useState, type ReactNode } from "react";
 import { type ScheduledPost } from "@/lib/go-api/schemas";
 import { cn } from "@/lib/utils";
 
-const DOT: Readonly<Record<ScheduledPost["status"], string>> = {
-  preparing: "bg-ink-soft",
-  scheduled: "bg-info",
-  publishing: "bg-info",
-  published: "bg-success",
-  failed: "bg-destructive",
-  cancelled: "bg-hairline",
-};
-
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function monthCells(year: number, month: number): (number | null)[] {
@@ -97,10 +88,8 @@ export function ScheduleCalendar({ posts }: { readonly posts: readonly Scheduled
                 {day ?? "·"}
               </span>
               {items.length > 0 ? (
-                <span className="flex gap-0.5" aria-hidden>
-                  {items.slice(0, 4).map((post) => (
-                    <span key={post.id} className={cn("size-1.5 rounded-full", DOT[post.status])} />
-                  ))}
+                <span className={cn("text-[10px] font-medium tabular-nums", items.some((post) => post.status === "failed") ? "text-destructive" : "text-ink")} aria-hidden>
+                  {items.length} {items.length === 1 ? "post" : "posts"}
                 </span>
               ) : null}
             </div>

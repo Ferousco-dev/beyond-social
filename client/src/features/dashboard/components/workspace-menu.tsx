@@ -13,12 +13,12 @@ export function WorkspaceMenu() {
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="inline-flex min-h-9 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium text-ink transition-colors pointer-coarse:min-h-11 hover:bg-cloud"
+          className="group inline-flex min-h-9 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1.5 text-sm font-medium text-ink transition-colors pointer-coarse:min-h-11 hover:bg-cloud"
         >
           {/* Held on one line: at 320px the name wrapped and doubled the
               height of the header it sits in. */}
           Beyond Social
-          <ChevronDown className="size-4 text-ink-soft" />
+          <ChevronDown className="size-4 text-ink-soft transition-transform duration-200 group-data-[state=open]:rotate-180" />
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>

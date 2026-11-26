@@ -70,7 +70,9 @@ type Deps struct {
 	RevenueHistory RevenueHistoryReader
 	Spend          SpendReader
 	EmailSettings  EmailSettings
-	SignIns        accounts.SignInRemover
+	// AlertMail sends the sample alert when an admin saves the alert address.
+	AlertMail AlertTester
+	SignIns   accounts.SignInRemover
 	// Recovery and ResetMail send the password reset email, from our own sender.
 	Recovery  RecoveryTokens
 	ResetMail ResetMailer
@@ -78,7 +80,11 @@ type Deps struct {
 		Purge(ctx context.Context, userID string) error
 	}
 	WatchBiller ResourceBiller
-	Scenes      SceneService
+	// AutofillBiller, CaptionWriteBiller and ScriptBiller charge the small AI text actions. Nil leaves them free (tests).
+	AutofillBiller     ResourceBiller
+	CaptionWriteBiller ResourceBiller
+	ScriptBiller       ResourceBiller
+	Scenes             SceneService
 	// Compose is the New Video composer; nil turns its routes off.
 	Compose ComposeService
 	// AppURL is the web app the sign-in redirects back into.
@@ -151,6 +157,8 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("GET /api/v1/jobs/{id}", protected(http.HandlerFunc(a.getJob)))
 	mux.Handle("POST /api/v1/jobs/video-transform", protected(http.HandlerFunc(a.createTransform)))
 	mux.Handle("GET /api/v1/admin/alerts", protected(a.requireAdmin(a.listAlerts)))
+	mux.Handle("GET /api/v1/admin/alerts/email", protected(a.requireAdmin(a.getAlertEmail)))
+	mux.Handle("PUT /api/v1/admin/alerts/email", protected(a.requireAdmin(a.setAlertEmail)))
 	mux.Handle("GET /api/v1/admin/monitoring", protected(a.requireAdmin(a.monitoringSnapshot)))
 	mux.Handle("POST /api/v1/admin/alerts/{id}/resolve", protected(a.requireAdmin(a.resolveAlert)))
 	mux.Handle("GET /api/v1/admin/blog", protected(a.requireAdmin(a.listAllPosts)))
@@ -223,6 +231,7 @@ func (a *App) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/conversations/{id}", protected(http.HandlerFunc(a.archiveConversation)))
 	mux.Handle("POST /api/v1/conversations/{id}/messages", protected(http.HandlerFunc(a.sendMessage)))
 	mux.Handle("GET /api/v1/credits", protected(revalidated(http.HandlerFunc(a.myCredits))))
+	mux.Handle("GET /api/v1/credits/prices", protected(http.HandlerFunc(a.listMyPrices)))
 	mux.Handle("GET /api/v1/admin/credits/prices", protected(a.requireAdmin(a.listPrices)))
 	mux.Handle("PUT /api/v1/admin/credits/prices/{action}", protected(a.requireAdmin(a.updatePrice)))
 	mux.Handle("GET /api/v1/admin/credits/settings", protected(a.requireAdmin(a.listCreditSettings)))

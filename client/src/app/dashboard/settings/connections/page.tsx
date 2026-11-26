@@ -28,7 +28,7 @@ export default async function ConnectionsPage({
       <ConnectReturn status={status} />
       <h2 className="text-xl font-semibold tracking-tight text-ink">Connections</h2>
       <p className="mt-1 text-sm text-ink-soft">
-        Connect the accounts you want to publish to. You approve every post before it goes out.
+        Link TikTok, Instagram and YouTube once, then post your finished videos straight from Beyond Social.
       </p>
 
       {status && OUTCOMES[status] ? (

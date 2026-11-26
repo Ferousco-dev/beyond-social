@@ -51,6 +51,13 @@ export function OptionSheet({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <Dialog.Content
+          // The guided tour's card sits outside the sheet; tapping it must not close the sheet.
+          onPointerDownOutside={(event) => {
+            if ((event.target as Element | null)?.closest?.(".driver-popover, .driver-layer")) event.preventDefault();
+          }}
+          onInteractOutside={(event) => {
+            if ((event.target as Element | null)?.closest?.(".driver-popover, .driver-layer")) event.preventDefault();
+          }}
           style={desktop ? undefined : { transform: `translateY(${offset}px)`, transition: dragging ? "none" : "transform 200ms ease" }}
           className={cn(
             "fixed z-50 flex flex-col border border-hairline bg-paper text-ink shadow-2xl focus:outline-none",

@@ -77,6 +77,9 @@ export function usePlayback(canvas: HTMLCanvasElement | null): boolean {
           element.preload = "auto";
           if (element instanceof HTMLVideoElement) element.playsInline = true;
           element.addEventListener("loadeddata", redraw);
+          const source = item.src;
+          const measured = element;
+          element.addEventListener("loadedmetadata", () => useStudio.getState().fitFootage(source, measured.duration));
           element.addEventListener("seeked", redraw);
           const failed = element;
           element.addEventListener("error", () => {

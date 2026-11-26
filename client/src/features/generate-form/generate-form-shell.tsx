@@ -1,29 +1,57 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Coins } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { preloadLibrary, useLibrary } from "@/features/asset-library/use-library";
 import { AVATAR_PACK_KEY, type ChosenPerson } from "@/features/new-video/components/avatar-pack-panel";
 import { OptionSheet } from "@/features/new-video/components/option-sheet";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
+import { creditsChanged } from "@/features/billing/live-balance";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
+import { useSavedValue } from "@/lib/hooks/use-saved-value";
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 import { toAudience } from "./audience";
 import { autofillVideo } from "./autofill-actions";
 import { valuesFromBrief } from "./autofill";
-import { DRAFT_KEY, STEP_KEY, readDraft } from "./draft";
+import { DRAFT_KEY, readDraft } from "./draft";
 import { valuesFromAnalysis } from "./analysis-values";
 import { useReferenceScript } from "./reference-script";
-import { StepCast } from "./step-cast";
-import { StepObjective, objectiveErrors } from "./step-objective";
+import { QuickForm } from "./quick-form";
+import { useSceneQuotes } from "./scene-quotes";
+import { recallScript, rememberScript, type ScriptStore } from "./script-cache";
 import { StepReview } from "./step-review";
-import { StepScript } from "./step-script";
-import { toVideoLength } from "./pacing";
-import { CONTENT_KINDS, EMPTY_FORM, STEPS, type GenerateFormValues } from "./types";
+import { spokenText, toVideoLength } from "./pacing";
+import { CONTENT_KINDS, EMPTY_FORM, type GenerateFormValues } from "./types";
 import type { OwnIdea } from "@/features/new-video/components/own-idea-panel";
 
 const IDEA_KEY = "bs:own-idea";
 const QUICK_KEY = "bs:quick-start";
+/** Where written scripts are kept for a while, or nothing when the browser blocks storage. */
+function scriptStore(): ScriptStore {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return { getItem: () => null, setItem: () => undefined };
+  }
+}
+
+/** What the script is written from: the idea (or, for older drafts, the title and goal) and any extras. */
+function scriptSource(values: GenerateFormValues): string {
+  const idea = (values.idea || [values.title, values.objective].filter(Boolean).join(". ")).trim();
+  return [idea, values.extras.trim() ? `Extras: ${values.extras.trim()}` : ""].filter(Boolean).join("\n\n");
+}
+
+/** How long after the last length tap the script is rewritten for it. */
+const REFIT_DELAY_MS = 700;
+
+interface AvatarPack {
+  readonly face?: string;
+  readonly voice?: string;
+  readonly product?: string;
+  readonly environment?: string;
+}
 
 function readJSON<T>(key: string): T | null {
   try {
@@ -34,34 +62,42 @@ function readJSON<T>(key: string): T | null {
   }
 }
 
-/** The 3-step generation form, with the final review in a popup. Prefills from the New Video flow, autosaves. */
+/** Takes a one-time hand-off out of storage, so it cannot reappear on a later visit. */
+function removeKey(key: string): void {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    return;
+  }
+}
+
+/** What our AI is asked when the idea changed or extras were added, keeping the person's script unless told otherwise. */
+function refinePrompt(values: GenerateFormValues): string {
+  const script = [
+    values.hook.trim() ? `Opening: ${values.hook.trim()}` : "",
+    values.scenes.trim() ? `Scenes: ${values.scenes.trim()}` : "",
+    values.dialogue.trim() ? `Said: ${values.dialogue.trim()}` : "",
+  ].filter(Boolean);
+  return [
+    values.idea.trim(),
+    values.extras.trim() ? `Extras: ${values.extras.trim()}` : "",
+    script.length > 0 ? `Keep this script unless the idea or extras ask for a change.\n${script.join("\n")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** Configure video on one screen, with the final review in a popup. Prefills from the New Video flow, autosaves. */
 export function GenerateFormShell({ balance, proPrice }: { balance: number | null; proPrice: string | null }) {
-  const [step, setStep] = useState(0);
   const [reviewing, setReviewing] = useState(false);
   const [values, setValues] = useState<GenerateFormValues>(EMPTY_FORM);
   // Nothing is saved until the earlier draft, idea or script has been read, or the empty form would overwrite them.
   const [hydrated, setHydrated] = useState(false);
 
-  const [showErrors, setShowErrors] = useState(false);
-
-  /** Moves on only when the objective is filled in; otherwise shows every problem and focuses the first. */
-  function goTo(target: number): boolean {
-    if (target > 0) {
-      const problems = Object.keys(objectiveErrors(values));
-      if (problems.length > 0) {
-        setShowErrors(true);
-        setStep(0);
-        setTimeout(() => document.getElementById(`field-${problems[0]}`)?.focus(), 0);
-        return false;
-      }
-    }
-    setStep(target);
-    return true;
-  }
-
-  function handleContinue(): void {
-    goTo(Math.min(step + 1, STEPS.length - 1));
-  }
+  const [ideaError, setIdeaError] = useState<string | null>(null);
+  // The idea and extras our AI last wrote the form from, so Generate only asks again when they changed.
+  const appliedPrompt = useRef<{ idea: string; extras: string } | null>(null);
+  const [refining, setRefining] = useState<"idle" | "working" | "failed">("idle");
 
   const library = useLibrary();
   // Read by the idea autofill, which answers after the library may have loaded.
@@ -73,45 +109,41 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
   const [refitting, setRefitting] = useState(false);
   const [refitFailed, setRefitFailed] = useState(false);
 
-  // A pack chosen on New Video fills the face, voice, product and environment, and opens at the first step, ready for what the video is about.
-  // It is taken out of storage at once, so a pack nobody applied cannot reappear on a later visit.
-  const pack = useRef<{ face?: string; voice?: string; product?: string; environment?: string } | null | undefined>(undefined);
-  if (pack.current === undefined) pack.current = null;
-  // The person chosen on New Video stays chosen when our AI fills in the rest.
+  /** A pack chosen on New Video, waiting for the library so its slots can be matched to saved assets. */
+  const [pack, setPack] = useState<AvatarPack | null>(null);
+  /** The person chosen on New Video stays chosen when our AI fills in the rest. */
   const person = useRef<ChosenPerson | null>(null);
-  useEffect(() => {
-    pack.current = readJSON<{ face?: string; voice?: string; product?: string; environment?: string }>(AVATAR_PACK_KEY);
-    person.current = readJSON<ChosenPerson>(AVATAR_PACK_KEY);
-    try {
-      window.sessionStorage.removeItem(AVATAR_PACK_KEY);
-    } catch {
-      // Nothing to clear.
-    }
-  }, []);
-  useEffect(() => {
-    const chosen = pack.current;
-    if (library.status !== "ready" || !chosen) return;
-    pack.current = null;
+  /** A length the person just picked, rewritten for a moment after the last tap. */
+  const [refitFor, setRefitFor] = useState<number | null>(null);
+
+  if (pack && library.status === "ready") {
+    setPack(null);
     const find = (slot: string | undefined): string => (slot ? (library.assets.find((a) => a.id === slot || a.media_id === slot)?.id ?? "") : "");
-    const face = library.assets.find((a) => a.id === find(chosen.face));
+    const face = library.assets.find((a) => a.id === find(pack.face));
     setValues((current) => ({
       ...current,
       speakerMode: "single",
-      faceAssetId: find(chosen.face),
-      // The person speaks the script; a saved recording is only used when they pick it.
+      faceAssetId: find(pack.face),
       voiceAssetId: "",
-      productAssetId: find(chosen.product),
-      environmentAssetId: find(chosen.environment),
+      productAssetId: find(pack.product),
+      environmentAssetId: find(pack.environment),
       ...(face?.file_kind === "image" ? { firstFrameId: face.media_id } : {}),
     }));
-    setStep(0);
-  }, [library]);
+  }
 
-  // Saved assets are read now, so the Visual assets step opens without waiting.
-  useEffect(() => preloadLibrary(), []);
+  useOnMount(() => {
+    const chosenPack = readJSON<AvatarPack>(AVATAR_PACK_KEY);
+    if (chosenPack) {
+      setPack(chosenPack);
+      person.current = readJSON<ChosenPerson>(AVATAR_PACK_KEY);
+    }
+    removeKey(AVATAR_PACK_KEY);
+    preloadLibrary();
+    prefill();
+  });
 
-  // Prefill once: an earlier draft, or the idea written on New Video.
-  useEffect(() => {
+  /** Fills the form once: an earlier draft, or the idea written on New Video. */
+  function prefill(): void {
     setHydrated(true);
     const saved = readDraft<GenerateFormValues>(DRAFT_KEY) ?? readJSON<GenerateFormValues>(DRAFT_KEY);
     if (saved) {
@@ -123,34 +155,26 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         seconds: toVideoLength(saved.seconds),
         contentKind: CONTENT_KINDS.find((kind) => kind.toLowerCase() === saved.contentKind?.toLowerCase()) ?? EMPTY_FORM.contentKind,
       });
-      const savedStep = readDraft<number>(STEP_KEY);
-      if (typeof savedStep === "number" && Number.isInteger(savedStep) && savedStep > 0 && savedStep < STEPS.length) setStep(savedStep);
       return;
     }
     const idea = readJSON<OwnIdea>(IDEA_KEY);
     if (!idea) return;
-    // A quick start from an idea goes straight to the final review. Back still reaches the rest.
     const quick = readJSON<boolean>(QUICK_KEY);
-    try {
-      window.sessionStorage.removeItem(QUICK_KEY);
-    } catch {
-      // Nothing to clear.
-    }
+    removeKey(QUICK_KEY);
     setValues((current) => ({ ...current, title: idea.title ?? "", objective: idea.objective }));
-    // The idea fills in every step on its own: the person only checks it. A quick start opens the
-    // review once it is filled, so the price is for the finished brief.
     setFilling("working");
     const who = person.current ? `The person in the video is ${person.current.name}.` : "";
     const ideaText = [idea.title, idea.objective, who].filter(Boolean).join(". ");
     setValues((current) => ({ ...current, idea: ideaText }));
+    appliedPrompt.current = { idea: ideaText.trim(), extras: "" };
     void autofillVideo(ideaText).then((result) => {
+      creditsChanged();
       if (result.ok) {
         setValues((current) => {
           const chosen = person.current;
           const next = {
             ...current,
             ...valuesFromBrief(current, result.brief),
-            // Someone picked on New Video is who appears, whatever the AI suggested.
             ...(chosen ? { speakerMode: "single" as const, faceAssetId: chosen.face, voiceAssetId: "" } : {}),
           };
           const assets = libraryRef.current.status === "ready" ? libraryRef.current.assets : [];
@@ -164,69 +188,112 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
       } else {
         setFilling("failed");
       }
-      if (quick) {
-        setStep(STEPS.length - 1);
-        setReviewing(true);
-      }
+      if (quick) setReviewing(true);
     });
-  }, []);
+  }
 
-  // A new length gets a script written for it, from the same idea, a moment after the last tap.
-  // Only the hook, scenes and spoken words change; everything else the person set stays.
-  useEffect(() => {
-    // Older drafts have no saved idea; what the video is for is the next best thing to write from.
-    const source = (values.idea || [values.title, values.objective].filter(Boolean).join(". ")).trim();
-    if (!hydrated || source === "" || filling === "working") return;
-    if (filledFor.current === null) {
-      filledFor.current = values.seconds;
-      return;
-    }
-    if (filledFor.current === values.seconds) return;
-    const seconds = values.seconds;
-    const timer = window.setTimeout(() => {
-      setRefitting(true);
-      setRefitFailed(false);
-      void autofillVideo(source, seconds).then((result) => {
-        setRefitting(false);
-        if (!result.ok) {
-          setRefitFailed(true);
-          return;
-        }
-        filledFor.current = seconds;
-        setValues((current) =>
-          current.seconds !== seconds
-            ? current
-            : { ...current, hook: result.brief.hook || current.hook, scenes: result.brief.scenes || current.scenes, dialogue: result.brief.dialogue || current.dialogue, storyboard: null, voiceover: null },
-        );
-      });
-    }, 700);
-    return () => window.clearTimeout(timer);
-    // The idea text is read when the length changes; edits to it alone do not rewrite the script.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.seconds, hydrated, filling]);
+  /**
+   * Rewrites the hook, scenes and spoken words for the length just picked, from
+   * the same idea. Everything else the person set stays. Waits while the first
+   * fill is still writing.
+   */
+  function refit(): void {
+    const seconds = refitFor;
+    setRefitFor(null);
+    if (seconds === null || filledFor.current === seconds || values.seconds !== seconds) return;
+    const source = scriptSource(values);
+    if (source === "") return;
+    setRefitting(true);
+    setRefitFailed(false);
+    void autofillVideo(source, seconds).then((result) => {
+      setRefitting(false);
+      creditsChanged();
+      if (!result.ok) {
+        setRefitFailed(true);
+        return;
+      }
+      filledFor.current = seconds;
+      rememberScript(scriptStore(), source, seconds, { hook: result.brief.hook, scenes: result.brief.scenes, dialogue: result.brief.dialogue });
+      setValues((current) =>
+        current.seconds !== seconds
+          ? current
+          : { ...current, hook: result.brief.hook || current.hook, scenes: result.brief.scenes || current.scenes, dialogue: result.brief.dialogue || current.dialogue, storyboard: null, voiceover: null },
+      );
+    });
+  }
+  useTimeout(refit, refitFor !== null && filling !== "working" ? REFIT_DELAY_MS : null, refitFor);
 
-  // Autosave every change; the job itself persists server-side.
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(DRAFT_KEY, JSON.stringify(values));
-    } catch {
-      // Private browsing: the form still works for this session.
-    }
-  }, [values, hydrated]);
-
-  // Remember which step the person was on, so coming back from Assets lands where they left.
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STEP_KEY, JSON.stringify(step));
-    } catch {
-      // Private browsing: the form still works for this session.
-    }
-  }, [step, hydrated]);
+  useSavedValue(DRAFT_KEY, values, hydrated);
 
   function patch(next: Partial<GenerateFormValues>): void {
+    if (next.idea !== undefined) setIdeaError(null);
+    if (next.seconds !== undefined && next.seconds !== values.seconds) {
+      if (filledFor.current === null) filledFor.current = values.seconds;
+      const source = scriptSource(values);
+      if (filledFor.current === values.seconds) rememberScript(scriptStore(), source, values.seconds, { hook: values.hook, scenes: values.scenes, dialogue: values.dialogue });
+      const written = recallScript(scriptStore(), source, next.seconds);
+      if (written) {
+        filledFor.current = next.seconds;
+        setRefitFor(null);
+        setValues((current) => ({ ...current, ...next, ...written, storyboard: null, voiceover: null }));
+        return;
+      }
+      setRefitFor(next.seconds);
+    }
     setValues((current) => ({ ...current, ...next }));
+  }
+
+  const quotes = useSceneQuotes(spokenText(values).trim() !== "");
+  const cost = quotes[toVideoLength(values.seconds)];
+
+  /**
+   * Generate: when the idea changed or extras were added, our AI folds them in
+   * first, keeping who is in it, the length and the platform. Then the final
+   * review opens with the price, so nothing is spent before the person confirms.
+   */
+  async function generate(): Promise<void> {
+    const idea = values.idea.trim() || [values.title, values.objective].filter(Boolean).join(". ").trim();
+    if (idea === "") {
+      setIdeaError("Say what the video is about in a sentence or two.");
+      document.getElementById("field-idea")?.focus();
+      return;
+    }
+    const extras = values.extras.trim();
+    const last = appliedPrompt.current;
+    const changed = extras !== (last?.extras ?? "") || (values.idea.trim() !== "" && values.idea.trim() !== (last?.idea ?? values.idea.trim()));
+    if (!changed) {
+      if (values.objective.trim() === "") patch({ objective: idea });
+      setReviewing(true);
+      return;
+    }
+    setRefining("working");
+    const result = await autofillVideo(refinePrompt({ ...values, idea }), values.seconds);
+    creditsChanged();
+    if (!result.ok) {
+      setRefining("failed");
+      return;
+    }
+    appliedPrompt.current = { idea: values.idea.trim(), extras };
+    setValues((current) => {
+      const next = { ...current, ...valuesFromBrief(current, result.brief) };
+      // What the person picked on this screen stays as they picked it.
+      return {
+        ...next,
+        objective: next.objective.trim() || idea,
+        platform: current.platform,
+        seconds: current.seconds,
+        speakerMode: current.speakerMode,
+        turns: current.turns,
+        faceAssetId: current.faceAssetId,
+        voiceAssetId: current.voiceAssetId,
+        productAssetId: current.productAssetId,
+        environmentAssetId: current.environmentAssetId,
+        firstFrameId: current.firstFrameId,
+      };
+    });
+    filledFor.current = values.seconds;
+    setRefining("idle");
+    setReviewing(true);
   }
 
   // A reference video chosen on New Video: its script is written here in the background, and lands in the form.
@@ -235,14 +302,14 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Once written, the script is simply in the Script step: no message needed. */}
+      {/* Once written, the script is simply under Script: no message needed. */}
       {script.state.phase === "working" || script.state.phase === "failed" ? (
         <div role="status" aria-live="polite" className="flex flex-col gap-2 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
           {script.state.phase === "working" ? (
             <>
               <span className="flex items-center gap-2">
                 <Spinner className="size-4 text-primary" />
-                Writing your script from the video. Carry on, it will appear in the Script step.
+                Writing your script from the video. Carry on, it will appear under Script.
               </span>
               <span className="block h-1.5 w-full overflow-hidden rounded-full bg-cloud" role="progressbar" aria-label="Script progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={script.state.progress}>
                 <span className="block h-full bg-primary transition-[width]" style={{ width: `${script.state.progress}%` }} />
@@ -268,7 +335,7 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         </div>
       ) : refitFailed ? (
         <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
-          The script could not be rewritten for this length. Check the Script step.
+          The script could not be rewritten for this length. Check it under Script.
           <button type="button" onClick={() => setRefitFailed(false)} className="cursor-pointer text-ink-soft underline underline-offset-2 hover:text-ink">
             OK
           </button>
@@ -281,58 +348,60 @@ export function GenerateFormShell({ balance, proPrice }: { balance: number | nul
         </div>
       ) : filling === "failed" ? (
         <div role="status" className="flex items-center justify-between gap-3 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink-soft">
-          It could not be filled in automatically. Check each step below.
+          It could not be filled in automatically. Fill in the parts below.
           <button type="button" onClick={() => setFilling("idle")} className="cursor-pointer text-ink-soft underline underline-offset-2 hover:text-ink">
             OK
           </button>
         </div>
       ) : null}
-      <ol aria-label="Progress" className="flex gap-1.5">
-        {STEPS.map((label, index) => (
-          <li key={label} className="flex-1">
-            <button
-              type="button"
-              onClick={() => goTo(index)}
-              aria-current={index === step ? "step" : undefined}
-              className="group w-full cursor-pointer py-1 text-left"
-            >
-              <span
-                className={cn(
-                  "block h-1.5 rounded-full transition-colors",
-                  index <= step ? "bg-primary" : "bg-hairline group-hover:bg-cloud",
-                )}
-              />
-              <span className={cn("mt-1.5 hidden text-[11px] sm:block", index === step ? "font-medium text-ink" : "text-ink-soft")}>
-                {label}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ol>
+      <QuickForm values={values} onChange={patch} ideaError={ideaError} />
 
-      <h2 className="text-lg font-semibold text-ink">{STEPS[step]}</h2>
-
-      {step === 0 ? <StepObjective values={values} onChange={patch} showErrors={showErrors} /> : null}
-      {step === 1 ? <StepScript values={values} onChange={patch} /> : null}
-      {step === 2 ? <StepCast values={values} onChange={patch} /> : null}
-
-      <div className="flex gap-2">
-        {step > 0 ? (
+      {refining === "failed" ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-hairline bg-cloud/50 p-3 text-sm text-ink">
+          Your extras could not be added just now.
+          <button type="button" onClick={() => void generate()} className="cursor-pointer font-medium text-primary underline underline-offset-2">
+            Try again
+          </button>
           <button
             type="button"
-            onClick={() => setStep(step - 1)}
-            className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={() => {
+              setRefining("idle");
+              setReviewing(true);
+            }}
+            className="cursor-pointer text-ink-soft underline underline-offset-2 hover:text-ink"
           >
-            Back
+            Review without them
           </button>
-        ) : null}
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-3 border-t border-hairline pt-4">
+        <span className="flex-1" role="status">
+          {typeof cost === "number" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-cloud px-2.5 py-1 text-sm font-medium tabular-nums text-ink" title={`About ${cost} credits`}>
+              <Coins className="size-3.5 text-ink-soft" aria-hidden />
+              {cost}
+              <span className="sr-only"> credits</span>
+            </span>
+          ) : null}
+        </span>
         <button
           type="button"
-          onClick={step < STEPS.length - 1 ? handleContinue : () => { if (goTo(step)) setReviewing(true); }}
-          disabled={writing && step === STEPS.length - 1}
-          className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-80"
+          onClick={() => void generate()}
+          data-tour="video-generate"
+          disabled={writing || refining === "working" || filling === "working"}
+          className="btn btn-primary btn-md"
         >
-          {step < STEPS.length - 1 ? "Continue" : writing ? "Writing your script…" : "Review and generate"}
+          {refining === "working" ? (
+            <>
+              <Spinner className="size-4" />
+              Adding your extras…
+            </>
+          ) : writing ? (
+            "Writing your script…"
+          ) : (
+            "Generate video"
+          )}
         </button>
       </div>
 

@@ -19,7 +19,7 @@ export default async function TrendsPage() {
     user.plan === "pro"
       ? "Included in Pro"
       : free
-        ? `Free: ${free.free_searches_per_day} a day, ${free.free_search_results} results each`
+        ? `${free.free_searches_per_day} free searches a day`
         : "Free plan limits apply";
 
   // Full height rather than page flow: the feed scrolls inside itself, so the

@@ -51,7 +51,7 @@ export default async function WelcomePage({
         </p>
         <Link
           href="/dashboard"
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          className="btn btn-primary btn-md"
         >
           Open your dashboard
         </Link>

@@ -31,6 +31,7 @@ export const config = {
    * catch-all pattern.
    */
   matcher: [
+    // guard-allow: links-to-real-pages (a route pattern, not a link)
     "/dashboard/:path*",
     "/editor/:path*",
     "/settings/:path*",

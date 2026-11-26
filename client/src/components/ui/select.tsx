@@ -62,12 +62,12 @@ export function Select({
       name={name}
       disabled={disabled}
     >
-      <RadixSelect.Trigger id={id} aria-label={ariaLabel} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={cn(triggerClass, className)}>
+      <RadixSelect.Trigger id={id} aria-label={ariaLabel} aria-describedby={describedBy} aria-invalid={invalid || undefined} className={cn("group", triggerClass, className)}>
         <span className="truncate">
           <RadixSelect.Value placeholder={placeholder} />
         </span>
         <RadixSelect.Icon>
-          <ChevronDown className="size-4 shrink-0 text-ink-soft" aria-hidden />
+          <ChevronDown className="size-4 shrink-0 text-ink-soft transition-transform duration-200 group-data-[state=open]:rotate-180" aria-hidden />
         </RadixSelect.Icon>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>

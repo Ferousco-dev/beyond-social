@@ -25,8 +25,8 @@ function href(path: string, params: Readonly<Record<string, string>>, page: numb
 /** Previous and next links for a list the server reads one page at a time. */
 export function Pager({ path, params = {}, page, hasMore, param = "page" }: { readonly path: string; readonly params?: Readonly<Record<string, string>>; readonly page: number; readonly hasMore: boolean; /** The query key that holds this list's page, so a screen can hold more than one list. */ readonly param?: string }): ReactNode {
   if (page === 1 && !hasMore) return null;
-  const link = "inline-flex h-10 items-center rounded-lg border border-hairline px-4 text-sm font-medium text-ink hover:bg-cloud focus-visible:outline-2 focus-visible:outline-primary";
-  const off = "inline-flex h-10 items-center rounded-lg border border-hairline px-4 text-sm text-ink-soft opacity-50";
+  const link = "btn btn-secondary btn-md";
+  const off = "btn btn-secondary btn-md pointer-events-none opacity-50";
   return (
     <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3">
       {page > 1 ? <Link href={href(path, params, page - 1, param)} className={link}>Previous</Link> : <span className={off} aria-disabled="true">Previous</span>}

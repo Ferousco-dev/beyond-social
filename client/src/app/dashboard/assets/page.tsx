@@ -19,10 +19,7 @@ export default async function AssetsPage(): Promise<ReactNode> {
     <div className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
       <header>
         <h1 className="text-2xl font-semibold tracking-[-0.03em] text-ink sm:text-3xl">Assets</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">
-          Faces, voices, products and places. Group them by person or product, then pick a whole group when you make a
-          video.
-        </p>
+        <p className="mt-2 text-sm text-ink-soft">Everything you put in your videos.</p>
       </header>
       <ContinueDraft variant="assets" />
 

@@ -337,3 +337,22 @@ func TestFinisherRunsBeforeCompletionAndCannotFailTheJob(t *testing.T) {
 		t.Fatalf("a failed finisher must still complete the job: %+v", got)
 	}
 }
+
+func TestAFailedVideoEmailsTheOwnerWhoAskedToBeTold(t *testing.T) {
+	r := newRig(t)
+	r.proc.Notifier = r.notify
+	input := map[string]any{
+		"video_id": "vid-1", "platform": "tiktok", "source_url": "https://www.tiktok.com/@a/video/1",
+		"prompt": "make it neon", "duration": "5", "resolution": "720p", "notify_email": true,
+	}
+	job, _, err := r.service.Create(context.Background(), alice, JobType, input, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.proc.Handle(ctx, job)
+	r.provider.task = kie.Task{State: kie.StateFailed, FailMsg: "model error"}
+	r.proc.Handle(ctx, r.jobs.get(job.ID))
+	if len(r.notify.failed) != 1 || r.notify.failed[0] != alice || len(r.notify.users) != 0 {
+		t.Fatalf("expected one failure email to alice, got failed=%v ready=%v", r.notify.failed, r.notify.users)
+	}
+}

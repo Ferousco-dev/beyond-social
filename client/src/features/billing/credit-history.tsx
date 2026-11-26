@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 
-const PAGE = 15;
+const PAGE = 7;
 
 const KIND_LABEL: Readonly<Record<string, string>> = {
   grant: "Welcome credits",
@@ -19,7 +19,7 @@ export interface CreditRow {
   readonly createdAt: string;
 }
 
-/** The credit history, fifteen rows first and fifteen more on request. */
+/** The credit history: the latest seven, and seven more each time View more is pressed. */
 export function CreditHistory({ history }: { readonly history: readonly CreditRow[] }): ReactNode {
   const [shown, setShown] = useState(PAGE);
   if (history.length === 0) return <p className="mt-2 text-sm text-ink-soft">Nothing yet.</p>;
@@ -40,9 +40,11 @@ export function CreditHistory({ history }: { readonly history: readonly CreditRo
         ))}
       </ul>
       {history.length > shown ? (
-        <button type="button" onClick={() => setShown((n) => n + PAGE)} className="mt-3 inline-flex h-10 cursor-pointer items-center rounded-lg border border-hairline px-4 text-sm font-medium text-ink hover:bg-cloud">
-          View more
-        </button>
+        <div className="mt-3 flex justify-center">
+          <button type="button" onClick={() => setShown((n) => n + PAGE)} className="btn btn-secondary btn-sm">
+            View more
+          </button>
+        </div>
       ) : null}
     </>
   );

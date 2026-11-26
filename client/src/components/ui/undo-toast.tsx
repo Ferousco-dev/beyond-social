@@ -81,6 +81,7 @@ export function UndoToaster(): ReactNode {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4">
       {items.map((toast) => (
+        // guard-allow: no-black-action-buttons (a dark toast, not a button)
         <div key={toast.id} role="status" className="pointer-events-auto flex max-w-md items-center gap-3 rounded-xl border border-hairline bg-ink px-4 py-2.5 text-sm text-paper shadow-card">
           <span className="min-w-0 truncate">{toast.message}</span>
           {toast.undoable ? (

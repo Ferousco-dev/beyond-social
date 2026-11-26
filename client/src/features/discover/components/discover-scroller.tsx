@@ -1,5 +1,6 @@
 "use client";
 
+import { creditsChanged } from "@/features/billing/live-balance";
 import { useCallback, useRef, useState, useTransition } from "react";
 
 import { type Route } from "next";
@@ -114,6 +115,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
       startTransition(async () => {
         try {
           const result = await searchSocial({ query: text, platform: on });
+          creditsChanged();
           // A search is charged, so the sidebar balance has moved.
           router.refresh();
 
@@ -162,6 +164,7 @@ export function DiscoverScroller({ initialQuery = "", note }: { initialQuery?: s
     startTransition(async () => {
       try {
         const result = await scrapePostFromUrl({ url });
+        creditsChanged();
         if (ticket !== latestSearch.current) return;
 
         if (result.status !== "ok") {

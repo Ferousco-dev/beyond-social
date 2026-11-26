@@ -30,12 +30,12 @@ export function AdjustCreditsForm({ userId }: { readonly userId: string }): Reac
         inputMode="numeric"
         aria-label="Credits to add (negative to take back)"
         placeholder="+50 or -20"
-        className="sm:w-32"
+        className="h-8 text-[13px] sm:w-32"
         value={amount}
         onChange={(event) => setAmount(event.target.value)}
       />
-      <Input aria-label="Reason" placeholder="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
-      <Button type="submit" disabled={pending || amount === "" || reason.trim() === ""}>
+      <Input className="h-8 text-[13px]" aria-label="Reason" placeholder="Reason" value={reason} onChange={(event) => setReason(event.target.value)} />
+      <Button type="submit" size="sm" disabled={pending || amount === "" || reason.trim() === ""}>
         Apply
       </Button>
       {error ? (

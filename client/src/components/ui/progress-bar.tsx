@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+import { useInterval } from "@/lib/hooks/use-timers";
 
 import { cn } from "@/lib/utils";
 
@@ -34,11 +36,7 @@ export function useEstimatedProgress(reported: number, running: boolean, typical
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(startedAt);
 
-  useEffect(() => {
-    if (!running) return;
-    const interval = setInterval(() => setNow(Date.now()), 1_000);
-    return () => clearInterval(interval);
-  }, [running]);
+  useInterval(() => setNow(Date.now()), running ? 1_000 : null);
 
   if (!running) return { value: reported, estimated: false };
   const elapsed = (now - startedAt) / 1_000;

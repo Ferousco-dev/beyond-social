@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Lightbulb, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
@@ -14,14 +14,14 @@ const InspectorPanel = dynamic(() => import("./panels/inspector-panel").then((m)
 type Tab = "inspector" | "ai";
 
 const TABS: ReadonlyArray<{ id: Tab; label: string; Icon: LucideIcon }> = [
-  { id: "ai", label: "Chat", Icon: Sparkles },
+  { id: "ai", label: "Chat", Icon: Lightbulb },
   { id: "inspector", label: "Editor", Icon: SlidersHorizontal },
 ];
 
 export function RightPanel() {
   const [tab, setTab] = useState<Tab>("ai");
   return (
-    <section aria-label="Chat and editor" data-tip-anchor="studio-ai" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
+    <section aria-label="Chat and editor" data-tour="studio-ai" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
       <div role="tablist" className="flex h-11 shrink-0 items-center gap-1 border-b border-hairline px-2">
         {TABS.map(({ id, label, Icon }) => (
           <button

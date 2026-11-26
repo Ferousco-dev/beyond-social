@@ -46,10 +46,8 @@ export function clearDraft(): void {
 }
 
 export interface DraftSummary {
-  /** What the video is for, or empty when only later steps were filled in. */
+  /** What the video is about, or empty when only the script was filled in. */
   title: string;
-  /** One-based step the person was on. */
-  step: number;
 }
 
 let cached: { raw: string | null; summary: DraftSummary | null } = { raw: null, summary: null };
@@ -61,24 +59,19 @@ let cached: { raw: string | null; summary: DraftSummary | null } = { raw: null, 
  */
 export function draftSummary(): DraftSummary | null {
   let raw: string | null = null;
-  let stepRaw: string | null = null;
   try {
     raw = window.localStorage.getItem(DRAFT_KEY);
-    stepRaw = window.localStorage.getItem(STEP_KEY);
   } catch {
     return null;
   }
-  const key = `${raw ?? ""}|${stepRaw ?? ""}`;
+  const key = raw ?? "";
   if (cached.raw === key) return cached.summary;
   let summary: DraftSummary | null = null;
   try {
     const values = raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
     const text = (name: string): string => (typeof values?.[name] === "string" ? (values[name] as string).trim() : "");
-    const filled = text("objective") || text("hook") || text("scenes") || text("dialogue");
-    if (values && filled) {
-      const step = Number(stepRaw);
-      summary = { title: text("objective"), step: Number.isInteger(step) && step >= 0 ? step + 1 : 1 };
-    }
+    const filled = text("idea") || text("objective") || text("hook") || text("scenes") || text("dialogue");
+    if (values && filled) summary = { title: text("title") || text("objective") || text("idea") };
   } catch {
     summary = null;
   }

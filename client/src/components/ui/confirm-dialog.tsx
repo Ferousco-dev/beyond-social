@@ -1,7 +1,9 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -57,15 +59,13 @@ export function ConfirmDialog({
 
   const destructive = options?.tone === "destructive";
 
-  useEffect(() => {
-    if (!open || !destructive) {
-      setArmed(!destructive);
-      return;
-    }
+  const [seenOpen, setSeenOpen] = useState(open);
+  if (seenOpen !== open) {
+    setSeenOpen(open);
     setArmed(false);
-    const timer = window.setTimeout(() => setArmed(true), ARM_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [open, destructive]);
+  }
+  useTimeout(() => setArmed(true), open && destructive && !armed ? ARM_DELAY_MS : null, open);
+  const ready = !destructive || armed;
 
   if (!options) return null;
 
@@ -116,11 +116,11 @@ export function ConfirmDialog({
             </button>
             <button
               type="button"
-              disabled={pending || !armed}
+              disabled={pending || !ready}
               onClick={() => onResolve(true)}
               className={cn(
                 buttonVariants({ variant: destructive ? "destructive" : "default" }),
-                !armed && "opacity-60",
+                !ready && "opacity-60",
               )}
             >
               {options.confirmLabel}

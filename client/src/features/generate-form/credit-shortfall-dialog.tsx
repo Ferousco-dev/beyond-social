@@ -87,7 +87,7 @@ export function CreditShortfallDialog({
             {pro ? (
               <Link
                 href="/dashboard/settings/billing"
-                className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[10px] bg-primary text-[15px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="btn btn-primary btn-lg mt-5 w-full"
               >
                 Get more credits
               </Link>

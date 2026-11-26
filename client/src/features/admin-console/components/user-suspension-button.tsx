@@ -38,7 +38,7 @@ export function UserSuspensionButton({
       <Button
         type="button"
         size="sm"
-        variant={suspended ? "outline" : "destructive"}
+        variant={suspended ? "outline" : "ghost"}
         disabled={pending}
         onClick={() => void toggle()}
         aria-label={suspended ? "Restore account" : "Suspend account"}

@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 import { commit, createHistory, redo, replacePresent, undo, type History } from "../core/history.ts";
 import { projectDuration } from "../core/find.ts";
+import { fitToFootage } from "../core/footage.ts";
 import { type Project, type Result } from "../core/types.ts";
 import { STUDIO_ZOOM } from "../config";
 import { clamp } from "../lib/format";
@@ -42,6 +43,8 @@ interface StudioState {
   load: (id: string, title: string, version: number, project: Project) => void;
   /** Applies an edit as one undo step. Returns the reason it failed, or null. */
   edit: (edit: Edit, key?: string) => string | null;
+  /** Corrects clips that claim more footage than their file really has, once the file's length is known. Not an undo step. */
+  fitFootage: (src: string, seconds: number) => void;
   /** Previews an edit from the drag's starting project without touching history. */
   drag: (edit: Edit) => void;
   endDrag: () => void;
@@ -109,6 +112,13 @@ export const useStudio = create<StudioState>((set, get) => ({
       saveStatus: "pending",
     });
     return null;
+  },
+
+  fitFootage: (src, seconds) => {
+    const { history } = get();
+    const fitted = fitToFootage(history.present, src, seconds);
+    if (fitted === history.present) return;
+    set({ history: replacePresent(history, fitted), saveStatus: "pending", notice: `A clip was shorter than recorded, so it now ends at its last frame (${seconds.toFixed(1)}s of footage).` });
   },
 
   drag: (edit) => {

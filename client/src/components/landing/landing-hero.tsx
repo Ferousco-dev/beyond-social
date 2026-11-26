@@ -1,4 +1,4 @@
-import { Play, Sparkles } from "lucide-react";
+import { Play, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode } from "react";
 
@@ -33,8 +33,9 @@ export function LandingHero(): ReactNode {
               belongs to. Splitting them stops a long announcement reading as
               one grey smear. */}
           <span className="inline-flex items-center gap-2.5 rounded-full border border-hairline bg-paper py-1.5 pl-1.5 pr-4 text-xs">
+            {/* guard-allow: no-black-action-buttons (a label on the landing page, not a button) */}
             <span className="inline-flex items-center gap-1.5 rounded-full bg-ink px-2.5 py-1 text-[11px] font-semibold tracking-wide text-canvas">
-              <Sparkles className="size-3" aria-hidden />
+              <Lightbulb className="size-3" aria-hidden />
               NEW
             </span>
             <span className="text-ink-soft">The prompt engine is live</span>

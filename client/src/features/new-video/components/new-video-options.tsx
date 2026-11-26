@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 
 import { preloadLibrary } from "@/features/asset-library/use-library";
 
@@ -35,7 +36,7 @@ export function NewVideoOptions({
   resumeStage?: "preview" | "analysis";
 }) {
   // Saved people are read now, so Use a saved person opens with them already there.
-  useEffect(() => preloadLibrary(), []);
+  useOnMount(preloadLibrary);
   const [active, setActive] = useState<NewVideoOptionId | null>(initialOption);
 
   function choose(id: NewVideoOptionId): void {
@@ -59,9 +60,10 @@ export function NewVideoOptions({
             <button
               type="button"
               onClick={() => choose(item.id)}
+              data-tour={`new-video-${item.id}`}
               className="group flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-hairline bg-paper text-left transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
-              <span className="block h-24 w-full bg-cloud/70 p-3 sm:h-28">
+              <span className="block h-32 w-full bg-cloud/70 px-3 pt-3 sm:h-40">
                 <CardArt id={item.id} />
               </span>
               <span className="block p-3.5 sm:p-4">

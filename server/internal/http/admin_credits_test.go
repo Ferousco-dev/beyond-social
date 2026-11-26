@@ -13,9 +13,15 @@ import (
 	"github.com/Ferousco-dev/beyond-social/server/internal/secrets"
 )
 
-type fakeCreditAdmin struct{ patched string }
+type fakeCreditAdmin struct {
+	patched string
+	rows    []credits.PriceRow
+}
 
 func (f *fakeCreditAdmin) Prices(context.Context) ([]credits.PriceRow, error) {
+	if f.rows != nil {
+		return f.rows, nil
+	}
 	return []credits.PriceRow{{Action: "discovery_search", Credits: 5, Enabled: true}}, nil
 }
 func (f *fakeCreditAdmin) UpdatePrice(_ context.Context, action string, _ credits.PricePatch, _ string) (credits.PriceRow, error) {
@@ -133,5 +139,29 @@ func TestAdminCreditsAndMyBalance(t *testing.T) {
 	}
 	if res := send(h, http.MethodPut, "/api/v1/admin/providers/kie", adm, `{"value":"good"}`); res.Code != http.StatusNoContent || vault.set != "good" {
 		t.Fatalf("good key: %d set=%q", res.Code, vault.set)
+	}
+}
+
+func TestAPersonSeesWhatEachActionCostsThemButNeverOurCost(t *testing.T) {
+	h := newHarness(t, &fakeRepo{}, fakePinger{})
+	h.deps.CreditAdmin = &fakeCreditAdmin{rows: []credits.PriceRow{
+		{Action: "editor_watch", Unit: "video", CostUSD: 0.01, Credits: 5, Enabled: true},
+		{Action: "autofill", Unit: "message", CostUSD: 0.003, Credits: 1, Enabled: true},
+		{Action: "retired_thing", Unit: "message", CostUSD: 1, Credits: 9, Enabled: false},
+	}}
+	h.rebuild()
+	res := send(h, http.MethodGet, "/api/v1/credits/prices", h.token(t, alice), "")
+	if res.Code != http.StatusOK {
+		t.Fatalf("status %d %s", res.Code, res.Body)
+	}
+	body := res.Body.String()
+	if !strings.Contains(body, `"action":"editor_watch"`) || !strings.Contains(body, `"action":"autofill"`) {
+		t.Fatalf("missing an action: %s", body)
+	}
+	if strings.Contains(body, "retired_thing") || strings.Contains(body, "cost") || strings.Contains(body, "margin") {
+		t.Fatalf("showed a disabled action or our own cost: %s", body)
+	}
+	if res := send(h, http.MethodGet, "/api/v1/credits/prices", "", ""); res.Code != http.StatusUnauthorized {
+		t.Fatalf("signed out got %d", res.Code)
 	}
 }

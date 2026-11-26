@@ -43,6 +43,9 @@ type Summary struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// HasVideo is true once a video clip sits on the timeline: a finished
+	// generation or an uploaded video. Projects list only those.
+	HasVideo bool `json:"has_video"`
 }
 
 type Store interface {

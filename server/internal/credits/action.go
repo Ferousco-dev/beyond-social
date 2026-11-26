@@ -12,6 +12,12 @@ const (
 	ActionEditorWatch    = "editor_watch"
 	ActionStoryboard     = "storyboard"
 	ActionChatMessage    = "chat_message"
+	// ActionAutofill fills the video form, or rewrites its script for a new length.
+	ActionAutofill = "autofill"
+	// ActionPostCaption writes the caption for a post.
+	ActionPostCaption = "post_caption"
+	// ActionScriptWrite writes a talking-avatar script.
+	ActionScriptWrite = "script_write"
 	// ActionVideoEditSecond prices a second of a person's own video changed by the editing model.
 	ActionVideoEditSecond = "video_edit_second"
 )

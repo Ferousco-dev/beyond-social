@@ -28,17 +28,17 @@ export function PackForm({ pack }: { readonly pack: CreditPack | null }): ReactN
     <li className="flex flex-wrap items-end gap-3 p-4">
       <label className="min-w-32 flex-1 text-xs text-ink-soft">
         Name
-        <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} placeholder="Starter" />
+        <Input className="mt-1 h-8 text-[13px]" value={name} onChange={(e) => setName(e.target.value)} placeholder="Starter" />
       </label>
       <label className="w-28 text-xs text-ink-soft">
         Credits
-        <Input className="mt-1" inputMode="numeric" value={credits} onChange={(e) => setCredits(e.target.value)} />
+        <Input className="mt-1 h-8 text-[13px]" inputMode="numeric" value={credits} onChange={(e) => setCredits(e.target.value)} />
       </label>
       <label className="w-28 text-xs text-ink-soft">
         Price (USD)
-        <Input className="mt-1" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} />
+        <Input className="mt-1 h-8 text-[13px]" inputMode="decimal" value={dollars} onChange={(e) => setDollars(e.target.value)} />
       </label>
-      <label className="flex h-11 items-center gap-2 text-sm text-ink">
+      <label className="flex h-8 items-center gap-2 text-[13px] text-ink">
         <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="size-4 accent-primary" />
         For sale
       </label>

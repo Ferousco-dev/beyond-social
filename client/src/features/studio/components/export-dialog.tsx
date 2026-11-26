@@ -1,14 +1,15 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, Download, Loader2, Sparkles } from "lucide-react";
+import { Check, Download, LaptopMinimal, Lightbulb, Loader2, Send } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useId, useMemo, useState, type FormEvent } from "react";
 
 import { PlatformLogo } from "@/components/brand/platform-logo";
 import { Button } from "@/components/ui/button";
 import { listConnections, startConnect } from "@/features/connections/actions";
 import { type SocialStatus } from "@/lib/go-api/schemas";
+import { useLoad } from "@/lib/hooks/use-load";
 import { cn } from "@/lib/utils";
 
 import { detectZone, zonedTimeToUtc } from "../core/zone.ts";
@@ -18,27 +19,27 @@ import { platformList, useExportFlow, type Destination, type Platform } from "..
 import { useStudio } from "../store/editor-store";
 import { ZoneField } from "./zone-field";
 
-const FIELD = "h-11 w-full rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus-visible:border-primary focus-visible:outline-none";
+const FIELD = "h-9 w-full rounded-lg border border-hairline bg-paper px-3 text-sm text-ink focus-visible:border-primary focus-visible:outline-none";
 const MIN_LEAD_MS = 60_000;
 /** Where the connections page sends someone back to after they connect an account. */
 export const CONNECT_RETURN_KEY = "bs:connect-return";
 
 type Accounts = { readonly status: "loading" } | { readonly status: "ready"; readonly list: readonly SocialStatus[] } | { readonly status: "error"; readonly message: string };
 
-/** Where the finished video goes: this computer, or one or more connected accounts, now or later. */
+/** Posts the finished video to connected accounts, now or at the time our AI suggests. Save to laptop sits beside Close. */
 export function ExportDialog() {
   const id = useId();
   const { state, start, cancel, reset } = useExportFlow();
   const title = useStudio((s) => s.title);
   const script = useStudio((s) => s.history.present.generation?.script ?? "");
   const [open, setOpen] = useState(false);
-  const [to, setTo] = useState<"download" | "post">("download");
+  const [to, setTo] = useState<"download" | "post">("post");
+  const [changingTime, setChangingTime] = useState(false);
   const [accounts, setAccounts] = useState<Accounts>({ status: "loading" });
   const [chosen, setChosen] = useState<readonly Platform[]>([]);
   // Each platform has its own words; the one being edited is the first chosen unless picked.
   const [words, setWords] = useState<Partial<Record<Platform, { title: string; caption: string }>>>({});
   const [editing, setEditing] = useState<Platform | null>(null);
-  const [learned, setLearned] = useState<readonly LearnedSlot[]>([]);
   const [writing, setWriting] = useState(false);
   const [captionError, setCaptionError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState<Platform | null>(null);
@@ -46,22 +47,18 @@ export function ExportDialog() {
   const [local, setLocal] = useState("");
   const [zone, setZone] = useState(detectZone);
 
-  // Which accounts can be posted to is known before anything renders, so nobody waits for a render that cannot post.
-  useEffect(() => {
-    if (!open) return;
-    let active = true;
+  /** Loads the accounts, picks the first usable one, and has our AI write its caption, so the person only checks it. */
+  const loadAccounts = (): void => {
     setAccounts({ status: "loading" });
     void listConnections().then((result) => {
-      if (!active) return;
       if (!result.ok) return setAccounts({ status: "error", message: result.message });
       setAccounts({ status: "ready", list: result.list });
       const usable = result.list.filter((a) => a.connected && !a.needs_reconnect).map((a) => a.platform as Platform);
-      setChosen((current) => (current.length > 0 ? current.filter((p) => usable.includes(p)) : usable.slice(0, 1)));
+      const picked = chosen.length > 0 ? chosen.filter((p) => usable.includes(p)) : usable.slice(0, 1);
+      setChosen(picked);
+      if (picked.length > 0 && Object.keys(words).length === 0) void suggest(picked);
     });
-    return () => {
-      active = false;
-    };
-  }, [open]);
+  };
 
   const current: Platform | null = editing && chosen.includes(editing) ? editing : (chosen[0] ?? null);
   const currentWords = current ? (words[current] ?? { title: "", caption: "" }) : { title: "", caption: "" };
@@ -70,20 +67,13 @@ export function ExportDialog() {
     setWords((all) => ({ ...all, [current]: { ...(all[current] ?? { title: "", caption: "" }), ...patch } }));
   };
 
-  // The account's own best hours, learned from what it posted before, for the first account chosen.
-  useEffect(() => {
-    const first = chosen[0];
-    if (!open || !first) return;
-    let active = true;
-    void learnedSlots(first).then((slots) => {
-      if (active) setLearned(slots);
-    });
-    return () => {
-      active = false;
-    };
-  }, [open, chosen]);
+  const firstChosen = chosen[0] ?? null;
+  const slots = useLoad(() => learnedSlots(firstChosen ?? ""), open && firstChosen ? firstChosen : null);
   const now = new Date();
-  const suggestions = useMemo(() => suggestTimes(chosen, zone, new Date(), learned), [chosen, zone, learned]);
+  const suggestions = useMemo(() => {
+    const learned: readonly LearnedSlot[] = slots.status === "done" ? slots.value : [];
+    return suggestTimes(chosen, zone, new Date(), learned);
+  }, [chosen, zone, slots]);
 
   const instant = useMemo(() => (when === "later" && local ? zonedTimeToUtc(local, zone) : null), [when, local, zone]);
   const busy = state.phase === "rendering" || state.phase === "uploading";
@@ -103,9 +93,22 @@ export function ExportDialog() {
     void start(destination);
   };
 
+  const best = suggestions[0] ?? null;
+  const scheduledLabel = best && local === best.local ? suggestionLabel(best, zone, now) : instant ? new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: zone }).format(instant) : "";
+
+  const saveToLaptop = (): void => {
+    if (busy) return;
+    setTo("download");
+    void start({ kind: "download" });
+  };
+
   const onOpenChange = (next: boolean): void => {
     if (!next && busy) return;
     setOpen(next);
+    if (next) {
+      setTo("post");
+      loadAccounts();
+    }
     if (!next && state.phase !== "rendering") reset();
   };
 
@@ -128,15 +131,15 @@ export function ExportDialog() {
     }
   };
 
-  const suggest = async (): Promise<void> => {
+  const suggest = async (platforms: readonly Platform[] = chosen): Promise<void> => {
     setWriting(true);
     setCaptionError(null);
-    const result = await writeCaption([title, script].filter(Boolean).join("\n\n"), chosen);
+    const result = await writeCaption([title, script].filter(Boolean).join("\n\n"), platforms);
     setWriting(false);
     if (!result.ok) return setCaptionError(result.message);
     setWords((all) => {
       const next = { ...all };
-      for (const platform of chosen) {
+      for (const platform of platforms) {
         const got = result.posts[platform];
         if (got) next[platform] = { title: got.title, caption: got.caption };
       }
@@ -155,8 +158,8 @@ export function ExportDialog() {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-ink/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-hairline bg-paper p-5 shadow-xl focus:outline-none">
-          <Dialog.Title className="text-base font-semibold text-ink">Export your video</Dialog.Title>
-          <Dialog.Description className="sr-only">Save it, or post it to your connected accounts.</Dialog.Description>
+          <Dialog.Title className="text-base font-semibold text-ink">Post your video</Dialog.Title>
+          <Dialog.Description className="sr-only">Post it to your connected accounts, or save it to this laptop.</Dialog.Description>
 
           {state.phase === "done" ? (
             <div className="mt-5 space-y-4">
@@ -174,16 +177,6 @@ export function ExportDialog() {
             </div>
           ) : (
             <form onSubmit={submit} className="mt-4 space-y-4">
-              <fieldset disabled={busy} className="grid grid-cols-2 gap-2">
-                <legend className="sr-only">Destination</legend>
-                {([["download", "Save to computer"], ["post", "Post"]] as const).map(([value, text]) => (
-                  <label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-hairline px-3 text-sm text-ink has-[:checked]:border-primary has-[:checked]:bg-cloud">
-                    <input type="radio" name={`${id}-to`} value={value} checked={to === value} onChange={() => setTo(value)} className="sr-only" />
-                    {text}
-                  </label>
-                ))}
-              </fieldset>
-
               {posting ? (
                 <fieldset disabled={busy} className="space-y-4">
                   <div>
@@ -191,7 +184,7 @@ export function ExportDialog() {
                     {accounts.status === "loading" ? (
                       <div className="space-y-2" aria-busy>
                         {[0, 1, 2].map((row) => (
-                          <div key={row} className="h-12 animate-pulse rounded-lg bg-cloud" />
+                          <div key={row} className="h-10 animate-pulse rounded-lg bg-cloud" />
                         ))}
                       </div>
                     ) : accounts.status === "error" ? (
@@ -199,7 +192,7 @@ export function ExportDialog() {
                         {accounts.message}
                       </p>
                     ) : (
-                      <ul className="space-y-2">
+                      <ul className="space-y-1.5">
                         {accounts.list.map((account) => {
                           const platform = account.platform as Platform;
                           const usable = account.connected && !account.needs_reconnect;
@@ -212,7 +205,7 @@ export function ExportDialog() {
                                   aria-pressed={picked}
                                   onClick={() => toggle(platform)}
                                   className={cn(
-                                    "flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-lg border px-3 text-left text-sm transition-colors",
+                                    "flex min-h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-sm transition-colors",
                                     picked ? "border-primary bg-cloud" : "border-hairline hover:bg-cloud/60",
                                   )}
                                 >
@@ -226,7 +219,7 @@ export function ExportDialog() {
                                   </span>
                                 </button>
                               ) : (
-                                <div className="flex min-h-12 items-center gap-3 rounded-lg border border-dashed border-hairline px-3 text-sm">
+                                <div className="flex min-h-10 items-center gap-2.5 rounded-lg border border-dashed border-hairline px-2.5 text-sm">
                                   <PlatformLogo platform={platform} colour={false} className="text-ink-soft" />
                                   <span className="min-w-0 flex-1 text-ink-soft">{account.label}</span>
                                   {account.available ? (
@@ -261,8 +254,8 @@ export function ExportDialog() {
                             aria-selected={current === platform}
                             onClick={() => setEditing(platform)}
                             className={cn(
-                              "h-8 cursor-pointer rounded-lg px-3 text-xs font-medium transition-colors",
-                              current === platform ? "bg-ink text-paper" : "text-ink-soft hover:bg-cloud hover:text-ink",
+                              "h-7 cursor-pointer rounded-md px-2.5 text-xs font-medium transition-colors",
+                              current === platform ? "bg-primary/10 font-medium text-primary" : "text-ink-soft hover:bg-cloud hover:text-ink",
                             )}
                           >
                             {platformList([platform])}
@@ -295,65 +288,59 @@ export function ExportDialog() {
                         disabled={writing}
                         className="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-primary hover:underline disabled:opacity-60"
                       >
-                        {writing ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Sparkles className="size-3.5" aria-hidden />}
-                        {writing ? "Writing…" : currentWords.caption.trim() ? "Write again" : "Write it for me"}
+                        {writing ? <Loader2 className="size-3.5 animate-spin" aria-hidden /> : <Lightbulb className="size-3.5" aria-hidden />}
+                        {writing ? "Writing…" : currentWords.caption.trim() ? "Write again" : "Write caption"}
                       </button>
                     </div>
                     <textarea
                       id={`${id}-caption`}
                       value={currentWords.caption}
-                      rows={4}
+                      rows={3}
                       maxLength={2200}
                       disabled={!current}
                       onChange={(e) => setCurrent({ caption: e.target.value })}
-                      className="field-sizing-content block min-h-24 w-full resize-none rounded-lg border border-hairline bg-paper p-3 text-sm text-ink focus-visible:border-primary focus-visible:outline-none"
+                      placeholder={writing ? "Our AI is writing your caption…" : "Caption"}
+                      className="field-sizing-content block min-h-20 w-full resize-none rounded-lg border border-hairline bg-paper p-3 text-sm text-ink focus-visible:border-primary focus-visible:outline-none"
                     />
                     {captionError ? <p className="mt-1 text-xs text-destructive">{captionError}</p> : null}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="When to post">
-                    {([["now", "Now"], ["later", "Schedule"]] as const).map(([value, text]) => (
-                      <label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-lg border border-hairline text-sm text-ink has-[:checked]:border-primary has-[:checked]:bg-cloud">
-                        <input type="radio" name={`${id}-when`} value={value} checked={when === value} onChange={() => setWhen(value)} className="sr-only" />
-                        {text}
-                      </label>
-                    ))}
-                  </div>
-                  {when === "later" ? (
-                    <>
-                      {suggestions.length > 0 ? (
-                        <div>
-                          <span className="mb-1.5 block text-xs text-ink-soft">
-                            {suggestions[0]?.source === "history" ? "Your best times" : "Good times to post"}
-                          </span>
-                          <div className="flex flex-wrap gap-2">
-                            {suggestions.map((s) => (
-                              <button
-                                key={s.local}
-                                type="button"
-                                aria-pressed={local === s.local}
-                                onClick={() => setLocal(s.local)}
-                                className={cn(
-                                  "h-9 cursor-pointer rounded-full border px-3.5 text-sm transition-colors",
-                                  local === s.local ? "border-primary bg-primary text-primary-foreground" : "border-hairline text-ink hover:bg-cloud",
-                                )}
-                              >
-                                {suggestionLabel(s, zone, now)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : null}
+                  {best ? (
+                    <div className="flex items-center gap-2 rounded-lg bg-cloud px-3 py-2 text-sm">
+                      <Lightbulb className="size-4 shrink-0 text-primary" aria-hidden />
+                      <span className="min-w-0 flex-1 text-ink">
+                        {when === "later" && local
+                          ? <>Scheduled for <span className="font-medium">{scheduledLabel}</span></>
+                          : <>Best time: <span className="font-medium">{suggestionLabel(best, zone, now)}</span></>}
+                      </span>
+                      {when === "later" && local ? (
+                        <>
+                          <button type="button" onClick={() => setChangingTime((v) => !v)} className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                            Change
+                          </button>
+                          <button type="button" onClick={() => { setWhen("now"); setLocal(""); setChangingTime(false); }} className="cursor-pointer text-xs text-ink-soft hover:text-ink">
+                            Post now
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" onClick={() => { setWhen("later"); setLocal(best.local); }} className="btn btn-primary btn-sm h-7 px-2.5 text-xs">
+                          Approve
+                        </button>
+                      )}
+                    </div>
+                  ) : null}
+                  {when === "later" && (changingTime || !best) ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
                       <div>
                         <label htmlFor={`${id}-at`} className="mb-1 block text-xs text-ink-soft">
                           Date and time
                         </label>
                         <input id={`${id}-at`} type="datetime-local" value={local} onChange={(e) => setLocal(e.target.value)} className={FIELD} />
                       </div>
-                      <ZoneField id={`${id}-zone`} zone={zone} onChange={setZone} label="Where your audience is (time zone)" />
-                      {scheduleError && local ? <p className="text-xs text-destructive">{scheduleError}</p> : null}
-                    </>
+                      <ZoneField id={`${id}-zone`} zone={zone} onChange={setZone} label="Time zone" />
+                    </div>
                   ) : null}
+                  {when === "later" && scheduleError && local ? <p className="text-xs text-destructive">{scheduleError}</p> : null}
                 </fieldset>
               ) : null}
 
@@ -363,9 +350,9 @@ export function ExportDialog() {
                 </p>
               ) : null}
 
-              <div className="flex justify-end gap-2">
+              <div className="flex items-center gap-2">
                 {busy ? (
-                  <Button type="button" variant="outline" size="sm" onClick={cancel}>
+                  <Button type="button" variant="outline" size="sm" onClick={cancel} className="ml-auto">
                     {state.phase === "rendering" ? `${Math.round(state.progress * 100)}% · Cancel` : "Uploading…"}
                   </Button>
                 ) : (
@@ -373,7 +360,12 @@ export function ExportDialog() {
                     <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)}>
                       Close
                     </Button>
-                    <Button type="submit" size="sm" disabled={!ready}>
+                    <Button type="button" variant="outline" size="sm" onClick={saveToLaptop}>
+                      <LaptopMinimal aria-hidden />
+                      Save to laptop
+                    </Button>
+                    <Button type="submit" size="sm" disabled={!ready} className="ml-auto">
+                      <Send aria-hidden />
                       {label}
                     </Button>
                   </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ExternalLink, Lightbulb } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 
@@ -80,9 +80,9 @@ export function PostDetail({ post }: { post: DiscoverPost }) {
       <div className="flex flex-col gap-2">
         <Link
           href={`/dashboard/new?option=link&link=${encodeURIComponent(post.url)}` as Route}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="btn btn-primary btn-md"
         >
-          <Sparkles className="size-3.5" aria-hidden />
+          <Lightbulb className="size-3.5" aria-hidden />
           Make one like this
         </Link>
 

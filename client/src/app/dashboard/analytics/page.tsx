@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import Link from "next/link";
 import { type ReactNode } from "react";
+import { EmptyScreen } from "@/components/ui/empty-art";
 
 import { getPostMetrics, getRecentMetrics, type MetricsPoint, type MetricsResult } from "@/features/analytics/actions";
 import { BarList, Sparkline, ViewsChart, type DayPoint } from "@/features/analytics/components/views-chart";
@@ -105,7 +106,7 @@ export default async function AnalyticsPage(): Promise<ReactNode> {
             ["Views", totals.views.toLocaleString()],
             ["Likes", totals.likes.toLocaleString()],
             ["Comments", totals.comments.toLocaleString()],
-            ["Engagement", engagement === null ? "—" : `${engagement.toFixed(1)}%`],
+            ["Engagement", engagement === null ? "-" : `${engagement.toFixed(1)}%`],
           ] as const
         ).map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-hairline bg-paper p-4">
@@ -141,12 +142,16 @@ export default async function AnalyticsPage(): Promise<ReactNode> {
       ) : null}
 
       {cards.length === 0 ? (
-        <p className="mt-6 text-sm text-ink-soft">
-          Nothing published yet. Metrics appear here after the first post.{" "}
-          <Link href="/dashboard/new" className="font-medium text-primary underline-offset-2 hover:underline">
-            Make a video
-          </Link>
-        </p>
+        <EmptyScreen
+          art="analytics"
+          title="Nothing published yet"
+          body="Views, likes and engagement appear here after your first post."
+          action={
+            <Link href="/dashboard/new" className="btn btn-primary btn-md">
+              Make a video
+            </Link>
+          }
+        />
       ) : (
         <>
         <h2 className="mt-8 text-sm font-semibold text-ink">All published videos</h2>

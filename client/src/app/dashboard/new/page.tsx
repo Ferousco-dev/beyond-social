@@ -24,7 +24,7 @@ export default async function NewVideoPage({
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:py-10">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">New Video</h1>
       <ContinueDraft variant="start" />
-      <div data-tip-anchor="new-video-options">
+      <div>
         <NewVideoOptions
           // A real navigation here (a sidebar draft, a shared link) starts the panel afresh.
           key={`${option ?? ""}|${link ?? ""}|${job ?? ""}|${stage ?? ""}`}

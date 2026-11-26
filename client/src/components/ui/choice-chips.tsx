@@ -11,11 +11,16 @@ export function Chip({
   selected,
   onClick,
   disabled,
+  small,
+  title,
   children,
 }: {
   selected: boolean;
   onClick: () => void;
   disabled?: boolean;
+  /** A tighter chip for dense rows. */
+  small?: boolean;
+  title?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -24,9 +29,11 @@ export function Chip({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={selected}
+      title={title}
       className={cn(
         chipClass,
-        selected ? "border-ink bg-ink font-medium text-paper" : "border-hairline bg-paper text-ink hover:bg-cloud",
+        small && "min-h-7 px-2.5 text-xs",
+        selected ? "border-primary bg-primary/10 font-medium text-primary" : "border-hairline bg-paper text-ink hover:bg-cloud",
       )}
     >
       {children}
@@ -103,7 +110,7 @@ export function ChoiceChips({
             placeholder={customPlaceholder}
             maxLength={200}
             disabled={disabled}
-            className="h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary disabled:opacity-70"
+            className="h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5 disabled:opacity-70"
           />
         </>
       ) : null}

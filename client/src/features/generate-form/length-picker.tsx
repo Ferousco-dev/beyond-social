@@ -1,12 +1,6 @@
 "use client";
 
-import { Coins } from "lucide-react";
-
-import { Chip } from "@/components/ui/choice-chips";
-
 import {
-  LENGTHS,
-  LONG_LENGTHS,
   MAX_VIDEO_SECONDS,
   fits,
   maxWords,
@@ -16,52 +10,6 @@ import {
   type Length,
   type LongLength,
 } from "./pacing";
-import { useSceneQuotes } from "./scene-quotes";
-
-const label = (length: number): string => (length >= 60 ? `${length / 60} min` : `${length}s`);
-
-/**
- * One row of lengths, short to long. The model renders 15 seconds at most, so
- * anything longer is joined from clips automatically; the person only picks a
- * length. What it costs, and how it is made, is said once for the chosen one.
- */
-export function LengthPicker({
-  value,
-  onChange,
-  spoken,
-  withLong = true,
-}: {
-  value: Length | LongLength;
-  onChange: (length: Length | LongLength) => void;
-  spoken: string;
-  /** Offer lengths past one clip. Off where the result must be a single clip. */
-  withLong?: boolean;
-}) {
-  // Spoken words turn sound on, which the provider charges more for, so the price follows it.
-  const quotes = useSceneQuotes(spoken.trim() !== "");
-  const options: readonly (Length | LongLength)[] = withLong ? [...LENGTHS, ...LONG_LENGTHS] : LENGTHS;
-  const credits = quotes[value];
-
-  return (
-    <div className="flex flex-col gap-2" role="group" aria-label="Video length">
-      <span className="text-sm font-medium text-ink">Video length</span>
-      <div className="flex flex-wrap gap-2">
-        {options.map((length) => (
-          <Chip key={length} selected={value === length} onClick={() => onChange(length)}>
-            <span className="tabular-nums">{label(length)}</span>
-          </Chip>
-        ))}
-      </div>
-      {credits === null ? null : (
-        <p className="inline-flex items-center gap-1.5 text-xs text-ink-soft" role="status">
-          <Coins className="size-3.5" aria-hidden />
-          {credits === undefined ? "…" : `${credits} credits`}
-        </p>
-      )}
-      <PacingNote spoken={spoken} seconds={value} onPick={onChange} />
-    </div>
-  );
-}
 
 /** Says whether the words fit, and how to make them fit when they do not. */
 export function PacingNote({

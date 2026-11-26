@@ -43,12 +43,17 @@ func (a *App) composeBrief(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have filled the form many times this hour; fill it in yourself or try again later")
 		return
 	}
+	charge, ok := a.reserveFor(w, r, identity.UserID, a.deps.AutofillBiller)
+	if !ok {
+		return
+	}
 	brief, err := a.deps.Autofill.Fill(r.Context(), identity.UserID, req.Idea, req.Seconds)
+	a.settleFor(r, identity.UserID, a.deps.AutofillBiller, charge, err == nil)
 	switch {
 	case errors.Is(err, autofill.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "invalid_request", "describe the video in a sentence or two")
 	case errors.Is(err, autofill.ErrUnavailable):
-		writeError(w, http.StatusBadGateway, "provider_unavailable", "our AI could not fill it in right now; try again or fill it in yourself")
+		writeError(w, http.StatusBadGateway, "provider_unavailable", "our AI could not fill it in right now; you were not charged")
 	case err != nil:
 		writeInternal(w, r, err)
 	default:
@@ -83,12 +88,17 @@ func (a *App) composeCaption(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusTooManyRequests, "too_many_requests", "you have asked our AI many times this hour; write the caption yourself or try again later")
 		return
 	}
+	charge, ok := a.reserveFor(w, r, identity.UserID, a.deps.CaptionWriteBiller)
+	if !ok {
+		return
+	}
 	posts, err := a.deps.Autofill.Captions(r.Context(), req.About, req.Platforms)
+	a.settleFor(r, identity.UserID, a.deps.CaptionWriteBiller, charge, err == nil)
 	switch {
 	case errors.Is(err, autofill.ErrInvalid):
 		writeError(w, http.StatusBadRequest, "invalid_request", "say what the video is about and choose a platform")
 	case errors.Is(err, autofill.ErrUnavailable):
-		writeError(w, http.StatusBadGateway, "provider_unavailable", "our AI could not write a caption right now; write it yourself or try again")
+		writeError(w, http.StatusBadGateway, "provider_unavailable", "our AI could not write a caption right now; you were not charged")
 	case err != nil:
 		writeInternal(w, r, err)
 	default:

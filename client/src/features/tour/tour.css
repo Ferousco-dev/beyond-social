@@ -1,0 +1,213 @@
+/*
+ * The guided tour's card, in the app's own colours.
+ *
+ * driver.js draws the dim layer and the spotlight; this file restyles its card
+ * and draws the mouse pointer that shows where to tap.
+ */
+
+.driver-popover.bs-tour {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  padding: 16px 16px 14px;
+  min-width: 260px;
+  max-width: 320px;
+  box-shadow: 0 18px 48px -12px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.08);
+  font-family: inherit;
+}
+
+.bs-tour .driver-popover-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.bs-tour .driver-popover-description {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.bs-tour .driver-popover-footer {
+  margin-top: 14px;
+  gap: 8px;
+}
+
+.bs-tour .bs-tour-lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.bs-tour .bs-tour-count {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.bs-tour .bs-tour-skip {
+  all: unset;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.bs-tour .bs-tour-skip:hover,
+.bs-tour .bs-tour-skip:focus-visible {
+  color: var(--ink);
+}
+
+.bs-tour .driver-popover-navigation-btns {
+  flex-grow: 0;
+  gap: 6px;
+}
+
+.bs-tour .driver-popover-navigation-btns button + button {
+  margin-left: 0;
+}
+
+.bs-tour .driver-popover-footer-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 32px;
+  text-shadow: none;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  color: var(--ink);
+  transition: background-color 150ms ease, opacity 150ms ease;
+}
+
+.bs-tour .driver-popover-footer-btn:hover {
+  background: var(--cloud);
+}
+
+.bs-tour .driver-popover-next-btn {
+  border-color: color-mix(in srgb, var(--primary) 82%, black);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 88%, white) 0%, var(--primary) 100%);
+  color: #fff;
+  font-weight: 600;
+}
+
+.bs-tour .driver-popover-next-btn:hover {
+  background: var(--primary);
+}
+
+.bs-tour .driver-popover-footer-btn:focus-visible,
+.bs-tour .bs-tour-skip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* The card's arrow, in the card's colour. */
+.bs-tour .driver-popover-arrow {
+  border-width: 7px;
+  border-color: var(--paper);
+}
+.bs-tour .driver-popover-arrow-side-left {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-right-color: transparent;
+}
+.bs-tour .driver-popover-arrow-side-right {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+}
+.bs-tour .driver-popover-arrow-side-top {
+  border-bottom-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+.bs-tour .driver-popover-arrow-side-bottom {
+  border-top-color: transparent;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+/* The mouse pointer: glides in, clicks, and does it again. */
+.bs-tour-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000000001;
+  pointer-events: none;
+}
+.bs-tour-cursor-pointer {
+  position: absolute;
+  left: -6px;
+  top: -3px;
+  display: block;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35));
+  animation: bs-tour-cursor-move 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+.bs-tour-cursor-ring {
+  position: absolute;
+  left: -14px;
+  top: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  opacity: 0;
+  animation: bs-tour-cursor-click 2.6s ease-out infinite;
+}
+
+@keyframes bs-tour-cursor-move {
+  0% {
+    transform: translate(46px, 38px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(0, 0) scale(1);
+  }
+  52% {
+    transform: translate(0, 0) scale(0.86);
+  }
+  60% {
+    transform: translate(0, 0) scale(1);
+  }
+  88% {
+    transform: translate(0, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+}
+@keyframes bs-tour-cursor-click {
+  0%,
+  50% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  54% {
+    opacity: 0.9;
+  }
+  80% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bs-tour-cursor-pointer,
+  .bs-tour-cursor-ring {
+    animation: none;
+  }
+}

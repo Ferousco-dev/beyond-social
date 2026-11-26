@@ -15,7 +15,7 @@ export default function NewVideoLoading(): ReactNode {
         {NEW_VIDEO_OPTIONS.map((item) => (
           <li key={item.id}>
             <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-hairline bg-paper text-left">
-              <span className="block h-24 w-full bg-cloud/70 p-3 sm:h-28">
+              <span className="block h-32 w-full bg-cloud/70 px-3 pt-3 sm:h-40">
                 <CardArt id={item.id} />
               </span>
               <span className="block p-3.5 sm:p-4">

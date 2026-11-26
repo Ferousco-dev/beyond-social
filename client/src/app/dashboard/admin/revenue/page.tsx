@@ -101,7 +101,7 @@ export default async function AdminRevenuePage({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Revenue</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-ink">Revenue</h1>
       <p className="mt-1 text-sm text-ink-soft">Recorded receipts, refunds, and estimated generation costs. Stripe remains the book of record.</p>
 
       <form method="get" className="mt-5 flex flex-wrap items-end gap-3">
@@ -115,7 +115,7 @@ export default async function AdminRevenuePage({
             <Select id="currency" name="currency" defaultValue={code} className="w-auto min-w-28" options={currencies.map((item) => ({ value: item, label: item.toUpperCase() }))} />
           </div>
         ) : null}
-        <button type="submit" className="min-h-11 rounded-lg border border-input px-4 text-sm font-medium text-ink hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">Apply</button>
+        <button type="submit" className="btn btn-secondary btn-sm">Apply</button>
       </form>
 
       <dl className="mt-6 grid divide-y divide-hairline border-y border-hairline sm:grid-cols-4 sm:divide-x sm:divide-y-0">

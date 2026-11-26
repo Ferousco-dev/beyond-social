@@ -178,3 +178,5 @@ export const monitoringSnapshotResponse = z.object({
     recentFailures: z.array(z.object({ source: z.string(), name: z.string(), message: z.string(), at: z.string() })),
   }),
 });
+
+export const alertEmailResponse = z.object({ data: z.object({ email: z.string() }) });

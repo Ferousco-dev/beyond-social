@@ -3,6 +3,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useState, type ReactNode } from "react";
 import { FolderPlus, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { EmptyScreen } from "@/components/ui/empty-art";
 
 import { cn } from "@/lib/utils";
 
@@ -78,7 +79,7 @@ export function AssetLibrary({ initial, initialGroups = [] }: { initial: readonl
           <button
             type="button"
             onClick={() => setNaming(true)}
-            className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-hairline px-3 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-primary"
+            className="btn btn-secondary btn-md"
           >
             <FolderPlus className="size-4" aria-hidden />
             New group
@@ -87,7 +88,7 @@ export function AssetLibrary({ initial, initialGroups = [] }: { initial: readonl
             <button
               type="button"
               onClick={() => setAdding({ groupId: null })}
-              className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] bg-ink px-3.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              className="btn btn-primary btn-md"
             >
               <Plus className="size-4" aria-hidden />
               {addLabel}
@@ -285,12 +286,12 @@ function GroupNameForm({
         autoFocus
         aria-label="Group name"
         placeholder="A person or product, e.g. Ada or Glow serum"
-        className="h-9 min-w-0 flex-1 rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        className="h-9 min-w-0 flex-1 rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
       />
       <button
         type="submit"
         disabled={clean === "" || busy}
-        className="inline-flex h-9 cursor-pointer items-center rounded-[10px] bg-ink px-3.5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn btn-primary btn-md"
       >
         {submitLabel}
       </button>
@@ -304,19 +305,16 @@ function GroupNameForm({
 function EmptyState({ tab, onAdd }: { tab: Tab; onAdd: () => void }) {
   const meta = tab === "all" ? null : KIND_META[tab];
   return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-hairline px-6 py-14 text-center">
-      <p className="text-sm font-medium text-ink">{meta ? `No ${meta.plural.toLowerCase()} yet` : "Your library is empty"}</p>
-      <p className="max-w-sm text-sm text-ink-soft">
-        {meta ? meta.hint : "Add faces, voices, products and places, and group them by person or product to pick them together."}
-      </p>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-1 inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] border border-hairline px-3.5 text-sm font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-primary"
-      >
-        <Plus className="size-4" aria-hidden />
-        {meta && tab !== "other" ? `Add a ${meta.singular}` : "Add an asset"}
-      </button>
-    </div>
+    <EmptyScreen
+      art="assets"
+      title={meta ? `No ${meta.plural.toLowerCase()} yet` : "Your library is empty"}
+      body={meta ? meta.hint : "Add faces, voices, products and places, and group them by person or product to pick them together."}
+      action={
+        <button type="button" onClick={onAdd} className="btn btn-primary btn-md">
+          <Plus aria-hidden />
+          {meta && tab !== "other" ? `Add a ${meta.singular}` : "Add an asset"}
+        </button>
+      }
+    />
   );
 }

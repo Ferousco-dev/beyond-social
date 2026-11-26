@@ -115,7 +115,7 @@ export function Timeline() {
   rows.sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind));
 
   return (
-    <section aria-label="Timeline" data-tip-anchor="studio-timeline" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
+    <section aria-label="Timeline" data-tour="studio-timeline" className="flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-hairline bg-paper">
       <TimelineToolbar />
       <div className="relative min-h-0 flex-1 overflow-auto">
         <div className="flex min-h-full min-w-max">

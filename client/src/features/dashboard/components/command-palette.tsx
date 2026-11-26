@@ -2,7 +2,6 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import {
-  Clapperboard,
   CornerDownLeft,
   PenSquare,
   Search,
@@ -12,13 +11,13 @@ import {
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
 import {
-  useEffect,
   useMemo,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 
+import { useWindowEvent } from "@/lib/hooks/use-event";
 import { cn } from "@/lib/utils";
 
 type Group = "Actions" | "Navigation";
@@ -42,15 +41,8 @@ const STATIC_ITEMS: Item[] = [
     hint: "N",
   },
   {
-    id: "new-video",
-    label: "Generate a video",
-    group: "Actions",
-    icon: Clapperboard,
-    href: "/dashboard/new" as Route,
-  },
-  {
     id: "trends",
-    label: "Trends",
+    label: "Discover",
     group: "Navigation",
     icon: TrendingUp,
     href: "/dashboard/trends" as Route,
@@ -80,18 +72,12 @@ export function CommandPalette({
     return value ? all.filter((item) => item.label.toLowerCase().includes(value)) : all;
   }, [query]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setOpen(true);
-      }
+  useWindowEvent("keydown", (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      setOpen(true);
     }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => setActiveIndex(0), [query]);
+  });
 
   const run = (item: Item): void => {
     setOpen(false);
@@ -134,7 +120,10 @@ export function CommandPalette({
             <input
               autoFocus
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActiveIndex(0);
+              }}
               onKeyDown={onInputKeyDown}
               placeholder="Type a command or search chats..."
               aria-label="Command palette"

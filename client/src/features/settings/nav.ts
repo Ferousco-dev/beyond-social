@@ -1,4 +1,4 @@
-import { Brain, CreditCard, Palette, Share2, UserRound, type LucideIcon } from "lucide-react";
+import { Bell, Coins, CreditCard, Share2, UserRound, type LucideIcon } from "lucide-react";
 
 /**
  * The settings sections. One list, used by both the hub cards and the section
@@ -35,21 +35,21 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: CreditCard,
   },
   {
+    href: "/dashboard/settings/credits",
+    label: "What things cost",
+    description: "How many credits each action takes, from a search to a finished video.",
+    icon: Coins,
+  },
+  {
     href: "/dashboard/settings/connections",
     label: "Connections",
     description: "The TikTok, Instagram, and YouTube accounts you publish to.",
     icon: Share2,
   },
   {
-    href: "/dashboard/settings/memory",
-    label: "Memory",
-    description: "What the assistant remembers about you, and the switch to turn it off.",
-    icon: Brain,
-  },
-  {
-    href: "/dashboard/settings/appearance",
-    label: "Appearance",
-    description: "Light, dark, or follow your system.",
-    icon: Palette,
+    href: "/dashboard/settings/notifications",
+    label: "Notifications",
+    description: "Emails we send when your videos are ready.",
+    icon: Bell,
   },
 ];

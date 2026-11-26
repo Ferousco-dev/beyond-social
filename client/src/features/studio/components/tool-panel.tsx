@@ -30,7 +30,7 @@ export function ToolPanel(): ReactNode {
   const active = TOOLS.find((t) => t.id === tool) ?? TOOLS[0]!;
 
   return (
-    <section aria-label="Tools" data-tip-anchor="studio-tools" className="flex h-full min-h-0 overflow-hidden rounded-md border border-hairline bg-paper">
+    <section aria-label="Tools" data-tour="studio-tools" className="flex h-full min-h-0 overflow-hidden rounded-md border border-hairline bg-paper">
       <nav aria-label="Tool" className="flex w-11 shrink-0 flex-col items-center gap-1 border-r border-hairline py-2">
         {TOOLS.map(({ id, label, Icon }) => (
           <button

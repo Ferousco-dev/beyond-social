@@ -1,22 +1,22 @@
 "use client";
 
-import { Activity, AlertTriangle, BookOpen, Coins, Cpu, CreditCard, LineChart, KeyRound, ListChecks, Newspaper, Users } from "lucide-react";
+import { Activity, AlertTriangle, Coins, Cpu, CreditCard, House, KeyRound, Newspaper, Users } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { type Route } from "next";
 
 const SECTIONS: ReadonlyArray<{ href: Route; label: string; icon: typeof Users }> = [
-  { href: "/dashboard/admin/setup" as Route, label: "Setup", icon: ListChecks },
+  { href: "/dashboard/admin" as Route, label: "Home", icon: House },
   { href: "/dashboard/admin/users", label: "Users", icon: Users },
   { href: "/dashboard/admin/pricing" as Route, label: "Pricing", icon: Coins },
-  { href: "/dashboard/admin/revenue" as Route, label: "Revenue", icon: LineChart },
+  // Revenue is hidden until its costs come from real provider bills; the page is kept for then.
+  // { href: "/dashboard/admin/revenue" as Route, label: "Revenue", icon: LineChart },
   { href: "/dashboard/admin/spend" as Route, label: "AI spend", icon: Cpu },
   { href: "/dashboard/admin/packs" as Route, label: "Credit packs", icon: CreditCard },
   { href: "/dashboard/admin/providers" as Route, label: "Provider keys", icon: KeyRound },
   { href: "/dashboard/admin/alerts" as Route, label: "Alerts", icon: AlertTriangle },
   { href: "/dashboard/admin/monitoring" as Route, label: "Monitoring", icon: Activity },
   { href: "/dashboard/admin/blog" as Route, label: "Blog", icon: Newspaper },
-  { href: "/dashboard/admin/docs" as Route, label: "Docs", icon: BookOpen },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -30,7 +30,7 @@ export function AdminNav() {
   return (
     <nav
       aria-label="Admin sections"
-      className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:w-52 lg:shrink-0 lg:self-start lg:overflow-y-auto"
+      className="lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:w-56 lg:shrink-0 lg:self-start lg:overflow-y-auto"
     >
       <div className="scrollbar-none -mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:gap-0.5 lg:overflow-visible lg:px-0 lg:pb-0">
         {SECTIONS.map(({ href, label, icon: Icon }) => {
@@ -45,7 +45,7 @@ export function AdminNav() {
               // text-canvas" pill this used to be was heavier than every
               // other section nav in the app, so Admin was the one place
               // that looked like a different product.
-              className={`inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-full lg:rounded-lg lg:px-3 lg:py-2 ${
+              className={`inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary lg:w-full ${
                 active
                   ? "bg-cloud font-medium text-ink"
                   : "text-ink-soft hover:bg-cloud/60 hover:text-ink"

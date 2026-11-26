@@ -69,6 +69,17 @@ func (n *Notifier) VideoReady(userID string) {
 	})
 }
 
+// VideoFailed tells someone their video could not be made and that the credits it held are back.
+func (n *Notifier) VideoFailed(userID string) {
+	n.send(userID, letter{
+		subject: "Your video could not be made",
+		heading: "Your video could not be made",
+		body:    []string{"Something went wrong while generating your video. The credits it used are back in your balance.", "Open the editor to try again."},
+		button:  "Try again",
+		path:    "/dashboard/projects",
+	})
+}
+
 // LimitReached tells a Pro member a usage limit is full and when it refills.
 func (n *Notifier) LimitReached(userID, window string, resetsAt time.Time) {
 	name := "five hour session"

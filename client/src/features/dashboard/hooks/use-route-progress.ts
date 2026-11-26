@@ -1,7 +1,10 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+import { useDocumentEvent } from "@/lib/hooks/use-event";
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 /** Held briefly at the end so a fast navigation still reads as a completed pass. */
 const SETTLE_MS = 220;
@@ -37,30 +40,26 @@ export function useRouteProgress(): RouteProgress {
   const pathname = usePathname();
   const [navigating, setNavigating] = useState(false);
 
-  useEffect(() => {
-    const onClick = (event: MouseEvent): void => {
+  useDocumentEvent(
+    "click",
+    (event) => {
       if (isInternalNavigation(event)) setNavigating(true);
-    };
-    // Capture phase: Link calls preventDefault in its own handler, which would
-    // otherwise run first and make every navigation look cancelled.
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, []);
+    },
+    true,
+  );
 
-  // The new pathname means the destination has rendered.
-  useEffect(() => {
-    setNavigating(false);
-  }, [pathname]);
-
+  const [seenPath, setSeenPath] = useState(pathname);
   const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    if (navigating) {
-      setVisible(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setVisible(false), SETTLE_MS);
-    return () => window.clearTimeout(timer);
-  }, [navigating]);
+  const [wasNavigating, setWasNavigating] = useState(navigating);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    setNavigating(false);
+  }
+  if (wasNavigating !== navigating) {
+    setWasNavigating(navigating);
+    if (navigating) setVisible(true);
+  }
+  useTimeout(() => setVisible(false), !navigating && visible ? SETTLE_MS : null, navigating);
 
   return { navigating, visible };
 }

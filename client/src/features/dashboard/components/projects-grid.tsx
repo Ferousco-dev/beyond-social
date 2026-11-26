@@ -2,11 +2,12 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { Film, MoreHorizontal, Plus } from "lucide-react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { type Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { EmptyArt, EmptyScreen } from "@/components/ui/empty-art";
 
 import { deferWithUndo } from "@/components/ui/undo-toast";
 
@@ -74,8 +75,8 @@ function ProjectCard({ project }: { project: ProjectCardItem }): ReactNode {
         href={`/editor/${project.id}` as Route}
         className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <div className="flex aspect-video w-full items-center justify-center bg-cloud/70 text-ink-soft transition-colors group-hover:bg-cloud group-hover:text-ink">
-          <Film className="size-8 stroke-[1.5]" aria-hidden />
+        <div className="flex aspect-video w-full items-center justify-center bg-cloud/60 px-10 transition-colors group-hover:bg-cloud">
+          <EmptyArt name="video" className="max-w-[140px] transition-transform duration-300 group-hover:scale-[1.04]" />
         </div>
         <div className="px-3.5 py-3 pr-10">
           <p className="truncate text-sm font-medium text-ink">{shownTitle}</p>
@@ -153,7 +154,7 @@ function ProjectCard({ project }: { project: ProjectCardItem }): ReactNode {
                 <button
                   type="submit"
                   disabled={draft.trim() === ""}
-                  className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-paper disabled:cursor-not-allowed disabled:opacity-50"
+                  className="btn btn-primary btn-md"
                 >
                   Save name
                 </button>
@@ -169,16 +170,17 @@ function ProjectCard({ project }: { project: ProjectCardItem }): ReactNode {
 export function ProjectsGrid({ projects }: { projects: readonly ProjectCardItem[] }): ReactNode {
   if (projects.length === 0) {
     return (
-      <div className="mt-6 flex flex-col items-start gap-3 rounded-xl border border-hairline bg-paper p-6">
-        <p className="text-sm text-ink-soft">No projects yet. Create a video to start editing.</p>
-        <Link
-          href="/dashboard/new"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
-        >
-          <Plus className="size-4" aria-hidden />
-          New video
-        </Link>
-      </div>
+      <EmptyScreen
+        art="projects"
+        title="No projects yet"
+        body="Every video you make is saved here, ready to edit."
+        action={
+          <Link href="/dashboard/new" className="btn btn-primary btn-md">
+            <Plus aria-hidden />
+            New video
+          </Link>
+        }
+      />
     );
   }
 

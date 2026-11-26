@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Sparkles } from "lucide-react";
+import { ExternalLink, Lightbulb } from "lucide-react";
 
 import { instagramEmbedUrl } from "@/lib/instagram/url";
 import { tikTokEmbedUrl } from "@/lib/tiktok/url";
@@ -37,9 +37,9 @@ export function ReferencePreview({
       <button
         type="button"
         onClick={() => onUse(post.url)}
-        className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="btn btn-primary btn-md"
       >
-        <Sparkles className="size-4" aria-hidden />
+        <Lightbulb className="size-4" aria-hidden />
         Use this video
       </button>
       {post.viewCount !== null ? <p className="text-xs text-ink-soft">{formatViews(post.viewCount)} views</p> : null}

@@ -1,9 +1,11 @@
+import { ArrowLeft } from "lucide-react";
 import { type Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type ReactNode } from "react";
 import { z } from "zod";
 
+import { Avatar } from "@/components/ui/avatar";
 import { ADMIN_PAGE_SIZE, Pager, pageNumber, pageOffset } from "@/features/admin/components/pager";
 import { AdjustCreditsForm } from "@/features/admin-console/components/adjust-credits-form";
 import { adminUserDetailResponse, userLedgerResponse } from "@/lib/go-api/admin-schemas";
@@ -32,13 +34,22 @@ export default async function AdminUserPage({ params, searchParams }: { params: 
 
   return (
     <div>
-      <Link href="/dashboard/admin/users" className="text-sm text-ink-soft hover:text-ink">
-        Back to users
+      <Link
+        href="/dashboard/admin/users"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-hairline bg-paper pl-2.5 pr-3.5 text-xs font-medium text-ink transition-colors hover:bg-cloud"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden />
+        Users
       </Link>
-      <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink">{account.name || account.email}</h1>
-      <p className="mt-1 text-sm text-ink-soft">{account.email}</p>
+      <div className="mt-5 flex items-center gap-3">
+        <Avatar name={account.name} email={account.email} className="size-11 text-sm" />
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold tracking-tight text-ink">{account.name || account.email}</h1>
+          <p className="truncate text-sm text-ink-soft">{account.email}</p>
+        </div>
+      </div>
 
-      <dl className="mt-6 grid gap-x-8 border-y border-hairline sm:grid-cols-2">
+      <dl className="mt-6 grid gap-x-8 rounded-xl border border-hairline bg-paper px-4 sm:grid-cols-2">
         {[
           ["Account status", account.accountStatus],
           ["Phone", account.phone || "Not provided"],
@@ -52,9 +63,9 @@ export default async function AdminUserPage({ params, searchParams }: { params: 
           ["Remaining credits", `${account.creditBalance.toLocaleString("en-US")} credits`],
           ["Usage points", `${account.fiveHourPoints} in 5 hours · ${account.weeklyPoints} this week`],
         ].map(([label, value]) => (
-          <div key={label} className="flex justify-between gap-4 border-b border-hairline py-3 text-sm last:border-b-0 sm:odd:pr-4">
+          <div key={label} className="flex justify-between gap-4 border-b border-hairline py-2.5 text-[13px] last:border-b-0 sm:odd:pr-4">
             <dt className="text-ink-soft">{label}</dt>
-            <dd className="text-right font-medium capitalize text-ink">{value}</dd>
+            <dd className="text-right font-medium text-ink first-letter:uppercase">{value}</dd>
           </div>
         ))}
       </dl>

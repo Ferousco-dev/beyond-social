@@ -1,12 +1,16 @@
 "use client";
 
 import { type Route } from "next";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { useOnline } from "@/hooks/use-online";
+import { creditsChanged } from "@/features/billing/live-balance";
+import { useLoad } from "@/lib/hooks/use-load";
 import { createEditorProject } from "@/features/studio/actions";
 import { fitGeneration } from "@/features/studio/core/fit-generation.ts";
+
+import { emailWhenReady } from "@/features/settings/preferences";
 
 import { buildAvatarScript } from "./brief";
 import { clearDraft } from "./draft";
@@ -31,12 +35,10 @@ export function StepReview({
   onChange: (patch: Partial<GenerateFormValues>) => void;
 }) {
   const router = useRouter();
-  const [credits, setCredits] = useState<number | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [shortOpen, setShortOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [quoteAttempt, setQuoteAttempt] = useState(0);
   const kind = videoKind(values);
   const prompt = scriptOf(values);
@@ -51,36 +53,26 @@ export function StepReview({
   const quoteKey = kind === "clip" ? `clip:${values.seconds}:${clipSound(values)}` : prompt;
 
   const online = useOnline();
+
+  const quote = useLoad(() => quoteGeneration(values), missingWords ? null : `${quoteAttempt}:${quoteKey}`);
+  const credits = quote.status === "done" ? quote.value : null;
+  const quoteError =
+    quote.status === "failed"
+      ? "Something went wrong while checking the cost. Please try again."
+      : quote.status === "done" && quote.value === null
+        ? "Could not estimate the generation cost. Please try again."
+        : null;
   // Said at the value moment, before a click that could only fail: the cost is known and so is the balance.
   const short = balance !== null && credits !== null && credits > balance;
-
-  useEffect(() => {
-    let cancelled = false;
-    setCredits(null);
-    setQuoteError(null);
-    if (missingWords) return;
-    void quoteGeneration(values)
-      .then((cost) => {
-        if (cancelled) return;
-        setCredits(cost);
-        if (cost === null) setQuoteError("Could not estimate the generation cost. Please try again.");
-      })
-      .catch(() => {
-        if (!cancelled) setQuoteError("Something went wrong while checking the cost. Please try again.");
-      });
-    return () => {
-      cancelled = true;
-    };
-    // values is read through quoteKey; re-quoting on every keystroke elsewhere would be wasted calls.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quoteKey, missingWords, quoteAttempt]);
 
   async function generate() {
     setConfirming(false);
     setError(null);
     setStarting(true);
     try {
-      const started = await startGeneration(values);
+      // Whether to email is a global choice in Settings, not a question asked each time.
+      const started = await startGeneration({ ...values, notifyEmail: emailWhenReady() });
+      creditsChanged();
       if (!started.ok) {
         setError(started.message);
         return;
@@ -113,17 +105,6 @@ export function StepReview({
         </p>
       ) : null}
 
-      {kind === "clip" ? (
-        <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={values.notifyEmail}
-            onChange={(event) => onChange({ notifyEmail: event.target.checked })}
-            className="mt-0.5 size-4 shrink-0 rounded border-border accent-primary"
-          />
-          Email me when the video is ready
-        </label>
-      ) : null}
 
       {rushed ? <PacingNote spoken={spokenText(values)} seconds={values.seconds} onPick={(seconds) => onChange({ seconds })} /> : null}
 
@@ -138,7 +119,7 @@ export function StepReview({
               type="button"
               onClick={() => void generate()}
               disabled={starting || !online}
-              className="inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-[10px] bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              className="btn btn-primary btn-md flex-1"
             >
               {starting ? "Opening editor…" : "Confirm and generate"}
             </button>
@@ -146,7 +127,7 @@ export function StepReview({
               type="button"
               onClick={() => setConfirming(false)}
               disabled={starting}
-              className="inline-flex min-h-11 cursor-pointer items-center rounded-[10px] border border-hairline px-4 text-sm font-medium text-ink transition-colors hover:bg-cloud"
+              className="btn btn-secondary btn-md"
             >
               Back
             </button>
@@ -172,7 +153,7 @@ export function StepReview({
             setConfirming(true);
           }}
           disabled={!online || credits === null || quoteError !== null || rushed}
-          className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-[10px] bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn btn-primary btn-md"
         >
           Generate video
         </button>

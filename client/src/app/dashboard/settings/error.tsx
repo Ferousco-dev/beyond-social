@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-
 import { ErrorState } from "@/components/ui/error-state";
 import { errorReference } from "@/lib/errors";
+import { useReportError } from "@/lib/hooks/use-page-effects";
 
 /**
  * Route boundary for the settings section.
@@ -24,9 +23,7 @@ export default function SettingsError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
+  useReportError(error);
 
   return (
     <div className="mt-6 lg:mt-8">

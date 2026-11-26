@@ -1,6 +1,6 @@
 "use client";
 
-import { Wand2 } from "lucide-react";
+import { Lightbulb } from "lucide-react";
 
 import { Spinner } from "@/components/ui/spinner";
 
@@ -35,9 +35,9 @@ export function TransformPanel({ videoId }: { videoId: string }) {
           type="button"
           onClick={() => start("")}
           disabled={starting}
-          className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-primary btn-md"
         >
-          {starting ? <Spinner className="size-3.5" /> : <Wand2 className="size-3.5" aria-hidden />}
+          {starting ? <Spinner className="size-3.5" /> : <Lightbulb className="size-3.5" aria-hidden />}
           {starting ? "Starting" : "Transform video"}
         </button>
       ) : (
@@ -63,7 +63,7 @@ function JobStatus({ job, onRetry }: { job: JobView; onRetry: () => void }) {
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex h-9 cursor-pointer items-center justify-center rounded-lg border border-hairline px-4 text-[13px] font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="btn btn-secondary btn-md"
         >
           Try again
         </button>

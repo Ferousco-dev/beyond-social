@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 import { useOnline } from "@/hooks/use-online";
 
@@ -11,21 +12,13 @@ import { useOnline } from "@/hooks/use-online";
  */
 export function ConnectionBanner(): ReactNode {
   const online = useOnline();
-  const wasOffline = useRef(false);
+  const [seen, setSeen] = useState(online);
   const [restored, setRestored] = useState(false);
-
-  useEffect(() => {
-    if (!online) {
-      wasOffline.current = true;
-      setRestored(false);
-      return;
-    }
-    if (!wasOffline.current) return;
-    wasOffline.current = false;
-    setRestored(true);
-    const timer = setTimeout(() => setRestored(false), 4000);
-    return () => clearTimeout(timer);
-  }, [online]);
+  if (seen !== online) {
+    setSeen(online);
+    setRestored(online);
+  }
+  useTimeout(() => setRestored(false), restored ? 4000 : null);
 
   if (online && !restored) return null;
   return (

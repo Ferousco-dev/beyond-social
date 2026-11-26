@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUp, Sparkles, Undo2 } from "lucide-react";
+import { ArrowUp, Lightbulb, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ErrorHelp } from "@/components/billing/error-help";
@@ -42,16 +42,16 @@ export function AiPanel() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-2 text-center">
-            <Sparkles className="size-9 text-primary" strokeWidth={1.25} aria-hidden />
+            <Lightbulb className="size-7 text-primary" strokeWidth={1.5} aria-hidden />
             <p className="text-base font-medium text-ink">Edit by asking</p>
             <p className="text-sm text-ink-soft">Ask to cut, trim, add text, adjust speed, or generate a scene.</p>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-1.5">
               {SUGGESTIONS.map((text) => (
                 <button
                   key={text}
                   type="button"
                   onClick={() => void send(text)}
-                  className="cursor-pointer rounded-full border border-hairline px-3.5 py-1.5 text-[13px] text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
+                  className="cursor-pointer rounded-full border border-hairline px-2.5 py-1 text-xs text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
                 >
                   {text}
                 </button>
@@ -68,6 +68,7 @@ export function AiPanel() {
                   <RememberCard proposal={m.remember} onSave={() => void confirmRemember(m.id)} onDismiss={() => dismissRemember(m.id)} />
                 ) : (
                   <div className={cn("flex max-w-[90%] flex-col gap-1", m.role === "user" ? "items-end" : "items-start")}>
+                    {/* guard-allow: no-black-action-buttons (your own chat bubble, not a button) */}
                     <p className={cn("whitespace-pre-wrap break-words rounded-2xl px-3 py-2 text-sm", m.role === "user" ? "bg-ink text-paper" : "bg-cloud text-ink")}>
                       {m.content}
                     </p>
@@ -118,7 +119,7 @@ export function AiPanel() {
             type="submit"
             disabled={busy || draft.trim() === ""}
             aria-label="Send"
-            className="absolute bottom-2 right-2 inline-flex size-8 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+            className="absolute bottom-2 right-2 inline-flex size-7 cursor-pointer items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
           >
             <ArrowUp className="size-4" aria-hidden />
           </button>

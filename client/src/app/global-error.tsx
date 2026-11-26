@@ -25,7 +25,7 @@ export default function GlobalError({
           <button
             type="button"
             onClick={reset}
-            className="mt-8 inline-flex h-11 cursor-pointer items-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground"
+            className="btn btn-primary btn-md mt-8"
           >
             Reload
           </button>

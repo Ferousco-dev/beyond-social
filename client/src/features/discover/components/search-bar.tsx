@@ -91,13 +91,13 @@ export function SearchBar({
           type="submit"
           disabled={busy || query.trim().length < 2}
           title={query.trim().length < 2 ? "Type at least two characters" : "Search"}
-          className="absolute right-1 top-1/2 inline-flex h-7 -translate-y-1/2 cursor-pointer items-center gap-1.5 rounded-md bg-ink px-3 text-[13px] font-medium text-paper transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-primary btn-sm absolute right-1 top-1/2 -translate-y-1/2"
         >
           {busy ? <Spinner className="size-3.5" /> : null}
           Search
         </button>
       </div>
-      <p className="shrink-0 text-xs text-ink-soft sm:w-36">{note}</p>
+      <p className="shrink-0 whitespace-nowrap text-xs text-ink-soft">{note}</p>
     </form>
   );
 }

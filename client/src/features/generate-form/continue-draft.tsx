@@ -2,16 +2,16 @@
 
 import { ArrowRight, Undo2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { type Route } from "next";
 
 import { buttonVariants } from "@/components/ui/button";
+import { useTimeout } from "@/lib/hooks/use-timers";
 import { cn } from "@/lib/utils";
 
 import { clearDraft, draftSummary, restoreDraft, snapshotDraft, type DraftSnapshot, type DraftSummary } from "./draft";
 
-const STEPS = 3;
 /** How long "Undo" stays after a discard. */
 const UNDO_MS = 6000;
 
@@ -44,15 +44,11 @@ export function ContinueDraft({ variant }: { variant: "start" | "assets" }): Rea
   const draft = useDraft();
   const [discarded, setDiscarded] = useState<DraftSnapshot | null>(null);
 
-  useEffect(() => {
-    if (!discarded) return;
-    const timer = window.setTimeout(() => setDiscarded(null), UNDO_MS);
-    return () => window.clearTimeout(timer);
-  }, [discarded]);
+  useTimeout(() => setDiscarded(null), discarded ? UNDO_MS : null, discarded);
 
   if (discarded) {
     return (
-      <div role="status" className="mt-5 flex min-h-14 items-center justify-between gap-3 rounded-xl border border-hairline px-4 py-2 text-sm text-ink-soft">
+      <div role="status" className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-hairline py-2 pl-3.5 pr-2 text-sm text-ink-soft">
         <span>Draft discarded.</span>
         <button
           type="button"
@@ -61,9 +57,9 @@ export function ContinueDraft({ variant }: { variant: "start" | "assets" }): Rea
             setDiscarded(null);
             notify();
           }}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "rounded-lg")}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
-          <Undo2 className="size-4" aria-hidden /> Undo
+          <Undo2 aria-hidden /> Undo
         </button>
       </div>
     );
@@ -74,40 +70,29 @@ export function ContinueDraft({ variant }: { variant: "start" | "assets" }): Rea
   return (
     <section
       aria-label="Unfinished video"
-      className="mt-5 flex flex-col gap-3 rounded-xl border border-hairline bg-cloud/40 p-4 sm:flex-row sm:items-center sm:gap-5"
+      className="mt-5 flex items-center gap-3 rounded-xl border border-hairline bg-paper py-2 pl-3.5 pr-2"
     >
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-ink-soft">
-          {variant === "assets" ? "Your video is saved" : "Unfinished video"} · Step {draft.step} of {STEPS}
-        </p>
-        <p className="mt-1 truncate text-sm font-medium text-ink" title={title}>
-          {title}
-        </p>
-        <div className="mt-2.5 flex max-w-48 gap-1" aria-hidden>
-          {Array.from({ length: STEPS }, (_, index) => (
-            <span key={index} className={cn("h-1 flex-1 rounded-full", index < draft.step ? "bg-primary" : "bg-hairline")} />
-          ))}
-        </div>
-      </div>
-      <div className="flex items-center gap-2 self-end sm:self-auto">
-        {variant === "start" ? (
-          <button
-            type="button"
-            onClick={() => {
-              setDiscarded(snapshotDraft());
-              clearDraft();
-              notify();
-            }}
-            className={cn(buttonVariants({ variant: "ghost" }), "rounded-lg text-ink-soft")}
-          >
-            Discard
-          </button>
-        ) : null}
-        <Link href={"/dashboard/videos/new" as Route} prefetch className={cn(buttonVariants({ variant: "default" }), "group rounded-lg")}>
-          {variant === "assets" ? "Back to my video" : "Continue"}
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-        </Link>
-      </div>
+      <p className="min-w-0 flex-1 truncate text-sm text-ink" title={title}>
+        <span className="text-ink-soft">{variant === "assets" ? "Saved video" : "Unfinished"} · </span>
+        {title}
+      </p>
+      {variant === "start" ? (
+        <button
+          type="button"
+          onClick={() => {
+            setDiscarded(snapshotDraft());
+            clearDraft();
+            notify();
+          }}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          Discard
+        </button>
+      ) : null}
+      <Link href={"/dashboard/videos/new" as Route} prefetch className={cn(buttonVariants({ variant: "default", size: "sm" }), "group")}>
+        {variant === "assets" ? "Back to my video" : "Continue"}
+        <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+      </Link>
     </section>
   );
 }

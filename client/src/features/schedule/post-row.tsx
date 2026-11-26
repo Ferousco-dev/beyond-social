@@ -93,7 +93,7 @@ export function PostRow({ post }: { readonly post: ScheduledPost }): ReactNode {
               value={when}
               onChange={(event) => setWhen(event.target.value)}
               aria-label="New date and time"
-              className="h-9 rounded-lg border border-hairline bg-paper px-2 text-xs text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+              className="h-9 rounded-lg border border-hairline bg-paper px-2 text-xs text-ink focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
             />
             <Button variant="outline" disabled={pending || when === ""} onClick={reschedule}>
               Move

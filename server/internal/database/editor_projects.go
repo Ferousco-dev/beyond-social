@@ -48,7 +48,10 @@ func (s *EditorStore) Get(ctx context.Context, userID, id string) (editor.Projec
 }
 
 func (s *EditorStore) List(ctx context.Context, userID string, limit int) ([]editor.Summary, error) {
-	rows, err := s.pool.Query(ctx, `select id::text, title, updated_at from public.editor_projects where user_id = $1 order by updated_at desc limit $2`, userID, limit)
+	rows, err := s.pool.Query(ctx, `
+		select id::text, title, updated_at,
+		       jsonb_path_exists(document, '$.tracks[*].items[*] ? (@.kind == "video")')
+		from public.editor_projects where user_id = $1 order by updated_at desc limit $2`, userID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +59,7 @@ func (s *EditorStore) List(ctx context.Context, userID string, limit int) ([]edi
 	out := []editor.Summary{}
 	for rows.Next() {
 		var sm editor.Summary
-		if err := rows.Scan(&sm.ID, &sm.Title, &sm.UpdatedAt); err != nil {
+		if err := rows.Scan(&sm.ID, &sm.Title, &sm.UpdatedAt, &sm.HasVideo); err != nil {
 			return nil, err
 		}
 		out = append(out, sm)

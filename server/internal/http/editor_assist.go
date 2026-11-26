@@ -19,6 +19,34 @@ type ResourceBiller interface {
 	Close(ctx context.Context, userID, resourceID string, delivered bool) error
 }
 
+// reserveFor takes the price of one action before the work starts. It writes the
+// error itself (not enough credits, a limit) and returns false then. A nil
+// biller charges nothing.
+func (a *App) reserveFor(w http.ResponseWriter, r *http.Request, userID string, biller ResourceBiller) (string, bool) {
+	if biller == nil {
+		return "", true
+	}
+	charge := uuid.NewString()
+	if err := biller.Reserve(r.Context(), userID, charge); err != nil {
+		if !writeCreditError(w, err) {
+			writeInternal(w, r, err)
+		}
+		return "", false
+	}
+	return charge, true
+}
+
+// settleFor keeps the charge when the work delivered and refunds it when not.
+// It runs on a fresh context, so a person who hung up still gets their credit back.
+func (a *App) settleFor(r *http.Request, userID string, biller ResourceBiller, charge string, delivered bool) {
+	if biller == nil || charge == "" {
+		return
+	}
+	if err := biller.Close(context.WithoutCancel(r.Context()), userID, charge, delivered); err != nil {
+		slog.Error("close charge", "charge", charge, "error", err)
+	}
+}
+
 func (a *App) editorAssist(w http.ResponseWriter, r *http.Request) {
 	userID, ok := a.editorIdentity(w, r)
 	if !ok {

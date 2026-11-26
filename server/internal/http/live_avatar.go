@@ -84,9 +84,14 @@ func (a *App) draftLiveAvatarScript(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", "objective and audience are required")
 		return
 	}
+	charge, ok := a.reserveFor(w, r, identity.UserID, a.deps.ScriptBiller)
+	if !ok {
+		return
+	}
 	script, err := a.deps.LiveAvatarScripts.Write(r.Context(), nil, message, nil)
+	a.settleFor(r, identity.UserID, a.deps.ScriptBiller, charge, err == nil)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "provider_unavailable", "script generation is unavailable right now")
+		writeError(w, http.StatusBadGateway, "provider_unavailable", "script generation is unavailable right now; you were not charged")
 		return
 	}
 	lines := make([]string, 0, len(script.Scenes))

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
 
 /**
  * Registers the service worker, which is what makes the app installable.
@@ -13,7 +13,7 @@ import { useEffect } from "react";
  * bandwidth.
  */
 export function ServiceWorker(): null {
-  useEffect(() => {
+  useOnMount(() => {
     if (!("serviceWorker" in navigator)) return;
 
     /*
@@ -57,7 +57,7 @@ export function ServiceWorker(): null {
     }
     window.addEventListener("load", register);
     return () => window.removeEventListener("load", register);
-  }, []);
+  });
 
   return null;
 }

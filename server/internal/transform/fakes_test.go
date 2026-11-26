@@ -244,8 +244,9 @@ func (r *rig) queued() jobs.Job {
 
 var errNotFound = discovery.ErrNotFound
 
-type fakeNotifier struct{ users []string }
+type fakeNotifier struct{ users, failed []string }
 
-func (f *fakeNotifier) VideoReady(userID string) { f.users = append(f.users, userID) }
+func (f *fakeNotifier) VideoReady(userID string)  { f.users = append(f.users, userID) }
+func (f *fakeNotifier) VideoFailed(userID string) { f.failed = append(f.failed, userID) }
 
 func (r *fakeJobs) CountSince(context.Context, string, string, time.Time) (int, error) { return 0, nil }

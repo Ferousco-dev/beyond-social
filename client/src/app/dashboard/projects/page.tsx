@@ -10,13 +10,15 @@ import { goApi } from "@/lib/go-api/client";
 export const metadata: Metadata = { title: "Projects" };
 
 const projectsResponse = z.object({
-  data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string() })),
+  data: z.array(z.object({ id: z.string().uuid(), title: z.string(), updated_at: z.string(), has_video: z.boolean().optional() })),
 });
 
 export default async function ProjectsPage(): Promise<ReactNode> {
   const result = await goApi("/api/v1/editor/projects?limit=60", projectsResponse);
   const projects = result.ok
     ? [...result.data.data]
+        // Only projects that hold a video. An older API that does not say is trusted.
+        .filter((item) => item.has_video !== false)
         .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
         .map((item) => ({
           id: item.id,
@@ -30,11 +32,11 @@ export default async function ProjectsPage(): Promise<ReactNode> {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Projects</h1>
-          <p className="mt-1 text-sm text-ink-soft">Open a project to keep editing it.</p>
+          <p className="mt-1 text-sm text-ink-soft">Your videos, ready to edit.</p>
         </div>
         <Link
           href="/dashboard/new"
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-medium text-paper transition-opacity hover:opacity-90"
+          className="btn btn-primary btn-md"
         >
           <Plus className="size-4" aria-hidden />
           New video

@@ -21,7 +21,7 @@ export default async function AdminPacksPage(): Promise<ReactNode> {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-ink">Credit packs</h1>
+      <h1 className="text-xl font-semibold tracking-tight text-ink">Credit packs</h1>
       <p className="mt-1 text-sm text-ink-soft">
         What people can buy. Prices are in US dollars. Turn a pack off to stop selling it without losing past purchases. Payments need the Stripe keys on the{" "}
         <Link href={"/dashboard/admin/providers" as Route} className="text-ink underline">

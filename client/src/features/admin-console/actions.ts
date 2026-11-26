@@ -94,3 +94,15 @@ export async function saveEmailFrom(from: string): Promise<AdminResult> {
   if (!FROM.safeParse(from).success) return invalid;
   return send("/api/v1/admin/email", "PUT", { from: from.trim() }, "/dashboard/admin/providers");
 }
+
+const alertEmailResult = z.object({ data: z.object({ email: z.string(), test_sent: z.boolean().optional() }) });
+
+/** Saves where provider alerts are emailed. An empty address stops them. A new address gets a sample alert. */
+export async function saveAlertEmail(email: string): Promise<AdminResult & { readonly testSent?: boolean }> {
+  const value = email.trim();
+  if (value !== "" && !z.string().email().max(254).safeParse(value).success) return { ok: false, message: "Enter one email address, like you@example.com." };
+  const result = await goApi("/api/v1/admin/alerts/email", alertEmailResult, { method: "PUT", body: { email: value } });
+  if (!result.ok) return { ok: false, message: result.message };
+  revalidatePath("/dashboard/admin/alerts");
+  return { ok: true, testSent: result.data.data.test_sent === true };
+}

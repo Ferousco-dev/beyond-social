@@ -8,7 +8,7 @@ import { clearDraft } from "@/features/generate-form/draft";
 import { Spinner } from "@/components/ui/spinner";
 
 const fieldClass =
-  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary";
+  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5";
 
 export interface OwnIdea {
   title?: string;
@@ -78,7 +78,8 @@ export function OwnIdeaPanel() {
           }}
           placeholder="e.g. Me showing my new glow serum to women 25 to 34, upbeat, ends with shop now"
           aria-label="What is the video about?"
-          className="field-sizing-content min-h-20 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm leading-6 text-ink placeholder:text-ink-soft focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+          data-tour="idea-text"
+          className="field-sizing-content min-h-20 w-full resize-none rounded-[10px] border border-hairline bg-paper px-3 py-2.5 text-sm leading-6 text-ink placeholder:text-ink-soft focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5"
         />
       </label>
       <div className="sm:col-span-2">
@@ -86,9 +87,10 @@ export function OwnIdeaPanel() {
         {/* One way forward: our AI fills in every step from the idea, and the person checks it before anything is charged. */}
         <button
           type="submit"
+          data-tour="idea-continue"
           disabled={!ready || submitting}
           aria-busy={submitting}
-          className="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          className="btn btn-primary btn-lg w-full sm:w-auto"
         >
           {submitting ? <Spinner className="size-4" /> : null}
           {submitting ? "Opening" : "Continue"}

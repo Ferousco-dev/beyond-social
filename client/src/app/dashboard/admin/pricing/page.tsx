@@ -23,17 +23,14 @@ export default async function AdminPricingPage(): Promise<ReactNode> {
   ].filter((group) => group.items.length > 0);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Pricing</h1>
-        <p className="mt-1 text-sm text-ink-soft">
-          People pay in credits. One credit is worth ${CREDIT_USD.toFixed(2)}. Set how many credits each action costs, and each row shows what you keep after the provider is paid.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-ink">Pricing</h1>
+        <p className="mt-1 text-sm text-ink-soft">One credit is ${CREDIT_USD.toFixed(2)}.</p>
       </header>
 
       <section>
-        <h2 className="text-sm font-semibold text-ink">What each action costs</h2>
-        <p className="mt-1 text-xs text-ink-soft">The provider cost is an estimate until it is checked against a real bill. Real spend is on the Revenue page.</p>
+        <h2 className="text-sm font-semibold text-ink">Actions</h2>
         {prices.ok ? (
           <ul className="mt-3 divide-y divide-hairline rounded-xl border border-hairline bg-paper">
             {prices.data.data.filter((price) => price.provider !== "heygen").map((price) => (

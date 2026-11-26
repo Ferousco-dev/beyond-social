@@ -116,7 +116,7 @@ export function SidebarProjectRow({
               {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
               <div className="flex justify-end gap-2">
                 <Dialog.Close asChild><button type="button" className="min-h-10 rounded-md px-3 text-sm text-ink hover:bg-cloud">Cancel</button></Dialog.Close>
-                <button type="submit" disabled={title.trim() === ""} className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-md bg-ink px-3 text-sm font-medium text-paper disabled:cursor-not-allowed disabled:opacity-50">
+                <button type="submit" disabled={title.trim() === ""} className="btn btn-primary btn-md">
                   Save name
                 </button>
               </div>

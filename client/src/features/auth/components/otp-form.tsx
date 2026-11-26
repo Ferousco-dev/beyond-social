@@ -2,7 +2,10 @@
 
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+
+import { useClientValue } from "@/lib/hooks/use-client-value";
+import { useTimeout } from "@/lib/hooks/use-timers";
 
 import { verifyOtpAction, type AuthResult } from "../actions";
 import { FormStatus } from "./form-status";
@@ -11,23 +14,24 @@ import { SubmitButton } from "./submit-button";
 
 const RESEND_SECONDS = 30;
 
+/** The address the code was sent to, kept for this tab by the sign-up step. */
+function pendingEmail(): string {
+  try {
+    return window.sessionStorage.getItem("bs:pending-email") ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export function OtpForm() {
   const router = useRouter();
   const [code, setCode] = useState("");
-  const [email, setEmail] = useState("");
+  const email = useClientValue(pendingEmail, "");
   const [seconds, setSeconds] = useState(RESEND_SECONDS);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<AuthResult | null>(null);
 
-  useEffect(() => {
-    setEmail(window.sessionStorage.getItem("bs:pending-email") ?? "");
-  }, []);
-
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const timer = window.setTimeout(() => setSeconds((value) => value - 1), 1000);
-    return () => window.clearTimeout(timer);
-  }, [seconds]);
+  useTimeout(() => setSeconds((value) => value - 1), seconds > 0 ? 1000 : null, seconds);
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();

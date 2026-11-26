@@ -27,7 +27,7 @@ const PLATFORMS = [
 ] as const;
 
 const fieldClass =
-  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink focus:outline-2 focus:outline-offset-2 focus:outline-primary";
+  "h-11 w-full rounded-[10px] border border-hairline bg-paper px-3 text-sm text-ink focus:outline-none focus:border-ink/30 focus:ring-4 focus:ring-ink/5";
 
 /**
  * Find a video to copy the idea of: industry, country, platform and a search
@@ -149,7 +149,7 @@ export function TrendingPanel({ signupIndustry, plan }: { signupIndustry: string
             <button
               type="submit"
               disabled={busy || query.trim() === ""}
-              className="inline-flex h-11 shrink-0 cursor-pointer items-center rounded-[10px] bg-ink px-5 text-sm font-medium text-paper transition-opacity hover:opacity-90 disabled:opacity-40"
+              className="btn btn-primary btn-md shrink-0"
             >
               {busy ? "Searching…" : "Search"}
             </button>

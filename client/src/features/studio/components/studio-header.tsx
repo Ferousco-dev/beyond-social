@@ -1,14 +1,16 @@
 "use client";
 
-import { AlertCircle, ArrowLeft, Check, Loader2 } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { type Route } from "next";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { ErrorHelp } from "@/components/billing/error-help";
-import { TutorialButton } from "@/features/tutorial/tutorial-button";
+import { TourButton } from "@/features/tour/tour-button";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
+import { useTimeout } from "@/lib/hooks/use-timers";
 import { cn } from "@/lib/utils";
 
 import { FALLBACK_TITLE, RETRY_SAVE_EVENT } from "../hooks/use-autosave";
@@ -36,14 +38,8 @@ export function StudioHeader({ backHref }: { backHref: string }) {
   const noticeCode = useStudio((s) => s.noticeCode);
   const look = SAVE[status];
 
-  // Warm the page behind the button so leaving does not wait on it.
-  useEffect(() => router.prefetch(backHref as Route), [router, backHref]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => useStudio.getState().setNotice(null), NOTICE_MS);
-    return () => clearTimeout(timer);
-  }, [notice]);
+  useOnMount(() => router.prefetch(backHref as Route));
+  useTimeout(() => useStudio.getState().setNotice(null), notice ? NOTICE_MS : null, notice);
 
   return (
     <header className="flex min-h-13 shrink-0 items-center gap-2 px-3">
@@ -76,7 +72,6 @@ export function StudioHeader({ backHref }: { backHref: string }) {
         className="h-8 min-w-0 max-w-64 rounded-md bg-transparent px-2 text-sm font-medium text-ink hover:bg-cloud focus-visible:bg-cloud focus-visible:outline-none"
       />
       <span role="status" className={cn("flex items-center gap-1 text-xs", look.tone)}>
-        {status === "saved" ? <Check className="size-3.5" aria-hidden /> : null}
         {status === "saving" || status === "pending" ? <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
         {status === "error" || status === "conflict" ? <AlertCircle className="size-3.5" aria-hidden /> : null}
         <span className="hidden sm:inline">{look.label}</span>
@@ -97,8 +92,8 @@ export function StudioHeader({ backHref }: { backHref: string }) {
         </p>
       ) : null}
       <div className={cn("flex items-center gap-1.5", !notice && "ml-auto")}>
-        <TutorialButton track="editor" />
-        <div data-tip-anchor="studio-export">
+        <TourButton tour="editor" />
+        <div data-tour="studio-export">
           <ExportDialog />
         </div>
       </div>

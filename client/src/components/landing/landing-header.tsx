@@ -2,12 +2,21 @@
 
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { HeaderAuthActions } from "@/features/auth/components/header-auth-actions-lazy";
+import { useClientValue } from "@/lib/hooks/use-client-value";
+import { useBodyScrollLock } from "@/lib/hooks/use-page-effects";
 import { NAV_LINKS } from "@/lib/marketing/site";
 import { cn } from "@/lib/utils";
+
+const pastHero = (): boolean => window.scrollY > 120;
+
+function onScroll(changed: () => void): () => void {
+  window.addEventListener("scroll", changed, { passive: true });
+  return () => window.removeEventListener("scroll", changed);
+}
 
 /**
  * Floating pill navigation. It sits wide and transparent over the hero, then
@@ -15,22 +24,9 @@ import { cn } from "@/lib/utils";
  * chrome shrinks out of the way as the content takes over.
  */
 export function LandingHeader() {
-  const [shrunk, setShrunk] = useState(false);
+  const shrunk = useClientValue(pastHero, false, onScroll);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const onScroll = (): void => setShrunk(window.scrollY > 120);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  useBodyScrollLock(open);
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-4 sm:pt-5">
@@ -56,7 +52,10 @@ export function LandingHeader() {
             <Logo showWordmark={!shrunk} />
           </Link>
 
-          <nav aria-label="Primary" className="hidden items-center gap-0.5 md:flex">
+          <nav
+            aria-label="Primary"
+            className="hidden items-center gap-0.5 md:flex"
+          >
             {NAV_LINKS.map((link) => (
               <a
                 key={link.href}

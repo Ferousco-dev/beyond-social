@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
+import { useOnMount } from "@/lib/hooks/use-page-effects";
+import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
 import { z } from "zod";
 
 /**
@@ -31,12 +33,13 @@ type CheckState =
   | { readonly kind: "reachable"; readonly latencyMs: number; readonly at: string }
   | { readonly kind: "unreachable"; readonly detail: string };
 
-const DOT: Readonly<Record<CheckState["kind"], string>> = {
-  idle: "bg-ink-soft/40",
-  checking: "bg-ink-soft",
-  reachable: "bg-primary",
-  unreachable: "bg-ink",
-};
+/** What the check's state looks like: a clear mark rather than a coloured dot. */
+function StateIcon({ kind }: { kind: CheckState["kind"] }): ReactNode {
+  const box = "mt-0.5 size-4 shrink-0";
+  if (kind === "reachable") return <CircleCheck className={`${box} text-success`} aria-hidden />;
+  if (kind === "unreachable") return <CircleAlert className={`${box} text-destructive`} aria-hidden />;
+  return <LoaderCircle className={`${box} text-ink-soft ${kind === "checking" ? "motion-safe:animate-spin" : ""}`} aria-hidden />;
+}
 
 function label(state: CheckState): string {
   switch (state.kind) {
@@ -88,20 +91,13 @@ export function HealthCheck(): ReactNode {
     }
   }, []);
 
-  useEffect(() => {
-    void run();
-  }, [run]);
+  useOnMount(() => void run());
 
   return (
     <div className="rounded-2xl border border-hairline bg-paper p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${DOT[state.kind]} ${
-              state.kind === "checking" ? "motion-safe:animate-pulse" : ""
-            }`}
-          />
+          <StateIcon kind={state.kind} />
           <div aria-live="polite">
             <p className="text-sm font-medium text-ink">{label(state)}</p>
             <p className="mt-1 text-sm leading-relaxed text-ink-soft">{detail(state)}</p>

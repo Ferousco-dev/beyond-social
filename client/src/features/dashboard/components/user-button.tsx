@@ -3,15 +3,15 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronsUpDown, LogOut, Settings, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { type Route } from "next";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { useConfirm } from "@/components/ui/use-confirm";
 import { signOutAction } from "@/features/auth/actions";
 import { ThemeToggle } from "@/features/settings/components/theme-toggle";
 import { type DashboardUser } from "@/lib/dashboard/data";
+import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,18 +36,6 @@ const ROW =
   "flex cursor-pointer items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-sm text-ink outline-none transition-colors data-highlighted:bg-cloud";
 
 const ICON = "size-4 shrink-0 text-ink-soft";
-
-function Avatar({ initials, src }: { initials: string; src: string | null }): ReactNode {
-  return (
-    <span className="relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cloud text-xs font-medium text-ink">
-      {src ? (
-        <Image src={src} alt="" fill sizes="32px" unoptimized className="object-cover" />
-      ) : (
-        initials
-      )}
-    </span>
-  );
-}
 
 export function UserButton({ user, compact = false, bare = false }: { user: DashboardUser; compact?: boolean; bare?: boolean }) {
   const router = useRouter();
@@ -90,7 +78,7 @@ export function UserButton({ user, compact = false, bare = false }: { user: Dash
             compact ? "w-full justify-center p-1.5" : "w-full gap-2 p-1.5",
           )}
         >
-          <Avatar initials={user.initials} src={user.avatarUrl} />
+          <Avatar name={user.name} initials={user.initials} src={user.avatarUrl} />
           {compact ? null : (
             <>
               <span className="min-w-0 flex-1">
@@ -119,7 +107,7 @@ export function UserButton({ user, compact = false, bare = false }: { user: Dash
                 <span className="block truncate text-sm font-medium text-ink">{user.name}</span>
                 <span className="block truncate text-xs text-ink-soft">{user.email}</span>
               </span>
-              <Avatar initials={user.initials} src={user.avatarUrl} />
+              <Avatar name={user.name} initials={user.initials} src={user.avatarUrl} />
             </div>
 
             <DropdownMenu.Separator className="h-px bg-hairline" />
@@ -137,7 +125,7 @@ export function UserButton({ user, compact = false, bare = false }: { user: Dash
               <DropdownMenu.Item asChild>
                 <Link href={"/dashboard/settings/billing" as Route} className={ROW}>
                   Credits
-                  <span className="text-xs text-ink-soft">{user.credits ?? "—"}</span>
+                  <span className="text-xs text-ink-soft">{user.credits ?? "-"}</span>
                 </Link>
               </DropdownMenu.Item>
               {/* Admin's own login and separate app went away with this: the

@@ -18,13 +18,13 @@ export default function UnavailablePage() {
       <div className="mt-6 flex gap-3">
         <Link
           href="/dashboard/trends"
-          className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="btn btn-primary btn-md"
         >
           Go to Discover
         </Link>
         <Link
           href="/dashboard/assets"
-          className="inline-flex h-9 items-center rounded-lg border border-hairline px-4 text-[13px] font-medium text-ink transition-colors hover:bg-cloud focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="btn btn-secondary btn-md"
         >
           Your avatar
         </Link>
