@@ -1,7 +1,9 @@
-import { ArrowRight, Zap } from "lucide-react";
+import { ArrowRight, CalendarClock, Captions, Clapperboard, Lightbulb, TrendingUp, UserRound, Zap, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { type ReactNode } from "react";
+
+import { PlatformLogo } from "@/components/brand/platform-logo";
 
 import { SafariEditor } from "./safari-editor";
 
@@ -75,7 +77,19 @@ function AppIcon(): ReactNode {
   );
 }
 
-const TOPICS = ["TikTok", "Instagram Reels", "Talking avatars", "Captions", "AI editor", "Scheduling", "Trends"];
+const TikTokMark = ({ className }: { className?: string }): ReactNode => <PlatformLogo platform="tiktok" colour={false} className={className} />;
+const InstagramMark = ({ className }: { className?: string }): ReactNode => <PlatformLogo platform="instagram" colour={false} className={className} />;
+
+const TOPICS: readonly { label: string; Icon: LucideIcon | typeof TikTokMark }[] = [
+  { label: "TikTok", Icon: TikTokMark },
+  { label: "Instagram Reels", Icon: InstagramMark },
+  { label: "Talking avatars", Icon: UserRound },
+  { label: "Captions", Icon: Captions },
+  { label: "AI editor", Icon: Lightbulb },
+  { label: "Scheduling", Icon: CalendarClock },
+  { label: "Trends", Icon: TrendingUp },
+  { label: "Videos", Icon: Clapperboard },
+];
 
 /** EcoVest's "what you'll learn" row, as what Beyond Social makes. */
 function Topics(): ReactNode {
@@ -86,9 +100,10 @@ function Topics(): ReactNode {
       </p>
       <div className="relative w-full max-w-[1225px] overflow-hidden">
         <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6 md:flex-nowrap md:gap-12">
-          {TOPICS.map((topic) => (
-            <li key={topic} className="whitespace-nowrap text-[20px] font-semibold tracking-[-0.03em] text-ink-soft md:text-[24px]">
-              {topic}
+          {TOPICS.map(({ label, Icon }) => (
+            <li key={label} className="flex items-center gap-2 whitespace-nowrap text-[20px] font-semibold tracking-[-0.03em] text-ink-soft md:text-[22px]">
+              <Icon className="size-5 text-primary" />
+              {label}
             </li>
           ))}
         </ul>

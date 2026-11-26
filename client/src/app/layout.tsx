@@ -1,5 +1,11 @@
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
+import { Archivo, Familjen_Grotesk, Instrument_Serif } from "next/font/google";
+
+/** The landing page type, from the owner's EcoVest site: Familjen Grotesk headings, Archivo text, Instrument Serif accents. */
+const landingDisplay = Familjen_Grotesk({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-landing-display", display: "swap" });
+const landingBody = Archivo({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-landing-body", display: "swap" });
+const landingSerif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "italic", variable: "--font-landing-serif", display: "swap" });
 import { type ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 
@@ -67,7 +73,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable} ${landingDisplay.variable} ${landingBody.variable} ${landingSerif.variable}`}
       suppressHydrationWarning
     >
       <head>

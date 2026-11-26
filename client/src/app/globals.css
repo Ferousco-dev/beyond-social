@@ -134,6 +134,7 @@
 }
 
 @theme inline {
+  --font-serif: var(--font-landing-serif), Georgia, serif;
   --font-sans: var(--font-geist-sans), "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
@@ -591,3 +592,16 @@ textarea:not([aria-invalid="true"]):focus {
   border-color: color-mix(in srgb, var(--color-ink) 30%, transparent);
 }
 
+
+/* Landing scroll-in animations, from the owner's EcoVest site. Elements with .ev-* start hidden and play
+   once their section has data-in="true". All are off for reduced motion. */
+@keyframes ev-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes ev-pop { 0% { opacity: 0; transform: scale(0.5); } 70% { opacity: 1; transform: scale(1.06); } 100% { opacity: 1; transform: scale(1); } }
+.ev-rise, .ev-pop { opacity: 0; }
+[data-in="true"] .ev-rise { animation: ev-rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+[data-in="true"] .ev-pop { animation: ev-pop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--d, 0ms); }
+.landing-type { font-family: var(--font-landing-body), system-ui, sans-serif; }
+.landing-type h1, .landing-type h2, .landing-type h3 { font-family: var(--font-landing-display), system-ui, sans-serif; }
+@media (prefers-reduced-motion: reduce) {
+  .ev-rise, .ev-pop { opacity: 1; animation: none !important; }
+}
