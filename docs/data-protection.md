@@ -15,6 +15,7 @@ This document is the internal version that sits behind it. When the code changes
 | Prompts, scripts, storyboards, chats, memory facts | `jobs.input`, `editor_projects`, `messages`, `user_memories` | The person |
 | Finished videos | Storage `media` (copied in from the provider) | The person |
 | Connected social accounts | `social_connections`, tokens encrypted with `APP_ENCRYPTION_KEY` | The server only |
+| Post performance: views, likes, comments, shares of posts we published | `post_metrics` (YouTube only; TikTok and Instagram expose no public counters) | The person; used to suggest posting times |
 | Usage and spend logs | `usage_events`, `ai_usage`, `provider_spend` | Admins |
 | Money: payments, invoices, credits | `payments`, `invoices`, `credit_ledger`, `subscriptions` | The person (their own); admins |
 | Card numbers | Never held. Stripe's own page takes them | Stripe |
@@ -46,7 +47,11 @@ What each outside service receives:
 - **KIE:** a signed link to each file a job needs. The link expires after 6 hours (`media.providerLinkTTL`). Callbacks are refused in production unless they are signed.
 - **Apify:** search words or a public post link. No personal data.
 - **Resend:** the person's email address and the message.
-- **Social platforms:** only what the person chooses to post, using the token they granted.
+- **Social platforms:** only what the person chooses to post, at the time they approved, using the token they granted. For YouTube we also read the public counters of posts we published.
+
+On the person's own device the browser keeps conveniences only: an unfinished video form, scripts written for each length (30 minutes), recent searches, the theme and which tips were seen. Nothing there is sent to us beyond what the app already sends.
+
+The end-to-end test stack (`e2e/stack.sh`) never reaches any of these services: kie.ai, Apify and Gemini are a local fake (`server/cmd/fakeproviders`), social posting uses the sandbox, and production refuses to start with `E2E_FAKE_PROVIDERS` set.
 
 ## 3. How long we keep it
 

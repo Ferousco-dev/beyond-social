@@ -3,16 +3,17 @@ import { type LegalDocument } from "./schema";
 export const TERMS: LegalDocument = {
   status: "draft",
   title: "Terms and conditions",
+  updated: "27 November 2026",
   summary: "The rules for using Beyond Social, including plans, credits and payments.",
   body: `## Using Beyond Social
 
-Beyond Social helps you find ideas, make short videos and edit them. By creating an account or using the service you agree to these terms. You must be old enough to form a binding contract where you live, and at least 13 years old.
+Beyond Social helps you find ideas, make short videos, edit them and post them to your social accounts. By creating an account or using the service you agree to these terms. You must be old enough to form a binding contract where you live, and at least 13 years old.
 
 You are responsible for your account and for what is done with it. Keep your password safe and tell us if you think someone else has used your account.
 
 ## Plans
 
-There are two plans. Free gives you a starting amount of credits, limited access to some features, and a watermark on exported videos. Pro is a monthly subscription that removes the watermark and the Free limits and replaces credits with usage limits.
+There are two plans. Free gives you a starting amount of credits, and actions cost Free members more credits than the listed price. Pro is a monthly subscription that replaces credits with usage limits.
 
 Pro usage limits work in two windows. A session limit refills five hours after you start using the service, and a weekly limit refills every Monday at 00:00 UTC. Different actions use different amounts: a chat message uses very little and a generated video uses much more. You can see where you stand on your usage page. When a limit is full you can wait for it to refill or, if you have turned on extra usage, keep going with credits up to the monthly cap you set.
 
@@ -20,7 +21,9 @@ We may change the limits, the credit costs and the features of each plan. We wil
 
 ## Credits
 
-Credits pay for actions on the Free plan and for extra usage on Pro. Credits have no cash value, cannot be transferred and do not expire while your account is open. If an action fails, the credits it used are returned. Free credits and credit costs may be different from one plan to another.
+Credits pay for actions on the Free plan and for extra usage on Pro. Every action our AI or our providers do for you uses credits, from searching what is trending and filling in your video to making it, captioning it and writing your post. The current price of each action, at your plan's rate, is listed under Settings, What things cost. Credits have no cash value, cannot be transferred and do not expire while your account is open.
+
+If an action fails, the credits it used are returned to your balance automatically. A script our AI already wrote for the same idea and length in the last 30 minutes is shown again at no cost.
 
 Credit packs can only be bought by Pro members.
 
@@ -48,7 +51,9 @@ Videos made with AI may not be unique, and similar output can be made for others
 
 ## Connected accounts
 
-If you connect TikTok, Instagram, YouTube or another platform, you agree to that platform's terms as well. You can disconnect at any time. We post only what you approve.
+If you connect TikTok, Instagram, YouTube or another platform, you agree to that platform's terms as well. You can disconnect at any time.
+
+We post only what you approve. When our AI suggests a time, the post is scheduled only after you approve it, and you can change the time or cancel a scheduled post under Schedule until it goes out. You are responsible for what is posted from your accounts.
 
 ## Ending your account
 
@@ -62,5 +67,5 @@ We work to keep the service running, but it depends on other providers and may b
 
 ## Changes and contact
 
-We may update these terms. If a change matters, we will tell you before it applies. Questions about these terms: hello@beyondsocial.app.`,
+We may update these terms. The date at the top shows when they last changed, and if a change matters we will tell you before it applies. Questions about these terms: hello@beyondsocial.app.`,
 };

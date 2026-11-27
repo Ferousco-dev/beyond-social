@@ -105,9 +105,11 @@ at once.
 | `pnpm typecheck`             | Type-check all workspaces.                      |
 | `pnpm verify`                | Run the workspace build, lint, and type checks. |
 | `cd server && go test ./...` | Run Go API tests.                               |
+| `pnpm --filter @beyond-social/web guard` | Check the guard rules and banned patterns (see CLAUDE.md). |
+| `e2e/stack.sh up` then `pnpm --filter @beyond-social/web e2e` | Run the whole product in a browser against a local stack with fake providers; `e2e/stack.sh down` stops it. |
 
 ## Further reading
 
 - [Web client guide](client/README.md): frontend setup, commands, and source layout.
 - [Go API guide](server/README.md): API routes, authentication, asynchronous
-  workflows, configuration, deployment, and Go tests..
+  workflows, configuration, deployment, and Go tests.

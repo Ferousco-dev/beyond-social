@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import Link from "next/link";
 import { type ReactNode } from "react";
 
 import { PageShell, Prose } from "@/components/landing/page-shell";
@@ -13,115 +14,72 @@ function Question({ q, children }: { q: string; children: ReactNode }): ReactNod
   return (
     <section className="border-t border-hairline pt-8 first:border-0 first:pt-0">
       <h2 className="text-lg font-semibold tracking-[-0.01em] text-ink">{q}</h2>
-      <div className="mt-3 flex flex-col gap-4 text-base leading-relaxed text-ink-soft">
-        {children}
-      </div>
+      <div className="mt-3 flex flex-col gap-4 text-base leading-relaxed text-ink-soft">{children}</div>
     </section>
   );
 }
 
 export default function Page(): ReactNode {
   return (
-    <PageShell
-      eyebrow="Resources"
-      title="Help centre"
-      lede="The questions this product actually raises, answered against what the code does rather than what would sound reassuring."
-    >
+    <PageShell eyebrow="Resources" title="Help centre" lede="Answers to the questions people ask most. For a walk through the whole product, read the documentation.">
       <div className="flex flex-col gap-10">
-        <Question q="When am I charged?">
+        <Question q="When am I charged, and for what?">
           <p>
-            Credits are held when a search, video or avatar is accepted, before anything is sent to
-            a provider. A request your balance cannot cover is refused at that point and nothing is
-            held. When the work finishes the credits are kept, and when it fails they are returned
-            in full.
+            Everything our AI or our providers do for you uses credits: searching what is trending, filling in your video, rewriting the script for a new length, making the video, captions, the
+            editor&rsquo;s AI and writing your post. Settings, What things cost lists the price of each action at your plan&rsquo;s rate.
           </p>
           <p>
-            Every charge and refund appears in your credit history. New accounts start with free
-            credits, and credits do not expire.
+            Credits are held when an action starts, before anything is sent to a provider. When it finishes they are kept, and when it fails they go straight back to your balance. Every charge
+            and refund is in your credit history under Settings, Plan and billing. A script already written for the same idea and length in the last 30 minutes is shown again for free.
           </p>
         </Question>
-
         <Question q="Why was my request refused before it started?">
           <p>
-            Usually because your balance does not cover it, in which case a top-up fixes it. There is
-            also a daily credit limit that protects accounts from runaway spending; if you reach it,
-            try again later.
+            Usually because your balance does not cover it. On Free, upgrading to Pro fixes it; on Pro, a credit pack does. There is also a daily credit limit that protects accounts from runaway spending. On Pro, a full
+            session or weekly limit refuses new work until it refills, unless you have turned on extra usage.
           </p>
         </Question>
-
-        <Question q="Why does a generation fail once it has started?">
+        <Question q="What happens if a video fails?">
           <p>
-            Because the run is handed to a video model that can reject or abandon it. When that
-            happens the generation is marked failed, the provider&rsquo;s error is kept on the row
-            so support can read it, and you are not charged. Retrying is the right response, and it
-            costs nothing to have failed.
+            The credits it held are returned automatically, and the editor tells you so. If you turned on emails under Settings, Notifications, we also email you. Trying again is the right
+            response, and a failed attempt costs nothing.
           </p>
         </Question>
-
-        <Question q="How does scheduling handle time zones?">
+        <Question q="How do posting times and time zones work?">
           <p>
-            You pick a wall clock time and a zone. The zone is stored rather than an offset, and the
-            time you picked is converted to the exact instant it refers to. The publishing worker
-            only ever compares instants, so a post set for 9am stays at 9am across a daylight saving
-            change instead of drifting by an hour.
+            When you post, our AI suggests the best time for your audience and fills in your time zone from your device. Nothing is scheduled until you press Approve. You can change the time or
+            the zone first, and change or cancel a scheduled post under Schedule until it goes out.
           </p>
+          <p>A post set for 9am stays at 9am across a daylight saving change, because we store your zone rather than a fixed offset.</p>
+        </Question>
+        <Question q="Which platforms can I post to?">
           <p>
-            Submitting the same schedule twice, by double clicking or by a retried form, does not
-            create a second post. Each submission carries a key that lands on the same row.
+            TikTok, Instagram and YouTube. Connect each one under Settings, Connections. If a platform is not connected, posting to it is refused straight away and names the platform, so you can
+            fix it while you are still there.
           </p>
         </Question>
-
-        <Question q="What happens if a platform is not connected?">
+        <Question q="What does deleting my account do?">
           <p>
-            The schedule is refused straight away and names the platforms that are not connected.
-            That is deliberate. Accepting it would leave a post sitting in the queue until the
-            worker could not authenticate, and a failure an hour later tells you nothing at the
-            moment you could still have acted.
-          </p>
-          <p>
-            Each platform is connected independently under Settings, Connections. TikTok, Instagram,
-            Facebook, and YouTube each require their own app review, so they do not become available
-            on the same day.
+            If you are on Pro, cancel the subscription first. Then type your account email to confirm. You are signed out at once, and everything you made, including videos, recordings,
+            avatars, assets and chats, is erased within minutes. Payment, invoice and credit records are kept as the law requires, without your name or email. This cannot be undone.
           </p>
         </Question>
-
-        <Question q="What does deleting my account actually do?">
-          <p>
-            It flags the account as deleted and signs you out. Nothing is destroyed at that moment:
-            your row and everything you made are still there, and the database starts a 30 day grace
-            period before the account becomes eligible for permanent erasure. Erasure after that is
-            a deliberate act, not an automatic one.
-          </p>
-          <p>
-            From the moment you confirm, the account can no longer read its own data. That includes
-            the API: any key you created beforehand stops working immediately. Signing in again
-            tells you the account was deleted rather than showing a password error, because no
-            password can fix that state and you would otherwise keep resetting it.
-          </p>
-          <p>
-            Within the grace period a restore is possible. Email support@beyondsocial.app from the
-            address on the account.
-          </p>
-        </Question>
-
-        <Question q="Can I call any of this from my own code?">
-          <p>
-            Partly. There is a read-only API for listing your generations and reading your usage,
-            documented on the documentation page. There is no endpoint that starts a generation or
-            schedules a post yet, and this page will not pretend otherwise.
-          </p>
+        <Question q="Is there an API?">
+          <p>Not yet. Everything is done in the app for now. Tell us what you would build with one and we will let you know when it is ready.</p>
         </Question>
       </div>
-
       <div className="mt-12">
         <Prose>
           <p>
-            If your question is not here, email{" "}
+            For the whole product step by step, read the{" "}
+            <Link className={linkClass} href="/docs">
+              documentation
+            </Link>
+            . If your question is not here, email{" "}
             <a className={linkClass} href="mailto:hello@beyondsocial.app">
               hello@beyondsocial.app
-            </a>
-            . We would rather answer it directly and then add it to this page than leave you
-            guessing.
+            </a>{" "}
+            and we will answer it, then add it here.
           </p>
         </Prose>
       </div>

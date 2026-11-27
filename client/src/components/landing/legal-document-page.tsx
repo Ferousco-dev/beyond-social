@@ -7,6 +7,7 @@ export function LegalDocumentPage({ document }: { readonly document: LegalDocume
   return (
     <PageShell eyebrow="Legal" title={document.title} lede={document.summary}>
       <div className="rounded-2xl border border-hairline bg-paper p-6 sm:p-8">
+        <p className="mb-4 text-sm text-ink-soft">Last updated {document.updated}</p>
         {document.status === "draft" ? (
           <div className="mb-6 flex items-center gap-2 text-sm font-medium text-ink">
             <Clock3 className="size-4 text-primary" aria-hidden />
