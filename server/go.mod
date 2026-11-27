@@ -10,7 +10,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20240701034025-d67f41855da4
 	github.com/jackc/pgx/v5 v5.9.2
 	golang.org/x/sync v0.23.0
-	google.golang.org/genai v1.73.0
+	google.golang.org/genai v1.79.1
 )
 
 require (
