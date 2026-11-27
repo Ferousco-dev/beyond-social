@@ -56,11 +56,12 @@ const csp = [
   `img-src 'self' data: blob: https:${devStorage}`,
   `media-src 'self' blob: https:${devStorage}`,
   "font-src 'self' data:",
+  // blob: is the editor reading its own cached copy of a video (frame decoder, export); the page makes those addresses itself.
   // The local Supabase stack is a development concern. Shipping it in the
   // production policy let any script on the page reach a service on the
   // visitor's own machine, which is a hole opened for our convenience and paid
   // for by them.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${apiOrigins ? ` ${apiOrigins}` : ""}${
+  `connect-src 'self' blob: https://*.supabase.co wss://*.supabase.co https://api.kie.ai${apiOrigins ? ` ${apiOrigins}` : ""}${
     isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : localSupabase ? ` ${localSupabase} ${localSupabase.replace(/^http/u, "ws")}` : ""
   }`,
   /*
