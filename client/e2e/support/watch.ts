@@ -8,7 +8,21 @@ const EXPECTED = [/media\.e2e\.test/u, /Failed to load resource: net::ERR_NAME_N
  * failed request to our own API, and any error screen, so a page that looks
  * fine but is quietly broken still fails.
  */
-export const test = base.extend<{ problems: string[] }>({
+export const test = base.extend<{ answeredCookies: boolean; problems: string[] }>({
+  /** Answer the cookie notice before the page loads, as a returning visitor has. Turn off to test the notice itself. */
+  answeredCookies: [true, { option: true }],
+  page: async ({ page, answeredCookies }, provide) => {
+    if (answeredCookies) {
+      await page.addInitScript(() => {
+        try {
+          window.localStorage.setItem("bs:cookie-consent", "accepted");
+        } catch {
+          return;
+        }
+      });
+    }
+    await provide(page);
+  },
   problems: [
     async ({ page }, use) => {
       const problems: string[] = [];

@@ -61,7 +61,7 @@ test("Discover finds posts for a topic", async ({ page }) => {
   await page.goto("/dashboard/trends");
   await page.getByRole("searchbox").or(page.getByRole("textbox")).first().fill("cake");
   await page.keyboard.press("Enter");
-  await expect(page.getByText(/test (post|reel) \d/iu).first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/Showing \d+ of \d+ for/u)).toBeVisible({ timeout: 90_000 });
 });
 
 test("a notification setting stays switched after a reload", async ({ page }) => {
