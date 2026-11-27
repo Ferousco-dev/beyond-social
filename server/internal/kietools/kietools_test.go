@@ -189,3 +189,13 @@ func TestATalkingPhotoLongerThanWhatWasChargedIsRefused(t *testing.T) {
 		t.Fatalf("a recording charged at its own length was refused: %v", err)
 	}
 }
+
+func TestATalkingAvatarIsNeverToldToLookCinematicOrMoveToAStudio(t *testing.T) {
+	got := talkPrompt("Warm delivery, speaking straight to camera. steady framing, head and shoulders. Cinematic. Setting: Studio")
+	if strings.Contains(got, ". Cinematic") || strings.Contains(got, "Setting: Studio") {
+		t.Fatalf("the avatar was sent the raw look or a setting that fights its photo: %s", got)
+	}
+	if !strings.HasPrefix(got, "Warm delivery, speaking straight to camera") || !strings.HasSuffix(got, realLook) {
+		t.Fatalf("the delivery must stay first and the real look last: %s", got)
+	}
+}

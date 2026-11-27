@@ -68,3 +68,21 @@ func TestClipsRenderInTheHigherQualityMode(t *testing.T) {
 		t.Fatalf("mode = %s", mode)
 	}
 }
+
+func TestTheDirectorNeverSeesALookThatMakesVideosLookAIMade(t *testing.T) {
+	studio := "Objective: sell the serum\nCinematic\nSetting: Studio\nSays: \"Two drops every morning\""
+	d := &fakeDirector{out: "A woman at a bathroom sink holds a small dark bottle."}
+	Builder{Director: d}.directShot(context.Background(), studio, 5, false, MaxShotRunes)
+	if strings.Contains(d.got, "\nCinematic\n") || strings.Contains(d.got, "Setting: Studio") {
+		t.Fatalf("the director was sent the raw look:\n%s", d.got)
+	}
+	if !strings.Contains(d.got, "Says: \"Two drops every morning\"") {
+		t.Fatalf("the spoken words must reach the director unchanged:\n%s", d.got)
+	}
+
+	failing := &fakeDirector{err: context.DeadlineExceeded}
+	fallback := Builder{Director: failing}.directShot(context.Background(), studio, 5, false, MaxSingleRunes)
+	if strings.Contains(fallback, "Cinematic") || strings.Contains(fallback, "Setting: Studio") {
+		t.Fatalf("the fallback prompt kept the raw look: %s", fallback)
+	}
+}

@@ -19,7 +19,7 @@ const SHORT: Readonly<Record<string, string>> = {
 export const STYLE_CARDS = [
   {
     value: "Bright and clean",
-    hint: "Light and crisp. Good for products.",
+    hint: "Daylight and a tidy room. Good for products.",
     art: (
       <>
         <Layer background="linear-gradient(180deg, #f7faff, #d3e3fb)" />
@@ -29,7 +29,7 @@ export const STYLE_CARDS = [
   },
   {
     value: "Cinematic",
-    hint: "Moody film look with deep shadows.",
+    hint: "Moody lamp light, still looks real.",
     art: (
       <>
         <Layer background="linear-gradient(180deg, #0f2f3a 0%, #181818 55%, #b8631f 100%)" />
@@ -50,7 +50,7 @@ export const STYLE_CARDS = [
   },
   {
     value: "Minimal studio",
-    hint: "Plain backdrop, nothing distracting.",
+    hint: "A plain wall and soft daylight.",
     art: (
       <>
         <Layer background="linear-gradient(180deg, #f4f4f2, #dcdcd7)" />
@@ -60,7 +60,7 @@ export const STYLE_CARDS = [
   },
   {
     value: "Warm and natural",
-    hint: "Soft sunlight and golden tones.",
+    hint: "Warm window light, homely.",
     art: (
       <>
         <Layer background="linear-gradient(180deg, #ffe9c9, #eeaa63)" />
@@ -70,7 +70,7 @@ export const STYLE_CARDS = [
   },
   {
     value: "Bold and high energy",
-    hint: "Vivid colours, fast and punchy.",
+    hint: "Lively, with the real colours of the place.",
     art: (
       <>
         <Layer background="linear-gradient(135deg, #ff2d78 0%, #7a1dff 55%, #1a0b4d 100%)" />

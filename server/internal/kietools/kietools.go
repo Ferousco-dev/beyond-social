@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Ferousco-dev/beyond-social/server/internal/look"
 	"net/url"
 	"strings"
 	"unicode/utf8"
@@ -36,9 +37,11 @@ const (
 const realLook = "Keep the person exactly as in the photo: same face, skin, hair and clothes. Natural, restrained delivery like a real video call or phone clip: relaxed shoulders, small head movements, blinks at an irregular pace, brief glances away, eyebrows and mouth moving only as much as the words need. Real skin texture with pores and slight shine, no smoothing. Ordinary available light and the original background unchanged. No exaggerated expressions, no dramatic gestures, no text or logos."
 
 // talkPrompt is the direction sent to the avatar model: the person's words,
-// then the look of real footage.
+// then the look of real footage. A look picked on the form is translated into
+// filmed-reality words first, and any setting is dropped, because the avatar
+// keeps the background of its photo.
 func talkPrompt(direction string) string {
-	direction = strings.TrimSpace(direction)
+	direction = strings.TrimSpace(look.Direction(direction))
 	if direction == "" {
 		return realLook
 	}
