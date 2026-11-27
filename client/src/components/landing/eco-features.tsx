@@ -147,6 +147,14 @@ function AvatarArt(): ReactNode {
 
 /* ---------------------------------------------------------------- captions */
 
+/** The caption styles as the real Captions panel shows them: the same two words, styled. */
+const CAPTION_STYLES = [
+  { name: "Karaoke", sample: "", word: "text-[#eab308]" },
+  { name: "Pill", sample: "", word: "rounded-[0.3em] bg-[#facc15] px-[0.15em]" },
+  { name: "Classic", sample: "", word: "" },
+  { name: "Box", sample: "rounded-[0.25em] bg-[#18181b] px-[0.3em] py-[0.1em] text-white", word: "" },
+];
+
 function CaptionsArt(): ReactNode {
   return (
     <Art label="A video with karaoke captions and the caption styles">
@@ -157,12 +165,21 @@ function CaptionsArt(): ReactNode {
             Glow <span className="text-[#ffd400]">in</span> 7 days
           </span>
         </span>
-        <div className="flex flex-1 flex-col gap-[2em]">
-          {["Karaoke", "Pill", "Classic", "Box"].map((style, i) => (
-            <span key={style} className={`rounded-[2em] border px-[2.4em] py-[1.6em] text-[2.6em] ${i === 0 ? "border-primary bg-[#eef4ff] text-[#18181b]" : "border-[#e4e4e7]"}`}>
-              {style}
-            </span>
-          ))}
+        <div className="flex flex-1 flex-col">
+          <p className="text-[2.4em] font-medium text-[#18181b]">Style</p>
+          <div className="mt-[2em] grid flex-1 grid-cols-2 gap-[2em]">
+            {CAPTION_STYLES.map((style) => (
+              <span
+                key={style.name}
+                className={`flex flex-col items-center justify-center gap-[0.3em] rounded-[1.2em] border bg-[#fafafa] text-center ${style.name === "Karaoke" ? "border-primary" : "border-[#e4e4e7]"}`}
+              >
+                <span className={`text-[2em] font-extrabold leading-none text-[#18181b] ${style.sample}`}>
+                  Watch <span className={style.word}>this</span>
+                </span>
+                <span className="text-[1.7em] text-[#71717a]">{style.name}</span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </Art>
@@ -179,16 +196,16 @@ function ChatArt(): ReactNode {
           <Lightbulb className="size-[1em] text-primary" aria-hidden />
           Chat
         </p>
-        <p className="ev-rise ml-auto mt-[4em] w-fit rounded-[2.4em] bg-primary px-[2.4em] py-[1.4em] text-[2.8em] text-white" style={delay(200)}>
+        <p className="ev-rise ml-auto mt-[3.5em] w-fit rounded-[0.9em] bg-primary px-[0.8em] py-[0.45em] text-[2.4em] text-white" style={delay(200)}>
           Cut the clip at the playhead
         </p>
-        <p className="ev-rise mt-[2.4em] w-fit max-w-[85%] rounded-[2.4em] bg-[#f4f4f5] px-[2.4em] py-[1.4em] text-[2.8em]" style={delay(500)}>
+        <p className="ev-rise mt-[1.4em] w-fit max-w-[85%] rounded-[0.9em] bg-[#f4f4f5] px-[0.8em] py-[0.45em] text-[2.4em]" style={delay(500)}>
           Done. Scene 2 is now two clips at 00:06.
         </p>
-        <div className="mt-auto flex items-center rounded-[2em] border border-[#e4e4e7] px-[2.4em] py-[1.6em] text-[2.6em] text-[#a1a1aa]">
-          Ask for an edit
-          <span className="ml-auto grid size-[1.6em] place-items-center rounded-[0.4em] bg-primary text-white">
-            <ArrowUp className="size-[1em]" aria-hidden />
+        <div className="relative mt-auto h-[11em] rounded-[1.4em] border border-[#e4e4e7] bg-white">
+          <span className="absolute left-[1.2em] top-[1em] text-[2.2em] text-[#a1a1aa]">Ask for an edit</span>
+          <span className="absolute bottom-[1.4em] right-[1.4em] grid size-[4.4em] place-items-center rounded-[1em] bg-primary text-white">
+            <ArrowUp className="size-[2.4em]" aria-hidden />
           </span>
         </div>
       </div>

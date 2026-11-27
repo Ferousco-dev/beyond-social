@@ -68,7 +68,7 @@ export function ClosingPanel(): ReactNode {
                     </Link>
                     <Link
                       href="/contact"
-                      className="inline-flex h-12 items-center justify-center rounded-full border border-ink-soft/30 px-7 text-sm font-medium text-ink transition-colors duration-200 hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      className="btn btn-secondary btn-lg"
                     >
                       Talk to us
                     </Link>
