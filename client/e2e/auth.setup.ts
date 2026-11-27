@@ -1,6 +1,5 @@
 import { expect, test as setup, type Page } from "@playwright/test";
 
-import { codeFor } from "./support/mailbox";
 import { ADMIN_STATE, PASSWORD, stack, USER_STATE } from "./support/stack";
 
 /** Removes a test account left by an earlier run on the same local stack, so sign-up starts clean. */
@@ -14,12 +13,12 @@ async function removeLeftover(email: string): Promise<void> {
 }
 
 /**
- * Signs up through the real form, confirms with the code from the mailbox,
- * and keeps the session for the other tests. The admin is the address the
+ * Signs up through the real form, as a new person does, and keeps the
+ * session for the other tests. Like the live project, the test Supabase has
+ * no email confirmation step: sign-up goes straight into the app. The admin is the address the
  * API promotes (ADMIN_EMAILS in e2e/stack.sh).
  */
 async function signUp(page: Page, email: string, name: string): Promise<void> {
-  const started = new Date(Date.now() - 1000);
   await page.goto("/signup");
   await page.getByLabel("Full name").fill(name);
   await page.getByLabel("Email").fill(email);
@@ -30,14 +29,10 @@ async function signUp(page: Page, email: string, name: string): Promise<void> {
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: /create account|sign up/iu }).click();
 
-  await page.waitForURL(/\/verify/u);
-  const code = await codeFor(email, started);
-  await page.getByRole("textbox").first().fill(code);
-  await page.getByRole("button", { name: /verify|confirm|continue/iu }).click();
   await page.waitForURL(/\/(dashboard|welcome)/u);
 }
 
-setup("a new person signs up, confirms by email code and lands in the app", async ({ page }) => {
+setup("a new person signs up and lands in the app", async ({ page }) => {
   await signUp(page, `person-${Date.now()}@e2e.test`, "Test Person");
   await page.context().storageState({ path: USER_STATE });
 });

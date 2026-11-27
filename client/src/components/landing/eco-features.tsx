@@ -147,38 +147,60 @@ function AvatarArt(): ReactNode {
 
 /* ---------------------------------------------------------------- captions */
 
-/** The caption styles as the real Captions panel shows them: the same two words, styled. */
+/** The five caption styles as the real Captions panel shows them: the same words, styled. */
 const CAPTION_STYLES = [
-  { name: "Karaoke", sample: "", word: "text-[#eab308]" },
-  { name: "Pill", sample: "", word: "rounded-[0.3em] bg-[#facc15] px-[0.15em]" },
-  { name: "Classic", sample: "", word: "" },
-  { name: "Box", sample: "rounded-[0.25em] bg-[#18181b] px-[0.3em] py-[0.1em] text-white", word: "" },
+  { name: "Karaoke", word: "text-[#eab308]", tile: "" },
+  { name: "Pill", word: "rounded-[0.25em] bg-[#facc15] px-[0.15em]", tile: "" },
+  { name: "Classic", word: "", tile: "" },
+  { name: "Box", word: "", tile: "rounded-[0.2em] bg-[#18181b] px-[0.3em] text-white" },
+  { name: "Minimal", word: "", tile: "font-medium" },
 ];
+
+const SPOKEN = ["Glow", "in", "7", "days"];
 
 function CaptionsArt(): ReactNode {
   return (
-    <Art label="A video with karaoke captions and the caption styles">
+    <Art label="A video whose caption lights up word by word, beside the captions panel with Karaoke picked">
       <div className="absolute inset-[5em] flex gap-[5em]">
-        <span className="relative aspect-[9/16] h-full shrink-0 overflow-hidden rounded-[3em] bg-black">
+        <span className="relative aspect-[9/16] h-full shrink-0 overflow-hidden rounded-[3em] bg-black shadow-[0_2em_4em_-2em_rgba(0,0,0,0.5)]">
           <Image src={STILL} alt="" fill sizes="160px" className="object-cover" />
-          <span className="absolute inset-x-[1.6em] bottom-[10em] rounded-[1em] bg-black/60 px-[0.6em] py-[0.6em] text-center text-[2.4em] font-extrabold leading-tight text-white">
-            Glow <span className="text-[#ffd400]">in</span> 7 days
-          </span>
-        </span>
-        <div className="flex flex-1 flex-col">
-          <p className="text-[2.4em] font-medium text-[#18181b]">Style</p>
-          <div className="mt-[2em] grid flex-1 grid-cols-2 gap-[2em]">
-            {CAPTION_STYLES.map((style) => (
-              <span
-                key={style.name}
-                className={`flex flex-col items-center justify-center gap-[0.3em] rounded-[1.2em] border bg-[#fafafa] text-center ${style.name === "Karaoke" ? "border-primary" : "border-[#e4e4e7]"}`}
-              >
-                <span className={`text-[2em] font-extrabold leading-none text-[#18181b] ${style.sample}`}>
-                  Watch <span className={style.word}>this</span>
-                </span>
-                <span className="text-[1.7em] text-[#71717a]">{style.name}</span>
+          <span className="absolute inset-x-0 bottom-[2.4em] flex justify-center gap-[0.3em] px-[1em] text-[3.4em] font-extrabold text-white [text-shadow:0_0.08em_0.3em_rgba(0,0,0,0.7)]">
+            {SPOKEN.map((word, i) => (
+              <span key={word} className="kw-word" style={{ animationDelay: `${i * 0.6}s` }}>
+                {word}
               </span>
             ))}
+          </span>
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-[2.6em]">
+          <span className="grid h-[8em] place-items-center rounded-[1.6em] bg-primary font-medium text-white">
+            <span className="text-[3em]">Generate captions</span>
+          </span>
+          <div>
+            <p className="text-[2.8em] text-[#71717a]">Style</p>
+            <div className="mt-[1.4em] grid grid-cols-3 gap-[1.4em]">
+              {CAPTION_STYLES.map((style) => (
+                <span
+                  key={style.name}
+                  className={`flex h-[9.5em] flex-col items-center justify-center rounded-[1.4em] border bg-[#fafafa] ${style.name === "Karaoke" ? "border-primary ring-[0.3em] ring-primary/15" : "border-[#e4e4e7]"}`}
+                >
+                  <span className={`whitespace-nowrap text-[2.5em] font-extrabold leading-tight text-[#18181b] ${style.tile}`}>
+                    Hi <span className={style.word}>you</span>
+                  </span>
+                  <span className="text-[2.2em] text-[#71717a]">{style.name}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[2.8em] text-[#71717a]">Size</span>
+            <span className="flex rounded-[1.4em] border border-[#e4e4e7] p-[0.6em]">
+              {["S", "M", "L"].map((size) => (
+                <span key={size} className={`rounded-[0.4em] px-[0.8em] py-[0.15em] text-[2.6em] ${size === "M" ? "bg-[#eef4ff] font-medium text-primary" : "text-[#71717a]"}`}>
+                  {size}
+                </span>
+              ))}
+            </span>
           </div>
         </div>
       </div>
@@ -190,22 +212,42 @@ function CaptionsArt(): ReactNode {
 
 function ChatArt(): ReactNode {
   return (
-    <Art label="Asking the editor's AI to cut the clip in half, and its answer">
+    <Art label="Asking the editor to cut the clip at the playhead: the clip splits in two and the AI confirms">
       <div className="absolute inset-[5em] flex flex-col">
-        <p className="flex items-center gap-[0.6em] text-[3em] font-medium text-[#18181b]">
-          <Lightbulb className="size-[1em] text-primary" aria-hidden />
-          Chat
-        </p>
-        <p className="ev-rise ml-auto mt-[3.5em] w-fit rounded-[0.9em] bg-primary px-[0.8em] py-[0.45em] text-[2.4em] text-white" style={delay(200)}>
-          Cut the clip at the playhead
-        </p>
-        <p className="ev-rise mt-[1.4em] w-fit max-w-[85%] rounded-[0.9em] bg-[#f4f4f5] px-[0.8em] py-[0.45em] text-[2.4em]" style={delay(500)}>
-          Done. Scene 2 is now two clips at 00:06.
-        </p>
-        <div className="relative mt-auto h-[11em] rounded-[1.4em] border border-[#e4e4e7] bg-white">
-          <span className="absolute left-[1.2em] top-[1em] text-[2.2em] text-[#a1a1aa]">Ask for an edit</span>
-          <span className="absolute bottom-[1.4em] right-[1.4em] grid size-[4.4em] place-items-center rounded-[1em] bg-primary text-white">
-            <ArrowUp className="size-[2.4em]" aria-hidden />
+        <div className="relative flex h-[11em] gap-[0.6em] rounded-[1.4em] bg-[#f4f4f5] p-[1em]">
+          <span className="relative flex h-full flex-[3] overflow-hidden rounded-[0.9em] ring-[0.35em] ring-primary/70">
+            {Array.from({ length: 4 }, (_, i) => (
+              <span key={i} className="relative h-full flex-1">
+                <Image src={STILL} alt="" fill sizes="60px" className="object-cover" />
+              </span>
+            ))}
+          </span>
+          <span className="ch-cut h-full rounded-full bg-white" />
+          <span className="relative flex h-full flex-[2] overflow-hidden rounded-[0.9em] ring-[0.35em] ring-primary/70">
+            {Array.from({ length: 3 }, (_, i) => (
+              <span key={i} className="relative h-full flex-1">
+                <Image src={STILL} alt="" fill sizes="60px" className="object-cover" />
+              </span>
+            ))}
+          </span>
+          <span className="absolute -bottom-[1em] -top-[1em] left-[60%] w-[0.5em] rounded-full bg-primary" />
+        </div>
+        <div className="mt-[3.5em] flex flex-col gap-[1.6em]">
+          <p className="ch-ask ml-auto w-fit rounded-[1em] bg-primary px-[1em] py-[0.55em] text-[3em] text-white">
+            <span className="text-[1em]">Cut the clip at the playhead</span>
+          </p>
+          <div className="relative h-[8em]">
+            <p className="ch-working absolute left-0 top-0 text-[3em] text-[#a1a1aa]">Working…</p>
+            <div className="ch-reply absolute left-0 top-0">
+              <p className="w-fit rounded-[1em] bg-[#f4f4f5] px-[1em] py-[0.55em] text-[3em] text-[#27272a]">Done. Scene 2 is now two clips.</p>
+              <p className="mt-[0.6em] pl-[0.4em] text-[2.6em] text-[#71717a]">↩ Undo this change</p>
+            </div>
+          </div>
+        </div>
+        <div className="relative mt-auto h-[13em] rounded-[1.6em] border border-[#e4e4e7] bg-white">
+          <span className="absolute left-[1em] top-[0.8em] text-[3em] text-[#a1a1aa]">Ask for an edit</span>
+          <span className="absolute bottom-[1.6em] right-[1.6em] grid size-[6em] place-items-center rounded-[1.4em] bg-primary text-white">
+            <ArrowUp className="size-[3.2em]" aria-hidden />
           </span>
         </div>
       </div>

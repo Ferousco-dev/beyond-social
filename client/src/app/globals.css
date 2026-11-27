@@ -659,3 +659,19 @@ textarea:not([aria-invalid="true"]):focus {
 .ev-caret { animation: ev-caret 1s steps(1) infinite; }
 .ev-wave { animation: ev-wave 1.2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .ev-caret, .ev-wave { animation: none; } }
+/* Feature cards: the caption lights up word by word, and the clip splits after the chat asks for it (eight-second loop). */
+.kw-word { animation: kw-word 2.4s steps(1, end) infinite; }
+@keyframes kw-word { 0% { color: #ffd400; } 25%, 100% { color: #fff; } }
+.ch-ask { animation: ch-ask 8s ease infinite; }
+.ch-working { animation: ch-working 8s ease infinite; }
+.ch-reply { animation: ch-reply 8s ease infinite; }
+.ch-cut { animation: ch-cut 8s ease infinite; }
+@keyframes ch-ask { 0%, 8% { opacity: 0; transform: translateY(0.6em); } 12%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes ch-working { 0%, 14% { opacity: 0; } 18%, 34% { opacity: 1; } 38%, 100% { opacity: 0; } }
+@keyframes ch-reply { 0%, 36% { opacity: 0; transform: translateY(0.6em); } 41%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@keyframes ch-cut { 0%, 38% { width: 0; margin-inline: -0.3em; } 44%, 94% { width: 0.8em; margin-inline: 0; } 100% { width: 0; margin-inline: -0.3em; } }
+@media (prefers-reduced-motion: reduce) {
+  .kw-word, .ch-ask, .ch-reply, .ch-cut { animation: none; opacity: 1; }
+  .ch-cut { width: 0.8em; }
+  .ch-working { display: none; }
+}
