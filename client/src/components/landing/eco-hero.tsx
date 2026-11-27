@@ -77,23 +77,27 @@ function AppIcon(): ReactNode {
 
 const TOPICS = ["TikTok", "Instagram Reels", "Talking avatars", "Captions", "AI editor", "Scheduling", "Trends"];
 
-/** EcoVest's "what you'll learn" row, as what Beyond Social makes. */
+/** EcoVest's "what you'll learn" row, as what Beyond Social makes: one line that drifts sideways, faded at both edges. */
 function Topics(): ReactNode {
   return (
-    <section className="flex flex-col items-center gap-9 pb-10 pt-16 md:pt-20">
+    <section className="flex flex-col items-center gap-6 pb-10 pt-12 md:gap-9 md:pt-20">
       <p className="px-5 text-center text-[16px] leading-[1.4] tracking-[-0.015em] text-[#6b7079] md:text-[18px]">
         What you can <span className="bg-gradient-to-b from-[#0052cc] to-[#4d94ff] bg-clip-text text-transparent">make with Beyond Social</span>
       </p>
       <div className="relative w-full max-w-[1225px] overflow-hidden">
-        <ul className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 px-6 md:flex-nowrap md:gap-12">
-          {TOPICS.map((topic) => (
-            <li key={topic} className="whitespace-nowrap text-[20px] font-semibold tracking-[-0.03em] text-[#6b7079] md:text-[24px]">
-              {topic}
-            </li>
+        <div className="topics-marquee flex w-max">
+          {[0, 1].map((copy) => (
+            <ul key={copy} aria-hidden={copy === 1} className="flex shrink-0 items-center gap-10 pr-10 md:gap-12 md:pr-12">
+              {TOPICS.map((topic) => (
+                <li key={topic} className="whitespace-nowrap text-[18px] font-semibold tracking-[-0.03em] text-[#6b7079] md:text-[24px]">
+                  {topic}
+                </li>
+              ))}
+            </ul>
           ))}
-        </ul>
-        <div className="pointer-events-none absolute inset-y-0 left-0 hidden w-[153px] bg-gradient-to-r from-canvas to-transparent md:block" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[153px] bg-gradient-to-l from-canvas to-transparent md:block" />
+        </div>
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-canvas to-transparent md:w-[153px]" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-canvas to-transparent md:w-[153px]" />
       </div>
     </section>
   );
@@ -115,7 +119,7 @@ export function EcoHero(): ReactNode {
             Videos <span className="font-serif text-[1.02em] font-normal italic tracking-[-0.02em]">out</span>
           </h1>
           <p className="mt-4 max-w-[622px] text-[15px] leading-[1.45] tracking-[-0.015em] text-ink-soft sm:mt-6 md:text-[18px]">
-            Write one sentence. Our AI writes the script, makes the video, adds captions, and posts it to TikTok and Instagram at the best time.
+            Describe your idea in a sentence. We write the script, make the captioned video and post it to TikTok and Instagram when your followers are online.
           </p>
           <div className="mt-7 sm:mt-9">
             <Link href="/signup" className="btn btn-primary btn-lg group">

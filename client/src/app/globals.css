@@ -675,3 +675,23 @@ textarea:not([aria-invalid="true"]):focus {
   .ch-cut { width: 0.8em; }
   .ch-working { display: none; }
 }
+/* The topics row drifts left forever: two identical lists, moved by exactly one list's width. */
+.topics-marquee { animation: topics-marquee 32s linear infinite; }
+@keyframes topics-marquee { to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .topics-marquee { animation: none; } }
+
+/* No grey or blue flash when a link or button is tapped, and no browser outline on a mouse or touch click.
+   Keyboard users still get the focus ring, since :focus-visible is untouched. */
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  :focus:not(:focus-visible) { outline: none; }
+}
+
+/* On phones the landing keeps only the motion that explains the product (the editor's cursor loop and the
+   chat card). Decorative motion stops: it costs battery and distracts on a small screen. */
+@media (max-width: 767px) {
+  .se-kenburns, .se-playhead, .kw-word, .ev-wave, .ev-caret { animation: none; }
+  .topics-marquee { animation-duration: 60s; }
+  .kw-word:nth-child(3) { color: #ffd400; }
+  .ev-rise { animation-duration: 0.5s; }
+}

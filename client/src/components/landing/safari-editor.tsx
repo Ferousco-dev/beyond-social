@@ -2,13 +2,17 @@ import { ArrowLeft, ArrowUp, Captions, CircleHelp, Download, Film, Image as Imag
 import Image from "next/image";
 import { type ReactNode } from "react";
 
+import { PlatformLogo } from "@/components/brand/platform-logo";
+
 /*
  * The real editor in a Safari window, playing a twelve-second loop: the cursor
  * asks the AI for a title, the title lands on the video and the timeline, then
  * it exports and approves the suggested posting time. Pure CSS (.se-* in
  * globals.css), so it costs no script, and people who turn motion off see the
  * finished state. Everything is sized in em with 1em = 1% of the window's
- * width, so on a phone it shrinks like a screenshot instead of reflowing.
+ * width, so it scales like a screenshot. On phones the window is drawn half
+ * again as large and cropped to the preview, chat and Export, so it stays
+ * readable instead of shrinking to nothing.
  */
 
 const STILL = "/brand/product-still.jpg";
@@ -205,7 +209,7 @@ function PostPanel(): ReactNode {
     <div className="se-post absolute right-[2em] top-[4.6em] w-[30em] rounded-[1.2em] border border-[#e4e4e7] bg-white p-[1.2em] text-[1.15em] shadow-[0_1.5em_4em_-1em_rgba(0,0,0,0.3)]">
       <p className="font-semibold text-[#18181b]">Post your video</p>
       <div className="mt-[0.8em] flex items-center gap-[0.6em] rounded-[0.7em] border border-primary bg-[#eef4ff] px-[0.8em] py-[0.5em]">
-        <span className="grid size-[1.6em] place-items-center rounded-full bg-black text-[0.8em] font-bold text-white">T</span>
+        <PlatformLogo platform="tiktok" className="size-[1.4em]" />
         <span className="text-[#18181b]">TikTok · @glowlab</span>
       </div>
       <p className="mt-[0.7em] text-[#52525b]">Glow in 7 days. Two drops every morning and your skin does the rest. #skincare</p>
@@ -238,9 +242,9 @@ function Cursor(): ReactNode {
 export function SafariEditor(): ReactNode {
   return (
     <div className="relative z-10 mx-auto mt-12 w-full max-w-[1100px] px-4 md:mt-auto md:pt-16">
-      <div className="[container-type:inline-size]">
+      <div className="relative overflow-hidden rounded-t-[14px] [container-type:inline-size] md:overflow-visible">
         <div
-          className="relative overflow-hidden rounded-t-[1.4em] border border-b-0 border-[#e4e4e7] bg-white text-[1cqw] shadow-[0_3em_8em_-3em_rgba(0,71,179,0.45)]"
+          className="relative ml-[-53.9cqw] w-[154cqw] overflow-hidden rounded-t-[1.4em] border border-b-0 border-[#e4e4e7] bg-white text-[1.54cqw] shadow-[0_3em_8em_-3em_rgba(0,71,179,0.45)] md:ml-0 md:w-auto md:text-[1cqw]"
           role="img"
           aria-label="The Beyond Social editor: the AI adds a title to a serum video when asked, then the video is scheduled for the best time on TikTok"
         >

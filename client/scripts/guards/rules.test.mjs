@@ -38,6 +38,12 @@ test("no-sparkle-ai-icon catches the sparkle AI icon and allows the bulb", () =>
   assert.equal(rule("no-sparkle-ai-icon").line('import { ArrowUp, Lightbulb } from "lucide-react";'), false);
 });
 
+test("no-letter-platform-logo catches a letter standing in for a platform logo", () => {
+  assert.equal(rule("no-letter-platform-logo").line('<span className="grid size-5 rounded-full bg-black text-white">T</span>'), true);
+  assert.equal(rule("no-letter-platform-logo").line('<PlatformLogo platform="tiktok" className="size-4" />'), false);
+  assert.equal(rule("no-letter-platform-logo").line('<span className="rounded-full px-2">Today</span>'), false);
+});
+
 test("links-to-real-pages finds app paths and checks them against routes", () => {
   const routes = ["/dashboard/admin", "/dashboard/admin/users", "/dashboard/admin/users/[id]"];
   assert.deepEqual(appPaths('{ href: "/dashboard/admin/docs" as Route }'), ["/dashboard/admin/docs"]);

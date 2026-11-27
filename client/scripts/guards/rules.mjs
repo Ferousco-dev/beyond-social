@@ -58,6 +58,13 @@ export const RULES = [
     line: (text) => /(?<!["'])\b(Sparkles|Sparkle|WandSparkles|Wand2)\b(?!["'])/u.test(text),
   },
   {
+    id: "no-letter-platform-logo",
+    fix: "27 Nov 2026: the landing post panel showed TikTok as a T in a black circle.",
+    message: "Platforms always show their real logo. Use <PlatformLogo platform=\"tiktok\" />, never a letter in a circle.",
+    files: /\.tsx$/u,
+    line: (text) => /rounded-full[^"]*"[^>]*>\s*(T|IG|I|Y|YT)\s*<\//u.test(text),
+  },
+  {
     id: "admin-compact",
     fix: "26 Nov 2026: admin inputs and rows were too tall.",
     message: "Admin controls are 28 to 36 px tall: use h-7 to h-9, never h-10 or taller.",
