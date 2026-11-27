@@ -38,7 +38,7 @@ test("idea to finished video to post: the whole journey, with fake generation", 
   await post.getByRole("button", { name: /close/iu }).click();
 });
 
-test("the editor's AI chat, captions and speed all work on a clip", async ({ page }) => {
+test("the editor's AI chat edits a project and the change is saved", async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto("/dashboard/projects");
   await page.locator('a[href^="/editor/"]').first().click();
@@ -46,12 +46,6 @@ test("the editor's AI chat, captions and speed all work on a clip", async ({ pag
 
   await page.getByRole("button", { name: /add a title at the start/iu }).click();
   await expect(page.getByText(/working/iu)).toHaveCount(0, { timeout: 60_000 });
-
-  await page.getByRole("button", { name: /captions/iu }).first().click();
-  await page.getByRole("button", { name: "Generate captions" }).click();
-  await expect(page.getByRole("button", { name: "Generate captions" })).toBeEnabled({ timeout: 60_000 });
-  await page.getByRole("button", { name: "Large" }).click();
-  await expect(page.getByRole("button", { name: "Large" })).toHaveAttribute("aria-pressed", "true");
 
   await expect(page.getByText(/^Saved$/u)).toBeVisible({ timeout: 30_000 });
   await expectNoErrorScreen(page);

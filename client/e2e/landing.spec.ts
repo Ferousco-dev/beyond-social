@@ -36,7 +36,7 @@ test("the landing page's main buttons lead to sign-up and pricing", async ({ pag
 });
 
 test.describe("a first visit", () => {
-  test.use({ answeredCookies: false });
+  test.use({ returning: false });
   test("shows the cookie notice, and Accept closes it for good", async ({ page }) => {
     await page.goto("/");
     const notice = page.getByRole("region", { name: "Cookie notice" });

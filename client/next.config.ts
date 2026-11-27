@@ -20,6 +20,24 @@ const apiOrigins = (() => {
   }
 })();
 
+/**
+ * A build for the end-to-end test stack (e2e/stack.sh): the site is served at
+ * a plain-http loopback address and talks to a local Supabase. Only that build
+ * gets the local Supabase in its policy and skips upgrading requests to https;
+ * a production build has an https app address, so its policy is unchanged.
+ */
+const loopbackBuild = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/u.test((process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/u, ""));
+const localSupabase = (() => {
+  if (!loopbackBuild) return "";
+  try {
+    const origin = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin;
+    return /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/u.test(origin) ? origin : "";
+  } catch {
+    return "";
+  }
+})();
+const devStorage = isDev ? " http://127.0.0.1:54321" : localSupabase ? ` ${localSupabase}` : "";
+
 // Scoped Content-Security-Policy. Scripts still allow 'unsafe-inline' because
 // the App Router injects inline bootstrap scripts without a nonce; tightening
 // this to a nonce-based policy is tracked in docs/production-readiness.md.
@@ -35,15 +53,15 @@ const csp = [
    *
    * Only in development. Production storage is https and already covered.
    */
-  `img-src 'self' data: blob: https:${isDev ? " http://127.0.0.1:54321" : ""}`,
-  `media-src 'self' blob: https:${isDev ? " http://127.0.0.1:54321" : ""}`,
+  `img-src 'self' data: blob: https:${devStorage}`,
+  `media-src 'self' blob: https:${devStorage}`,
   "font-src 'self' data:",
   // The local Supabase stack is a development concern. Shipping it in the
   // production policy let any script on the page reach a service on the
   // visitor's own machine, which is a hole opened for our convenience and paid
   // for by them.
   `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.kie.ai${apiOrigins ? ` ${apiOrigins}` : ""}${
-    isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : ""
+    isDev ? " http://127.0.0.1:54321 ws://127.0.0.1:54321" : localSupabase ? ` ${localSupabase} ${localSupabase.replace(/^http/u, "ws")}` : ""
   }`,
   /*
    * The one iframe in the product is the Discover player, and there was no
@@ -59,7 +77,7 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
+  ...(isDev || loopbackBuild ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const securityHeaders = [

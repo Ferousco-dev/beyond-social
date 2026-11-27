@@ -8,14 +8,19 @@ const EXPECTED = [/media\.e2e\.test/u, /Failed to load resource: net::ERR_NAME_N
  * failed request to our own API, and any error screen, so a page that looks
  * fine but is quietly broken still fails.
  */
-export const test = base.extend<{ answeredCookies: boolean; problems: string[] }>({
-  /** Answer the cookie notice before the page loads, as a returning visitor has. Turn off to test the notice itself. */
-  answeredCookies: [true, { option: true }],
-  page: async ({ page, answeredCookies }, provide) => {
-    if (answeredCookies) {
+export const test = base.extend<{ returning: boolean; problems: string[] }>({
+  /**
+   * Behave like a returning visitor: the cookie notice is answered and both
+   * tours have been seen, so neither covers what a test clicks. Turn off to
+   * test the first visit itself.
+   */
+  returning: [true, { option: true }],
+  page: async ({ page, returning }, provide) => {
+    if (returning) {
       await page.addInitScript(() => {
         try {
           window.localStorage.setItem("bs:cookie-consent", "accepted");
+          for (const tour of ["first-video", "editor"]) window.localStorage.setItem(`bs:tour:${tour}`, JSON.stringify({ step: 0, done: true }));
         } catch {
           return;
         }

@@ -40,11 +40,9 @@ test.describe("signed in", () => {
     });
   }
 
-  test("a person who is not an admin cannot open the admin console", async ({ page, problems }) => {
-    const response = await page.goto("/dashboard/admin");
-    expect(response?.status(), "the console answers as if it did not exist").toBe(404);
-    const expected = problems.filter((problem) => /status of 404/u.test(problem));
-    for (const line of expected) problems.splice(problems.indexOf(line), 1);
+  test("a person who is not an admin cannot open the admin console", async ({ page }) => {
+    await page.goto("/dashboard/admin");
+    await expect(page.getByRole("heading", { name: "We could not find that page" }), "the console answers as if it did not exist").toBeVisible();
   });
 });
 
