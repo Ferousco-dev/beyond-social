@@ -182,7 +182,7 @@ func TestSubmitFailureHandling(t *testing.T) {
 	}{
 		// A rejection KIE actually sent is safe to retry.
 		"definite transient": {&provider.Error{Provider: "kie", Status: 500, Transient: true}, jobs.StatusRunning, "", 1},
-		"permanent":          {&provider.Error{Provider: "kie", Status: 402, Message: "no credits"}, jobs.StatusFailed, msgUnavailable, 0},
+		"permanent":          {&provider.Error{Provider: "kie", Status: 400, Message: "bad request"}, jobs.StatusFailed, msgUnavailable, 0},
 		// No response at all: the task may exist, so retrying could bill twice.
 		"ambiguous":    {&provider.Error{Provider: "kie", Message: "request failed", Transient: true}, jobs.StatusFailed, msgInterrupted, 0},
 		"unclassified": {errors.New("boom"), jobs.StatusFailed, msgInterrupted, 0},
@@ -354,5 +354,29 @@ func TestAFailedVideoEmailsTheOwnerWhoAskedToBeTold(t *testing.T) {
 	r.proc.Handle(ctx, r.jobs.get(job.ID))
 	if len(r.notify.failed) != 1 || r.notify.failed[0] != alice || len(r.notify.users) != 0 {
 		t.Fatalf("expected one failure email to alice, got failed=%v ready=%v", r.notify.failed, r.notify.users)
+	}
+}
+
+func TestOutOfProviderCreditTellsAUserToTryLaterAndAnAdminToTopUp(t *testing.T) {
+	noCredit := &provider.Error{Status: 402, Message: "Credits insufficient", Transient: false}
+	for _, tc := range []struct {
+		name  string
+		admin bool
+		want  string
+	}{
+		{"user", false, MsgNoProviderCredit},
+		{"admin", true, MsgAdminNoProviderCredit},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRig(t)
+			r.proc.IsAdmin = func(context.Context, string) (bool, error) { return tc.admin, nil }
+			r.provider.createErr = noCredit
+			job := r.queued()
+			r.proc.Handle(ctx, job)
+			got := r.jobs.get(job.ID)
+			if got.Status != jobs.StatusFailed || got.Error != tc.want || got.NextRunAt != nil {
+				t.Fatalf("got %+v, want failed with %q", got, tc.want)
+			}
+		})
 	}
 }

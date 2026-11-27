@@ -47,8 +47,13 @@ const (
 	msgUnusable    = "That video could not be used. Try a different one."
 	msgUnavailable = "The video service is unavailable right now. Please try again shortly."
 	msgInterrupted = "The request was interrupted before it could be confirmed. Please try again."
-	msgFailed      = "The video could not be generated. Try a different video or prompt."
-	msgTimedOut    = "The video took too long to generate. Please try again."
+	// MsgNoProviderCredit is what a person is told when the video provider has run
+	// out of credit. It is our problem, not theirs, and an admin has been alerted.
+	MsgNoProviderCredit = "We can't generate videos at the moment. Something went wrong on our side and we have been told. Please try again later."
+	// MsgAdminNoProviderCredit is the same failure told to an admin, who can fix it.
+	MsgAdminNoProviderCredit = "Check your kie.ai account: its credit is not enough for this task. Top it up, then try again."
+	msgFailed                = "The video could not be generated. Try a different video or prompt."
+	msgTimedOut              = "The video took too long to generate. Please try again."
 )
 
 // Prepared is a KIE task ready to submit: the model and its own input.
@@ -92,7 +97,20 @@ type Processor struct {
 	Alerts      alerts.Reporter
 	// Notifier sends completion emails for jobs that opted in. Nil skips them.
 	Notifier VideoNotifier
-	Now      func() time.Time
+	// IsAdmin says whether a job's owner is an admin, so an out-of-credit failure
+	// tells them what to fix. Nil words every failure for a normal user.
+	IsAdmin func(ctx context.Context, userID string) (bool, error)
+	Now     func() time.Time
+}
+
+// noCreditMessage words an out-of-credit failure for whoever started the job.
+func (p *Processor) noCreditMessage(ctx context.Context, userID string) string {
+	if p.IsAdmin != nil {
+		if admin, err := p.IsAdmin(ctx, userID); err == nil && admin {
+			return MsgAdminNoProviderCredit
+		}
+	}
+	return MsgNoProviderCredit
 }
 
 // VideoNotifier tells an owner their video finished, or that it could not be made.

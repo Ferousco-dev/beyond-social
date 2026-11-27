@@ -96,3 +96,11 @@ func (s *ProfileStore) Email(ctx context.Context, id string) (string, error) {
 	err := s.pool.QueryRow(ctx, `select email from public.profiles where id = $1 and deleted_at is null`, id).Scan(&email)
 	return email, err
 }
+
+// IsAdmin reports whether the account is an admin, so a failure can be worded
+// for the person who can fix it.
+func (s *ProfileStore) IsAdmin(ctx context.Context, id string) (bool, error) {
+	var admin bool
+	err := s.pool.QueryRow(ctx, `select role = 'admin' from public.profiles where id = $1`, id).Scan(&admin)
+	return admin, err
+}

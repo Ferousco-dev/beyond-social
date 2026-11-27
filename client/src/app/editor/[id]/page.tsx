@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { z } from "zod";
 
 import { fitGeneration } from "@/features/studio/core/fit-generation.ts";
-import { emptyProject } from "@/features/studio/core/validate.ts";
+import { openedDocument } from "@/features/studio/core/opened-document.ts";
 import { projectGenerationSchema } from "@/features/studio/core/types.ts";
 import { StudioScreen } from "@/features/studio/components/studio-screen";
 import { goApi } from "@/lib/go-api/client";
@@ -47,15 +47,14 @@ export default async function EditorPage({
     : queryGeneration?.success
       ? queryGeneration.data
       : undefined;
-  const isBlank = documentRecord.success && Object.keys(documentRecord.data).every((key) => key === "generation");
-  const document = isBlank ? emptyProject(generation) : rawDocument;
+  const document = openedDocument(rawDocument, generation);
 
   return (
     <StudioScreen
       id={id}
       title={title}
       version={version}
-      document={isBlank ? emptyProject() : document}
+      document={document}
       backHref="/dashboard/new"
       generation={generation}
       mediaLinks={Object.fromEntries(

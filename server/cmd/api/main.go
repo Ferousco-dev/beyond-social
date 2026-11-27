@@ -192,6 +192,7 @@ func run() error {
 		return emails.AdminAlert(ctx, to, a.Provider, a.Kind, a.Count)
 	}
 	transformProcessor.Notifier = emails
+	transformProcessor.IsAdmin = profileStore.IsAdmin
 	billingStore := database.NewBillingStore(pool)
 	billingService := billing.NewService(billingStore, creditService, billing.NewStripe(vault.Key(secrets.NameStripeKey)), cfg.AppURL()).
 		WithPrices(creditService).WithNotifier(emails).WithTax(creditService.TaxEnabled)

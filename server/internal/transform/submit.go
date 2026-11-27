@@ -83,6 +83,8 @@ func (p *Processor) prepFailed(ctx context.Context, job jobs.Job, err error) {
 		p.fail(ctx, job, msgTooLarge)
 	case errors.Is(err, safenet.ErrBadMediaType), errors.Is(err, safenet.ErrBlockedURL), errors.Is(err, ErrNoVideoFile):
 		p.fail(ctx, job, msgUnusable)
+	case provider.Classify(err) == provider.ClassQuota:
+		p.fail(ctx, job, p.noCreditMessage(ctx, job.UserID))
 	default:
 		var pe *provider.Error
 		if errors.As(err, &pe) && !pe.Transient {
@@ -100,6 +102,8 @@ func (p *Processor) submitFailed(ctx context.Context, job jobs.Job, err error) {
 	alerts.Report(ctx, p.Alerts, err, alerts.Context{Source: "video transform", UserID: job.UserID, Resource: job.ID})
 	slog.Warn("task submission failed", "job_id", job.ID, "error", err)
 	switch {
+	case provider.Classify(err) == provider.ClassQuota:
+		p.fail(ctx, job, p.noCreditMessage(ctx, job.UserID))
 	case !errors.As(err, &pe) || pe.Status == 0:
 		p.fail(ctx, job, msgInterrupted)
 	case pe.Transient:
