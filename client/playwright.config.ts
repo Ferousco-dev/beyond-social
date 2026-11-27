@@ -19,9 +19,9 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { outputFolder: "e2e/.report", open: "never" }]] : [["list"], ["html", { outputFolder: "e2e/.report", open: "never" }]],
   use: {
     baseURL: stack.webUrl,
-    trace: "retain-on-failure",
+    trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
     actionTimeout: 15_000,
     navigationTimeout: 45_000,
   },

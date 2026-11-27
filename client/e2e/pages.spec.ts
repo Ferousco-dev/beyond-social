@@ -35,14 +35,14 @@ test.describe("signed in", () => {
       const response = await page.goto(path);
       expect(response?.status()).toBeLessThan(400);
       await expect(page).not.toHaveURL(/\/login/u);
-      await expect(page.locator("h1, h2").first()).toBeVisible();
+      await expect(page.locator("h1:visible, h2:visible").first()).toBeVisible();
       await expectNoErrorScreen(page);
     });
   }
 
   test("a person who is not an admin cannot open the admin console", async ({ page }) => {
     await page.goto("/dashboard/admin");
-    await expect(page).not.toHaveURL(/\/dashboard\/admin$/u);
+    await expect(page.getByRole("heading", { name: "We could not find that page" }), "the console answers as if it did not exist").toBeVisible();
   });
 });
 
@@ -52,7 +52,7 @@ test.describe("admin", () => {
     test(`admin page ${path} opens with no errors`, async ({ page }) => {
       const response = await page.goto(path);
       expect(response?.status()).toBeLessThan(400);
-      await expect(page.locator("h1, h2").first()).toBeVisible();
+      await expect(page.locator("h1:visible, h2:visible").first()).toBeVisible();
       await expectNoErrorScreen(page);
     });
   }

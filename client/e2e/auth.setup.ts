@@ -41,6 +41,6 @@ setup("the admin signs up the same way and is promoted", async ({ page }) => {
   await removeLeftover("admin@e2e.test");
   await signUp(page, "admin@e2e.test", "Test Admin");
   await page.goto("/dashboard/admin");
-  await expect(page.getByRole("heading").first()).toBeVisible();
+  await expect(page.locator("h1:visible, h2:visible").first()).toBeVisible();
   await page.context().storageState({ path: ADMIN_STATE });
 });
